@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+.dotnet/
+*.user
+*.suo
+*.pdb
+TestResults/
+*.appxupload
+*.msix
+*.msixbundle
