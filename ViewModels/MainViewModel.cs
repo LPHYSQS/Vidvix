@@ -261,6 +261,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _ => $"{ImportItems.Count} 个文件"
     };
 
+    public string SupportedInputFormatsHint =>
+        "\u652F\u6301\u5BFC\u5165\u683C\u5F0F\uFF08" +
+        string.Join("\u3001", _configuration.SupportedInputFileTypes.Select(extension => extension.TrimStart('.').ToUpperInvariant())) +
+        "\uFF09";
+
     public void Dispose()
     {
         if (_isDisposed)

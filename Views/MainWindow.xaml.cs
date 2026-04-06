@@ -15,6 +15,8 @@ namespace Vidvix.Views;
 
 public sealed partial class MainWindow : Window
 {
+    private const int MinimumWindowWidth = 1100;
+    private const int MinimumWindowHeight = 720;
     private static readonly Color LightTitleBarBackgroundColor = ColorHelper.FromArgb(255, 243, 243, 243);
     private static readonly Color LightTitleBarForegroundColor = Colors.Black;
     private static readonly Color LightTitleBarInactiveForegroundColor = ColorHelper.FromArgb(255, 112, 112, 112);
@@ -34,6 +36,7 @@ public sealed partial class MainWindow : Window
         ViewModel = viewModel;
         InitializeComponent();
         _appWindow = GetAppWindow();
+        ConfigureWindowConstraints();
         RootLayout.ActualThemeChanged += OnRootLayoutActualThemeChanged;
         Closed += OnClosed;
     }
@@ -111,6 +114,15 @@ public sealed partial class MainWindow : Window
         titleBar.ButtonHoverForegroundColor = foregroundColor;
         titleBar.ButtonPressedBackgroundColor = pressedBackgroundColor;
         titleBar.ButtonPressedForegroundColor = foregroundColor;
+    }
+
+    private void ConfigureWindowConstraints()
+    {
+        if (_appWindow.Presenter is OverlappedPresenter overlappedPresenter)
+        {
+            overlappedPresenter.PreferredMinimumWidth = MinimumWindowWidth;
+            overlappedPresenter.PreferredMinimumHeight = MinimumWindowHeight;
+        }
     }
 
     private AppWindow GetAppWindow()

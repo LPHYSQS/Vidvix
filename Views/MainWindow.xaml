@@ -212,6 +212,10 @@
                                         Opacity="0.72"
                                         Text="支持拖拽视频文件或文件夹到窗口任意位置"
                                         TextWrapping="WrapWholeWords" />
+                                    <TextBlock
+                                        Opacity="0.72"
+                                        Text="{x:Bind ViewModel.SupportedInputFormatsHint, Mode=OneWay}"
+                                        TextWrapping="WrapWholeWords" />
                                 </StackPanel>
 
                                 <Border
