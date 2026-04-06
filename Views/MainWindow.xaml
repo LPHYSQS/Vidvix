@@ -21,6 +21,7 @@
         Drop="OnRootDrop"
         Loaded="OnRootLayoutLoaded"
         Padding="16,8,16,16"
+        RequestedTheme="{x:Bind ViewModel.RequestedTheme, Mode=OneWay}"
         RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -323,11 +324,41 @@
                                 ItemsSource="{x:Bind ViewModel.AvailableOutputFormats, Mode=OneWay}"
                                 SelectedItem="{x:Bind ViewModel.SelectedOutputFormat, Mode=TwoWay}" />
                         </StackPanel>
+
+                        <Expander Header="应用设置" IsExpanded="False">
+                            <StackPanel
+                                Margin="0,12,0,0"
+                                Spacing="12">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="软件主题" />
+                                    <ComboBox
+                                        DisplayMemberPath="DisplayName"
+                                        ItemsSource="{x:Bind ViewModel.ThemeOptions, Mode=OneWay}"
+                                        SelectedItem="{x:Bind ViewModel.SelectedThemeOption, Mode=TwoWay}" />
+                                    <TextBlock
+                                        Opacity="0.72"
+                                        Text="{x:Bind ViewModel.SelectedThemeOption.Description, Mode=OneWay}"
+                                        TextWrapping="WrapWholeWords" />
+                                </StackPanel>
+
+                                <ToggleSwitch
+                                    Header="处理完成后定位输出文件"
+                                    IsOn="{x:Bind ViewModel.RevealOutputFileAfterProcessing, Mode=TwoWay}"
+                                    OffContent="关闭"
+                                    OnContent="开启" />
+
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Text="开启后，处理完成时会打开输出文件所在文件夹，并自动选中对应文件。批量任务会定位最后一个成功输出的文件。"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+                        </Expander>
                     </StackPanel>
                 </Border>
 
                 <Border
                     Grid.Row="1"
+                    MinHeight="220"
                     Padding="16"
                     Style="{StaticResource SurfaceCardBorderStyle}">
                     <Grid RowSpacing="12">

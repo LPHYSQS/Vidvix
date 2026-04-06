@@ -33,6 +33,8 @@ public sealed class AppCompositionRoot
         var runtimeService = new FFmpegRuntimeService(Configuration, packageSource, Logger);
         var ffmpegService = new FFmpegService(Logger);
         var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
+        var userPreferencesService = new UserPreferencesService(Configuration, Logger);
+        var fileRevealService = new FileRevealService();
 
         _mainViewModel = new MainViewModel(
             Configuration,
@@ -42,7 +44,9 @@ public sealed class AppCompositionRoot
             mediaImportDiscoveryService,
             Logger,
             filePickerService,
-            dispatcherService);
+            dispatcherService,
+            userPreferencesService,
+            fileRevealService);
     }
 
     public ApplicationConfiguration Configuration { get; }

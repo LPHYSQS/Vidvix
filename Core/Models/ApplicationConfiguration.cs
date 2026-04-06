@@ -14,6 +14,8 @@ public sealed class ApplicationConfiguration
 
     public string LocalDataDirectoryName { get; init; } = "Vidvix";
 
+    public string UserPreferencesFileName { get; init; } = "user-preferences.json";
+
     public string RuntimeDirectoryName { get; init; } = "Tools";
 
     public string RuntimeVendorDirectoryName { get; init; } = "MediaEngine";

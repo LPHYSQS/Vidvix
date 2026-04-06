@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.UI;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
@@ -27,6 +28,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private static readonly SolidColorBrush RuntimeReadyPulseBrush = new(ColorHelper.FromArgb(90, 50, 205, 50));
     private static readonly SolidColorBrush RuntimeMissingBrush = new(Colors.IndianRed);
     private static readonly SolidColorBrush RuntimeMissingPulseBrush = new(ColorHelper.FromArgb(96, 205, 92, 92));
+    private static readonly IReadOnlyList<ThemePreferenceOption> ThemePreferenceOptions =
+        new[]
+        {
+            new ThemePreferenceOption(ThemePreference.UseSystem, "跟随系统", "根据 Windows 当前主题自动切换明亮和暗黑外观。"),
+            new ThemePreferenceOption(ThemePreference.Light, "明亮主题", "始终使用明亮外观，适合高亮环境。"),
+            new ThemePreferenceOption(ThemePreference.Dark, "暗黑主题", "始终使用暗黑外观，适合低亮环境。")
+        };
 
     private readonly ApplicationConfiguration _configuration;
     private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
@@ -36,6 +44,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly ILogger _logger;
     private readonly IFilePickerService _filePickerService;
     private readonly IDispatcherService _dispatcherService;
+    private readonly IUserPreferencesService _userPreferencesService;
+    private readonly IFileRevealService _fileRevealService;
     private readonly AsyncRelayCommand _selectFilesCommand;
     private readonly AsyncRelayCommand _selectFolderCommand;
     private readonly AsyncRelayCommand _executeProcessingCommand;
@@ -48,6 +58,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private CancellationTokenSource? _executionCancellationSource;
     private ProcessingModeOption? _selectedProcessingMode;
     private OutputFormatOption? _selectedOutputFormat;
+    private ThemePreferenceOption? _selectedThemeOption;
+    private bool _revealOutputFileAfterProcessing;
     private bool _isDisposed;
 
     public MainViewModel(
@@ -58,7 +70,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         IMediaImportDiscoveryService mediaImportDiscoveryService,
         ILogger logger,
         IFilePickerService filePickerService,
-        IDispatcherService dispatcherService)
+        IDispatcherService dispatcherService,
+        IUserPreferencesService userPreferencesService,
+        IFileRevealService fileRevealService)
     {
         _configuration = configuration;
         _ffmpegRuntimeService = ffmpegRuntimeService;
@@ -68,7 +82,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _logger = logger;
         _filePickerService = filePickerService;
         _dispatcherService = dispatcherService;
+        _userPreferencesService = userPreferencesService;
+        _fileRevealService = fileRevealService;
         _statusMessage = RuntimePreparingMessage;
+
+        ThemeOptions = ThemePreferenceOptions;
+
+        var userPreferences = _userPreferencesService.Load();
+        _selectedThemeOption = ThemeOptions.FirstOrDefault(option => option.Preference == userPreferences.ThemePreference) ?? ThemeOptions[0];
+        _revealOutputFileAfterProcessing = userPreferences.RevealOutputFileAfterProcessing;
 
         LogEntries = new ObservableCollection<LogEntry>();
         ImportItems = new ObservableCollection<MediaJobViewModel>();
@@ -94,6 +116,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ObservableCollection<OutputFormatOption> AvailableOutputFormats { get; }
 
     public IReadOnlyList<ProcessingModeOption> ProcessingModes { get; }
+
+    public IReadOnlyList<ThemePreferenceOption> ThemeOptions { get; }
 
     public ICommand SelectFilesCommand => _selectFilesCommand;
 
@@ -139,6 +163,38 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             }
         }
     }
+
+    public ThemePreferenceOption SelectedThemeOption
+    {
+        get => _selectedThemeOption ?? ThemeOptions[0];
+        set
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            if (SetProperty(ref _selectedThemeOption, value))
+            {
+                OnPropertyChanged(nameof(RequestedTheme));
+                PersistUserPreferences();
+            }
+        }
+    }
+
+    public bool RevealOutputFileAfterProcessing
+    {
+        get => _revealOutputFileAfterProcessing;
+        set
+        {
+            if (SetProperty(ref _revealOutputFileAfterProcessing, value))
+            {
+                PersistUserPreferences();
+            }
+        }
+    }
+
+    public ElementTheme RequestedTheme => ConvertThemePreferenceToElementTheme(SelectedThemeOption.Preference);
 
     public string StatusMessage
     {
@@ -343,6 +399,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var successCount = 0;
             var failedCount = 0;
             var cancelledCount = 0;
+            string? lastSuccessfulOutputPath = null;
             StatusMessage = $"开始处理 {ImportItems.Count} 个文件...";
             AddUiLog(LogLevel.Info, $"开始处理 {ImportItems.Count} 个文件。", clearExisting: false);
 
@@ -376,6 +433,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 {
                     item.MarkSucceeded($"用时 {elapsedText}");
                     successCount++;
+                    lastSuccessfulOutputPath = item.PlannedOutputPath;
                     AddUiLog(LogLevel.Info, $"{item.InputFileName} 处理成功，用时 {elapsedText}。", clearExisting: false);
                     continue;
                 }
@@ -395,16 +453,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 AddUiLog(LogLevel.Error, $"{item.InputFileName} 处理失败，用时 {elapsedText}。原因：{failureMessage}", clearExisting: false);
             }
 
-            StatusMessage = _executionCancellationSource.IsCancellationRequested
+            var wasCancelled = _executionCancellationSource.IsCancellationRequested;
+
+            StatusMessage = wasCancelled
                 ? $"任务已取消，成功 {successCount} 个，失败 {failedCount} 个，取消 {cancelledCount} 个。"
                 : failedCount == 0
                     ? $"全部处理完成，共成功 {successCount} 个文件。"
                     : $"处理完成，成功 {successCount} 个，失败 {failedCount} 个。";
 
             AddUiLog(
-                _executionCancellationSource.IsCancellationRequested || failedCount > 0 ? LogLevel.Warning : LogLevel.Info,
-                CreateBatchSummaryMessage(successCount, failedCount, cancelledCount, DateTimeOffset.UtcNow - batchStartedAt, _executionCancellationSource.IsCancellationRequested),
+                wasCancelled || failedCount > 0 ? LogLevel.Warning : LogLevel.Info,
+                CreateBatchSummaryMessage(successCount, failedCount, cancelledCount, DateTimeOffset.UtcNow - batchStartedAt, wasCancelled),
                 clearExisting: false);
+
+            RevealLastSuccessfulOutputIfNeeded(lastSuccessfulOutputPath, successCount, wasCancelled);
         }
         catch (Exception exception)
         {
@@ -565,6 +627,42 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         };
 
         return builder.Build();
+    }
+
+    private void PersistUserPreferences()
+    {
+        _userPreferencesService.Save(new UserPreferences
+        {
+            ThemePreference = SelectedThemeOption.Preference,
+            RevealOutputFileAfterProcessing = RevealOutputFileAfterProcessing
+        });
+    }
+
+    private void RevealLastSuccessfulOutputIfNeeded(string? outputPath, int successCount, bool wasCancelled)
+    {
+        if (!RevealOutputFileAfterProcessing ||
+            wasCancelled ||
+            successCount == 0 ||
+            string.IsNullOrWhiteSpace(outputPath))
+        {
+            return;
+        }
+
+        try
+        {
+            _fileRevealService.RevealFile(outputPath);
+            AddUiLog(
+                LogLevel.Info,
+                successCount == 1
+                    ? "已打开输出文件所在文件夹，并选中处理完成的文件。"
+                    : "已打开最后一个成功输出文件所在文件夹，并选中该输出文件。",
+                clearExisting: false);
+        }
+        catch (Exception exception)
+        {
+            _logger.Log(LogLevel.Warning, "打开输出文件所在位置失败。", exception);
+            AddUiLog(LogLevel.Warning, $"处理已完成，但未能打开输出文件所在位置。原因：{ExtractFriendlyExceptionMessage(exception)}", clearExisting: false);
+        }
     }
 
     private void ReloadOutputFormats()
@@ -767,6 +865,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         _dispatcherService.TryEnqueue(() => LogEntries.Clear());
     }
+
+    private static ElementTheme ConvertThemePreferenceToElementTheme(ThemePreference preference) => preference switch
+    {
+        ThemePreference.Light => ElementTheme.Light,
+        ThemePreference.Dark => ElementTheme.Dark,
+        _ => ElementTheme.Default
+    };
 
     private static string CreateBatchSummaryMessage(
         int successCount,
