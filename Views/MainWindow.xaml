@@ -1,6 +1,7 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Window
     x:Class="Vidvix.Views.MainWindow"
+    x:Name="RootWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Vidvix.Views.Controls"
@@ -244,15 +245,25 @@
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="*" />
                                                             <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="Auto" />
                                                         </Grid.ColumnDefinitions>
 
                                                         <TextBlock
                                                             FontWeight="SemiBold"
-                                                            Text="{x:Bind InputFileName}" />
+                                                            Text="{x:Bind InputFileName}"
+                                                            TextTrimming="CharacterEllipsis" />
                                                         <TextBlock
                                                             Grid.Column="1"
+                                                            VerticalAlignment="Center"
                                                             Opacity="0.72"
                                                             Text="{x:Bind StatusText}" />
+                                                        <Button
+                                                            Grid.Column="2"
+                                                            MinWidth="64"
+                                                            Padding="10,4"
+                                                            Command="{Binding ElementName=RootWindow, Path=ViewModel.RemoveImportItemCommand}"
+                                                            CommandParameter="{x:Bind}"
+                                                            Content="移除" />
                                                     </Grid>
                                                     <TextBlock
                                                         Opacity="0.68"

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -44,6 +44,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly AsyncRelayCommand _selectFolderCommand;
     private readonly AsyncRelayCommand _executeProcessingCommand;
     private readonly RelayCommand _clearQueueCommand;
+    private readonly RelayCommand _removeImportItemCommand;
     private readonly RelayCommand _cancelExecutionCommand;
     private readonly RelayCommand _toggleSettingsPaneCommand;
     private readonly RelayCommand _closeSettingsPaneCommand;
@@ -100,6 +101,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _selectFolderCommand = new AsyncRelayCommand(SelectFolderAsync, () => CanModifyInputs);
         _executeProcessingCommand = new AsyncRelayCommand(ExecuteProcessingAsync, CanExecuteProcessing);
         _clearQueueCommand = new RelayCommand(ClearQueue, CanClearQueue);
+        _removeImportItemCommand = new RelayCommand(RemoveImportItem, CanRemoveImportItem);
         _cancelExecutionCommand = new RelayCommand(CancelExecution, () => IsBusy);
         _toggleSettingsPaneCommand = new RelayCommand(ToggleSettingsPane);
         _closeSettingsPaneCommand = new RelayCommand(CloseSettingsPane, () => IsSettingsPaneOpen);
@@ -123,6 +125,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand SelectFolderCommand => _selectFolderCommand;
 
     public ICommand ClearQueueCommand => _clearQueueCommand;
+
+    public ICommand RemoveImportItemCommand => _removeImportItemCommand;
 
     public ICommand ExecuteProcessingCommand => _executeProcessingCommand;
 
@@ -505,6 +509,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         StatusMessage = "已清空待处理列表。";
     }
 
+    private void RemoveImportItem(object? parameter)
+    {
+        if (parameter is not MediaJobViewModel item || !ImportItems.Remove(item))
+        {
+            return;
+        }
+
+        StatusMessage = $"已从待处理列表移除 {item.InputFileName}。";
+    }
+
     private void CancelExecution()
     {
         if (!IsBusy)
@@ -517,6 +531,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     private bool CanClearQueue() => !IsBusy && ImportItems.Count > 0;
+
+    private bool CanRemoveImportItem(object? parameter) =>
+        !IsBusy &&
+        parameter is MediaJobViewModel item &&
+        ImportItems.Contains(item);
 
     private bool CanExecuteProcessing() => !IsBusy && ImportItems.Count > 0 && _selectedOutputFormat is not null;
 
@@ -943,6 +962,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _selectFilesCommand.NotifyCanExecuteChanged();
         _selectFolderCommand.NotifyCanExecuteChanged();
         _clearQueueCommand.NotifyCanExecuteChanged();
+        _removeImportItemCommand.NotifyCanExecuteChanged();
         _executeProcessingCommand.NotifyCanExecuteChanged();
         _cancelExecutionCommand.NotifyCanExecuteChanged();
     }
