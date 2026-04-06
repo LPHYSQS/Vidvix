@@ -5,6 +5,8 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>Vidvix</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
+    <PlatformTarget Condition="'$(PlatformTarget)' == '' or '$(PlatformTarget)' == 'AnyCPU'">x64</PlatformTarget>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
     <UseWinUI>true</UseWinUI>
@@ -13,7 +15,15 @@
     <WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
     <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
     <Nullable>enable</Nullable>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
+    <OfflinePackageDir>$(MSBuildProjectDirectory)\artifacts\publish-offline\</OfflinePackageDir>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="artifacts\**\*" />
+    <Content Remove="artifacts\**\*" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260209005" />
@@ -29,10 +39,30 @@
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
   </ItemGroup>
 
-  <PropertyGroup>
-    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
-    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
-  </PropertyGroup>
+  <ItemGroup Condition="Exists('Tools\MediaEngine\Current\bin\ffmpeg.exe')">
+    <Content Include="Tools\MediaEngine\Current\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="EnsureOfflineRuntimeForPublish" BeforeTargets="Publish">
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\MediaEngine\Current\bin\ffmpeg.exe')"
+      Text="离线发布包缺少内置音视频组件。请先准备 Tools\MediaEngine\Current\bin\ffmpeg.exe 后再执行发布。" />
+  </Target>
+
+  <Target Name="CreateOfflinePackage" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and Exists('$(TargetDir)Vidvix.exe')">
+    <RemoveDir Directories="$(OfflinePackageDir)" Condition="Exists('$(OfflinePackageDir)')" />
+    <MakeDir Directories="$(OfflinePackageDir)" />
+
+    <ItemGroup>
+      <OfflinePackageFiles Include="$(TargetDir)**\*" />
+    </ItemGroup>
+
+    <Copy
+      SourceFiles="@(OfflinePackageFiles)"
+      DestinationFiles="@(OfflinePackageFiles->'$(OfflinePackageDir)%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
+  </Target>
 </Project>

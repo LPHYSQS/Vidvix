@@ -1,9 +1,6 @@
 {
   "profiles": {
-    "Vidvix (Package)": {
-      "commandName": "MsixPackage"
-    },
-    "Vidvix (Unpackaged)": {
+    "Vidvix": {
       "commandName": "Project"
     }
   }

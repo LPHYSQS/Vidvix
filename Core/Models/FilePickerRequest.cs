@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace Vidvix.Core.Models;
 
 public sealed class FilePickerRequest
 {
-    public FilePickerRequest(IReadOnlyList<string> allowedFileTypes, string commitButtonText = "Select")
+    public FilePickerRequest(IReadOnlyList<string> allowedFileTypes, string commitButtonText = "选择")
     {
         ArgumentNullException.ThrowIfNull(allowedFileTypes);
 
@@ -17,4 +17,3 @@ public sealed class FilePickerRequest
 
     public string CommitButtonText { get; }
 }
-

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
@@ -67,12 +67,12 @@ public sealed class FFmpegCommandBuilder : IFFmpegCommandBuilder
     {
         if (string.IsNullOrWhiteSpace(_inputFilePath))
         {
-            throw new InvalidOperationException("An input file path must be provided before building the FFmpeg command.");
+            throw new InvalidOperationException("生成 FFmpeg 命令前必须先提供输入文件。");
         }
 
         if (string.IsNullOrWhiteSpace(_outputFilePath))
         {
-            throw new InvalidOperationException("An output file path must be provided before building the FFmpeg command.");
+            throw new InvalidOperationException("生成 FFmpeg 命令前必须先提供输出文件。");
         }
 
         var arguments = new List<string>(_globalParameters.Count + _parameters.Count + 3);
@@ -103,4 +103,3 @@ public sealed class FFmpegCommandBuilder : IFFmpegCommandBuilder
         return new FFmpegCommandBuilder(_executablePath, _inputFilePath, _outputFilePath, nextGlobalParameters, nextParameters);
     }
 }
-

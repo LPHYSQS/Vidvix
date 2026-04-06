@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace Vidvix.Core.Models;
 
@@ -19,6 +19,11 @@ public sealed class LogEntry
 
     public string DisplayTimestamp => Timestamp.ToLocalTime().ToString("HH:mm:ss");
 
-    public string DisplayLevel => Level.ToString().ToUpperInvariant();
+    public string DisplayLevel => Level switch
+    {
+        LogLevel.Info => "提示",
+        LogLevel.Warning => "警告",
+        LogLevel.Error => "错误",
+        _ => "提示"
+    };
 }
-

@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
@@ -24,13 +26,18 @@ public sealed class AppCompositionRoot
         _windowContext = new WindowContext();
         var dispatcherService = new DispatcherService(dispatcherQueue);
         var filePickerService = new FilePickerService(_windowContext);
+        var mediaImportDiscoveryService = new MediaImportDiscoveryService(Configuration);
+        var packageSource = new FFmpegPackageSource(Configuration, Logger);
+        var runtimeService = new FFmpegRuntimeService(Configuration, packageSource, Logger);
         var ffmpegService = new FFmpegService(Logger);
-        var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutablePath);
+        var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
 
         _mainViewModel = new MainViewModel(
             Configuration,
+            runtimeService,
             ffmpegService,
             commandBuilder,
+            mediaImportDiscoveryService,
             Logger,
             filePickerService,
             dispatcherService);
@@ -42,8 +49,15 @@ public sealed class AppCompositionRoot
 
     public MainWindow CreateMainWindow()
     {
-        var window = new MainWindow(_mainViewModel);
+        var window = new MainWindow(_mainViewModel)
+        {
+            Title = Configuration.ApplicationTitle
+        };
+
         _windowContext.SetWindow(window);
         return window;
     }
+
+    public Task InitializeAsync(CancellationToken cancellationToken = default) =>
+        _mainViewModel.InitializeAsync(cancellationToken);
 }

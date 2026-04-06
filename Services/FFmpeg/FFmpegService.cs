@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
@@ -47,7 +47,6 @@ public sealed class FFmpegService : IFFmpegService
             }
 
             standardOutputBuilder.AppendLine(eventArgs.Data);
-            _logger.Log(LogLevel.Info, eventArgs.Data);
         };
 
         process.ErrorDataReceived += (_, eventArgs) =>
@@ -59,13 +58,10 @@ public sealed class FFmpegService : IFFmpegService
             }
 
             standardErrorBuilder.AppendLine(eventArgs.Data);
-            _logger.Log(MapLogLevel(eventArgs.Data), eventArgs.Data);
         };
 
         try
         {
-            _logger.Log(LogLevel.Info, $"Executing FFmpeg command: {command.DisplayCommand}");
-
             if (!process.Start())
             {
                 return FFmpegExecutionResult.Failed(
@@ -74,7 +70,7 @@ public sealed class FFmpegService : IFFmpegService
                     standardOutputBuilder.ToString(),
                     standardErrorBuilder.ToString(),
                     DateTimeOffset.UtcNow - startedAt,
-                    "The FFmpeg process could not be started.");
+                    "FFmpeg 进程无法启动。");
             }
 
             process.BeginOutputReadLine();
@@ -91,27 +87,21 @@ public sealed class FFmpegService : IFFmpegService
             {
                 await AwaitOutputCompletionAsync(standardOutputClosed.Task, standardErrorClosed.Task).ConfigureAwait(false);
 
-                var cancelledResult = FFmpegExecutionResult.Cancelled(
+                return FFmpegExecutionResult.Cancelled(
                     command,
                     standardOutputBuilder.ToString(),
                     standardErrorBuilder.ToString(),
                     DateTimeOffset.UtcNow - startedAt);
-
-                _logger.Log(LogLevel.Warning, cancelledResult.FailureReason!);
-                return cancelledResult;
             }
             catch (OperationCanceledException)
             {
                 await AwaitOutputCompletionAsync(standardOutputClosed.Task, standardErrorClosed.Task).ConfigureAwait(false);
 
-                var timedOutResult = FFmpegExecutionResult.TimeoutFailure(
+                return FFmpegExecutionResult.TimeoutFailure(
                     command,
                     standardOutputBuilder.ToString(),
                     standardErrorBuilder.ToString(),
                     DateTimeOffset.UtcNow - startedAt);
-
-                _logger.Log(LogLevel.Error, timedOutResult.FailureReason!);
-                return timedOutResult;
             }
 
             await AwaitOutputCompletionAsync(standardOutputClosed.Task, standardErrorClosed.Task).ConfigureAwait(false);
@@ -122,12 +112,8 @@ public sealed class FFmpegService : IFFmpegService
 
             if (process.ExitCode == 0)
             {
-                _logger.Log(LogLevel.Info, $"FFmpeg completed successfully in {duration.TotalSeconds:F2}s.");
                 return FFmpegExecutionResult.Success(command, process.ExitCode, standardOutput, standardError, duration);
             }
-
-            var failureReason = $"FFmpeg exited with code {process.ExitCode}.";
-            _logger.Log(LogLevel.Error, failureReason);
 
             return FFmpegExecutionResult.Failed(
                 command,
@@ -135,12 +121,12 @@ public sealed class FFmpegService : IFFmpegService
                 standardOutput,
                 standardError,
                 duration,
-                failureReason);
+                $"FFmpeg 进程已退出，返回代码：{process.ExitCode}。");
         }
         catch (Win32Exception exception)
         {
             var duration = DateTimeOffset.UtcNow - startedAt;
-            const string failureReason = "FFmpeg executable was not found. Ensure FFmpeg is installed and available on PATH.";
+            const string failureReason = "本地 FFmpeg 不可用，请先完成运行时准备。";
             _logger.Log(LogLevel.Error, failureReason, exception);
 
             return FFmpegExecutionResult.Failed(
@@ -154,7 +140,7 @@ public sealed class FFmpegService : IFFmpegService
         catch (Exception exception)
         {
             var duration = DateTimeOffset.UtcNow - startedAt;
-            const string failureReason = "An unexpected error occurred while executing FFmpeg.";
+            const string failureReason = "执行 FFmpeg 任务时发生异常。";
             _logger.Log(LogLevel.Error, failureReason, exception);
 
             return FFmpegExecutionResult.Failed(
@@ -220,23 +206,4 @@ public sealed class FFmpegService : IFFmpegService
         {
         }
     }
-
-    private static LogLevel MapLogLevel(string line)
-    {
-        if (line.Contains("warning", StringComparison.OrdinalIgnoreCase))
-        {
-            return LogLevel.Warning;
-        }
-
-        if (line.Contains("error", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
-            line.Contains("invalid", StringComparison.OrdinalIgnoreCase))
-        {
-            return LogLevel.Error;
-        }
-
-        return LogLevel.Info;
-    }
 }
-
-

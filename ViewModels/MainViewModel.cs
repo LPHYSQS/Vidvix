@@ -1,9 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Microsoft.UI;
+using Microsoft.UI.Xaml.Media;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Utils;
@@ -12,83 +17,121 @@ namespace Vidvix.ViewModels;
 
 public sealed class MainViewModel : ObservableObject, IDisposable
 {
+    private static readonly SolidColorBrush RuntimeReadyBrush = new(Colors.LimeGreen);
+    private static readonly SolidColorBrush RuntimeReadyPulseBrush = new(ColorHelper.FromArgb(90, 50, 205, 50));
+    private static readonly SolidColorBrush RuntimeMissingBrush = new(Colors.IndianRed);
+    private static readonly SolidColorBrush RuntimeMissingPulseBrush = new(ColorHelper.FromArgb(96, 205, 92, 92));
+
     private readonly ApplicationConfiguration _configuration;
+    private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
     private readonly IFFmpegService _ffmpegService;
     private readonly IFFmpegCommandBuilder _ffmpegCommandBuilder;
+    private readonly IMediaImportDiscoveryService _mediaImportDiscoveryService;
     private readonly ILogger _logger;
     private readonly IFilePickerService _filePickerService;
     private readonly IDispatcherService _dispatcherService;
-    private readonly AsyncRelayCommand _selectInputFileCommand;
-    private readonly AsyncRelayCommand _executeConversionCommand;
+    private readonly AsyncRelayCommand _selectFilesCommand;
+    private readonly AsyncRelayCommand _selectFolderCommand;
+    private readonly AsyncRelayCommand _executeProcessingCommand;
+    private readonly RelayCommand _clearQueueCommand;
     private readonly RelayCommand _cancelExecutionCommand;
 
-    private string? _selectedInputFilePath;
-    private string? _outputFilePath;
+    private string? _runtimeExecutablePath;
     private string _statusMessage;
     private bool _isBusy;
     private CancellationTokenSource? _executionCancellationSource;
+    private ProcessingModeOption? _selectedProcessingMode;
+    private OutputFormatOption? _selectedOutputFormat;
     private bool _isDisposed;
 
     public MainViewModel(
         ApplicationConfiguration configuration,
+        IFFmpegRuntimeService ffmpegRuntimeService,
         IFFmpegService ffmpegService,
         IFFmpegCommandBuilder ffmpegCommandBuilder,
+        IMediaImportDiscoveryService mediaImportDiscoveryService,
         ILogger logger,
         IFilePickerService filePickerService,
         IDispatcherService dispatcherService)
     {
         _configuration = configuration;
+        _ffmpegRuntimeService = ffmpegRuntimeService;
         _ffmpegService = ffmpegService;
         _ffmpegCommandBuilder = ffmpegCommandBuilder;
+        _mediaImportDiscoveryService = mediaImportDiscoveryService;
         _logger = logger;
         _filePickerService = filePickerService;
         _dispatcherService = dispatcherService;
-        _statusMessage = "Ready. Select a source video to begin.";
+        _statusMessage = "正在准备本地 FFmpeg...";
 
         LogEntries = new ObservableCollection<LogEntry>();
+        ImportItems = new ObservableCollection<MediaJobViewModel>();
+        AvailableOutputFormats = new ObservableCollection<OutputFormatOption>();
+        ProcessingModes = _configuration.SupportedProcessingModes;
 
-        foreach (var entry in _logger.Entries)
-        {
-            LogEntries.Add(entry);
-        }
+        ImportItems.CollectionChanged += OnImportItemsChanged;
 
-        _logger.EntryLogged += OnEntryLogged;
-
-        _selectInputFileCommand = new AsyncRelayCommand(SelectInputFileAsync, () => !IsBusy);
-        _executeConversionCommand = new AsyncRelayCommand(ExecuteConversionAsync, CanExecuteConversion);
+        _selectFilesCommand = new AsyncRelayCommand(SelectFilesAsync, () => CanModifyInputs);
+        _selectFolderCommand = new AsyncRelayCommand(SelectFolderAsync, () => CanModifyInputs);
+        _executeProcessingCommand = new AsyncRelayCommand(ExecuteProcessingAsync, CanExecuteProcessing);
+        _clearQueueCommand = new RelayCommand(ClearQueue, CanClearQueue);
         _cancelExecutionCommand = new RelayCommand(CancelExecution, () => IsBusy);
 
-        _logger.Log(LogLevel.Info, "Vidvix is initialized and ready for FFmpeg validation.");
+        _selectedProcessingMode = ProcessingModes.FirstOrDefault();
+        ReloadOutputFormats();
     }
 
     public ObservableCollection<LogEntry> LogEntries { get; }
 
-    public ICommand SelectInputFileCommand => _selectInputFileCommand;
+    public ObservableCollection<MediaJobViewModel> ImportItems { get; }
 
-    public ICommand ExecuteConversionCommand => _executeConversionCommand;
+    public ObservableCollection<OutputFormatOption> AvailableOutputFormats { get; }
+
+    public IReadOnlyList<ProcessingModeOption> ProcessingModes { get; }
+
+    public ICommand SelectFilesCommand => _selectFilesCommand;
+
+    public ICommand SelectFolderCommand => _selectFolderCommand;
+
+    public ICommand ClearQueueCommand => _clearQueueCommand;
+
+    public ICommand ExecuteProcessingCommand => _executeProcessingCommand;
 
     public ICommand CancelExecutionCommand => _cancelExecutionCommand;
 
-    public string SelectedInputFilePath
+    public ProcessingModeOption SelectedProcessingMode
     {
-        get => _selectedInputFilePath ?? string.Empty;
-        private set
+        get => _selectedProcessingMode ?? ProcessingModes.First();
+        set
         {
-            if (SetProperty(ref _selectedInputFilePath, value))
+            if (value is null)
             {
-                OutputFilePath = string.IsNullOrWhiteSpace(value)
-                    ? string.Empty
-                    : MediaPathResolver.CreateSiblingOutputPath(value, _configuration.OutputAudioExtension);
+                return;
+            }
 
-                NotifyCommandStates();
+            if (SetProperty(ref _selectedProcessingMode, value))
+            {
+                ReloadOutputFormats();
+                RecalculatePlannedOutputs();
             }
         }
     }
 
-    public string OutputFilePath
+    public OutputFormatOption SelectedOutputFormat
     {
-        get => _outputFilePath ?? string.Empty;
-        private set => SetProperty(ref _outputFilePath, value);
+        get => _selectedOutputFormat ?? AvailableOutputFormats.First();
+        set
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            if (SetProperty(ref _selectedOutputFormat, value))
+            {
+                RecalculatePlannedOutputs();
+            }
+        }
     }
 
     public string StatusMessage
@@ -104,10 +147,36 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             if (SetProperty(ref _isBusy, value))
             {
+                OnPropertyChanged(nameof(CanModifyInputs));
                 NotifyCommandStates();
             }
         }
     }
+
+    public bool CanModifyInputs => !IsBusy;
+
+    public bool IsRuntimeReady =>
+        !string.IsNullOrWhiteSpace(_runtimeExecutablePath) &&
+        File.Exists(_runtimeExecutablePath);
+
+    public Brush RuntimeIndicatorBrush =>
+        IsRuntimeReady ? RuntimeReadyBrush : RuntimeMissingBrush;
+
+    public Brush RuntimeIndicatorPulseBrush =>
+        IsRuntimeReady ? RuntimeReadyPulseBrush : RuntimeMissingPulseBrush;
+
+    public string RuntimeIndicatorToolTip =>
+        IsRuntimeReady ? "FFmpeg 已就绪" : "FFmpeg 未就绪";
+
+    public string RuntimeIndicatorText =>
+        IsRuntimeReady ? "FFmpeg 已就绪" : "FFmpeg 未就绪";
+
+    public string QueueSummaryText => ImportItems.Count switch
+    {
+        0 => "等待导入",
+        1 => "1 个文件",
+        _ => $"{ImportItems.Count} 个文件"
+    };
 
     public void Dispose()
     {
@@ -117,47 +186,134 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         _isDisposed = true;
-        _logger.EntryLogged -= OnEntryLogged;
+        ImportItems.CollectionChanged -= OnImportItemsChanged;
 
         _executionCancellationSource?.Cancel();
         _executionCancellationSource?.Dispose();
         _executionCancellationSource = null;
     }
 
-    private async Task SelectInputFileAsync()
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var selectedFilePath = await _filePickerService.PickSingleFileAsync(
-                new FilePickerRequest(_configuration.SupportedInputFileTypes, "Select source"));
+        await EnsureRuntimeReadyAsync(cancellationToken);
 
-            if (string.IsNullOrWhiteSpace(selectedFilePath))
-            {
-                StatusMessage = "File selection was cancelled.";
-                _logger.Log(LogLevel.Warning, "File selection was cancelled by the user.");
-                return;
-            }
-
-            SelectedInputFilePath = selectedFilePath;
-            StatusMessage = "Source file selected. Ready to run MP4 to MP3 extraction.";
-            _logger.Log(LogLevel.Info, $"Selected input file: {selectedFilePath}");
-            _logger.Log(LogLevel.Info, $"Derived output file: {OutputFilePath}");
-        }
-        catch (OperationCanceledException)
+        if (!IsBusy && !string.IsNullOrWhiteSpace(_runtimeExecutablePath))
         {
-            StatusMessage = "File selection was cancelled.";
-            _logger.Log(LogLevel.Warning, "File selection was cancelled.");
-        }
-        catch (Exception exception)
-        {
-            StatusMessage = "Unable to select a file.";
-            _logger.Log(LogLevel.Error, "An error occurred while selecting a source file.", exception);
+            StatusMessage = "本地 FFmpeg 已就绪，请导入视频文件或文件夹。";
         }
     }
 
-    private async Task ExecuteConversionAsync()
+    public async Task ImportPathsAsync(IEnumerable<string> inputPaths)
     {
-        if (!ValidateInputSelection())
+        ArgumentNullException.ThrowIfNull(inputPaths);
+
+        if (IsBusy)
+        {
+            StatusMessage = "当前正在处理任务，请等待完成或先取消。";
+            return;
+        }
+
+        var normalizedPaths = inputPaths
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (normalizedPaths.Length == 0)
+        {
+            return;
+        }
+
+        StatusMessage = "正在整理导入内容...";
+
+        var discovery = await Task.Run(() => _mediaImportDiscoveryService.Discover(normalizedPaths));
+        var knownPaths = new HashSet<string>(ImportItems.Select(item => item.InputPath), StringComparer.OrdinalIgnoreCase);
+        var addedCount = 0;
+        var duplicateCount = 0;
+
+        foreach (var filePath in discovery.SupportedFiles)
+        {
+            if (!knownPaths.Add(filePath))
+            {
+                duplicateCount++;
+                continue;
+            }
+
+            var item = new MediaJobViewModel(filePath);
+            item.UpdatePlannedOutputPath(CreateOutputPath(filePath));
+            ImportItems.Add(item);
+            addedCount++;
+        }
+
+        StatusMessage = CreateImportStatusMessage(addedCount, duplicateCount, discovery);
+
+        if (discovery.UnavailableDirectories > 0)
+        {
+            _logger.Log(LogLevel.Warning, $"有 {discovery.UnavailableDirectories} 个文件夹无法访问，已跳过。");
+        }
+    }
+
+    private async Task SelectFilesAsync()
+    {
+        try
+        {
+            var selectedFiles = await _filePickerService.PickFilesAsync(
+                new FilePickerRequest(_configuration.SupportedInputFileTypes, "导入视频文件"));
+
+            if (selectedFiles.Count == 0)
+            {
+                StatusMessage = "已取消文件导入。";
+                return;
+            }
+
+            await ImportPathsAsync(selectedFiles);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "已取消文件导入。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = "导入文件失败。";
+            _logger.Log(LogLevel.Error, "导入文件时发生异常。", exception);
+        }
+    }
+
+    private async Task SelectFolderAsync()
+    {
+        try
+        {
+            var selectedFolder = await _filePickerService.PickFolderAsync("导入视频文件夹");
+
+            if (string.IsNullOrWhiteSpace(selectedFolder))
+            {
+                StatusMessage = "已取消文件夹导入。";
+                return;
+            }
+
+            await ImportPathsAsync(new[] { selectedFolder });
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "已取消文件夹导入。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = "导入文件夹失败。";
+            _logger.Log(LogLevel.Error, "导入文件夹时发生异常。", exception);
+        }
+    }
+
+    private async Task ExecuteProcessingAsync()
+    {
+        if (ImportItems.Count == 0)
+        {
+            StatusMessage = "请先导入至少一个视频文件。";
+            AddUiLog(LogLevel.Warning, "请先导入至少一个视频文件。", clearExisting: false);
+            return;
+        }
+
+        if (!await EnsureRuntimeReadyAsync(logUiFailure: true))
         {
             return;
         }
@@ -165,49 +321,90 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _executionCancellationSource?.Dispose();
         _executionCancellationSource = new CancellationTokenSource();
 
+        var batchStartedAt = DateTimeOffset.UtcNow;
+
         try
         {
             IsBusy = true;
-            StatusMessage = "Building the FFmpeg command.";
+            RecalculatePlannedOutputs();
+            ClearUiLogs();
 
-            var command = BuildAudioExtractionCommand();
-            var executionOptions = new FFmpegExecutionOptions
+            foreach (var item in ImportItems)
             {
-                Timeout = _configuration.DefaultExecutionTimeout
-            };
-
-            StatusMessage = "FFmpeg is running asynchronously.";
-
-            var result = await _ffmpegService.ExecuteAsync(
-                command,
-                executionOptions,
-                _executionCancellationSource.Token);
-
-            if (result.WasSuccessful && File.Exists(OutputFilePath))
-            {
-                StatusMessage = $"Completed successfully. Output: {OutputFilePath}";
-                _logger.Log(LogLevel.Info, $"Output file created successfully: {OutputFilePath}");
-                return;
+                item.ResetStatus();
             }
 
-            if (result.WasCancelled)
+            var successCount = 0;
+            var failedCount = 0;
+            var cancelledCount = 0;
+            StatusMessage = $"开始处理 {ImportItems.Count} 个文件...";
+            AddUiLog(LogLevel.Info, $"开始处理 {ImportItems.Count} 个文件。", clearExisting: false);
+
+            for (var index = 0; index < ImportItems.Count; index++)
             {
-                StatusMessage = "The current FFmpeg task was cancelled.";
-                return;
+                var item = ImportItems[index];
+
+                if (_executionCancellationSource.IsCancellationRequested)
+                {
+                    item.MarkCancelled();
+                    cancelledCount++;
+                    continue;
+                }
+
+                item.MarkRunning();
+
+                var command = BuildCommand(item.InputPath, item.PlannedOutputPath);
+                var executionOptions = new FFmpegExecutionOptions
+                {
+                    Timeout = _configuration.DefaultExecutionTimeout
+                };
+
+                var result = await _ffmpegService.ExecuteAsync(
+                    command,
+                    executionOptions,
+                    _executionCancellationSource.Token);
+
+                var elapsedText = FormatDuration(result.Duration);
+
+                if (result.WasSuccessful && File.Exists(item.PlannedOutputPath))
+                {
+                    item.MarkSucceeded($"用时 {elapsedText}");
+                    successCount++;
+                    AddUiLog(LogLevel.Info, $"{item.InputFileName} 处理成功，用时 {elapsedText}。", clearExisting: false);
+                    continue;
+                }
+
+                if (result.WasCancelled)
+                {
+                    item.MarkCancelled();
+                    cancelledCount++;
+                    cancelledCount += MarkRemainingItemsCancelled(index + 1);
+                    AddUiLog(LogLevel.Warning, "任务已取消，未完成的文件已停止处理。", clearExisting: false);
+                    break;
+                }
+
+                var failureMessage = CreateFriendlyFailureMessage(result);
+                item.MarkFailed($"原因：{failureMessage}");
+                failedCount++;
+                AddUiLog(LogLevel.Error, $"{item.InputFileName} 处理失败，用时 {elapsedText}。原因：{failureMessage}", clearExisting: false);
             }
 
-            if (result.TimedOut)
-            {
-                StatusMessage = "The current FFmpeg task timed out.";
-                return;
-            }
+            StatusMessage = _executionCancellationSource.IsCancellationRequested
+                ? $"任务已取消，成功 {successCount} 个，失败 {failedCount} 个，取消 {cancelledCount} 个。"
+                : failedCount == 0
+                    ? $"全部处理完成，共成功 {successCount} 个文件。"
+                    : $"处理完成，成功 {successCount} 个，失败 {failedCount} 个。";
 
-            StatusMessage = result.FailureReason ?? "FFmpeg execution failed.";
+            AddUiLog(
+                _executionCancellationSource.IsCancellationRequested || failedCount > 0 ? LogLevel.Warning : LogLevel.Info,
+                CreateBatchSummaryMessage(successCount, failedCount, cancelledCount, DateTimeOffset.UtcNow - batchStartedAt, _executionCancellationSource.IsCancellationRequested),
+                clearExisting: false);
         }
         catch (Exception exception)
         {
-            StatusMessage = "An unexpected error interrupted execution.";
-            _logger.Log(LogLevel.Error, "An unexpected error interrupted the conversion workflow.", exception);
+            StatusMessage = "处理过程中发生异常。";
+            _logger.Log(LogLevel.Error, "批量处理流程被异常中断。", exception);
+            AddUiLog(LogLevel.Error, $"批量处理被中断。原因：{exception.Message}", clearExisting: false);
         }
         finally
         {
@@ -217,6 +414,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    private void ClearQueue()
+    {
+        if (ImportItems.Count == 0)
+        {
+            return;
+        }
+
+        ImportItems.Clear();
+        StatusMessage = "已清空待处理列表。";
+    }
+
     private void CancelExecution()
     {
         if (!IsBusy)
@@ -224,59 +432,422 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        StatusMessage = "Cancellation requested.";
-        _logger.Log(LogLevel.Warning, "Cancellation requested for the current FFmpeg task.");
+        StatusMessage = "正在取消当前任务...";
         _executionCancellationSource?.Cancel();
     }
 
-    private bool ValidateInputSelection()
+    private bool CanClearQueue() => !IsBusy && ImportItems.Count > 0;
+
+    private bool CanExecuteProcessing() => !IsBusy && ImportItems.Count > 0 && _selectedOutputFormat is not null;
+
+    private async Task<bool> EnsureRuntimeReadyAsync(CancellationToken cancellationToken = default, bool logUiFailure = false)
     {
-        if (string.IsNullOrWhiteSpace(SelectedInputFilePath))
+        if (!string.IsNullOrWhiteSpace(_runtimeExecutablePath) && File.Exists(_runtimeExecutablePath))
         {
-            StatusMessage = "Select a source video before running FFmpeg.";
-            _logger.Log(LogLevel.Warning, "Execution was blocked because no source file was selected.");
-            return false;
+            return true;
         }
 
-        if (!File.Exists(SelectedInputFilePath))
+        try
         {
-            StatusMessage = "The selected source file no longer exists.";
-            _logger.Log(LogLevel.Error, $"The selected source file does not exist: {SelectedInputFilePath}");
+            IsBusy = true;
+            StatusMessage = "正在准备本地 FFmpeg...";
+
+            var resolution = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken);
+            _runtimeExecutablePath = resolution.ExecutablePath;
+
+            NotifyRuntimeStateChanged();
+
+            StatusMessage = ImportItems.Count == 0
+                ? "本地 FFmpeg 已就绪，请导入视频文件或文件夹。"
+                : "本地 FFmpeg 已就绪，可以开始处理。";
+
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            StatusMessage = "本地 FFmpeg 准备已取消。";
+
+            if (logUiFailure)
+            {
+                AddUiLog(LogLevel.Warning, "本地 FFmpeg 准备已取消。", clearExisting: false);
+            }
+
             return false;
         }
+        catch (Exception exception)
+        {
+            StatusMessage = "本地 FFmpeg 准备失败，请检查网络或运行时目录。";
+            _logger.Log(LogLevel.Error, "准备本地 FFmpeg 时发生异常。", exception);
 
-        return true;
+            if (logUiFailure)
+            {
+                var reason = ExtractFriendlyExceptionMessage(exception);
+                AddUiLog(LogLevel.Error, $"本地 FFmpeg 未就绪，无法开始处理。原因：{reason}", clearExisting: false);
+            }
+
+            return false;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
-    private FFmpegCommand BuildAudioExtractionCommand()
+    private FFmpegCommand BuildCommand(string inputPath, string outputPath)
     {
+        if (string.IsNullOrWhiteSpace(_runtimeExecutablePath))
+        {
+            throw new InvalidOperationException("本地 FFmpeg 尚未准备完成。");
+        }
+
         IFFmpegCommandBuilder builder = _ffmpegCommandBuilder
             .Reset()
-            .SetExecutablePath(_configuration.FFmpegExecutablePath)
-            .SetInput(SelectedInputFilePath)
-            .SetOutput(OutputFilePath)
-            .AddParameter("-vn");
+            .SetExecutablePath(_runtimeExecutablePath)
+            .AddGlobalParameter("-hide_banner")
+            .SetInput(inputPath)
+            .SetOutput(outputPath);
 
         if (_configuration.OverwriteOutputFiles)
         {
             builder = builder.AddGlobalParameter("-y");
         }
 
+        return SelectedProcessingMode.Mode switch
+        {
+            ProcessingMode.VideoConvert => builder
+                .AddParameter("-map", "0:v")
+                .AddParameter("-map", "0:a?")
+                .AddParameter("-c", "copy")
+                .Build(),
+            ProcessingMode.VideoTrackExtract => builder
+                .AddParameter("-map", "0:v")
+                .AddParameter("-c:v", "copy")
+                .AddParameter("-an")
+                .AddParameter("-sn")
+                .AddParameter("-dn")
+                .Build(),
+            ProcessingMode.AudioTrackExtract => BuildAudioExtractionCommand(builder),
+            _ => throw new InvalidOperationException("不支持的处理模式。")
+        };
+    }
+
+    private FFmpegCommand BuildAudioExtractionCommand(IFFmpegCommandBuilder builder)
+    {
+        builder = builder
+            .AddParameter("-map", "0:a:0")
+            .AddParameter("-vn")
+            .AddParameter("-sn")
+            .AddParameter("-dn");
+
+        var extension = SelectedOutputFormat.Extension.ToLowerInvariant();
+
+        builder = extension switch
+        {
+            ".mp3" => builder
+                .AddParameter("-c:a", "libmp3lame")
+                .AddParameter("-q:a", "2"),
+            ".m4a" => builder
+                .AddParameter("-c:a", "aac")
+                .AddParameter("-b:a", "256k")
+                .AddParameter("-movflags", "+faststart"),
+            ".aac" => builder
+                .AddParameter("-c:a", "aac")
+                .AddParameter("-b:a", "256k"),
+            ".wav" => builder
+                .AddParameter("-c:a", "pcm_s16le"),
+            ".flac" => builder
+                .AddParameter("-c:a", "flac"),
+            _ => throw new InvalidOperationException("不支持的音频输出格式。")
+        };
+
         return builder.Build();
     }
 
-    private bool CanExecuteConversion() =>
-        !IsBusy && !string.IsNullOrWhiteSpace(SelectedInputFilePath);
+    private void ReloadOutputFormats()
+    {
+        AvailableOutputFormats.Clear();
+
+        var formats = SelectedProcessingMode.Mode == ProcessingMode.AudioTrackExtract
+            ? _configuration.SupportedAudioOutputFormats
+            : _configuration.SupportedVideoOutputFormats;
+
+        foreach (var format in formats)
+        {
+            AvailableOutputFormats.Add(format);
+        }
+
+        if (_selectedOutputFormat is null ||
+            !AvailableOutputFormats.Any(format => string.Equals(format.Extension, _selectedOutputFormat.Extension, StringComparison.OrdinalIgnoreCase)))
+        {
+            _selectedOutputFormat = AvailableOutputFormats.FirstOrDefault();
+            OnPropertyChanged(nameof(SelectedOutputFormat));
+        }
+    }
+
+    private void RecalculatePlannedOutputs()
+    {
+        if (_selectedOutputFormat is null)
+        {
+            return;
+        }
+
+        foreach (var item in ImportItems)
+        {
+            item.UpdatePlannedOutputPath(CreateOutputPath(item.InputPath));
+        }
+    }
+
+    private string CreateOutputPath(string inputPath) => SelectedProcessingMode.Mode switch
+    {
+        ProcessingMode.VideoConvert => MediaPathResolver.CreateVideoConversionOutputPath(inputPath, SelectedOutputFormat.Extension),
+        ProcessingMode.VideoTrackExtract => MediaPathResolver.CreateVideoTrackOutputPath(inputPath, SelectedOutputFormat.Extension),
+        ProcessingMode.AudioTrackExtract => MediaPathResolver.CreateAudioTrackOutputPath(inputPath, SelectedOutputFormat.Extension),
+        _ => throw new InvalidOperationException("不支持的处理模式。")
+    };
+
+    private string CreateImportStatusMessage(int addedCount, int duplicateCount, MediaImportDiscoveryResult discovery)
+    {
+        if (addedCount > 0)
+        {
+            return $"已导入 {addedCount} 个视频文件。";
+        }
+
+        if (duplicateCount > 0)
+        {
+            return "导入内容已存在于列表中。";
+        }
+
+        return discovery.UnsupportedEntries > 0 || discovery.MissingEntries > 0
+            ? "没有发现可处理的视频文件。"
+            : "未发现新的可处理文件。";
+    }
+
+    private string CreateFriendlyFailureMessage(FFmpegExecutionResult result)
+    {
+        var standardError = result.StandardError;
+
+        if (result.TimedOut)
+        {
+            return "处理超时。";
+        }
+
+        if (standardError.Contains("matches no streams", StringComparison.OrdinalIgnoreCase))
+        {
+            return SelectedProcessingMode.Mode switch
+            {
+                ProcessingMode.VideoTrackExtract => "该文件没有可提取的视频轨道。",
+                ProcessingMode.AudioTrackExtract => "该文件没有可提取的音频轨道。",
+                _ => "该文件缺少可处理的媒体流。"
+            };
+        }
+
+        if (standardError.Contains("not currently supported in container", StringComparison.OrdinalIgnoreCase) ||
+            standardError.Contains("Could not write header", StringComparison.OrdinalIgnoreCase))
+        {
+            return "目标格式与源流编码不兼容，请改用 MKV、MOV 或保持当前封装。";
+        }
+
+        if (standardError.Contains("Permission denied", StringComparison.OrdinalIgnoreCase))
+        {
+            return "输出文件正在被占用，或当前目录没有写入权限。";
+        }
+
+        if (standardError.Contains("Unknown encoder", StringComparison.OrdinalIgnoreCase))
+        {
+            return "当前 FFmpeg 缺少所需编码器，无法输出该格式。";
+        }
+
+        if (standardError.Contains("Invalid argument", StringComparison.OrdinalIgnoreCase))
+        {
+            return "当前输出格式或参数无效，FFmpeg 无法完成处理。";
+        }
+
+        if (standardError.Contains("No such file or directory", StringComparison.OrdinalIgnoreCase))
+        {
+            return "输入文件不存在，或输出目录不可用。";
+        }
+
+        var extractedReason = TryExtractMeaningfulErrorLine(standardError);
+        if (!string.IsNullOrWhiteSpace(extractedReason))
+        {
+            return extractedReason;
+        }
+
+        return result.FailureReason ?? "FFmpeg 处理失败。";
+    }
+
+    private int MarkRemainingItemsCancelled(int startIndex)
+    {
+        var cancelledCount = 0;
+
+        for (var index = startIndex; index < ImportItems.Count; index++)
+        {
+            var item = ImportItems[index];
+            if (!item.IsPending)
+            {
+                continue;
+            }
+
+            item.MarkCancelled();
+            cancelledCount++;
+        }
+
+        return cancelledCount;
+    }
 
     private void NotifyCommandStates()
     {
-        _selectInputFileCommand.NotifyCanExecuteChanged();
-        _executeConversionCommand.NotifyCanExecuteChanged();
+        _selectFilesCommand.NotifyCanExecuteChanged();
+        _selectFolderCommand.NotifyCanExecuteChanged();
+        _clearQueueCommand.NotifyCanExecuteChanged();
+        _executeProcessingCommand.NotifyCanExecuteChanged();
         _cancelExecutionCommand.NotifyCanExecuteChanged();
     }
 
-    private void OnEntryLogged(object? sender, LogEntry entry)
+    private void NotifyRuntimeStateChanged()
     {
-        _dispatcherService.TryEnqueue(() => LogEntries.Add(entry));
+        OnPropertyChanged(nameof(IsRuntimeReady));
+        OnPropertyChanged(nameof(RuntimeIndicatorBrush));
+        OnPropertyChanged(nameof(RuntimeIndicatorPulseBrush));
+        OnPropertyChanged(nameof(RuntimeIndicatorToolTip));
+        OnPropertyChanged(nameof(RuntimeIndicatorText));
+    }
+
+    private void OnImportItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        OnPropertyChanged(nameof(QueueSummaryText));
+        RecalculatePlannedOutputs();
+        NotifyCommandStates();
+    }
+
+    private void AddUiLog(LogLevel level, string message, bool clearExisting)
+    {
+        void UpdateLogEntries()
+        {
+            if (clearExisting)
+            {
+                LogEntries.Clear();
+            }
+
+            LogEntries.Add(new LogEntry(DateTimeOffset.Now, level, message));
+
+            if (LogEntries.Count > 200)
+            {
+                LogEntries.RemoveAt(0);
+            }
+        }
+
+        if (_dispatcherService.HasThreadAccess)
+        {
+            UpdateLogEntries();
+            return;
+        }
+
+        _dispatcherService.TryEnqueue(UpdateLogEntries);
+    }
+
+    private void ClearUiLogs()
+    {
+        if (_dispatcherService.HasThreadAccess)
+        {
+            LogEntries.Clear();
+            return;
+        }
+
+        _dispatcherService.TryEnqueue(() => LogEntries.Clear());
+    }
+
+    private static string CreateBatchSummaryMessage(
+        int successCount,
+        int failedCount,
+        int cancelledCount,
+        TimeSpan totalDuration,
+        bool wasCancelled)
+    {
+        var summary = wasCancelled
+            ? $"任务已取消，成功 {successCount} 个，失败 {failedCount} 个，取消 {cancelledCount} 个"
+            : failedCount == 0
+                ? $"处理完成，成功 {successCount} 个文件"
+                : $"处理完成，成功 {successCount} 个，失败 {failedCount} 个";
+
+        return $"{summary}，总用时 {FormatDuration(totalDuration)}。";
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalMinutes >= 1)
+        {
+            var totalMinutes = (int)duration.TotalMinutes;
+            return duration.Seconds == 0
+                ? $"{totalMinutes} 分钟"
+                : $"{totalMinutes} 分 {duration.Seconds} 秒";
+        }
+
+        return $"{Math.Max(duration.TotalSeconds, 0.1):F1} 秒";
+    }
+
+    private static string ExtractFriendlyExceptionMessage(Exception exception)
+    {
+        return string.IsNullOrWhiteSpace(exception.Message)
+            ? "请检查网络连接或运行时目录。"
+            : exception.Message;
+    }
+
+    private static string? TryExtractMeaningfulErrorLine(string standardError)
+    {
+        if (string.IsNullOrWhiteSpace(standardError))
+        {
+            return null;
+        }
+
+        var lines = standardError
+            .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        for (var index = lines.Length - 1; index >= 0; index--)
+        {
+            var line = lines[index];
+            if (string.IsNullOrWhiteSpace(line) || IsIgnorableErrorLine(line))
+            {
+                continue;
+            }
+
+            if (line.StartsWith("[", StringComparison.OrdinalIgnoreCase))
+            {
+                var closingBracketIndex = line.LastIndexOf(']');
+                if (closingBracketIndex >= 0 && closingBracketIndex < line.Length - 1)
+                {
+                    line = line[(closingBracketIndex + 1)..].Trim();
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            return line.Length > 120
+                ? $"{line[..117]}..."
+                : line.TrimEnd('.');
+        }
+
+        return null;
+    }
+
+    private static bool IsIgnorableErrorLine(string line)
+    {
+        return line.StartsWith("frame=", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("size=", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("time=", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("video:", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("audio:", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("subtitle:", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("Input #", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("Output #", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("Stream mapping:", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("Metadata:", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("Duration:", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("Press [q]", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("configuration:", StringComparison.OrdinalIgnoreCase) ||
+               line.StartsWith("libav", StringComparison.OrdinalIgnoreCase);
     }
 }

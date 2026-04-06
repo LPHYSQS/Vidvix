@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace Vidvix.Core.Models;
 
@@ -68,12 +68,12 @@ public sealed class FFmpegExecutionResult
         string standardOutput,
         string standardError,
         TimeSpan duration) =>
-        new(command, null, standardOutput, standardError, duration, true, false, "The FFmpeg process was cancelled.");
+        new(command, null, standardOutput, standardError, duration, true, false, "当前处理任务已取消。");
 
     public static FFmpegExecutionResult TimeoutFailure(
         FFmpegCommand command,
         string standardOutput,
         string standardError,
         TimeSpan duration) =>
-        new(command, null, standardOutput, standardError, duration, false, true, "The FFmpeg process timed out.");
+        new(command, null, standardOutput, standardError, duration, false, true, "当前处理任务已超时。");
 }
