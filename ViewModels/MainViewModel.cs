@@ -51,6 +51,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly AsyncRelayCommand _executeProcessingCommand;
     private readonly RelayCommand _clearQueueCommand;
     private readonly RelayCommand _cancelExecutionCommand;
+    private readonly RelayCommand _toggleSettingsPaneCommand;
+    private readonly RelayCommand _closeSettingsPaneCommand;
 
     private string? _runtimeExecutablePath;
     private string _statusMessage;
@@ -60,6 +62,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private OutputFormatOption? _selectedOutputFormat;
     private ThemePreferenceOption? _selectedThemeOption;
     private bool _revealOutputFileAfterProcessing;
+    private bool _isSettingsPaneOpen;
     private bool _isDisposed;
 
     public MainViewModel(
@@ -104,6 +107,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _executeProcessingCommand = new AsyncRelayCommand(ExecuteProcessingAsync, CanExecuteProcessing);
         _clearQueueCommand = new RelayCommand(ClearQueue, CanClearQueue);
         _cancelExecutionCommand = new RelayCommand(CancelExecution, () => IsBusy);
+        _toggleSettingsPaneCommand = new RelayCommand(ToggleSettingsPane);
+        _closeSettingsPaneCommand = new RelayCommand(CloseSettingsPane, () => IsSettingsPaneOpen);
 
         _selectedProcessingMode = ProcessingModes.FirstOrDefault();
         ReloadOutputFormats();
@@ -128,6 +133,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand ExecuteProcessingCommand => _executeProcessingCommand;
 
     public ICommand CancelExecutionCommand => _cancelExecutionCommand;
+
+    public ICommand ToggleSettingsPaneCommand => _toggleSettingsPaneCommand;
+
+    public ICommand CloseSettingsPaneCommand => _closeSettingsPaneCommand;
+
+    public bool IsSettingsPaneOpen
+    {
+        get => _isSettingsPaneOpen;
+        set
+        {
+            if (SetProperty(ref _isSettingsPaneOpen, value))
+            {
+                _closeSettingsPaneCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
 
     public ProcessingModeOption SelectedProcessingMode
     {
@@ -387,6 +408,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         try
         {
+            IsSettingsPaneOpen = false;
             IsBusy = true;
             RecalculatePlannedOutputs();
             ClearUiLogs();
@@ -481,6 +503,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             _executionCancellationSource = null;
         }
     }
+
+    private void ToggleSettingsPane() =>
+        IsSettingsPaneOpen = !IsSettingsPaneOpen;
+
+    private void CloseSettingsPane() =>
+        IsSettingsPaneOpen = false;
 
     private void ClearQueue()
     {

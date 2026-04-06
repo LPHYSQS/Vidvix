@@ -10,6 +10,33 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
 
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="SettingsPaneBackgroundBrush" Color="#FFF8F8F8" />
+                    <SolidColorBrush x:Key="SettingsPaneSectionBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="SettingsPaneBorderBrush" Color="#1A000000" />
+                    <SolidColorBrush x:Key="SettingsPaneBackdropBrush" Color="#12000000" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="SettingsPaneBackgroundBrush" Color="#FFF8F8F8" />
+                    <SolidColorBrush x:Key="SettingsPaneSectionBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="SettingsPaneBorderBrush" Color="#1A000000" />
+                    <SolidColorBrush x:Key="SettingsPaneBackdropBrush" Color="#12000000" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="SettingsPaneBackgroundBrush" Color="#FF1E1E1E" />
+                    <SolidColorBrush x:Key="SettingsPaneSectionBrush" Color="#FF2A2A2A" />
+                    <SolidColorBrush x:Key="SettingsPaneBorderBrush" Color="#26FFFFFF" />
+                    <SolidColorBrush x:Key="SettingsPaneBackdropBrush" Color="#18000000" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="SettingsPaneBackgroundBrush" Color="#FF000000" />
+                    <SolidColorBrush x:Key="SettingsPaneSectionBrush" Color="#FF000000" />
+                    <SolidColorBrush x:Key="SettingsPaneBorderBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="SettingsPaneBackdropBrush" Color="#00000000" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
             <Style
                 x:Key="SurfaceCardBorderStyle"
                 TargetType="Border">
