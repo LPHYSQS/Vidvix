@@ -46,12 +46,12 @@ public sealed class ApplicationConfiguration
         {
             new ProcessingModeOption(
                 ProcessingMode.VideoConvert,
-                "视频无损转换",
-                "保留视频和音频流，默认使用封装级无损复制，不提供额外编码参数。"),
+                "视频格式转换",
+                "默认优先保留原始视频和音频流，遇到目标封装不兼容时会自动转码为兼容的编码。"),
             new ProcessingModeOption(
                 ProcessingMode.VideoTrackExtract,
                 "视频轨道提取",
-                "只输出视频轨道，不包含音频，默认使用无损视频流复制。"),
+                "仅输出视频轨道，不包含音频，对于特定封装会自动转换到兼容的视频编码。"),
             new ProcessingModeOption(
                 ProcessingMode.AudioTrackExtract,
                 "音频轨道提取",
@@ -64,7 +64,15 @@ public sealed class ApplicationConfiguration
             new OutputFormatOption("MP4", ".mp4", "兼容性最好，适合常见播放器和移动设备。"),
             new OutputFormatOption("MKV", ".mkv", "封装更宽松，更适合保留原始编码和长视频素材。"),
             new OutputFormatOption("MOV", ".mov", "适合部分剪辑软件和 Apple 工作流。"),
-            new OutputFormatOption("TS", ".ts", "适合封装流媒体或广播侧素材。")
+            new OutputFormatOption("AVI", ".avi", "传统视频容器，适合老牌软件或基础兼容场景。"),
+            new OutputFormatOption("WMV", ".wmv", "适合 Windows 系统和部分老旧播放环境。"),
+            new OutputFormatOption("M4V", ".m4v", "兼容 MP4 工作流，适合部分移动设备和 Apple 生态。"),
+            new OutputFormatOption("FLV", ".flv", "适合老的流媒体或特定支持 FLV 的平台。"),
+            new OutputFormatOption("WEBM", ".webm", "面向网页和浏览器场景，适合更重视开放媒体格式的分发。"),
+            new OutputFormatOption("TS", ".ts", "适合封装流媒体或广播侧素材。"),
+            new OutputFormatOption("M2TS", ".m2ts", "适合蓝光或高码率传输场景。"),
+            new OutputFormatOption("MPEG", ".mpeg", "适合传统视频工作流和部分广播参考场景。"),
+            new OutputFormatOption("MPG", ".mpg", "同为 MPEG 容器的常见扩展名，适合需要 .mpg 后缀的场景。")
         };
 
     public IReadOnlyList<OutputFormatOption> SupportedAudioOutputFormats { get; init; } =

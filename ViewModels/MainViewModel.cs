@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -7,9 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using Microsoft.UI;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Utils;
@@ -24,10 +22,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private const string RuntimePreparationCancelledMessage = "运行环境准备已取消。";
     private const string RuntimePreparationFailedMessage = "运行环境准备失败，请检查网络或运行目录。";
 
-    private static readonly SolidColorBrush RuntimeReadyBrush = new(Colors.LimeGreen);
-    private static readonly SolidColorBrush RuntimeReadyPulseBrush = new(ColorHelper.FromArgb(90, 50, 205, 50));
-    private static readonly SolidColorBrush RuntimeMissingBrush = new(Colors.IndianRed);
-    private static readonly SolidColorBrush RuntimeMissingPulseBrush = new(ColorHelper.FromArgb(96, 205, 92, 92));
     private static readonly IReadOnlyList<ThemePreferenceOption> ThemePreferenceOptions =
         new[]
         {
@@ -238,21 +232,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public bool CanModifyInputs => !IsBusy;
 
-    public bool IsRuntimeReady =>
-        !string.IsNullOrWhiteSpace(_runtimeExecutablePath) &&
-        File.Exists(_runtimeExecutablePath);
-
-    public Brush RuntimeIndicatorBrush =>
-        IsRuntimeReady ? RuntimeReadyBrush : RuntimeMissingBrush;
-
-    public Brush RuntimeIndicatorPulseBrush =>
-        IsRuntimeReady ? RuntimeReadyPulseBrush : RuntimeMissingPulseBrush;
-
-    public string RuntimeIndicatorToolTip =>
-        IsRuntimeReady ? "运行环境已就绪" : "运行环境未就绪";
-
-    public string RuntimeIndicatorText =>
-        IsRuntimeReady ? "已就绪" : "未就绪";
 
     public string QueueSummaryText => ImportItems.Count switch
     {
@@ -556,7 +535,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var resolution = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken);
             _runtimeExecutablePath = resolution.ExecutablePath;
 
-            NotifyRuntimeStateChanged();
 
             SetReadyStatusMessage();
 
@@ -613,21 +591,151 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         return SelectedProcessingMode.Mode switch
         {
-            ProcessingMode.VideoConvert => builder
-                .AddParameter("-map", "0:v")
-                .AddParameter("-map", "0:a?")
-                .AddParameter("-c", "copy")
-                .Build(),
-            ProcessingMode.VideoTrackExtract => builder
-                .AddParameter("-map", "0:v")
-                .AddParameter("-c:v", "copy")
-                .AddParameter("-an")
-                .AddParameter("-sn")
-                .AddParameter("-dn")
-                .Build(),
+            ProcessingMode.VideoConvert => BuildVideoOutputCommand(
+                builder
+                    .AddParameter("-map", "0:v")
+                    .AddParameter("-map", "0:a?")
+                    .AddParameter("-sn")
+                    .AddParameter("-dn"),
+                includeAudio: true),
+            ProcessingMode.VideoTrackExtract => BuildVideoOutputCommand(
+                builder
+                    .AddParameter("-map", "0:v")
+                    .AddParameter("-an")
+                    .AddParameter("-sn")
+                    .AddParameter("-dn"),
+                includeAudio: false),
             ProcessingMode.AudioTrackExtract => BuildAudioExtractionCommand(builder),
             _ => throw new InvalidOperationException("不支持的处理模式。")
         };
+    }
+
+    private FFmpegCommand BuildVideoOutputCommand(IFFmpegCommandBuilder builder, bool includeAudio)
+    {
+        var extension = SelectedOutputFormat.Extension.ToLowerInvariant();
+
+        return extension switch
+        {
+            ".mp4" => builder
+                .AddParameter("-c", "copy")
+                .AddParameter("-movflags", "+faststart")
+                .Build(),
+            ".mkv" => builder
+                .AddParameter("-c", "copy")
+                .Build(),
+            ".mov" => builder
+                .AddParameter("-c", "copy")
+                .AddParameter("-movflags", "+faststart")
+                .Build(),
+            ".avi" => BuildAviOutputCommand(builder, includeAudio),
+            ".wmv" => BuildWmvOutputCommand(builder, includeAudio),
+            ".m4v" => builder
+                .AddParameter("-c", "copy")
+                .AddParameter("-f", "mp4")
+                .AddParameter("-movflags", "+faststart")
+                .Build(),
+            ".flv" => BuildFlvOutputCommand(builder, includeAudio),
+            ".webm" => BuildWebMOutputCommand(builder, includeAudio),
+            ".ts" => builder
+                .AddParameter("-c", "copy")
+                .AddParameter("-f", "mpegts")
+                .Build(),
+            ".m2ts" => builder
+                .AddParameter("-c", "copy")
+                .AddParameter("-f", "mpegts")
+                .AddParameter("-mpegts_m2ts_mode", "1")
+                .Build(),
+            ".mpeg" => BuildMpegOutputCommand(builder, includeAudio),
+            ".mpg" => BuildMpegOutputCommand(builder, includeAudio),
+            _ => throw new InvalidOperationException("不支持的视频输出格式。")
+        };
+    }
+
+    private static FFmpegCommand BuildAviOutputCommand(IFFmpegCommandBuilder builder, bool includeAudio)
+    {
+        builder = builder
+            .AddParameter("-c:v", "mpeg4")
+            .AddParameter("-q:v", "2")
+            .AddParameter("-pix_fmt", "yuv420p");
+
+        if (includeAudio)
+        {
+            builder = builder
+                .AddParameter("-c:a", "libmp3lame")
+                .AddParameter("-q:a", "2");
+        }
+
+        return builder.Build();
+    }
+
+    private static FFmpegCommand BuildWmvOutputCommand(IFFmpegCommandBuilder builder, bool includeAudio)
+    {
+        builder = builder
+            .AddParameter("-c:v", "wmv2")
+            .AddParameter("-b:v", "4M")
+            .AddParameter("-pix_fmt", "yuv420p");
+
+        if (includeAudio)
+        {
+            builder = builder
+                .AddParameter("-c:a", "wmav2")
+                .AddParameter("-b:a", "192k");
+        }
+
+        return builder.Build();
+    }
+
+    private static FFmpegCommand BuildFlvOutputCommand(IFFmpegCommandBuilder builder, bool includeAudio)
+    {
+        builder = builder
+            .AddParameter("-c:v", "flv")
+            .AddParameter("-b:v", "3M")
+            .AddParameter("-pix_fmt", "yuv420p");
+
+        if (includeAudio)
+        {
+            builder = builder
+                .AddParameter("-c:a", "libmp3lame")
+                .AddParameter("-b:a", "192k");
+        }
+
+        return builder.Build();
+    }
+
+    private static FFmpegCommand BuildWebMOutputCommand(IFFmpegCommandBuilder builder, bool includeAudio)
+    {
+        builder = builder
+            .AddParameter("-c:v", "libvpx-vp9")
+            .AddParameter("-crf", "32")
+            .AddParameter("-b:v", "0")
+            .AddParameter("-pix_fmt", "yuv420p");
+
+        if (includeAudio)
+        {
+            builder = builder
+                .AddParameter("-c:a", "libopus")
+                .AddParameter("-b:a", "160k");
+        }
+
+        return builder.Build();
+    }
+
+    private static FFmpegCommand BuildMpegOutputCommand(IFFmpegCommandBuilder builder, bool includeAudio)
+    {
+        builder = builder
+            .AddParameter("-c:v", "mpeg2video")
+            .AddParameter("-q:v", "2")
+            .AddParameter("-pix_fmt", "yuv420p")
+            .AddParameter("-f", "mpeg");
+
+        if (includeAudio)
+        {
+            builder = builder
+                .AddParameter("-c:a", "mp2")
+                .AddParameter("-b:a", "192k");
+        }
+
+        return builder.Build();
     }
 
     private FFmpegCommand BuildAudioExtractionCommand(IFFmpegCommandBuilder builder)
@@ -779,7 +887,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (standardError.Contains("not currently supported in container", StringComparison.OrdinalIgnoreCase) ||
             standardError.Contains("Could not write header", StringComparison.OrdinalIgnoreCase))
         {
-            return "目标格式与源流编码不兼容，请改用 MKV、MOV 或保持当前封装。";
+            return "目标格式与当前媒体流不兼容，请尝试 MP4、MKV、MOV 或更换其他导出格式。";
         }
 
         if (standardError.Contains("Permission denied", StringComparison.OrdinalIgnoreCase))
@@ -839,14 +947,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _cancelExecutionCommand.NotifyCanExecuteChanged();
     }
 
-    private void NotifyRuntimeStateChanged()
-    {
-        OnPropertyChanged(nameof(IsRuntimeReady));
-        OnPropertyChanged(nameof(RuntimeIndicatorBrush));
-        OnPropertyChanged(nameof(RuntimeIndicatorPulseBrush));
-        OnPropertyChanged(nameof(RuntimeIndicatorToolTip));
-        OnPropertyChanged(nameof(RuntimeIndicatorText));
-    }
 
     private void SetReadyStatusMessage()
     {

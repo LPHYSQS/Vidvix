@@ -1,10 +1,8 @@
 using System;
 using System.Linq;
-using System.Numerics;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Vidvix.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
@@ -29,7 +27,6 @@ public sealed partial class MainWindow : Window
     private static readonly Color DarkTitleBarButtonPressedBackgroundColor = ColorHelper.FromArgb(58, 255, 255, 255);
 
     private readonly AppWindow _appWindow;
-    private bool _runtimePulseStarted;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -50,39 +47,8 @@ public sealed partial class MainWindow : Window
         ViewModel.Dispose();
     }
 
-    private void OnRootLayoutLoaded(object sender, RoutedEventArgs e)
-    {
+    private void OnRootLayoutLoaded(object sender, RoutedEventArgs e) =>
         UpdateTitleBarColors();
-
-        if (_runtimePulseStarted)
-        {
-            return;
-        }
-
-        _runtimePulseStarted = true;
-
-        var haloVisual = ElementCompositionPreview.GetElementVisual(RuntimePulseHalo);
-        haloVisual.CenterPoint = new Vector3(12f, 12f, 0f);
-
-        var compositor = haloVisual.Compositor;
-
-        var opacityAnimation = compositor.CreateScalarKeyFrameAnimation();
-        opacityAnimation.InsertKeyFrame(0f, 0.18f);
-        opacityAnimation.InsertKeyFrame(0.5f, 0.72f);
-        opacityAnimation.InsertKeyFrame(1f, 0.18f);
-        opacityAnimation.Duration = TimeSpan.FromSeconds(2.2);
-        opacityAnimation.IterationBehavior = Microsoft.UI.Composition.AnimationIterationBehavior.Forever;
-
-        var scaleAnimation = compositor.CreateVector3KeyFrameAnimation();
-        scaleAnimation.InsertKeyFrame(0f, new Vector3(0.82f, 0.82f, 1f));
-        scaleAnimation.InsertKeyFrame(0.5f, new Vector3(1.18f, 1.18f, 1f));
-        scaleAnimation.InsertKeyFrame(1f, new Vector3(0.82f, 0.82f, 1f));
-        scaleAnimation.Duration = TimeSpan.FromSeconds(2.2);
-        scaleAnimation.IterationBehavior = Microsoft.UI.Composition.AnimationIterationBehavior.Forever;
-
-        haloVisual.StartAnimation("Opacity", opacityAnimation);
-        haloVisual.StartAnimation("Scale", scaleAnimation);
-    }
 
     private void OnRootLayoutActualThemeChanged(FrameworkElement sender, object args) =>
         UpdateTitleBarColors();
