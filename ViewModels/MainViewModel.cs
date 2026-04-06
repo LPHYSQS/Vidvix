@@ -86,14 +86,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         ThemeOptions = ThemePreferenceOptions;
 
-        var userPreferences = _userPreferencesService.Load();
-        _selectedThemeOption = ThemeOptions.FirstOrDefault(option => option.Preference == userPreferences.ThemePreference) ?? ThemeOptions[0];
-        _revealOutputFileAfterProcessing = userPreferences.RevealOutputFileAfterProcessing;
-
         LogEntries = new ObservableCollection<LogEntry>();
         ImportItems = new ObservableCollection<MediaJobViewModel>();
         AvailableOutputFormats = new ObservableCollection<OutputFormatOption>();
         ProcessingModes = _configuration.SupportedProcessingModes;
+
+        var userPreferences = _userPreferencesService.Load();
+        _selectedThemeOption = ThemeOptions.FirstOrDefault(option => option.Preference == userPreferences.ThemePreference) ?? ThemeOptions[0];
+        _revealOutputFileAfterProcessing = userPreferences.RevealOutputFileAfterProcessing;
 
         ImportItems.CollectionChanged += OnImportItemsChanged;
 
@@ -106,8 +106,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _toggleSettingsPaneCommand = new RelayCommand(ToggleSettingsPane);
         _closeSettingsPaneCommand = new RelayCommand(CloseSettingsPane, () => IsSettingsPaneOpen);
 
-        _selectedProcessingMode = ProcessingModes.FirstOrDefault();
-        ReloadOutputFormats();
+        _selectedProcessingMode = ResolveProcessingMode(userPreferences.PreferredProcessingMode);
+        ReloadOutputFormats(userPreferences.PreferredOutputFormatExtension);
     }
 
     public ObservableCollection<LogEntry> LogEntries { get; }
@@ -162,6 +162,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 ReloadOutputFormats();
                 RecalculatePlannedOutputs();
+                PersistUserPreferences();
             }
         }
     }
@@ -179,6 +180,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _selectedOutputFormat, value))
             {
                 RecalculatePlannedOutputs();
+                PersistUserPreferences();
             }
         }
     }
@@ -793,6 +795,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         _userPreferencesService.Save(new UserPreferences
         {
+            PreferredProcessingMode = _selectedProcessingMode?.Mode,
+            PreferredOutputFormatExtension = _selectedOutputFormat?.Extension,
             ThemePreference = SelectedThemeOption.Preference,
             RevealOutputFileAfterProcessing = RevealOutputFileAfterProcessing
         });
@@ -825,7 +829,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void ReloadOutputFormats()
+    private void ReloadOutputFormats(string? preferredOutputFormatExtension = null)
     {
         AvailableOutputFormats.Clear();
 
@@ -838,12 +842,42 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             AvailableOutputFormats.Add(format);
         }
 
+        var desiredExtension = preferredOutputFormatExtension ?? _selectedOutputFormat?.Extension;
+        var preferredFormat = desiredExtension is null
+            ? null
+            : AvailableOutputFormats.FirstOrDefault(format => string.Equals(format.Extension, desiredExtension, StringComparison.OrdinalIgnoreCase));
+
+        if (preferredFormat is not null)
+        {
+            if (!ReferenceEquals(_selectedOutputFormat, preferredFormat))
+            {
+                _selectedOutputFormat = preferredFormat;
+                OnPropertyChanged(nameof(SelectedOutputFormat));
+            }
+
+            return;
+        }
+
         if (_selectedOutputFormat is null ||
             !AvailableOutputFormats.Any(format => string.Equals(format.Extension, _selectedOutputFormat.Extension, StringComparison.OrdinalIgnoreCase)))
         {
             _selectedOutputFormat = AvailableOutputFormats.FirstOrDefault();
             OnPropertyChanged(nameof(SelectedOutputFormat));
         }
+    }
+
+    private ProcessingModeOption ResolveProcessingMode(ProcessingMode? preferredProcessingMode)
+    {
+        if (preferredProcessingMode is ProcessingMode processingMode)
+        {
+            var matchingMode = ProcessingModes.FirstOrDefault(option => option.Mode == processingMode);
+            if (matchingMode is not null)
+            {
+                return matchingMode;
+            }
+        }
+
+        return ProcessingModes.First();
     }
 
     private void RecalculatePlannedOutputs()
