@@ -14,6 +14,7 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
     <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
+    <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
     <Nullable>enable</Nullable>
     <PublishReadyToRun>false</PublishReadyToRun>
     <PublishTrimmed>false</PublishTrimmed>
@@ -30,6 +31,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Assets\logo.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="Assets\logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Square150x150Logo.scale-200.png" />
@@ -40,7 +49,11 @@
   </ItemGroup>
 
   <ItemGroup Condition="Exists('Tools\MediaEngine\Current\bin\ffmpeg.exe')">
-    <Content Include="Tools\MediaEngine\Current\**\*">
+    <Content Include="Tools\MediaEngine\Current\bin\ffmpeg.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="Tools\MediaEngine\Current\LICENSE.txt" Condition="Exists('Tools\MediaEngine\Current\LICENSE.txt')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
@@ -52,12 +65,12 @@
       Text="离线发布包缺少内置音视频组件。请先准备 Tools\MediaEngine\Current\bin\ffmpeg.exe 后再执行发布。" />
   </Target>
 
-  <Target Name="CreateOfflinePackage" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and Exists('$(TargetDir)Vidvix.exe')">
+  <Target Name="CreateOfflinePackage" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release' and Exists('$(PublishDir)Vidvix.exe')">
     <RemoveDir Directories="$(OfflinePackageDir)" Condition="Exists('$(OfflinePackageDir)')" />
     <MakeDir Directories="$(OfflinePackageDir)" />
 
     <ItemGroup>
-      <OfflinePackageFiles Include="$(TargetDir)**\*" />
+      <OfflinePackageFiles Include="$(PublishDir)**\*" />
     </ItemGroup>
 
     <Copy

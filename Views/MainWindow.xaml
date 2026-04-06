@@ -38,19 +38,35 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel
-                    MaxWidth="320"
+                    MaxWidth="360"
+                    Orientation="Horizontal"
                     VerticalAlignment="Center"
-                    Spacing="2">
-                    <TextBlock
-                        Style="{StaticResource CaptionTextStyle}"
-                        Text="当前状态" />
-                    <TextBlock
-                        FontSize="16"
-                        FontWeight="SemiBold"
-                        MaxLines="2"
-                        Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
-                        TextTrimming="CharacterEllipsis"
-                        TextWrapping="WrapWholeWords" />
+                    Spacing="12">
+                    <Image
+                        Width="40"
+                        Height="40"
+                        Source="ms-appx:///Assets/logo.png"
+                        Stretch="Uniform" />
+
+                    <StackPanel
+                        MaxWidth="308"
+                        VerticalAlignment="Center"
+                        Spacing="2">
+                        <TextBlock
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="快速开始" />
+                        <TextBlock
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            MaxLines="2"
+                            Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="WrapWholeWords" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="支持导入文件、文件夹，也支持直接拖拽到窗口"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
                 </StackPanel>
 
                 <CommandBar

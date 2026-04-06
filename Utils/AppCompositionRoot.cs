@@ -15,6 +15,7 @@ public sealed class AppCompositionRoot
 {
     private readonly MainViewModel _mainViewModel;
     private readonly IWindowContext _windowContext;
+    private readonly IWindowIconService _windowIconService;
 
     public AppCompositionRoot(DispatcherQueue dispatcherQueue)
     {
@@ -24,6 +25,7 @@ public sealed class AppCompositionRoot
         Logger = new SimpleLogger(Configuration.MirrorLogsToConsole);
 
         _windowContext = new WindowContext();
+        _windowIconService = new WindowIconService(Configuration, Logger);
         var dispatcherService = new DispatcherService(dispatcherQueue);
         var filePickerService = new FilePickerService(_windowContext);
         var mediaImportDiscoveryService = new MediaImportDiscoveryService(Configuration);
@@ -55,6 +57,7 @@ public sealed class AppCompositionRoot
         };
 
         _windowContext.SetWindow(window);
+        _windowIconService.ApplyIcon(window);
         return window;
     }
 

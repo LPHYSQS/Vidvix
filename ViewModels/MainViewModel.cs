@@ -17,6 +17,12 @@ namespace Vidvix.ViewModels;
 
 public sealed class MainViewModel : ObservableObject, IDisposable
 {
+    private const string RuntimePreparingMessage = "正在准备运行环境...";
+    private const string ReadyForImportMessage = "请导入视频文件或文件夹。";
+    private const string ReadyForProcessingMessage = "文件已准备完成，可以开始处理。";
+    private const string RuntimePreparationCancelledMessage = "运行环境准备已取消。";
+    private const string RuntimePreparationFailedMessage = "运行环境准备失败，请检查网络或运行目录。";
+
     private static readonly SolidColorBrush RuntimeReadyBrush = new(Colors.LimeGreen);
     private static readonly SolidColorBrush RuntimeReadyPulseBrush = new(ColorHelper.FromArgb(90, 50, 205, 50));
     private static readonly SolidColorBrush RuntimeMissingBrush = new(Colors.IndianRed);
@@ -62,7 +68,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _logger = logger;
         _filePickerService = filePickerService;
         _dispatcherService = dispatcherService;
-        _statusMessage = "正在准备本地 FFmpeg...";
+        _statusMessage = RuntimePreparingMessage;
 
         LogEntries = new ObservableCollection<LogEntry>();
         ImportItems = new ObservableCollection<MediaJobViewModel>();
@@ -166,10 +172,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         IsRuntimeReady ? RuntimeReadyPulseBrush : RuntimeMissingPulseBrush;
 
     public string RuntimeIndicatorToolTip =>
-        IsRuntimeReady ? "FFmpeg 已就绪" : "FFmpeg 未就绪";
+        IsRuntimeReady ? "运行环境已就绪" : "运行环境未就绪";
 
     public string RuntimeIndicatorText =>
-        IsRuntimeReady ? "FFmpeg 已就绪" : "FFmpeg 未就绪";
+        IsRuntimeReady ? "已就绪" : "未就绪";
 
     public string QueueSummaryText => ImportItems.Count switch
     {
@@ -199,7 +205,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         if (!IsBusy && !string.IsNullOrWhiteSpace(_runtimeExecutablePath))
         {
-            StatusMessage = "本地 FFmpeg 已就绪，请导入视频文件或文件夹。";
+            SetReadyStatusMessage();
         }
     }
 
@@ -450,39 +456,37 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         try
         {
             IsBusy = true;
-            StatusMessage = "正在准备本地 FFmpeg...";
+            StatusMessage = RuntimePreparingMessage;
 
             var resolution = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken);
             _runtimeExecutablePath = resolution.ExecutablePath;
 
             NotifyRuntimeStateChanged();
 
-            StatusMessage = ImportItems.Count == 0
-                ? "本地 FFmpeg 已就绪，请导入视频文件或文件夹。"
-                : "本地 FFmpeg 已就绪，可以开始处理。";
+            SetReadyStatusMessage();
 
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            StatusMessage = "本地 FFmpeg 准备已取消。";
+            StatusMessage = RuntimePreparationCancelledMessage;
 
             if (logUiFailure)
             {
-                AddUiLog(LogLevel.Warning, "本地 FFmpeg 准备已取消。", clearExisting: false);
+                AddUiLog(LogLevel.Warning, RuntimePreparationCancelledMessage, clearExisting: false);
             }
 
             return false;
         }
         catch (Exception exception)
         {
-            StatusMessage = "本地 FFmpeg 准备失败，请检查网络或运行时目录。";
+            StatusMessage = RuntimePreparationFailedMessage;
             _logger.Log(LogLevel.Error, "准备本地 FFmpeg 时发生异常。", exception);
 
             if (logUiFailure)
             {
                 var reason = ExtractFriendlyExceptionMessage(exception);
-                AddUiLog(LogLevel.Error, $"本地 FFmpeg 未就绪，无法开始处理。原因：{reason}", clearExisting: false);
+                AddUiLog(LogLevel.Error, $"运行环境未就绪，无法开始处理。原因：{reason}", clearExisting: false);
             }
 
             return false;
@@ -497,7 +501,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         if (string.IsNullOrWhiteSpace(_runtimeExecutablePath))
         {
-            throw new InvalidOperationException("本地 FFmpeg 尚未准备完成。");
+            throw new InvalidOperationException("运行环境尚未准备完成。");
         }
 
         IFFmpegCommandBuilder builder = _ffmpegCommandBuilder
@@ -654,12 +658,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         if (standardError.Contains("Unknown encoder", StringComparison.OrdinalIgnoreCase))
         {
-            return "当前 FFmpeg 缺少所需编码器，无法输出该格式。";
+            return "当前环境缺少所需格式支持，无法输出该格式。";
         }
 
         if (standardError.Contains("Invalid argument", StringComparison.OrdinalIgnoreCase))
         {
-            return "当前输出格式或参数无效，FFmpeg 无法完成处理。";
+            return "当前输出格式或参数无效，无法完成处理。";
         }
 
         if (standardError.Contains("No such file or directory", StringComparison.OrdinalIgnoreCase))
@@ -673,7 +677,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return extractedReason;
         }
 
-        return result.FailureReason ?? "FFmpeg 处理失败。";
+        return result.FailureReason ?? "处理失败。";
     }
 
     private int MarkRemainingItemsCancelled(int startIndex)
@@ -711,6 +715,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(RuntimeIndicatorPulseBrush));
         OnPropertyChanged(nameof(RuntimeIndicatorToolTip));
         OnPropertyChanged(nameof(RuntimeIndicatorText));
+    }
+
+    private void SetReadyStatusMessage()
+    {
+        StatusMessage = ImportItems.Count == 0
+            ? ReadyForImportMessage
+            : ReadyForProcessingMessage;
     }
 
     private void OnImportItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)

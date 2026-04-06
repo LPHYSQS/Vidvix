@@ -1,11 +1,14 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace Vidvix.Core.Models;
 
 public sealed class ApplicationConfiguration
 {
     public string ApplicationTitle { get; init; } = "Vidvix";
+
+    public string ApplicationIconRelativePath { get; init; } = Path.Combine("Assets", "logo.ico");
 
     public string FFmpegExecutableFileName { get; init; } = "ffmpeg.exe";
 
@@ -72,4 +75,3 @@ public sealed class ApplicationConfiguration
             new OutputFormatOption("FLAC", ".flac", "无损压缩音频，适合存档。")
         };
 }
-

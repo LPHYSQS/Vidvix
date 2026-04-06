@@ -2,6 +2,9 @@ bin/
 obj/
 .vs/
 .dotnet/
+.dotnet-cli/
+.dotnet-cli-home/
+artifacts/
 *.user
 *.suo
 *.pdb
