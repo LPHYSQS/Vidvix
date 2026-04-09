@@ -164,6 +164,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _isSettingsPaneOpen, value))
             {
                 _closeSettingsPaneCommand.NotifyCanExecuteChanged();
+
+                // Resume deferred detail opening here so we do not depend only on the view event.
+                if (!value)
+                {
+                    HandleSettingsPaneClosed();
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -110,7 +110,9 @@ public sealed class MediaInfoService : IMediaInfoService
                 return MediaDetailsLoadResult.Failure(ParseFailedMessage);
             }
 
-            var snapshot = BuildSnapshot(cacheContext, executionResult.StandardOutput);
+            var probeResult = ParseProbeResult(executionResult.StandardOutput);
+            var resolvedBitrates = await ResolveStreamBitratesAsync(runtimeResolution.ExecutablePath, cacheContext.InputPath, probeResult).ConfigureAwait(false);
+            var snapshot = BuildSnapshot(cacheContext, probeResult, resolvedBitrates);
             _cache[cacheContext.CacheKey] = snapshot;
             RemoveStaleEntries(cacheContext);
             return MediaDetailsLoadResult.Success(snapshot);
@@ -186,11 +188,8 @@ public sealed class MediaInfoService : IMediaInfoService
         return startInfo;
     }
 
-    private static MediaDetailsSnapshot BuildSnapshot(MediaCacheContext cacheContext, string json)
+    private static MediaDetailsSnapshot BuildSnapshot(MediaCacheContext cacheContext, FfprobeResponse probeResult, ResolvedStreamBitrates resolvedBitrates)
     {
-        var probeResult = JsonSerializer.Deserialize<FfprobeResponse>(json, JsonOptions)
-            ?? throw new JsonException("ffprobe \u8f93\u51fa\u4e3a\u7a7a\u3002");
-
         var format = probeResult.format;
         var streams = probeResult.streams ?? Array.Empty<FfprobeStream>();
         var videoStream = streams.FirstOrDefault(stream => string.Equals(stream.codec_type, "video", StringComparison.OrdinalIgnoreCase));
@@ -202,6 +201,8 @@ public sealed class MediaInfoService : IMediaInfoService
         var encoderTag = ResolveEncoderTag(format, videoStream, audioStream);
         var videoMissing = videoStream is null;
         var audioMissing = audioStream is null;
+        var videoBitrateText = videoMissing ? MissingVideoStreamValue : FormatBitrate(resolvedBitrates.VideoBitrateText);
+        var audioBitrateText = audioMissing ? MissingAudioStreamValue : FormatBitrate(resolvedBitrates.AudioBitrateText);
 
         return new MediaDetailsSnapshot
         {
@@ -222,7 +223,7 @@ public sealed class MediaInfoService : IMediaInfoService
                 new() { Label = "Profile / Level", Value = videoMissing ? MissingVideoStreamValue : videoProfileLevel },
                 new() { Label = "\u5206\u8fa8\u7387", Value = videoMissing ? MissingVideoStreamValue : resolutionText },
                 new() { Label = "\u5e27\u7387", Value = videoMissing ? MissingVideoStreamValue : FormatFrameRate(videoStream?.avg_frame_rate, videoStream?.r_frame_rate) },
-                new() { Label = "\u89c6\u9891\u7801\u7387", Value = videoMissing ? MissingVideoStreamValue : FormatBitrate(videoStream?.bit_rate) },
+                new() { Label = "\u89c6\u9891\u7801\u7387", Value = videoBitrateText },
                 new() { Label = "\u8272\u6df1", Value = videoMissing ? MissingVideoStreamValue : FormatBitDepth(videoStream?.bits_per_raw_sample, videoStream?.pix_fmt) },
                 new() { Label = "\u50cf\u7d20\u683c\u5f0f", Value = videoMissing ? MissingVideoStreamValue : NormalizeValue(videoStream?.pix_fmt) },
                 new() { Label = "\u8272\u5f69\u7a7a\u95f4", Value = videoMissing ? MissingVideoStreamValue : NormalizeValue(videoStream?.color_space) },
@@ -234,7 +235,7 @@ public sealed class MediaInfoService : IMediaInfoService
                 new() { Label = "\u7f16\u7801", Value = audioMissing ? MissingAudioStreamValue : FormatCodec(audioStream?.codec_name) },
                 new() { Label = "\u58f0\u9053", Value = audioMissing ? MissingAudioStreamValue : FormatChannels(audioStream?.channel_layout, audioStream?.channels) },
                 new() { Label = "\u91c7\u6837\u7387", Value = audioMissing ? MissingAudioStreamValue : FormatSampleRate(audioStream?.sample_rate) },
-                new() { Label = "\u97f3\u9891\u7801\u7387", Value = audioMissing ? MissingAudioStreamValue : FormatBitrate(audioStream?.bit_rate) }
+                new() { Label = "\u97f3\u9891\u7801\u7387", Value = audioBitrateText }
             ],
             AdvancedFields =
             [
@@ -308,6 +309,344 @@ public sealed class MediaInfoService : IMediaInfoService
         return lines.LastOrDefault() ?? ParseFailedMessage;
     }
 
+    private static FfprobeResponse ParseProbeResult(string json)
+    {
+        return JsonSerializer.Deserialize<FfprobeResponse>(json, JsonOptions)
+            ?? throw new JsonException("ffprobe \u8f93\u51fa\u4e3a\u7a7a\u3002");
+    }
+
+    private async Task<ResolvedStreamBitrates> ResolveStreamBitratesAsync(string ffmpegPath, string inputPath, FfprobeResponse probeResult)
+    {
+        var streams = probeResult.streams ?? Array.Empty<FfprobeStream>();
+        var format = probeResult.format;
+        var videoStream = streams.FirstOrDefault(stream => string.Equals(stream.codec_type, "video", StringComparison.OrdinalIgnoreCase));
+        var audioStream = streams.FirstOrDefault(stream => string.Equals(stream.codec_type, "audio", StringComparison.OrdinalIgnoreCase));
+
+        var videoBitrateText = ResolveStreamBitrateText(videoStream, format, audioStream is null, isAudioStream: false);
+        var audioBitrateText = ResolveStreamBitrateText(audioStream, format, videoStream is null, isAudioStream: true);
+
+        if (videoStream is not null && string.IsNullOrWhiteSpace(videoBitrateText))
+        {
+            videoBitrateText = await ProbeMappedStreamBitrateAsync(
+                ffmpegPath,
+                inputPath,
+                "0:v:0",
+                "video",
+                ResolveStreamDurationSeconds(videoStream, format)).ConfigureAwait(false);
+        }
+
+        if (audioStream is not null && string.IsNullOrWhiteSpace(audioBitrateText))
+        {
+            audioBitrateText = await ProbeMappedStreamBitrateAsync(
+                ffmpegPath,
+                inputPath,
+                "0:a:0",
+                "audio",
+                ResolveStreamDurationSeconds(audioStream, format)).ConfigureAwait(false);
+        }
+
+        return new ResolvedStreamBitrates(videoBitrateText, audioBitrateText);
+    }
+
+    private static string? ResolveStreamBitrateText(FfprobeStream? stream, FfprobeFormat? format, bool isOnlyPrimaryStream, bool isAudioStream)
+    {
+        if (stream is null)
+        {
+            return null;
+        }
+
+        var directBitrate = NormalizeNumericText(
+            FirstNonEmpty(
+                stream.bit_rate,
+                GetTagValueIgnoreCase(stream.tags, "BPS", "BPS-eng", "variant_bitrate", "BANDWIDTH")));
+        if (!string.IsNullOrWhiteSpace(directBitrate))
+        {
+            return directBitrate;
+        }
+
+        if (TryResolveBitrateFromTaggedBytes(stream, format, out var derivedBitrate))
+        {
+            return derivedBitrate;
+        }
+
+        if (isAudioStream && TryResolvePcmAudioBitrate(stream, out var pcmBitrate))
+        {
+            return pcmBitrate;
+        }
+
+        if (isOnlyPrimaryStream)
+        {
+            return NormalizeNumericText(format?.bit_rate);
+        }
+
+        return null;
+    }
+
+    private static bool TryResolveBitrateFromTaggedBytes(FfprobeStream stream, FfprobeFormat? format, out string bitrateText)
+    {
+        bitrateText = string.Empty;
+        var durationSeconds = ResolveStreamDurationSeconds(stream, format);
+        if (!TryParsePositiveDouble(GetTagValueIgnoreCase(stream.tags, "NUMBER_OF_BYTES", "NUMBER_OF_BYTES-eng"), out var bytes) ||
+            durationSeconds is not > 0)
+        {
+            return false;
+        }
+
+        var bitsPerSecond = (bytes * 8d) / durationSeconds.Value;
+        if (bitsPerSecond <= 0)
+        {
+            return false;
+        }
+
+        bitrateText = bitsPerSecond.ToString("0.###", CultureInfo.InvariantCulture);
+        return true;
+    }
+
+    private static bool TryResolvePcmAudioBitrate(FfprobeStream stream, out string bitrateText)
+    {
+        bitrateText = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(stream.codec_name) ||
+            !stream.codec_name.StartsWith("pcm_", StringComparison.OrdinalIgnoreCase) ||
+            !TryParsePositiveDouble(stream.sample_rate, out var sampleRate) ||
+            stream.channels is not > 0 ||
+            stream.bits_per_sample is not > 0)
+        {
+            return false;
+        }
+
+        var bitsPerSecond = sampleRate * stream.channels.Value * stream.bits_per_sample.Value;
+        if (bitsPerSecond <= 0)
+        {
+            return false;
+        }
+
+        bitrateText = bitsPerSecond.ToString("0.###", CultureInfo.InvariantCulture);
+        return true;
+    }
+
+    private async Task<string?> ProbeMappedStreamBitrateAsync(string ffmpegPath, string inputPath, string mapSelector, string mediaLabel, double? durationSeconds)
+    {
+        if (durationSeconds is not > 0)
+        {
+            return null;
+        }
+
+        using var process = new Process
+        {
+            StartInfo = CreateBitrateProbeStartInfo(ffmpegPath, inputPath, mapSelector),
+            EnableRaisingEvents = true
+        };
+
+        if (!process.Start())
+        {
+            return null;
+        }
+
+        var standardOutputTask = process.StandardOutput.ReadToEndAsync();
+        var standardErrorTask = process.StandardError.ReadToEndAsync();
+
+        await process.WaitForExitAsync().ConfigureAwait(false);
+        await Task.WhenAll(standardOutputTask, standardErrorTask).ConfigureAwait(false);
+
+        var standardError = standardErrorTask.Result;
+        if (!TryExtractMappedStreamSizeBytes(standardError, mediaLabel, out var sizeBytes) || sizeBytes <= 0)
+        {
+            return null;
+        }
+
+        var bitsPerSecond = (sizeBytes * 8d) / durationSeconds.Value;
+        return bitsPerSecond > 0
+            ? bitsPerSecond.ToString("0.###", CultureInfo.InvariantCulture)
+            : null;
+    }
+
+    private static ProcessStartInfo CreateBitrateProbeStartInfo(string ffmpegPath, string inputPath, string mapSelector)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = ffmpegPath,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8
+        };
+
+        startInfo.ArgumentList.Add("-hide_banner");
+        startInfo.ArgumentList.Add("-nostats");
+        startInfo.ArgumentList.Add("-i");
+        startInfo.ArgumentList.Add(inputPath);
+        startInfo.ArgumentList.Add("-map");
+        startInfo.ArgumentList.Add(mapSelector);
+        startInfo.ArgumentList.Add("-c");
+        startInfo.ArgumentList.Add("copy");
+        startInfo.ArgumentList.Add("-f");
+        startInfo.ArgumentList.Add("null");
+        startInfo.ArgumentList.Add("-");
+        return startInfo;
+    }
+
+    private static bool TryExtractMappedStreamSizeBytes(string standardError, string mediaLabel, out long sizeBytes)
+    {
+        sizeBytes = 0;
+        if (string.IsNullOrWhiteSpace(standardError))
+        {
+            return false;
+        }
+
+        var lines = standardError.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        for (var index = lines.Length - 1; index >= 0; index--)
+        {
+            var line = lines[index];
+            if (!line.Contains("video:", StringComparison.OrdinalIgnoreCase) || !line.Contains("audio:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var token = ExtractLabeledSummaryToken(line, mediaLabel);
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                continue;
+            }
+
+            return TryParseSizeBytes(token, out sizeBytes);
+        }
+
+        return false;
+    }
+
+    private static string? ExtractLabeledSummaryToken(string line, string label)
+    {
+        var marker = label + ":";
+        var startIndex = line.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (startIndex < 0)
+        {
+            return null;
+        }
+
+        startIndex += marker.Length;
+        var endIndex = line.IndexOf(' ', startIndex);
+        if (endIndex < 0)
+        {
+            endIndex = line.Length;
+        }
+
+        var token = line[startIndex..endIndex].Trim();
+        return string.Equals(token, "N/A", StringComparison.OrdinalIgnoreCase) ? null : token;
+    }
+
+    private static bool TryParseSizeBytes(string sizeText, out long sizeBytes)
+    {
+        sizeBytes = 0;
+        if (string.IsNullOrWhiteSpace(sizeText))
+        {
+            return false;
+        }
+
+        var units = new[] { "PiB", "TiB", "GiB", "MiB", "KiB", "B" };
+        foreach (var unit in units)
+        {
+            if (!sizeText.EndsWith(unit, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var numericPortion = sizeText[..^unit.Length];
+            if (!TryParsePositiveDouble(numericPortion, out var value))
+            {
+                return false;
+            }
+
+            var multiplier = unit.ToUpperInvariant() switch
+            {
+                "PIB" => 1024d * 1024d * 1024d * 1024d * 1024d,
+                "TIB" => 1024d * 1024d * 1024d * 1024d,
+                "GIB" => 1024d * 1024d * 1024d,
+                "MIB" => 1024d * 1024d,
+                "KIB" => 1024d,
+                _ => 1d
+            };
+
+            sizeBytes = (long)Math.Round(value * multiplier, MidpointRounding.AwayFromZero);
+            return sizeBytes > 0;
+        }
+
+        return false;
+    }
+
+    private static string? NormalizeNumericText(string? value)
+    {
+        return TryParsePositiveDouble(value, out var numericValue)
+            ? numericValue.ToString("0.###", CultureInfo.InvariantCulture)
+            : null;
+    }
+
+    private static bool TryParsePositiveDouble(string? value, out double parsedValue)
+    {
+        parsedValue = 0;
+        return !string.IsNullOrWhiteSpace(value) &&
+               double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out parsedValue) &&
+               parsedValue > 0;
+    }
+
+    private static double? ResolveStreamDurationSeconds(FfprobeStream? stream, FfprobeFormat? format)
+    {
+        return FirstPositive(
+            ParseDurationSeconds(stream?.duration),
+            ParseDurationSeconds(GetTagValueIgnoreCase(stream?.tags, "DURATION", "DURATION-eng")),
+            ParseDurationSeconds(format?.duration));
+    }
+
+    private static double? ParseDurationSeconds(string? durationText)
+    {
+        if (TryParsePositiveDouble(durationText, out var seconds))
+        {
+            return seconds;
+        }
+
+        if (string.IsNullOrWhiteSpace(durationText))
+        {
+            return null;
+        }
+
+        var segments = durationText.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (segments.Length != 3 ||
+            !double.TryParse(segments[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var hours) ||
+            !double.TryParse(segments[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var minutes) ||
+            !double.TryParse(segments[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var remainingSeconds))
+        {
+            return null;
+        }
+
+        var totalSeconds = (hours * 3600d) + (minutes * 60d) + remainingSeconds;
+        return totalSeconds > 0 ? totalSeconds : null;
+    }
+
+    private static double? FirstPositive(params double?[] values) =>
+        values.FirstOrDefault(value => value is > 0);
+
+    private static string? GetTagValueIgnoreCase(Dictionary<string, string>? tags, params string[] keys)
+    {
+        if (tags is null || keys.Length == 0)
+        {
+            return null;
+        }
+
+        foreach (var key in keys)
+        {
+            foreach (var entry in tags)
+            {
+                if (string.Equals(entry.Key, key, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(entry.Value))
+                {
+                    return entry.Value;
+                }
+            }
+        }
+
+        return null;
+    }
     private static string FormatContainer(string? formatLongName, string? formatName)
     {
         if (!string.IsNullOrWhiteSpace(formatLongName))
@@ -592,6 +931,10 @@ public sealed class MediaInfoService : IMediaInfoService
     private static string? FirstNonEmpty(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
+    private readonly record struct ResolvedStreamBitrates(
+        string? VideoBitrateText,
+        string? AudioBitrateText);
+
     private readonly record struct MediaCacheContext(
         string InputPath,
         string NormalizedPath,
@@ -642,9 +985,13 @@ public sealed class MediaInfoService : IMediaInfoService
 
         public string? r_frame_rate { get; init; }
 
+        public string? duration { get; init; }
+
         public string? bit_rate { get; init; }
 
         public string? bits_per_raw_sample { get; init; }
+
+        public int? bits_per_sample { get; init; }
 
         public string? pix_fmt { get; init; }
 

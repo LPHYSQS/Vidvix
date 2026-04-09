@@ -6,10 +6,13 @@ obj/
 .dotnet-cli-home/
 .nuget-packages/
 artifacts/
+
+# Bundled FFmpeg runtime payloads
 Tools/ffmpeg/
-Tools/MediaEngine/Current/bin/ffmpeg.exe
-Tools/MediaEngine/Current/bin/ffprobe.exe
-Tools/MediaEngine/Current/bin/ffplay.exe
+Tools/**/ffmpeg.exe
+Tools/**/ffprobe.exe
+Tools/**/ffplay.exe
+
 *.user
 *.suo
 *.pdb
