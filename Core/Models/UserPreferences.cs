@@ -6,6 +6,12 @@ public sealed class UserPreferences
 
     public string? PreferredOutputFormatExtension { get; init; }
 
+    public string? PreferredVideoConvertOutputFormatExtension { get; init; }
+
+    public string? PreferredVideoTrackExtractOutputFormatExtension { get; init; }
+
+    public string? PreferredAudioTrackExtractOutputFormatExtension { get; init; }
+
     public string? PreferredOutputDirectory { get; init; }
 
     public ThemePreference ThemePreference { get; init; } = ThemePreference.UseSystem;

@@ -62,8 +62,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private CancellationTokenSource? _detailLoadCancellationSource;
     private int _detailLoadVersion;
     private MediaJobViewModel? _pendingDetailItem;
+    private readonly Dictionary<ProcessingMode, string> _preferredOutputFormatExtensionsByMode = new();
     private ProcessingModeOption? _selectedProcessingMode;
     private OutputFormatOption? _selectedOutputFormat;
+    private IReadOnlyList<OutputFormatOption> _availableOutputFormats = Array.Empty<OutputFormatOption>();
     private string _outputDirectory = string.Empty;
     private ThemePreferenceOption? _selectedThemeOption;
     private bool _revealOutputFileAfterProcessing;
@@ -100,11 +102,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         LogEntries = new ObservableCollection<LogEntry>();
         ImportItems = new ObservableCollection<MediaJobViewModel>();
-        AvailableOutputFormats = new ObservableCollection<OutputFormatOption>();
         DetailPanel = new MediaDetailPanelViewModel();
         ProcessingModes = _configuration.SupportedProcessingModes;
 
         var userPreferences = _userPreferencesService.Load();
+        InitializePreferredOutputFormatSelections(userPreferences);
         _selectedThemeOption = ThemeOptions.FirstOrDefault(option => option.Preference == userPreferences.ThemePreference) ?? ThemeOptions[0];
         _outputDirectory = NormalizeOutputDirectory(userPreferences.PreferredOutputDirectory);
         _revealOutputFileAfterProcessing = userPreferences.RevealOutputFileAfterProcessing;
@@ -127,14 +129,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
 
         _selectedProcessingMode = ResolveProcessingMode(userPreferences.PreferredProcessingMode);
-        ReloadOutputFormats(userPreferences.PreferredOutputFormatExtension);
+        ReloadOutputFormats();
     }
 
     public ObservableCollection<LogEntry> LogEntries { get; }
 
     public ObservableCollection<MediaJobViewModel> ImportItems { get; }
 
-    public ObservableCollection<OutputFormatOption> AvailableOutputFormats { get; }
+    public IReadOnlyList<OutputFormatOption> AvailableOutputFormats
+    {
+        get => _availableOutputFormats;
+        private set => SetProperty(ref _availableOutputFormats, value);
+    }
 
     public IReadOnlyList<ProcessingModeOption> ProcessingModes { get; }
 
@@ -205,7 +211,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public OutputFormatOption SelectedOutputFormat
     {
-        get => _selectedOutputFormat ?? AvailableOutputFormats.First();
+        get
+        {
+            var formats = GetOutputFormatsForMode(SelectedProcessingMode.Mode);
+            if (_selectedOutputFormat is not null)
+            {
+                var matchingFormat = formats.FirstOrDefault(format => string.Equals(format.Extension, _selectedOutputFormat.Extension, StringComparison.OrdinalIgnoreCase));
+                if (matchingFormat is not null)
+                {
+                    return matchingFormat;
+                }
+            }
+
+            return ResolvePreferredOutputFormat(SelectedProcessingMode.Mode);
+        }
         set
         {
             if (value is null)
@@ -215,6 +234,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
             if (SetProperty(ref _selectedOutputFormat, value))
             {
+                RememberOutputFormatSelection(SelectedProcessingMode.Mode, value.Extension);
                 RecalculatePlannedOutputs();
                 PersistUserPreferences();
             }
@@ -503,16 +523,39 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 item.ResetStatus();
             }
 
+            var preflightFailedCount = await ValidateProcessingPreconditionsAsync(_executionCancellationSource.Token);
+            var processableCount = ImportItems.Count(item => item.IsPending);
+
             var successCount = 0;
-            var failedCount = 0;
+            var failedCount = preflightFailedCount;
             var cancelledCount = 0;
             string? lastSuccessfulOutputPath = null;
+
+            if (processableCount == 0)
+            {
+                StatusMessage = preflightFailedCount == 1
+                    ? "当前队列中没有可执行的文件，请检查媒体轨道后重试。"
+                    : "当前队列中的文件都不满足所选处理模式，未执行处理。";
+                AddUiLog(LogLevel.Warning, StatusMessage, clearExisting: false);
+                return;
+            }
             StatusMessage = $"开始处理 {ImportItems.Count} 个文件...";
             AddUiLog(LogLevel.Info, $"开始处理 {ImportItems.Count} 个文件。", clearExisting: false);
+
+            if (preflightFailedCount > 0)
+            {
+                StatusMessage = $"开始处理 {processableCount} 个文件，已提前跳过 {preflightFailedCount} 个不符合当前模式的文件。";
+                AddUiLog(LogLevel.Warning, $"开始处理 {processableCount} 个文件，已提前跳过 {preflightFailedCount} 个不符合当前模式的文件。", clearExisting: false);
+            }
 
             for (var index = 0; index < ImportItems.Count; index++)
             {
                 var item = ImportItems[index];
+
+                if (!item.IsPending)
+                {
+                    continue;
+                }
 
                 if (_executionCancellationSource.IsCancellationRequested)
                 {
@@ -574,6 +617,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 clearExisting: false);
 
             RevealLastSuccessfulOutputIfNeeded(lastSuccessfulOutputPath, successCount, wasCancelled);
+        }
+        catch (OperationCanceledException) when (_executionCancellationSource?.IsCancellationRequested == true)
+        {
+            var cancelledCount = MarkRemainingItemsCancelled(0);
+            StatusMessage = cancelledCount > 0
+                ? $"任务已取消，已取消 {cancelledCount} 个未完成文件。"
+                : "任务已取消。";
+            AddUiLog(LogLevel.Warning, "任务已取消，未完成的文件已停止处理。", clearExisting: false);
         }
         catch (Exception exception)
         {
@@ -828,7 +879,89 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         !IsBusy &&
         !DetailPanel.IsOpen &&
         ImportItems.Count > 0 &&
-        _selectedOutputFormat is not null;
+        AvailableOutputFormats.Count > 0;
+
+    private async Task<int> ValidateProcessingPreconditionsAsync(CancellationToken cancellationToken)
+    {
+        if (!TryGetRequiredTrackType(out var requiredTrackType))
+        {
+            return 0;
+        }
+
+        var failedCount = 0;
+
+        foreach (var item in ImportItems)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            MediaDetailsSnapshot? snapshot = null;
+            if (_mediaInfoService.TryGetCachedDetails(item.InputPath, out var cachedSnapshot))
+            {
+                snapshot = cachedSnapshot;
+            }
+            else
+            {
+                var result = await _mediaInfoService.GetMediaDetailsAsync(item.InputPath, cancellationToken);
+                if (!result.IsSuccess || result.Snapshot is null)
+                {
+                    var reason = result.ErrorMessage ?? "无法提前检测该文件的媒体轨道。";
+                    _logger.Log(LogLevel.Warning, $"处理前预检失败，将继续尝试处理：{item.InputPath}，原因：{reason}");
+                    AddUiLog(LogLevel.Warning, $"{item.InputFileName} 未能完成轨道预检，将继续尝试处理。原因：{reason}", clearExisting: false);
+                    continue;
+                }
+
+                snapshot = result.Snapshot;
+            }
+
+            if (HasRequiredTrack(snapshot, requiredTrackType))
+            {
+                continue;
+            }
+
+            var failureMessage = CreateMissingRequiredTrackMessage(requiredTrackType);
+            item.MarkFailed($"原因：{failureMessage}");
+            failedCount++;
+            AddUiLog(LogLevel.Warning, $"{item.InputFileName} {failureMessage}", clearExisting: false);
+        }
+
+        return failedCount;
+    }
+
+    private bool TryGetRequiredTrackType(out RequiredTrackType requiredTrackType)
+    {
+        switch (SelectedProcessingMode.Mode)
+        {
+            case ProcessingMode.VideoTrackExtract:
+                requiredTrackType = RequiredTrackType.Video;
+                return true;
+            case ProcessingMode.AudioTrackExtract:
+                requiredTrackType = RequiredTrackType.Audio;
+                return true;
+            default:
+                requiredTrackType = default;
+                return false;
+        }
+    }
+
+    private static bool HasRequiredTrack(MediaDetailsSnapshot snapshot, RequiredTrackType requiredTrackType) =>
+        requiredTrackType switch
+        {
+            RequiredTrackType.Video => snapshot.HasVideoStream,
+            RequiredTrackType.Audio => snapshot.HasAudioStream,
+            _ => false
+        };
+
+    private string CreateMissingRequiredTrackMessage(RequiredTrackType requiredTrackType)
+    {
+        var outputFormatName = SelectedOutputFormat.DisplayName;
+
+        return requiredTrackType switch
+        {
+            RequiredTrackType.Video => $"未检测到视频轨道，无法提取为 {outputFormatName}。",
+            RequiredTrackType.Audio => $"未检测到音频轨道，无法提取为 {outputFormatName}。",
+            _ => "当前文件不满足所选处理模式。"
+        };
+    }
 
     private bool IsCurrentDetailLoadVersion(int detailLoadVersion) =>
         Volatile.Read(ref _detailLoadVersion) == detailLoadVersion;
@@ -1088,6 +1221,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             PreferredProcessingMode = _selectedProcessingMode?.Mode,
             PreferredOutputFormatExtension = _selectedOutputFormat?.Extension,
+            PreferredVideoConvertOutputFormatExtension = GetRememberedOutputFormatExtension(ProcessingMode.VideoConvert),
+            PreferredVideoTrackExtractOutputFormatExtension = GetRememberedOutputFormatExtension(ProcessingMode.VideoTrackExtract),
+            PreferredAudioTrackExtractOutputFormatExtension = GetRememberedOutputFormatExtension(ProcessingMode.AudioTrackExtract),
             PreferredOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null,
             ThemePreference = SelectedThemeOption.Preference,
             RevealOutputFileAfterProcessing = RevealOutputFileAfterProcessing,
@@ -1124,37 +1260,26 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void ReloadOutputFormats(string? preferredOutputFormatExtension = null)
     {
-        AvailableOutputFormats.Clear();
+        var formats = GetOutputFormatsForMode(SelectedProcessingMode.Mode);
+        var desiredExtension = preferredOutputFormatExtension
+            ?? GetRememberedOutputFormatExtension(SelectedProcessingMode.Mode)
+            ?? _selectedOutputFormat?.Extension;
 
-        var formats = SelectedProcessingMode.Mode == ProcessingMode.AudioTrackExtract
-            ? _configuration.SupportedAudioOutputFormats
-            : _configuration.SupportedVideoOutputFormats;
+        AvailableOutputFormats = formats;
 
-        foreach (var format in formats)
-        {
-            AvailableOutputFormats.Add(format);
-        }
-
-        var desiredExtension = preferredOutputFormatExtension ?? _selectedOutputFormat?.Extension;
         var preferredFormat = desiredExtension is null
             ? null
-            : AvailableOutputFormats.FirstOrDefault(format => string.Equals(format.Extension, desiredExtension, StringComparison.OrdinalIgnoreCase));
+            : formats.FirstOrDefault(format => string.Equals(format.Extension, desiredExtension, StringComparison.OrdinalIgnoreCase));
+        var resolvedFormat = preferredFormat ?? formats.FirstOrDefault();
 
-        if (preferredFormat is not null)
+        if (resolvedFormat is not null)
         {
-            if (!ReferenceEquals(_selectedOutputFormat, preferredFormat))
-            {
-                _selectedOutputFormat = preferredFormat;
-                OnPropertyChanged(nameof(SelectedOutputFormat));
-            }
-
-            return;
+            RememberOutputFormatSelection(SelectedProcessingMode.Mode, resolvedFormat.Extension);
         }
 
-        if (_selectedOutputFormat is null ||
-            !AvailableOutputFormats.Any(format => string.Equals(format.Extension, _selectedOutputFormat.Extension, StringComparison.OrdinalIgnoreCase)))
+        if (!ReferenceEquals(_selectedOutputFormat, resolvedFormat))
         {
-            _selectedOutputFormat = AvailableOutputFormats.FirstOrDefault();
+            _selectedOutputFormat = resolvedFormat;
             OnPropertyChanged(nameof(SelectedOutputFormat));
         }
     }
@@ -1173,9 +1298,57 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         return ProcessingModes.First();
     }
 
+    private void InitializePreferredOutputFormatSelections(UserPreferences userPreferences)
+    {
+        RememberOutputFormatSelection(ProcessingMode.VideoConvert, userPreferences.PreferredVideoConvertOutputFormatExtension);
+        RememberOutputFormatSelection(ProcessingMode.VideoTrackExtract, userPreferences.PreferredVideoTrackExtractOutputFormatExtension);
+        RememberOutputFormatSelection(ProcessingMode.AudioTrackExtract, userPreferences.PreferredAudioTrackExtractOutputFormatExtension);
+
+        if (userPreferences.PreferredProcessingMode is ProcessingMode preferredMode &&
+            !string.IsNullOrWhiteSpace(userPreferences.PreferredOutputFormatExtension) &&
+            string.IsNullOrWhiteSpace(GetRememberedOutputFormatExtension(preferredMode)))
+        {
+            RememberOutputFormatSelection(preferredMode, userPreferences.PreferredOutputFormatExtension);
+        }
+    }
+
+    private IReadOnlyList<OutputFormatOption> GetOutputFormatsForMode(ProcessingMode processingMode) =>
+        processingMode == ProcessingMode.AudioTrackExtract
+            ? _configuration.SupportedAudioOutputFormats
+            : _configuration.SupportedVideoOutputFormats;
+
+    private OutputFormatOption ResolvePreferredOutputFormat(ProcessingMode processingMode)
+    {
+        var formats = GetOutputFormatsForMode(processingMode);
+        var rememberedExtension = GetRememberedOutputFormatExtension(processingMode);
+        var preferredFormat = rememberedExtension is null
+            ? null
+            : formats.FirstOrDefault(format => string.Equals(format.Extension, rememberedExtension, StringComparison.OrdinalIgnoreCase));
+
+        return preferredFormat ?? formats.First();
+    }
+
+    private string? GetRememberedOutputFormatExtension(ProcessingMode processingMode) =>
+        _preferredOutputFormatExtensionsByMode.TryGetValue(processingMode, out var extension)
+            ? extension
+            : null;
+
+    private void RememberOutputFormatSelection(ProcessingMode processingMode, string? extension)
+    {
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            _preferredOutputFormatExtensionsByMode.Remove(processingMode);
+            return;
+        }
+
+        _preferredOutputFormatExtensionsByMode[processingMode] = extension.StartsWith(".", StringComparison.Ordinal)
+            ? extension
+            : $".{extension}";
+    }
+
     private void RecalculatePlannedOutputs()
     {
-        if (_selectedOutputFormat is null)
+        if (AvailableOutputFormats.Count == 0)
         {
             return;
         }
@@ -1507,5 +1680,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                line.StartsWith("Press [q]", StringComparison.OrdinalIgnoreCase) ||
                line.StartsWith("configuration:", StringComparison.OrdinalIgnoreCase) ||
                line.StartsWith("libav", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private enum RequiredTrackType
+    {
+        Video,
+        Audio
     }
 }

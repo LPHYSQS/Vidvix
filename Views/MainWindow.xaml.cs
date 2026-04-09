@@ -343,6 +343,9 @@ public sealed partial class MainWindow : Window
             {
                 PreferredProcessingMode = existingPreferences.PreferredProcessingMode,
                 PreferredOutputFormatExtension = existingPreferences.PreferredOutputFormatExtension,
+                PreferredVideoConvertOutputFormatExtension = existingPreferences.PreferredVideoConvertOutputFormatExtension,
+                PreferredVideoTrackExtractOutputFormatExtension = existingPreferences.PreferredVideoTrackExtractOutputFormatExtension,
+                PreferredAudioTrackExtractOutputFormatExtension = existingPreferences.PreferredAudioTrackExtractOutputFormatExtension,
                 PreferredOutputDirectory = existingPreferences.PreferredOutputDirectory,
                 ThemePreference = existingPreferences.ThemePreference,
                 RevealOutputFileAfterProcessing = existingPreferences.RevealOutputFileAfterProcessing,

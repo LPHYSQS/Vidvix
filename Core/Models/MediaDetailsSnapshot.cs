@@ -11,6 +11,10 @@ public sealed class MediaDetailsSnapshot
 
     public required DateTime LastWriteTimeUtc { get; init; }
 
+    public required bool HasVideoStream { get; init; }
+
+    public required bool HasAudioStream { get; init; }
+
     public required IReadOnlyList<MediaDetailField> OverviewFields { get; init; }
 
     public required IReadOnlyList<MediaDetailField> VideoFields { get; init; }

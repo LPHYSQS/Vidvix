@@ -209,6 +209,8 @@ public sealed class MediaInfoService : IMediaInfoService
             InputPath = cacheContext.InputPath,
             FileName = cacheContext.FileName,
             LastWriteTimeUtc = cacheContext.LastWriteTimeUtc,
+            HasVideoStream = !videoMissing,
+            HasAudioStream = !audioMissing,
             OverviewFields =
             [
                 new() { Label = "\u6587\u4ef6\u540d", Value = cacheContext.FileName },

@@ -1,22 +1,38 @@
+# Build outputs
 bin/
 obj/
-.vs/
-.dotnet/
-.dotnet-cli/
-.dotnet-cli-home/
-.nuget-packages/
 artifacts/
+TestResults/
+
+# IDE and user-specific settings
+/.vs/
+/.idea/
+/.vscode/
+*.user
+*.suo
+
+# Local .NET SDK, NuGet, and Codex caches
+/.dotnet/
+/.dotnet-cli/
+/.dotnet-cli-home/
+/.nuget-packages/
+/.codex-dotnet/
+/.appdata/
+/.localappdata/
+
+# Temporary logs and diagnostics
+*.log
+*.tmp
+*.temp
+*.pdb
+
+# Windows app packaging outputs
+*.appxupload
+*.msix
+*.msixbundle
 
 # Bundled FFmpeg runtime payloads
 Tools/ffmpeg/
 Tools/**/ffmpeg.exe
 Tools/**/ffprobe.exe
 Tools/**/ffplay.exe
-
-*.user
-*.suo
-*.pdb
-TestResults/
-*.appxupload
-*.msix
-*.msixbundle

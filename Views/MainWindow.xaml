@@ -234,7 +234,7 @@
                                                     CornerRadius="15">
                                                     <FontIcon
                                                         FontSize="16"
-                                                        Glyph="{x:Bind StatusGlyph}"
+                                                        Glyph="{x:Bind StatusGlyph, Mode=OneWay}"
                                                         HorizontalAlignment="Center"
                                                         VerticalAlignment="Center" />
                                                 </Border>
@@ -257,7 +257,7 @@
                                                             Grid.Column="1"
                                                             VerticalAlignment="Center"
                                                             Opacity="0.72"
-                                                            Text="{x:Bind StatusText}" />
+                                                            Text="{x:Bind StatusText, Mode=OneWay}" />
                                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
                                                             <Button MinWidth="68" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.ShowMediaDetailsCommand}" CommandParameter="{x:Bind}" Content="详情" />
                                                             <Button MinWidth="68" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.RemoveImportItemCommand}" CommandParameter="{x:Bind}" Content="移除" />
@@ -268,11 +268,11 @@
                                                         Text="{x:Bind InputDirectory}"
                                                         TextWrapping="WrapWholeWords" />
                                                     <TextBlock
-                                                        Text="{x:Bind PlannedOutputPath}"
+                                                        Text="{x:Bind PlannedOutputPath, Mode=OneWay}"
                                                         TextWrapping="WrapWholeWords" />
                                                     <TextBlock
                                                         Opacity="0.72"
-                                                        Text="{x:Bind StatusDetail}"
+                                                        Text="{x:Bind StatusDetail, Mode=OneWay}"
                                                         TextWrapping="WrapWholeWords" />
                                                 </StackPanel>
                                             </Grid>
