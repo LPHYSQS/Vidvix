@@ -1,4 +1,4 @@
-namespace Vidvix.Core.Models;
+﻿namespace Vidvix.Core.Models;
 
 public sealed class WindowPlacementPreference
 {

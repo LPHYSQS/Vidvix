@@ -1,4 +1,4 @@
-using Vidvix.Core.Models;
+﻿using Vidvix.Core.Models;
 
 namespace Vidvix.Core.Interfaces;
 

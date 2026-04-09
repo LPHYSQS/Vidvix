@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -20,6 +20,7 @@ public sealed class UserPreferencesService : IUserPreferencesService
 
     private readonly string _preferencesFilePath;
     private readonly ILogger _logger;
+    private readonly object _syncRoot = new();
 
     public UserPreferencesService(ApplicationConfiguration configuration, ILogger logger)
     {
@@ -31,6 +32,37 @@ public sealed class UserPreferencesService : IUserPreferencesService
     }
 
     public UserPreferences Load()
+    {
+        lock (_syncRoot)
+        {
+            return LoadCore();
+        }
+    }
+
+    public void Save(UserPreferences preferences)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+
+        lock (_syncRoot)
+        {
+            SaveCore(preferences);
+        }
+    }
+
+    public void Update(Func<UserPreferences, UserPreferences> updatePreferences)
+    {
+        ArgumentNullException.ThrowIfNull(updatePreferences);
+
+        lock (_syncRoot)
+        {
+            var updatedPreferences = updatePreferences(LoadCore())
+                ?? throw new InvalidOperationException("更新后的用户设置不能为空。");
+
+            SaveCore(updatedPreferences);
+        }
+    }
+
+    private UserPreferences LoadCore()
     {
         try
         {
@@ -49,10 +81,8 @@ public sealed class UserPreferencesService : IUserPreferencesService
         }
     }
 
-    public void Save(UserPreferences preferences)
+    private void SaveCore(UserPreferences preferences)
     {
-        ArgumentNullException.ThrowIfNull(preferences);
-
         var tempFilePath = $"{_preferencesFilePath}.tmp";
 
         try

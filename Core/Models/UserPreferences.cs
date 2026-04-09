@@ -1,6 +1,6 @@
-namespace Vidvix.Core.Models;
+﻿namespace Vidvix.Core.Models;
 
-public sealed class UserPreferences
+public sealed record UserPreferences
 {
     public ProcessingMode? PreferredProcessingMode { get; init; }
 

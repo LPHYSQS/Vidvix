@@ -1,0 +1,32 @@
+﻿root = true
+
+[*.cs]
+charset = utf-8-bom
+end_of_line = lf
+insert_final_newline = true
+
+[*.xaml]
+charset = utf-8-bom
+end_of_line = lf
+insert_final_newline = true
+
+[*.xaml.cs]
+charset = utf-8-bom
+end_of_line = lf
+insert_final_newline = true
+
+[*.csproj]
+charset = utf-8-bom
+end_of_line = lf
+insert_final_newline = true
+
+[*.json]
+charset = utf-8-bom
+end_of_line = lf
+insert_final_newline = true
+
+[*.md]
+charset = utf-8-bom
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = false

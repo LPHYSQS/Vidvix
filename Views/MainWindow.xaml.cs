@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -338,17 +338,8 @@ public sealed partial class MainWindow : Window
                 return;
             }
 
-            var existingPreferences = _userPreferencesService.Load();
-            _userPreferencesService.Save(new UserPreferences
+            _userPreferencesService.Update(existingPreferences => existingPreferences with
             {
-                PreferredProcessingMode = existingPreferences.PreferredProcessingMode,
-                PreferredOutputFormatExtension = existingPreferences.PreferredOutputFormatExtension,
-                PreferredVideoConvertOutputFormatExtension = existingPreferences.PreferredVideoConvertOutputFormatExtension,
-                PreferredVideoTrackExtractOutputFormatExtension = existingPreferences.PreferredVideoTrackExtractOutputFormatExtension,
-                PreferredAudioTrackExtractOutputFormatExtension = existingPreferences.PreferredAudioTrackExtractOutputFormatExtension,
-                PreferredOutputDirectory = existingPreferences.PreferredOutputDirectory,
-                ThemePreference = existingPreferences.ThemePreference,
-                RevealOutputFileAfterProcessing = existingPreferences.RevealOutputFileAfterProcessing,
                 MainWindowPlacement = placement
             });
         }

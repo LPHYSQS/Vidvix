@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using Microsoft.UI.Xaml;
 using Vidvix.Core.Interfaces;

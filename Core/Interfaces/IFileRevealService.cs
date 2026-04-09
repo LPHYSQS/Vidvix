@@ -1,4 +1,4 @@
-namespace Vidvix.Core.Interfaces;
+﻿namespace Vidvix.Core.Interfaces;
 
 public interface IFileRevealService
 {
