@@ -15,6 +15,7 @@ namespace Vidvix.Utils;
 public sealed class AppCompositionRoot
 {
     private readonly MainViewModel _mainViewModel;
+    private readonly IUserPreferencesService _userPreferencesService;
     private readonly IWindowContext _windowContext;
     private readonly IWindowIconService _windowIconService;
 
@@ -35,7 +36,7 @@ public sealed class AppCompositionRoot
         var ffmpegService = new FFmpegService(Logger);
         var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
         var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
-        var userPreferencesService = new UserPreferencesService(Configuration, Logger);
+        _userPreferencesService = new UserPreferencesService(Configuration, Logger);
         var fileRevealService = new FileRevealService();
 
         _mainViewModel = new MainViewModel(
@@ -48,7 +49,7 @@ public sealed class AppCompositionRoot
             Logger,
             filePickerService,
             dispatcherService,
-            userPreferencesService,
+            _userPreferencesService,
             fileRevealService);
     }
 
@@ -58,7 +59,7 @@ public sealed class AppCompositionRoot
 
     public MainWindow CreateMainWindow()
     {
-        var window = new MainWindow(_mainViewModel)
+        var window = new MainWindow(_mainViewModel, _userPreferencesService, Logger)
         {
             Title = Configuration.ApplicationTitle
         };

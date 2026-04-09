@@ -897,10 +897,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             .SetInput(inputPath)
             .SetOutput(outputPath);
 
-        if (_configuration.OverwriteOutputFiles)
-        {
-            builder = builder.AddGlobalParameter("-y");
-        }
+        builder = builder.AddGlobalParameter(_configuration.OverwriteOutputFiles ? "-y" : "-n");
 
         return SelectedProcessingMode.Mode switch
         {
@@ -1085,13 +1082,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void PersistUserPreferences()
     {
+        var existingPreferences = _userPreferencesService.Load();
+
         _userPreferencesService.Save(new UserPreferences
         {
             PreferredProcessingMode = _selectedProcessingMode?.Mode,
             PreferredOutputFormatExtension = _selectedOutputFormat?.Extension,
             PreferredOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null,
             ThemePreference = SelectedThemeOption.Preference,
-            RevealOutputFileAfterProcessing = RevealOutputFileAfterProcessing
+            RevealOutputFileAfterProcessing = RevealOutputFileAfterProcessing,
+            MainWindowPlacement = existingPreferences.MainWindowPlacement
         });
     }
 
@@ -1235,27 +1235,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private static string CreateUniqueOutputPath(string outputPath, ISet<string> usedOutputPaths)
     {
-        if (usedOutputPaths.Add(outputPath))
-        {
-            return outputPath;
-        }
-
         var directory = Path.GetDirectoryName(outputPath)
             ?? throw new InvalidOperationException("输出路径缺少有效目录。");
         var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(outputPath);
         var extension = Path.GetExtension(outputPath);
+        var candidatePath = outputPath;
         var suffixIndex = 2;
 
-        while (true)
+        while (usedOutputPaths.Contains(candidatePath) || File.Exists(candidatePath) || Directory.Exists(candidatePath))
         {
-            var candidatePath = Path.Combine(directory, $"{fileNameWithoutExtension}_{suffixIndex}{extension}");
-            if (usedOutputPaths.Add(candidatePath))
-            {
-                return candidatePath;
-            }
-
+            candidatePath = Path.Combine(directory, $"{fileNameWithoutExtension}_{suffixIndex}{extension}");
             suffixIndex++;
         }
+
+        usedOutputPaths.Add(candidatePath);
+        return candidatePath;
     }
 
     private string CreateImportStatusMessage(int addedCount, int duplicateCount, MediaImportDiscoveryResult discovery)
@@ -1386,11 +1380,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 LogEntries.Clear();
             }
 
-            LogEntries.Add(new LogEntry(DateTimeOffset.Now, level, message));
+            LogEntries.Insert(0, new LogEntry(DateTimeOffset.Now, level, message));
 
             if (LogEntries.Count > 200)
             {
-                LogEntries.RemoveAt(0);
+                LogEntries.RemoveAt(LogEntries.Count - 1);
             }
         }
 

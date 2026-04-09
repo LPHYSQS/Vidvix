@@ -374,7 +374,7 @@
                                                 CornerRadius="14">
                                                 <Grid ColumnSpacing="12">
                                                     <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="72" />
+                                                        <ColumnDefinition Width="112" />
                                                         <ColumnDefinition Width="*" />
                                                     </Grid.ColumnDefinitions>
 

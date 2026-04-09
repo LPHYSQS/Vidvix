@@ -36,7 +36,7 @@ public sealed class ApplicationConfiguration
 
     public string FFmpegArchiveFileName { get; init; } = "ffmpeg-master-latest-win64-lgpl-shared.zip";
 
-    public bool OverwriteOutputFiles { get; init; } = true;
+    public bool OverwriteOutputFiles { get; init; } = false;
 
     public bool MirrorLogsToConsole { get; init; } = true;
 

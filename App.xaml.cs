@@ -26,6 +26,11 @@ public partial class App : Application
         _window = _compositionRoot.CreateMainWindow();
         _window.Activate();
 
+        if (_window is Views.MainWindow mainWindow)
+        {
+            _ = mainWindow.EnsureInitialWindowPlacementAsync();
+        }
+
         try
         {
             await _compositionRoot.InitializeAsync();

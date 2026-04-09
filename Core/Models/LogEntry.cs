@@ -17,7 +17,7 @@ public sealed class LogEntry
 
     public string Message { get; }
 
-    public string DisplayTimestamp => Timestamp.ToLocalTime().ToString("HH:mm:ss");
+    public string DisplayTimestamp => Timestamp.ToLocalTime().ToString("HH:mm:ss.fff");
 
     public string DisplayLevel => Level switch
     {

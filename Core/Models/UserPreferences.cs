@@ -11,4 +11,6 @@ public sealed class UserPreferences
     public ThemePreference ThemePreference { get; init; } = ThemePreference.UseSystem;
 
     public bool RevealOutputFileAfterProcessing { get; init; } = true;
+
+    public WindowPlacementPreference? MainWindowPlacement { get; init; }
 }
