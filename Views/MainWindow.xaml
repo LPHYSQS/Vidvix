@@ -315,6 +315,34 @@
                                         ItemsSource="{x:Bind ViewModel.AvailableOutputFormats, Mode=OneWay}"
                                         SelectedItem="{x:Bind ViewModel.SelectedOutputFormat, Mode=TwoWay}" />
                                 </StackPanel>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="输出目录" />
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            PlaceholderText="留空时使用原文件夹输出"
+                                            Text="{x:Bind ViewModel.OutputDirectory, Mode=OneWay}" />
+                                        <Button
+                                            Grid.Column="1"
+                                            Command="{x:Bind ViewModel.SelectOutputDirectoryCommand, Mode=OneWay}"
+                                            Content="选择文件夹" />
+                                        <Button
+                                            Grid.Column="2"
+                                            Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
+                                            Content="清空" />
+                                    </Grid>
+                                    <TextBlock
+                                        Style="{StaticResource CaptionTextStyle}"
+                                        Text="留空时使用原文件夹输出；设置后，处理结果会统一输出到所选文件夹。"
+                                        TextWrapping="WrapWholeWords" />
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 

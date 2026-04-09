@@ -6,6 +6,8 @@ public sealed class UserPreferences
 
     public string? PreferredOutputFormatExtension { get; init; }
 
+    public string? PreferredOutputDirectory { get; init; }
+
     public ThemePreference ThemePreference { get; init; } = ThemePreference.UseSystem;
 
     public bool RevealOutputFileAfterProcessing { get; init; } = true;

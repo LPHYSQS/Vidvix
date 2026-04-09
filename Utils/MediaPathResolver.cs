@@ -9,6 +9,13 @@ public static class MediaPathResolver
         CreateSiblingOutputPath(inputFilePath, outputExtension, string.Empty);
 
     public static string CreateSiblingOutputPath(string inputFilePath, string outputExtension, string suffix)
+        => CreateOutputPath(inputFilePath, outputExtension, outputDirectory: null, suffix);
+
+    public static string CreateOutputPath(
+        string inputFilePath,
+        string outputExtension,
+        string? outputDirectory,
+        string suffix)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inputFilePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputExtension);
@@ -18,7 +25,9 @@ public static class MediaPathResolver
             : $".{outputExtension}";
         var normalizedSuffix = suffix ?? string.Empty;
 
-        var directory = Path.GetDirectoryName(inputFilePath);
+        var directory = string.IsNullOrWhiteSpace(outputDirectory)
+            ? Path.GetDirectoryName(inputFilePath)
+            : Path.GetFullPath(outputDirectory);
 
         if (string.IsNullOrWhiteSpace(directory))
         {
@@ -40,12 +49,21 @@ public static class MediaPathResolver
         return outputPath;
     }
 
-    public static string CreateVideoConversionOutputPath(string inputFilePath, string outputExtension) =>
-        CreateSiblingOutputPath(inputFilePath, outputExtension, string.Empty);
+    public static string CreateVideoConversionOutputPath(
+        string inputFilePath,
+        string outputExtension,
+        string? outputDirectory = null) =>
+        CreateOutputPath(inputFilePath, outputExtension, outputDirectory, string.Empty);
 
-    public static string CreateVideoTrackOutputPath(string inputFilePath, string outputExtension) =>
-        CreateSiblingOutputPath(inputFilePath, outputExtension, "_video");
+    public static string CreateVideoTrackOutputPath(
+        string inputFilePath,
+        string outputExtension,
+        string? outputDirectory = null) =>
+        CreateOutputPath(inputFilePath, outputExtension, outputDirectory, "_video");
 
-    public static string CreateAudioTrackOutputPath(string inputFilePath, string outputExtension) =>
-        CreateSiblingOutputPath(inputFilePath, outputExtension, "_audio");
+    public static string CreateAudioTrackOutputPath(
+        string inputFilePath,
+        string outputExtension,
+        string? outputDirectory = null) =>
+        CreateOutputPath(inputFilePath, outputExtension, outputDirectory, "_audio");
 }

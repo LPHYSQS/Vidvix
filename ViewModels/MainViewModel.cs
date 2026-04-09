@@ -44,8 +44,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly IFileRevealService _fileRevealService;
     private readonly AsyncRelayCommand _selectFilesCommand;
     private readonly AsyncRelayCommand _selectFolderCommand;
+    private readonly AsyncRelayCommand _selectOutputDirectoryCommand;
     private readonly AsyncRelayCommand _executeProcessingCommand;
     private readonly RelayCommand _clearQueueCommand;
+    private readonly RelayCommand _clearOutputDirectoryCommand;
     private readonly RelayCommand _removeImportItemCommand;
     private readonly RelayCommand _cancelExecutionCommand;
     private readonly RelayCommand _toggleSettingsPaneCommand;
@@ -62,6 +64,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private MediaJobViewModel? _pendingDetailItem;
     private ProcessingModeOption? _selectedProcessingMode;
     private OutputFormatOption? _selectedOutputFormat;
+    private string _outputDirectory = string.Empty;
     private ThemePreferenceOption? _selectedThemeOption;
     private bool _revealOutputFileAfterProcessing;
     private bool _isSettingsPaneOpen;
@@ -103,14 +106,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         var userPreferences = _userPreferencesService.Load();
         _selectedThemeOption = ThemeOptions.FirstOrDefault(option => option.Preference == userPreferences.ThemePreference) ?? ThemeOptions[0];
+        _outputDirectory = NormalizeOutputDirectory(userPreferences.PreferredOutputDirectory);
         _revealOutputFileAfterProcessing = userPreferences.RevealOutputFileAfterProcessing;
 
         ImportItems.CollectionChanged += OnImportItemsChanged;
 
         _selectFilesCommand = new AsyncRelayCommand(SelectFilesAsync, () => CanModifyInputs);
         _selectFolderCommand = new AsyncRelayCommand(SelectFolderAsync, () => CanModifyInputs);
+        _selectOutputDirectoryCommand = new AsyncRelayCommand(SelectOutputDirectoryAsync, () => CanModifyInputs);
         _executeProcessingCommand = new AsyncRelayCommand(ExecuteProcessingAsync, CanExecuteProcessing);
         _clearQueueCommand = new RelayCommand(ClearQueue, CanClearQueue);
+        _clearOutputDirectoryCommand = new RelayCommand(ClearOutputDirectory, CanClearOutputDirectory);
         _removeImportItemCommand = new RelayCommand(RemoveImportItem, CanRemoveImportItem);
         _cancelExecutionCommand = new RelayCommand(CancelExecution, () => IsBusy);
         _toggleSettingsPaneCommand = new RelayCommand(ToggleSettingsPane);
@@ -140,7 +146,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public ICommand SelectFolderCommand => _selectFolderCommand;
 
+    public ICommand SelectOutputDirectoryCommand => _selectOutputDirectoryCommand;
+
     public ICommand ClearQueueCommand => _clearQueueCommand;
+
+    public ICommand ClearOutputDirectoryCommand => _clearOutputDirectoryCommand;
 
     public ICommand RemoveImportItemCommand => _removeImportItemCommand;
 
@@ -210,6 +220,25 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             }
         }
     }
+
+    public string OutputDirectory
+    {
+        get => _outputDirectory;
+        set
+        {
+            var normalizedDirectory = NormalizeOutputDirectory(value);
+
+            if (SetProperty(ref _outputDirectory, normalizedDirectory))
+            {
+                OnPropertyChanged(nameof(HasCustomOutputDirectory));
+                RecalculatePlannedOutputs();
+                PersistUserPreferences();
+                _clearOutputDirectoryCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
+
+    public bool HasCustomOutputDirectory => !string.IsNullOrWhiteSpace(OutputDirectory);
 
     public ThemePreferenceOption SelectedThemeOption
     {
@@ -416,6 +445,32 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    private async Task SelectOutputDirectoryAsync()
+    {
+        try
+        {
+            var selectedFolder = await _filePickerService.PickFolderAsync("选择输出目录");
+
+            if (string.IsNullOrWhiteSpace(selectedFolder))
+            {
+                StatusMessage = "已取消选择输出目录。";
+                return;
+            }
+
+            OutputDirectory = selectedFolder;
+            StatusMessage = $"已将输出目录设置为：{OutputDirectory}";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "已取消选择输出目录。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = "选择输出目录失败。";
+            _logger.Log(LogLevel.Error, "选择输出目录时发生异常。", exception);
+        }
+    }
+
     private async Task ExecuteProcessingAsync()
     {
         if (ImportItems.Count == 0)
@@ -439,6 +494,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             IsSettingsPaneOpen = false;
             IsBusy = true;
+            EnsureOutputDirectoryExists();
             RecalculatePlannedOutputs();
             ClearUiLogs();
 
@@ -720,6 +776,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         StatusMessage = "已清空待处理列表。";
     }
 
+    private void ClearOutputDirectory()
+    {
+        if (!HasCustomOutputDirectory)
+        {
+            return;
+        }
+
+        OutputDirectory = string.Empty;
+        StatusMessage = "已清空输出目录，留空时将使用原文件夹输出。";
+    }
+
     private void RemoveImportItem(object? parameter)
     {
         if (parameter is not MediaJobViewModel item || !ImportItems.Remove(item))
@@ -743,6 +810,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     private bool CanClearQueue() => !IsBusy && ImportItems.Count > 0;
+
+    private bool CanClearOutputDirectory() => CanModifyInputs && HasCustomOutputDirectory;
 
     private bool CanRemoveImportItem(object? parameter) =>
         !IsBusy &&
@@ -1020,6 +1089,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             PreferredProcessingMode = _selectedProcessingMode?.Mode,
             PreferredOutputFormatExtension = _selectedOutputFormat?.Extension,
+            PreferredOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null,
             ThemePreference = SelectedThemeOption.Preference,
             RevealOutputFileAfterProcessing = RevealOutputFileAfterProcessing
         });
@@ -1110,19 +1180,83 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
+        var usedOutputPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var item in ImportItems)
         {
-            item.UpdatePlannedOutputPath(CreateOutputPath(item.InputPath));
+            var plannedOutputPath = CreateUniqueOutputPath(CreateOutputPath(item.InputPath), usedOutputPaths);
+            item.UpdatePlannedOutputPath(plannedOutputPath);
         }
     }
 
     private string CreateOutputPath(string inputPath) => SelectedProcessingMode.Mode switch
     {
-        ProcessingMode.VideoConvert => MediaPathResolver.CreateVideoConversionOutputPath(inputPath, SelectedOutputFormat.Extension),
-        ProcessingMode.VideoTrackExtract => MediaPathResolver.CreateVideoTrackOutputPath(inputPath, SelectedOutputFormat.Extension),
-        ProcessingMode.AudioTrackExtract => MediaPathResolver.CreateAudioTrackOutputPath(inputPath, SelectedOutputFormat.Extension),
+        ProcessingMode.VideoConvert => MediaPathResolver.CreateVideoConversionOutputPath(inputPath, SelectedOutputFormat.Extension, GetEffectiveOutputDirectory()),
+        ProcessingMode.VideoTrackExtract => MediaPathResolver.CreateVideoTrackOutputPath(inputPath, SelectedOutputFormat.Extension, GetEffectiveOutputDirectory()),
+        ProcessingMode.AudioTrackExtract => MediaPathResolver.CreateAudioTrackOutputPath(inputPath, SelectedOutputFormat.Extension, GetEffectiveOutputDirectory()),
         _ => throw new InvalidOperationException("不支持的处理模式。")
     };
+
+    private string? GetEffectiveOutputDirectory() =>
+        HasCustomOutputDirectory
+            ? OutputDirectory
+            : null;
+
+    private string NormalizeOutputDirectory(string? outputDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return Path.GetFullPath(outputDirectory.Trim());
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException or
+            NotSupportedException or
+            PathTooLongException)
+        {
+            _logger.Log(LogLevel.Warning, "检测到无效的输出目录配置，已回退为原文件夹输出。", exception);
+            return string.Empty;
+        }
+    }
+
+    private void EnsureOutputDirectoryExists()
+    {
+        if (!HasCustomOutputDirectory)
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(OutputDirectory);
+    }
+
+    private static string CreateUniqueOutputPath(string outputPath, ISet<string> usedOutputPaths)
+    {
+        if (usedOutputPaths.Add(outputPath))
+        {
+            return outputPath;
+        }
+
+        var directory = Path.GetDirectoryName(outputPath)
+            ?? throw new InvalidOperationException("输出路径缺少有效目录。");
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(outputPath);
+        var extension = Path.GetExtension(outputPath);
+        var suffixIndex = 2;
+
+        while (true)
+        {
+            var candidatePath = Path.Combine(directory, $"{fileNameWithoutExtension}_{suffixIndex}{extension}");
+            if (usedOutputPaths.Add(candidatePath))
+            {
+                return candidatePath;
+            }
+
+            suffixIndex++;
+        }
+    }
 
     private string CreateImportStatusMessage(int addedCount, int duplicateCount, MediaImportDiscoveryResult discovery)
     {
@@ -1218,7 +1352,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         _selectFilesCommand.NotifyCanExecuteChanged();
         _selectFolderCommand.NotifyCanExecuteChanged();
+        _selectOutputDirectoryCommand.NotifyCanExecuteChanged();
         _clearQueueCommand.NotifyCanExecuteChanged();
+        _clearOutputDirectoryCommand.NotifyCanExecuteChanged();
         _removeImportItemCommand.NotifyCanExecuteChanged();
         _showMediaDetailsCommand.NotifyCanExecuteChanged();
         _executeProcessingCommand.NotifyCanExecuteChanged();
