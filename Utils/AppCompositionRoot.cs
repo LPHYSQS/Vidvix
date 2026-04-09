@@ -6,6 +6,7 @@ using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Services;
 using Vidvix.Services.FFmpeg;
+using Vidvix.Services.MediaInfo;
 using Vidvix.ViewModels;
 using Vidvix.Views;
 
@@ -32,6 +33,7 @@ public sealed class AppCompositionRoot
         var packageSource = new FFmpegPackageSource(Configuration, Logger);
         var runtimeService = new FFmpegRuntimeService(Configuration, packageSource, Logger);
         var ffmpegService = new FFmpegService(Logger);
+        var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
         var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
         var userPreferencesService = new UserPreferencesService(Configuration, Logger);
         var fileRevealService = new FileRevealService();
@@ -40,6 +42,7 @@ public sealed class AppCompositionRoot
             Configuration,
             runtimeService,
             ffmpegService,
+            mediaInfoService,
             commandBuilder,
             mediaImportDiscoveryService,
             Logger,

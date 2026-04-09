@@ -4,7 +4,12 @@ obj/
 .dotnet/
 .dotnet-cli/
 .dotnet-cli-home/
+.nuget-packages/
 artifacts/
+Tools/ffmpeg/
+Tools/MediaEngine/Current/bin/ffmpeg.exe
+Tools/MediaEngine/Current/bin/ffprobe.exe
+Tools/MediaEngine/Current/bin/ffplay.exe
 *.user
 *.suo
 *.pdb

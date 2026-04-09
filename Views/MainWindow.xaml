@@ -120,6 +120,7 @@
             DisplayMode="Overlay"
             IsPaneOpen="{x:Bind ViewModel.IsSettingsPaneOpen, Mode=TwoWay}"
             OpenPaneLength="372"
+            PaneClosed="OnSettingsPaneClosed"
             PanePlacement="Right"
             PaneBackground="Transparent">
             <SplitView.Pane>
@@ -257,13 +258,10 @@
                                                             VerticalAlignment="Center"
                                                             Opacity="0.72"
                                                             Text="{x:Bind StatusText}" />
-                                                        <Button
-                                                            Grid.Column="2"
-                                                            MinWidth="64"
-                                                            Padding="10,4"
-                                                            Command="{Binding ElementName=RootWindow, Path=ViewModel.RemoveImportItemCommand}"
-                                                            CommandParameter="{x:Bind}"
-                                                            Content="移除" />
+                                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                                                            <Button MinWidth="68" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.ShowMediaDetailsCommand}" CommandParameter="{x:Bind}" Content="详情" />
+                                                            <Button MinWidth="68" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.RemoveImportItemCommand}" CommandParameter="{x:Bind}" Content="移除" />
+                                                        </StackPanel>
                                                     </Grid>
                                                     <TextBlock
                                                         Opacity="0.68"
@@ -285,9 +283,8 @@
                         </Grid>
                     </Border>
 
-                    <Grid
-                        Grid.Column="1"
-                        RowSpacing="12">
+                    <Grid Grid.Column="1">
+                        <Grid x:Name="RightPanel" RowSpacing="12">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
@@ -365,6 +362,76 @@
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
                                 </ListView>
+                            </Grid>
+                        </Border>
+                        </Grid>
+                        <Border x:Name="DetailOverlayPanel" Background="{ThemeResource DetailOverlayBackgroundBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="22" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsHitTestVisible="False" Opacity="0" Visibility="Collapsed">
+                            <Border.RenderTransform>
+                                <CompositeTransform x:Name="DetailOverlayTransform" TranslateX="300" />
+                            </Border.RenderTransform>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Grid Padding="18,18,18,16" ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" MinWidth="92" Padding="12,8" Command="{Binding ElementName=RootWindow, Path=ViewModel.CloseMediaDetailsCommand}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <SymbolIcon Symbol="Back" />
+                                            <TextBlock VerticalAlignment="Center" Text="返回" />
+                                        </StackPanel>
+                                    </Button>
+                                    <StackPanel Grid.Column="1" Spacing="4">
+                                        <TextBlock FontSize="24" FontWeight="SemiBold" Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.HeaderTitle}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Opacity="0.72" Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.HeaderSubtitle}" TextWrapping="WrapWholeWords" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                                <ScrollViewer Grid.Row="1" Padding="18,0,18,18" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Enabled">
+                                    <StackPanel Spacing="16">
+                                        <Border Padding="22,28" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.LoadingVisibility}">
+                                            <StackPanel HorizontalAlignment="Center" Spacing="12">
+                                                <ProgressRing Width="34" Height="34" IsActive="True" HorizontalAlignment="Center" />
+                                                <TextBlock HorizontalAlignment="Center" Text="正在解析媒体信息..." />
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.ErrorVisibility}">
+                                            <StackPanel Spacing="10">
+                                                <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="无法解析" />
+                                                <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.ErrorMessage}" TextWrapping="WrapWholeWords" />
+                                            </StackPanel>
+                                        </Border>
+                                        <StackPanel Spacing="16" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.ContentVisibility}">
+                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18">
+                                                <StackPanel Spacing="12">
+                                                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="概览" />
+                                                    <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.OverviewSummaryText}" TextWrapping="WrapWholeWords" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18">
+                                                <StackPanel Spacing="12">
+                                                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="视频信息" />
+                                                    <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.VideoSummaryText}" TextWrapping="WrapWholeWords" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18">
+                                                <StackPanel Spacing="12">
+                                                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="音频信息" />
+                                                    <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioSummaryText}" TextWrapping="WrapWholeWords" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18">
+                                                <StackPanel Spacing="12">
+                                                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="高级信息" />
+                                                    <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AdvancedSummaryText}" TextWrapping="WrapWholeWords" />
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ScrollViewer>
                             </Grid>
                         </Border>
                     </Grid>

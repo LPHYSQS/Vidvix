@@ -45,13 +45,21 @@ public sealed class FFmpegRuntimeService : IFFmpegRuntimeService
                 return cachedResolution;
             }
 
-            var applicationRootPath = GetApplicationRuntimeRootPath();
-            var bundledRuntimeDirectoryPath = Path.Combine(applicationRootPath, _configuration.RuntimeCurrentVersionDirectoryName);
-            var bundledExecutablePath = FindExecutablePath(bundledRuntimeDirectoryPath);
+            var bundledRuntimeRootPath = GetBundledRuntimeRootPath();
+            var bundledExecutablePath = FindExecutablePath(bundledRuntimeRootPath);
 
             if (!string.IsNullOrWhiteSpace(bundledExecutablePath))
             {
-                return CacheResolution(bundledExecutablePath, applicationRootPath, wasDownloaded: false);
+                return CacheResolution(bundledExecutablePath, bundledRuntimeRootPath, wasDownloaded: false);
+            }
+
+            var applicationRootPath = GetApplicationRuntimeRootPath();
+            var legacyRuntimeDirectoryPath = Path.Combine(applicationRootPath, _configuration.RuntimeCurrentVersionDirectoryName);
+            var legacyExecutablePath = FindExecutablePath(legacyRuntimeDirectoryPath);
+
+            if (!string.IsNullOrWhiteSpace(legacyExecutablePath))
+            {
+                return CacheResolution(legacyExecutablePath, applicationRootPath, wasDownloaded: false);
             }
 
             var storageRootPath = ResolveWritableStorageRootPath();
@@ -212,6 +220,12 @@ public sealed class FFmpegRuntimeService : IFFmpegRuntimeService
         return string.Equals(actualSha256, expectedSha256, StringComparison.OrdinalIgnoreCase);
     }
 
+    private string GetBundledRuntimeRootPath() =>
+        Path.Combine(
+            AppContext.BaseDirectory,
+            _configuration.RuntimeDirectoryName,
+            _configuration.BundledRuntimeDirectoryName);
+
     private string GetApplicationRuntimeRootPath() =>
         Path.Combine(
             AppContext.BaseDirectory,
@@ -331,3 +345,4 @@ public sealed class FFmpegRuntimeService : IFFmpegRuntimeService
         }
     }
 }
+

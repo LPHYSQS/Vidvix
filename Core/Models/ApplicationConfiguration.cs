@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -12,11 +12,15 @@ public sealed class ApplicationConfiguration
 
     public string FFmpegExecutableFileName { get; init; } = "ffmpeg.exe";
 
+    public string FFprobeExecutableFileName { get; init; } = "ffprobe.exe";
+
     public string LocalDataDirectoryName { get; init; } = "Vidvix";
 
     public string UserPreferencesFileName { get; init; } = "user-preferences.json";
 
     public string RuntimeDirectoryName { get; init; } = "Tools";
+
+    public string BundledRuntimeDirectoryName { get; init; } = "ffmpeg";
 
     public string RuntimeVendorDirectoryName { get; init; } = "MediaEngine";
 
@@ -85,3 +89,4 @@ public sealed class ApplicationConfiguration
             new OutputFormatOption("FLAC", ".flac", "无损压缩音频，适合存档。")
         };
 }
+

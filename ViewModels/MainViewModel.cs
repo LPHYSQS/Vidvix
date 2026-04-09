@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -33,6 +34,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly ApplicationConfiguration _configuration;
     private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
     private readonly IFFmpegService _ffmpegService;
+    private readonly IMediaInfoService _mediaInfoService;
     private readonly IFFmpegCommandBuilder _ffmpegCommandBuilder;
     private readonly IMediaImportDiscoveryService _mediaImportDiscoveryService;
     private readonly ILogger _logger;
@@ -48,11 +50,16 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly RelayCommand _cancelExecutionCommand;
     private readonly RelayCommand _toggleSettingsPaneCommand;
     private readonly RelayCommand _closeSettingsPaneCommand;
+    private readonly RelayCommand _showMediaDetailsCommand;
+    private readonly RelayCommand _closeMediaDetailsCommand;
 
     private string? _runtimeExecutablePath;
     private string _statusMessage;
     private bool _isBusy;
     private CancellationTokenSource? _executionCancellationSource;
+    private CancellationTokenSource? _detailLoadCancellationSource;
+    private int _detailLoadVersion;
+    private MediaJobViewModel? _pendingDetailItem;
     private ProcessingModeOption? _selectedProcessingMode;
     private OutputFormatOption? _selectedOutputFormat;
     private ThemePreferenceOption? _selectedThemeOption;
@@ -64,6 +71,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ApplicationConfiguration configuration,
         IFFmpegRuntimeService ffmpegRuntimeService,
         IFFmpegService ffmpegService,
+        IMediaInfoService mediaInfoService,
         IFFmpegCommandBuilder ffmpegCommandBuilder,
         IMediaImportDiscoveryService mediaImportDiscoveryService,
         ILogger logger,
@@ -75,6 +83,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _configuration = configuration;
         _ffmpegRuntimeService = ffmpegRuntimeService;
         _ffmpegService = ffmpegService;
+        _mediaInfoService = mediaInfoService;
         _ffmpegCommandBuilder = ffmpegCommandBuilder;
         _mediaImportDiscoveryService = mediaImportDiscoveryService;
         _logger = logger;
@@ -89,6 +98,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         LogEntries = new ObservableCollection<LogEntry>();
         ImportItems = new ObservableCollection<MediaJobViewModel>();
         AvailableOutputFormats = new ObservableCollection<OutputFormatOption>();
+        DetailPanel = new MediaDetailPanelViewModel();
         ProcessingModes = _configuration.SupportedProcessingModes;
 
         var userPreferences = _userPreferencesService.Load();
@@ -105,6 +115,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _cancelExecutionCommand = new RelayCommand(CancelExecution, () => IsBusy);
         _toggleSettingsPaneCommand = new RelayCommand(ToggleSettingsPane);
         _closeSettingsPaneCommand = new RelayCommand(CloseSettingsPane, () => IsSettingsPaneOpen);
+        _showMediaDetailsCommand = new RelayCommand(OpenMediaDetails, CanOpenMediaDetails);
+        _closeMediaDetailsCommand = new RelayCommand(CloseMediaDetails, CanCloseMediaDetails);
+
+        DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
 
         _selectedProcessingMode = ResolveProcessingMode(userPreferences.PreferredProcessingMode);
         ReloadOutputFormats(userPreferences.PreferredOutputFormatExtension);
@@ -119,6 +133,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public IReadOnlyList<ProcessingModeOption> ProcessingModes { get; }
 
     public IReadOnlyList<ThemePreferenceOption> ThemeOptions { get; }
+
+    public MediaDetailPanelViewModel DetailPanel { get; }
 
     public ICommand SelectFilesCommand => _selectFilesCommand;
 
@@ -135,6 +151,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ICommand ToggleSettingsPaneCommand => _toggleSettingsPaneCommand;
 
     public ICommand CloseSettingsPaneCommand => _closeSettingsPaneCommand;
+
+    public ICommand ShowMediaDetailsCommand => _showMediaDetailsCommand;
+
+    public ICommand CloseMediaDetailsCommand => _closeMediaDetailsCommand;
 
     public bool IsSettingsPaneOpen
     {
@@ -260,10 +280,23 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
         _isDisposed = true;
         ImportItems.CollectionChanged -= OnImportItemsChanged;
+        DetailPanel.PropertyChanged -= OnDetailPanelPropertyChanged;
+
+        CancelDetailLoad();
+        _detailLoadCancellationSource?.Dispose();
+        _detailLoadCancellationSource = null;
 
         _executionCancellationSource?.Cancel();
         _executionCancellationSource?.Dispose();
         _executionCancellationSource = null;
+    }
+
+    private void OnDetailPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MediaDetailPanelViewModel.IsOpen))
+        {
+            NotifyCommandStates();
+        }
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -494,11 +527,180 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void ToggleSettingsPane() =>
-        IsSettingsPaneOpen = !IsSettingsPaneOpen;
+    private void ToggleSettingsPane()
+    {
+        var shouldOpen = !IsSettingsPaneOpen;
+        if (shouldOpen)
+        {
+            _pendingDetailItem = null;
+            CloseMediaDetails();
+        }
 
-    private void CloseSettingsPane() =>
+        IsSettingsPaneOpen = shouldOpen;
+    }
+
+    private void CloseSettingsPane()
+    {
+        _pendingDetailItem = null;
         IsSettingsPaneOpen = false;
+    }
+
+    private void OpenMediaDetails(object? parameter)
+    {
+        if (parameter is not MediaJobViewModel item || !ImportItems.Contains(item))
+        {
+            return;
+        }
+
+        if (IsSettingsPaneOpen)
+        {
+            _pendingDetailItem = item;
+            IsSettingsPaneOpen = false;
+            return;
+        }
+
+        _pendingDetailItem = null;
+        _ = OpenMediaDetailsAsync(item);
+    }
+
+    private async Task OpenMediaDetailsAsync(MediaJobViewModel item)
+    {
+        var inputPath = item.InputPath;
+        var title = item.InputFileName;
+
+        CancelDetailLoad();
+        var detailLoadVersion = Interlocked.Increment(ref _detailLoadVersion);
+        IsSettingsPaneOpen = false;
+
+        if (_mediaInfoService.TryGetCachedDetails(inputPath, out var cachedSnapshot))
+        {
+            if (!IsCurrentDetailLoadVersion(detailLoadVersion))
+            {
+                return;
+            }
+
+            DetailPanel.ShowDetails(cachedSnapshot);
+            StatusMessage = $"已从缓存载入 {item.InputFileName} 的详情。";
+            NotifyCommandStates();
+            return;
+        }
+
+        if (!IsCurrentDetailLoadVersion(detailLoadVersion))
+        {
+            return;
+        }
+
+        DetailPanel.ShowLoading(title, inputPath);
+        StatusMessage = $"正在解析 {item.InputFileName} 的视频详情...";
+        NotifyCommandStates();
+
+        var detailLoadCancellationSource = new CancellationTokenSource();
+        _detailLoadCancellationSource = detailLoadCancellationSource;
+
+        try
+        {
+            var result = await _mediaInfoService.GetMediaDetailsAsync(inputPath, detailLoadCancellationSource.Token).ConfigureAwait(false);
+            if (!IsCurrentDetailLoadVersion(detailLoadVersion))
+            {
+                return;
+            }
+
+            _dispatcherService.TryEnqueue(() =>
+            {
+                if (!IsCurrentDetailLoadVersion(detailLoadVersion))
+                {
+                    return;
+                }
+
+                if (result.IsSuccess && result.Snapshot is not null)
+                {
+                    DetailPanel.ShowDetails(result.Snapshot);
+                    StatusMessage = $"视频详情已加载：{item.InputFileName}";
+                    return;
+                }
+
+                var errorMessage = result.ErrorMessage ?? "无法解析该视频文件。";
+                DetailPanel.ShowError(title, inputPath, errorMessage);
+                StatusMessage = errorMessage;
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            _logger.Log(LogLevel.Error, "读取视频详情时发生异常。", exception);
+            if (!IsCurrentDetailLoadVersion(detailLoadVersion))
+            {
+                return;
+            }
+
+            var errorMessage = ExtractFriendlyExceptionMessage(exception);
+            _dispatcherService.TryEnqueue(() =>
+            {
+                if (!IsCurrentDetailLoadVersion(detailLoadVersion))
+                {
+                    return;
+                }
+
+                DetailPanel.ShowError(title, inputPath, errorMessage);
+                StatusMessage = errorMessage;
+            });
+        }
+        finally
+        {
+            if (ReferenceEquals(_detailLoadCancellationSource, detailLoadCancellationSource))
+            {
+                _detailLoadCancellationSource = null;
+            }
+
+            detailLoadCancellationSource.Dispose();
+            _dispatcherService.TryEnqueue(NotifyCommandStates);
+        }
+    }
+
+    private void CloseMediaDetails()
+    {
+        CancelDetailLoad();
+        DetailPanel.Close();
+        NotifyCommandStates();
+    }
+
+    private void CancelDetailLoad()
+    {
+        Interlocked.Increment(ref _detailLoadVersion);
+        _detailLoadCancellationSource?.Cancel();
+    }
+
+    private void CloseMediaDetailsIfShowing(string inputPath)
+    {
+        if (!DetailPanel.IsOpen || string.IsNullOrWhiteSpace(inputPath))
+        {
+            return;
+        }
+
+        if (string.Equals(DetailPanel.CurrentInputPath, inputPath, StringComparison.OrdinalIgnoreCase))
+        {
+            CloseMediaDetails();
+        }
+    }
+
+    public void HandleSettingsPaneClosed()
+    {
+        if (_pendingDetailItem is not { } item)
+        {
+            return;
+        }
+
+        _pendingDetailItem = null;
+
+        if (!ImportItems.Contains(item))
+        {
+            return;
+        }
+
+        _ = OpenMediaDetailsAsync(item);
+    }
 
     private void ClearQueue()
     {
@@ -507,6 +709,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
+        CloseMediaDetails();
         ImportItems.Clear();
         StatusMessage = "已清空待处理列表。";
     }
@@ -518,6 +721,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
+        CloseMediaDetailsIfShowing(item.InputPath);
         StatusMessage = $"已从待处理列表移除 {item.InputFileName}。";
     }
 
@@ -539,7 +743,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         parameter is MediaJobViewModel item &&
         ImportItems.Contains(item);
 
-    private bool CanExecuteProcessing() => !IsBusy && ImportItems.Count > 0 && _selectedOutputFormat is not null;
+    private bool CanOpenMediaDetails(object? parameter) =>
+        parameter is MediaJobViewModel item &&
+        ImportItems.Contains(item);
+
+    private bool CanCloseMediaDetails() => DetailPanel.IsOpen;
+
+    private bool CanExecuteProcessing() =>
+        !IsBusy &&
+        !DetailPanel.IsOpen &&
+        ImportItems.Count > 0 &&
+        _selectedOutputFormat is not null;
+
+    private bool IsCurrentDetailLoadVersion(int detailLoadVersion) =>
+        Volatile.Read(ref _detailLoadVersion) == detailLoadVersion;
 
     private async Task<bool> EnsureRuntimeReadyAsync(CancellationToken cancellationToken = default, bool logUiFailure = false)
     {
@@ -997,8 +1214,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _selectFolderCommand.NotifyCanExecuteChanged();
         _clearQueueCommand.NotifyCanExecuteChanged();
         _removeImportItemCommand.NotifyCanExecuteChanged();
+        _showMediaDetailsCommand.NotifyCanExecuteChanged();
         _executeProcessingCommand.NotifyCanExecuteChanged();
         _cancelExecutionCommand.NotifyCanExecuteChanged();
+        _closeMediaDetailsCommand.NotifyCanExecuteChanged();
     }
 
 

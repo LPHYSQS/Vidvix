@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
@@ -48,12 +48,16 @@
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
   </ItemGroup>
 
-  <ItemGroup Condition="Exists('Tools\MediaEngine\Current\bin\ffmpeg.exe')">
-    <Content Include="Tools\MediaEngine\Current\bin\ffmpeg.exe">
+  <ItemGroup Condition="Exists('Tools\ffmpeg\ffmpeg.exe')">
+    <Content Include="Tools\ffmpeg\ffmpeg.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="Tools\MediaEngine\Current\LICENSE.txt" Condition="Exists('Tools\MediaEngine\Current\LICENSE.txt')">
+    <Content Include="Tools\ffmpeg\ffprobe.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="Tools\ffmpeg\LICENSE.txt" Condition="Exists('Tools\ffmpeg\LICENSE.txt')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
@@ -61,8 +65,15 @@
 
   <Target Name="EnsureOfflineRuntimeForPublish" BeforeTargets="Publish">
     <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\MediaEngine\Current\bin\ffmpeg.exe')"
-      Text="离线发布包缺少内置音视频组件。请先准备 Tools\MediaEngine\Current\bin\ffmpeg.exe 后再执行发布。" />
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\ffmpeg\ffmpeg.exe')"
+      Text="Offline publish bundle is missing Tools\ffmpeg\ffmpeg.exe." />
+  </Target>
+
+  <Target Name="CopyGeneratedPriToPublish" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="Exists('$(TargetDir)$(AssemblyName).pri') and Exists('$(PublishDir)$(AssemblyName).exe')">
+    <Copy
+      SourceFiles="$(TargetDir)$(AssemblyName).pri"
+      DestinationFiles="$(PublishDir)$(AssemblyName).pri"
+      SkipUnchangedFiles="true" />
   </Target>
 
   <Target Name="CreateOfflinePackage" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release' and Exists('$(PublishDir)Vidvix.exe')">

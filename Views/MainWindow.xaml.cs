@@ -1,9 +1,11 @@
 using System;
+using System.ComponentModel;
 using System.Linq;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
 using Vidvix.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI;
@@ -33,14 +35,21 @@ public sealed partial class MainWindow : Window
     private static readonly Color DarkTitleBarButtonPressedBackgroundColor = ColorHelper.FromArgb(255, 206, 206, 206);
 
     private readonly AppWindow _appWindow;
+    private readonly Storyboard _showDetailOverlayStoryboard;
+    private readonly Storyboard _hideDetailOverlayStoryboard;
+    private bool _isDetailOverlayVisible;
 
     public MainWindow(MainViewModel viewModel)
     {
         ViewModel = viewModel;
         InitializeComponent();
         _appWindow = GetAppWindow();
+        _showDetailOverlayStoryboard = CreateDetailOverlayStoryboard(isShowing: true);
+        _hideDetailOverlayStoryboard = CreateDetailOverlayStoryboard(isShowing: false);
         ConfigureWindowConstraints();
         RootLayout.ActualThemeChanged += OnRootLayoutActualThemeChanged;
+        ViewModel.DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
+        _hideDetailOverlayStoryboard.Completed += OnHideDetailOverlayCompleted;
         Closed += OnClosed;
     }
 
@@ -49,15 +58,122 @@ public sealed partial class MainWindow : Window
     private void OnClosed(object sender, WindowEventArgs args)
     {
         RootLayout.ActualThemeChanged -= OnRootLayoutActualThemeChanged;
+        ViewModel.DetailPanel.PropertyChanged -= OnDetailPanelPropertyChanged;
+        _hideDetailOverlayStoryboard.Completed -= OnHideDetailOverlayCompleted;
         Closed -= OnClosed;
         ViewModel.Dispose();
     }
 
-    private void OnRootLayoutLoaded(object sender, RoutedEventArgs e) =>
+    private void OnRootLayoutLoaded(object sender, RoutedEventArgs e)
+    {
         UpdateTitleBarColors();
+        ApplyDetailOverlayState();
+    }
 
     private void OnRootLayoutActualThemeChanged(FrameworkElement sender, object args) =>
         UpdateTitleBarColors();
+
+    private void OnDetailPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MediaDetailPanelViewModel.IsOpen))
+        {
+            ApplyDetailOverlayState();
+        }
+    }
+
+    private void ApplyDetailOverlayState()
+    {
+        if (ViewModel.DetailPanel.IsOpen)
+        {
+            ShowDetailOverlay();
+            return;
+        }
+
+        HideDetailOverlay();
+    }
+
+    private Storyboard CreateDetailOverlayStoryboard(bool isShowing)
+    {
+        var duration = new Duration(TimeSpan.FromMilliseconds(isShowing ? 240 : 220));
+        var storyboard = new Storyboard();
+
+        var translateAnimation = new DoubleAnimation
+        {
+            From = isShowing ? 300 : 0,
+            To = isShowing ? 0 : 300,
+            Duration = duration,
+            EnableDependentAnimation = true,
+            EasingFunction = new CubicEase
+            {
+                EasingMode = isShowing ? EasingMode.EaseOut : EasingMode.EaseIn
+            }
+        };
+
+        Storyboard.SetTarget(translateAnimation, DetailOverlayTransform);
+        Storyboard.SetTargetProperty(translateAnimation, "TranslateX");
+        storyboard.Children.Add(translateAnimation);
+
+        var opacityAnimation = new DoubleAnimation
+        {
+            From = isShowing ? 0 : 1,
+            To = isShowing ? 1 : 0,
+            Duration = duration
+        };
+
+        Storyboard.SetTarget(opacityAnimation, DetailOverlayPanel);
+        Storyboard.SetTargetProperty(opacityAnimation, "Opacity");
+        storyboard.Children.Add(opacityAnimation);
+
+        return storyboard;
+    }
+
+    private void ShowDetailOverlay()
+    {
+        _hideDetailOverlayStoryboard.Stop();
+        DetailOverlayPanel.Visibility = Visibility.Visible;
+        DetailOverlayPanel.IsHitTestVisible = true;
+
+        if (_isDetailOverlayVisible)
+        {
+            DetailOverlayPanel.Opacity = 1;
+            DetailOverlayTransform.TranslateX = 0;
+            return;
+        }
+
+        _isDetailOverlayVisible = true;
+        DetailOverlayPanel.Opacity = 0;
+        DetailOverlayTransform.TranslateX = 300;
+        _showDetailOverlayStoryboard.Begin();
+    }
+
+    private void HideDetailOverlay()
+    {
+        _showDetailOverlayStoryboard.Stop();
+        DetailOverlayPanel.IsHitTestVisible = false;
+
+        if (!_isDetailOverlayVisible)
+        {
+            DetailOverlayPanel.Visibility = Visibility.Collapsed;
+            DetailOverlayPanel.Opacity = 0;
+            DetailOverlayTransform.TranslateX = 300;
+            return;
+        }
+
+        _hideDetailOverlayStoryboard.Begin();
+    }
+
+    private void OnHideDetailOverlayCompleted(object? sender, object e)
+    {
+        if (ViewModel.DetailPanel.IsOpen)
+        {
+            return;
+        }
+
+        _isDetailOverlayVisible = false;
+        DetailOverlayPanel.Visibility = Visibility.Collapsed;
+        DetailOverlayPanel.Opacity = 0;
+        DetailOverlayTransform.TranslateX = 300;
+    }
 
     private void UpdateTitleBarColors()
     {
@@ -100,6 +216,11 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void OnSettingsPaneClosed(object sender, object args)
+    {
+        ViewModel.HandleSettingsPaneClosed();
+    }
+
     private AppWindow GetAppWindow()
     {
         var windowHandle = WindowNative.GetWindowHandle(this);
@@ -122,7 +243,7 @@ public sealed partial class MainWindow : Window
         }
 
         e.AcceptedOperation = DataPackageOperation.Copy;
-        e.DragUIOverride.Caption = "导入视频文件或文件夹";
+        e.DragUIOverride.Caption = "\u5bfc\u5165\u89c6\u9891\u6587\u4ef6\u6216\u6587\u4ef6\u5939";
         e.DragUIOverride.IsCaptionVisible = true;
         e.DragUIOverride.IsContentVisible = true;
         e.Handled = true;
