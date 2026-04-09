@@ -2,7 +2,6 @@ using System;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -291,7 +290,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    public async Task EnsureInitialWindowPlacementAsync()
+    public void ApplyInitialWindowPlacementBeforeActivate()
     {
         if (_hasAppliedInitialWindowPlacement)
         {
@@ -301,43 +300,32 @@ public sealed partial class MainWindow : Window
         if (_pendingInitialWindowPlacement is null)
         {
             _hasAppliedInitialWindowPlacement = true;
-            _trackedWindowPlacement ??= CaptureCurrentWindowPlacement();
             return;
         }
 
-        await ApplyInitialWindowPlacementAsync(_pendingInitialWindowPlacement);
-        _hasAppliedInitialWindowPlacement = true;
-    }
-
-    private async Task ApplyInitialWindowPlacementAsync(WindowPlacementPreference savedPlacement)
-    {
-        for (var attempt = 0; attempt < 10; attempt++)
+        try
         {
-            await Task.Delay(400);
-
-            if (!TryCreateVisibleRect(savedPlacement, out var targetRect))
+            if (!TryCreateVisibleRect(_pendingInitialWindowPlacement, out var targetRect))
             {
-                continue;
+                _hasAppliedInitialWindowPlacement = true;
+                return;
             }
 
             ApplyWindowBounds(targetRect);
-            await Task.Delay(150);
-
-            var placement = CaptureCurrentWindowPlacement();
-            if (placement is null)
+            _trackedWindowPlacement = new WindowPlacementPreference
             {
-                continue;
-            }
-
-            _trackedWindowPlacement = placement;
-            if (IsPlacementMatch(placement, targetRect))
-            {
-                SaveWindowPlacement();
-                return;
-            }
+                X = targetRect.X,
+                Y = targetRect.Y,
+                Width = targetRect.Width,
+                Height = targetRect.Height
+            };
+            _hasAppliedInitialWindowPlacement = true;
         }
-
-        _trackedWindowPlacement ??= CaptureCurrentWindowPlacement();
+        catch (Exception exception)
+        {
+            _logger.Log(LogLevel.Warning, "启动前恢复窗口位置和大小失败，已回退到默认窗口显示。", exception);
+            _hasAppliedInitialWindowPlacement = true;
+        }
     }
 
     private void SaveWindowPlacement()
@@ -402,16 +390,6 @@ public sealed partial class MainWindow : Window
         {
             _appWindow.MoveAndResize(rect);
         }
-    }
-
-    private static bool IsPlacementMatch(WindowPlacementPreference placement, RectInt32 targetRect)
-    {
-        const int tolerance = 2;
-
-        return Math.Abs(placement.X - targetRect.X) <= tolerance &&
-               Math.Abs(placement.Y - targetRect.Y) <= tolerance &&
-               Math.Abs(placement.Width - targetRect.Width) <= tolerance &&
-               Math.Abs(placement.Height - targetRect.Height) <= tolerance;
     }
 
     private static bool TryCreateVisibleRect(WindowPlacementPreference placement, out RectInt32 rect)

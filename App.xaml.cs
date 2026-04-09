@@ -24,12 +24,13 @@ public partial class App : Application
 
         _compositionRoot ??= new AppCompositionRoot(dispatcherQueue);
         _window = _compositionRoot.CreateMainWindow();
-        _window.Activate();
 
         if (_window is Views.MainWindow mainWindow)
         {
-            _ = mainWindow.EnsureInitialWindowPlacementAsync();
+            mainWindow.ApplyInitialWindowPlacementBeforeActivate();
         }
+
+        _window.Activate();
 
         try
         {
