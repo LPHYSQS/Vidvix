@@ -32,9 +32,23 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             new ThemePreferenceOption(ThemePreference.Dark, "暗黑主题", "始终使用暗黑外观，适合低亮环境。")
         };
 
+    private static readonly IReadOnlyList<TranscodingModeOption> TranscodingModeOptions =
+        new[]
+        {
+            new TranscodingModeOption(
+                TranscodingMode.FastContainerConversion,
+                "快速换封装（默认）",
+                "保持当前默认行为：优先直接复用原始流，必要时沿用现有的兼容编码策略，速度更快。"),
+            new TranscodingModeOption(
+                TranscodingMode.FullTranscode,
+                "真正转码（重新编码）",
+                "先解码再编码，重新生成音视频数据；更适合需要统一编码格式、兼容性或后续编辑的场景。")
+        };
+
     private readonly ApplicationConfiguration _configuration;
     private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
     private readonly IFFmpegService _ffmpegService;
+    private readonly IFFmpegVideoAccelerationService _ffmpegVideoAccelerationService;
     private readonly IMediaInfoService _mediaInfoService;
     private readonly IVideoThumbnailService _videoThumbnailService;
     private readonly IFFmpegCommandBuilder _ffmpegCommandBuilder;
@@ -77,6 +91,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private string _outputDirectory = string.Empty;
     private ThemePreferenceOption? _selectedThemeOption;
     private bool _revealOutputFileAfterProcessing;
+    private TranscodingModeOption? _selectedTranscodingModeOption;
+    private bool _enableGpuAccelerationForTranscoding;
     private bool _isSettingsPaneOpen;
     private bool _isDisposed;
     private ProcessingWorkspaceKind _selectedWorkspaceKind;
@@ -85,6 +101,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         ApplicationConfiguration configuration,
         IFFmpegRuntimeService ffmpegRuntimeService,
         IFFmpegService ffmpegService,
+        IFFmpegVideoAccelerationService ffmpegVideoAccelerationService,
         IMediaInfoService mediaInfoService,
         IVideoThumbnailService videoThumbnailService,
         IFFmpegCommandBuilder ffmpegCommandBuilder,
@@ -98,6 +115,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _configuration = configuration;
         _ffmpegRuntimeService = ffmpegRuntimeService;
         _ffmpegService = ffmpegService;
+        _ffmpegVideoAccelerationService = ffmpegVideoAccelerationService;
         _mediaInfoService = mediaInfoService;
         _videoThumbnailService = videoThumbnailService;
         _ffmpegCommandBuilder = ffmpegCommandBuilder;
@@ -110,6 +128,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _statusMessage = RuntimePreparingMessage;
 
         ThemeOptions = ThemePreferenceOptions;
+        TranscodingOptions = TranscodingModeOptions;
         _videoLogEntries = new ObservableCollection<LogEntry>();
         _audioLogEntries = new ObservableCollection<LogEntry>();
         _videoImportItems = new ObservableCollection<MediaJobViewModel>();
@@ -123,6 +142,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _selectedThemeOption = ThemeOptions.FirstOrDefault(option => option.Preference == userPreferences.ThemePreference) ?? ThemeOptions[0];
         _outputDirectory = NormalizeOutputDirectory(userPreferences.PreferredOutputDirectory);
         _revealOutputFileAfterProcessing = userPreferences.RevealOutputFileAfterProcessing;
+        _selectedTranscodingModeOption = ResolveTranscodingMode(userPreferences.PreferredTranscodingMode);
+        _enableGpuAccelerationForTranscoding = userPreferences.EnableGpuAccelerationForTranscoding;
 
         _videoImportItems.CollectionChanged += OnImportItemsChanged;
         _audioImportItems.CollectionChanged += OnImportItemsChanged;
@@ -157,6 +178,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public IReadOnlyList<ProcessingModeOption> ProcessingModes { get; }
 
     public IReadOnlyList<ThemePreferenceOption> ThemeOptions { get; }
+
+    public IReadOnlyList<TranscodingModeOption> TranscodingOptions { get; }
 
     public MediaDetailPanelViewModel DetailPanel { get; }
 
@@ -307,6 +330,49 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    public TranscodingModeOption SelectedTranscodingModeOption
+    {
+        get => _selectedTranscodingModeOption ?? TranscodingOptions[0];
+        set
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            if (SetProperty(ref _selectedTranscodingModeOption, value))
+            {
+                OnPropertyChanged(nameof(IsFullTranscodingModeSelected));
+                OnPropertyChanged(nameof(GpuAccelerationSettingVisibility));
+                OnPropertyChanged(nameof(GpuAccelerationDescription));
+                PersistUserPreferences();
+            }
+        }
+    }
+
+    public bool EnableGpuAccelerationForTranscoding
+    {
+        get => _enableGpuAccelerationForTranscoding;
+        set
+        {
+            if (SetProperty(ref _enableGpuAccelerationForTranscoding, value))
+            {
+                OnPropertyChanged(nameof(GpuAccelerationDescription));
+                PersistUserPreferences();
+            }
+        }
+    }
+
+    public bool IsFullTranscodingModeSelected => SelectedTranscodingModeOption.Mode == TranscodingMode.FullTranscode;
+
+    public Visibility GpuAccelerationSettingVisibility =>
+        IsFullTranscodingModeSelected ? Visibility.Visible : Visibility.Collapsed;
+
+    public string GpuAccelerationDescription =>
+        EnableGpuAccelerationForTranscoding
+            ? "开启后，会先检测当前电脑是否存在可用的 GPU 视频硬件编码能力；若不适用或不可用，会自动回退为 CPU 转码，不会影响任务继续执行。音频任务与部分旧式视频格式仍会继续使用 CPU。"
+            : "关闭后，真正转码会始终使用 CPU 重新编码，速度更稳定，也不会额外检测显卡能力。";
+
     public ElementTheme RequestedTheme => ConvertThemePreferenceToElementTheme(SelectedThemeOption.Preference);
 
     public string StatusMessage
@@ -384,5 +450,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly record struct ProcessingExecutionContext(
         ProcessingWorkspaceKind WorkspaceKind,
         ProcessingMode ProcessingMode,
-        OutputFormatOption OutputFormat);
+        OutputFormatOption OutputFormat,
+        TranscodingMode TranscodingMode,
+        bool IsGpuAccelerationRequested,
+        VideoAccelerationKind VideoAccelerationKind);
 }

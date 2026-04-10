@@ -32,7 +32,10 @@ public sealed partial class MainViewModel
         var executionContext = new ProcessingExecutionContext(
             executionWorkspaceKind,
             executionWorkspaceKind == ProcessingWorkspaceKind.Audio ? ProcessingMode.AudioTrackExtract : SelectedProcessingMode.Mode,
-            SelectedOutputFormat);
+            SelectedOutputFormat,
+            SelectedTranscodingModeOption.Mode,
+            EnableGpuAccelerationForTranscoding,
+            VideoAccelerationKind.None);
         _executionCancellationSource?.Dispose();
         _executionCancellationSource = new CancellationTokenSource();
 
@@ -64,6 +67,7 @@ public sealed partial class MainViewModel
                     clearExisting: false);
             }
 
+            executionContext = await ResolveExecutionContextAsync(executionContext, _executionCancellationSource.Token);
             var preflightFailedCount = await ValidateProcessingPreconditionsAsync(executionContext, executionItems, _executionCancellationSource.Token);
             var processableCount = executionItems.Count(item => item.IsPending);
 
@@ -108,25 +112,68 @@ public sealed partial class MainViewModel
 
                 item.MarkRunning();
 
-                var command = BuildCommand(item.InputPath, item.PlannedOutputPath, executionContext.WorkspaceKind, executionContext.ProcessingMode, executionContext.OutputFormat);
+                var command = BuildCommand(
+                    item.InputPath,
+                    item.PlannedOutputPath,
+                    executionContext.WorkspaceKind,
+                    executionContext.ProcessingMode,
+                    executionContext.OutputFormat,
+                    executionContext);
                 var executionOptions = new FFmpegExecutionOptions
                 {
                     Timeout = _configuration.DefaultExecutionTimeout
                 };
 
+                var totalDuration = TimeSpan.Zero;
+                var usedCpuFallback = false;
                 var result = await _ffmpegService.ExecuteAsync(
                     command,
                     executionOptions,
                     _executionCancellationSource.Token);
+                totalDuration += result.Duration;
 
-                var elapsedText = FormatDuration(result.Duration);
+                if (ShouldRetryWithCpuFallback(executionContext, result))
+                {
+                    usedCpuFallback = true;
+                    AddUiLog(
+                        executionWorkspaceKind,
+                        LogLevel.Warning,
+                        $"{item.InputFileName} 的 GPU 转码未成功，已自动回退为 CPU 重新尝试一次。",
+                        clearExisting: false);
+
+                    var cpuFallbackContext = executionContext with
+                    {
+                        VideoAccelerationKind = VideoAccelerationKind.None
+                    };
+
+                    command = BuildCommand(
+                        item.InputPath,
+                        item.PlannedOutputPath,
+                        cpuFallbackContext.WorkspaceKind,
+                        cpuFallbackContext.ProcessingMode,
+                        cpuFallbackContext.OutputFormat,
+                        cpuFallbackContext);
+                    result = await _ffmpegService.ExecuteAsync(
+                        command,
+                        executionOptions,
+                        _executionCancellationSource.Token);
+                    totalDuration += result.Duration;
+                }
+
+                var elapsedText = FormatDuration(totalDuration);
 
                 if (result.WasSuccessful && File.Exists(item.PlannedOutputPath))
                 {
-                    item.MarkSucceeded($"用时 {elapsedText}");
+                    item.MarkSucceeded(usedCpuFallback ? $"用时 {elapsedText}（已自动回退 CPU）" : $"用时 {elapsedText}");
                     successCount++;
                     lastSuccessfulOutputPath = item.PlannedOutputPath;
-                    AddUiLog(executionWorkspaceKind, LogLevel.Info, $"{item.InputFileName} 处理成功，用时 {elapsedText}。", clearExisting: false);
+                    AddUiLog(
+                        executionWorkspaceKind,
+                        LogLevel.Info,
+                        usedCpuFallback
+                            ? $"{item.InputFileName} 已在回退到 CPU 后处理成功，用时 {elapsedText}。"
+                            : $"{item.InputFileName} 处理成功，用时 {elapsedText}。",
+                        clearExisting: false);
                     continue;
                 }
 
@@ -249,6 +296,66 @@ public sealed partial class MainViewModel
         return failedCount;
     }
 
+    private async Task<ProcessingExecutionContext> ResolveExecutionContextAsync(
+        ProcessingExecutionContext executionContext,
+        CancellationToken cancellationToken)
+    {
+        if (executionContext.TranscodingMode != TranscodingMode.FullTranscode)
+        {
+            AddUiLog(
+                executionContext.WorkspaceKind,
+                LogLevel.Info,
+                "当前使用快速换封装模式：优先直接复用原始流，并保持现有兼容策略。",
+                clearExisting: false);
+            return executionContext;
+        }
+
+        if (!executionContext.IsGpuAccelerationRequested)
+        {
+            AddUiLog(
+                executionContext.WorkspaceKind,
+                LogLevel.Info,
+                "当前使用真正转码模式：本次将通过 CPU 重新编码输出。",
+                clearExisting: false);
+            return executionContext;
+        }
+
+        if (executionContext.WorkspaceKind == ProcessingWorkspaceKind.Audio)
+        {
+            AddUiLog(
+                executionContext.WorkspaceKind,
+                LogLevel.Info,
+                "已开启 GPU 加速，但当前为音频任务；GPU 加速仅对视频重新编码生效，本次将继续使用 CPU 音频转码。",
+                clearExisting: false);
+            return executionContext;
+        }
+
+        if (!CanUseHardwareVideoEncoding(executionContext.OutputFormat))
+        {
+            AddUiLog(
+                executionContext.WorkspaceKind,
+                LogLevel.Info,
+                $"已开启 GPU 加速，但 {executionContext.OutputFormat.DisplayName} 当前仍使用固定兼容编码，本次会自动回退为 CPU 转码。",
+                clearExisting: false);
+            return executionContext;
+        }
+
+        var probeResult = await _ffmpegVideoAccelerationService
+            .ProbeBestEncoderAsync(_runtimeExecutablePath!, cancellationToken)
+            .ConfigureAwait(false);
+
+        AddUiLog(
+            executionContext.WorkspaceKind,
+            probeResult.IsAvailable ? LogLevel.Info : LogLevel.Warning,
+            probeResult.Message,
+            clearExisting: false);
+
+        return executionContext with
+        {
+            VideoAccelerationKind = probeResult.Kind
+        };
+    }
+
     private bool TryGetRequiredTrackType(ProcessingExecutionContext executionContext, out RequiredTrackType requiredTrackType)
     {
         if (executionContext.WorkspaceKind == ProcessingWorkspaceKind.Audio)
@@ -295,6 +402,12 @@ public sealed partial class MainViewModel
             _ => "当前文件不满足所选处理模式。"
         };
     }
+
+    private static bool ShouldRetryWithCpuFallback(ProcessingExecutionContext executionContext, FFmpegExecutionResult result) =>
+        executionContext.VideoAccelerationKind != VideoAccelerationKind.None &&
+        !result.WasSuccessful &&
+        !result.WasCancelled &&
+        !result.TimedOut;
 
     private async Task<bool> EnsureRuntimeReadyAsync(CancellationToken cancellationToken = default, bool logUiFailure = false)
     {

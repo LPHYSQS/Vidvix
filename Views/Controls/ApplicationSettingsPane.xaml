@@ -82,6 +82,53 @@
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
             </Border>
+
+            <Border
+                Padding="14"
+                Background="{ThemeResource SettingsPaneSectionBrush}"
+                CornerRadius="16">
+                <StackPanel Spacing="12">
+                    <TextBlock
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        Text="转码方式" />
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="默认转码策略" />
+                        <ComboBox
+                            DisplayMemberPath="DisplayName"
+                            ItemsSource="{x:Bind ViewModel.TranscodingOptions, Mode=OneWay}"
+                            SelectedItem="{x:Bind ViewModel.SelectedTranscodingModeOption, Mode=TwoWay}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.SelectedTranscodingModeOption.Description, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
+                    <StackPanel
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.GpuAccelerationSettingVisibility, Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <SymbolIcon Symbol="Video" />
+                            <TextBlock
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Text="GPU 加速" />
+                        </StackPanel>
+
+                        <ToggleSwitch
+                            Header="是否开启 GPU 加速"
+                            IsOn="{x:Bind ViewModel.EnableGpuAccelerationForTranscoding, Mode=TwoWay}"
+                            OffContent="关闭"
+                            OnContent="开启" />
+
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.GpuAccelerationDescription, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

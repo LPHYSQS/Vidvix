@@ -23,7 +23,9 @@ public sealed partial class MainViewModel
             PreferredAudioTrackExtractOutputFormatExtension = GetRememberedOutputFormatExtension(ProcessingMode.AudioTrackExtract),
             PreferredOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null,
             ThemePreference = SelectedThemeOption.Preference,
-            RevealOutputFileAfterProcessing = RevealOutputFileAfterProcessing
+            RevealOutputFileAfterProcessing = RevealOutputFileAfterProcessing,
+            PreferredTranscodingMode = SelectedTranscodingModeOption.Mode,
+            EnableGpuAccelerationForTranscoding = EnableGpuAccelerationForTranscoding
         });
     }
 
@@ -66,6 +68,12 @@ public sealed partial class MainViewModel
         }
 
         return ProcessingModes.First();
+    }
+
+    private TranscodingModeOption ResolveTranscodingMode(TranscodingMode preferredTranscodingMode)
+    {
+        var matchingMode = TranscodingOptions.FirstOrDefault(option => option.Mode == preferredTranscodingMode);
+        return matchingMode ?? TranscodingOptions[0];
     }
 
     private void InitializePreferredOutputFormatSelections(UserPreferences userPreferences)
