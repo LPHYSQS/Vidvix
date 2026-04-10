@@ -542,6 +542,7 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <Button Grid.Column="0" MinWidth="92" Padding="12,8" Command="{Binding ElementName=RootWindow, Path=ViewModel.CloseMediaDetailsCommand}">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -553,6 +554,7 @@
                                         <TextBlock FontSize="24" FontWeight="SemiBold" Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.HeaderTitle}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Opacity="0.72" Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.HeaderSubtitle}" TextWrapping="WrapWholeWords" MaxLines="2" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
+                                    <Button Grid.Column="2" MinWidth="92" Padding="12,8" VerticalAlignment="Center" Command="{Binding ElementName=RootWindow, Path=ViewModel.CopyAllMediaDetailsCommand}" Content="复制全部" />
                                 </Grid>
                                 <ScrollViewer Grid.Row="1" Padding="18,0,18,18" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Enabled">
                                     <StackPanel Spacing="16">
@@ -571,25 +573,53 @@
                                         <StackPanel Spacing="16" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.VideoTemplateVisibility}">
                                             <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.VideoOverviewVisibility}">
                                                 <StackPanel Spacing="12">
-                                                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="概览" />
+                                                    <Grid ColumnSpacing="12">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="概览" />
+                                                        <Button Grid.Column="1" MinWidth="72" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.CopyMediaDetailSectionCommand}" CommandParameter="Overview" Content="复制" />
+                                                    </Grid>
                                                     <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.OverviewSummaryText}" TextWrapping="WrapWholeWords" />
                                                 </StackPanel>
                                             </Border>
                                             <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.VideoInfoVisibility}">
                                                 <StackPanel Spacing="12">
-                                                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="视频信息" />
+                                                    <Grid ColumnSpacing="12">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="视频信息" />
+                                                        <Button Grid.Column="1" MinWidth="72" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.CopyMediaDetailSectionCommand}" CommandParameter="Video" Content="复制" />
+                                                    </Grid>
                                                     <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.VideoSummaryText}" TextWrapping="WrapWholeWords" />
                                                 </StackPanel>
                                             </Border>
                                             <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioInfoVisibility}">
                                                 <StackPanel Spacing="12">
-                                                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="音频信息" />
+                                                    <Grid ColumnSpacing="12">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="音频信息" />
+                                                        <Button Grid.Column="1" MinWidth="72" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.CopyMediaDetailSectionCommand}" CommandParameter="Audio" Content="复制" />
+                                                    </Grid>
                                                     <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioSummaryText}" TextWrapping="WrapWholeWords" />
                                                 </StackPanel>
                                             </Border>
                                             <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AdvancedVisibility}">
                                                 <StackPanel Spacing="12">
-                                                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="高级信息" />
+                                                    <Grid ColumnSpacing="12">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="高级信息" />
+                                                        <Button Grid.Column="1" MinWidth="72" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.CopyMediaDetailSectionCommand}" CommandParameter="Advanced" Content="复制" />
+                                                    </Grid>
                                                     <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AdvancedSummaryText}" TextWrapping="WrapWholeWords" />
                                                 </StackPanel>
                                             </Border>
@@ -597,13 +627,27 @@
                                         <StackPanel Spacing="16" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioTemplateVisibility}">
                                             <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioOverviewVisibility}">
                                                 <StackPanel Spacing="12">
-                                                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="音频概览" />
+                                                    <Grid ColumnSpacing="12">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="音频概览" />
+                                                        <Button Grid.Column="1" MinWidth="72" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.CopyMediaDetailSectionCommand}" CommandParameter="AudioOverview" Content="复制" />
+                                                    </Grid>
                                                     <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioOverviewSummaryText}" TextWrapping="WrapWholeWords" />
                                                 </StackPanel>
                                             </Border>
                                             <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioInfoVisibility}">
                                                 <StackPanel Spacing="12">
-                                                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="音频信息" />
+                                                    <Grid ColumnSpacing="12">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="音频信息" />
+                                                        <Button Grid.Column="1" MinWidth="72" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.CopyMediaDetailSectionCommand}" CommandParameter="Audio" Content="复制" />
+                                                    </Grid>
                                                     <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioSummaryText}" TextWrapping="WrapWholeWords" />
                                                 </StackPanel>
                                             </Border>
@@ -611,6 +655,15 @@
                                     </StackPanel>
                                 </ScrollViewer>
                             </Grid>
+                        </Border>
+                        <Border x:Name="CopyToastPanel" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,18,0,0" Padding="14,10" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="16" IsHitTestVisible="False" Opacity="0" Visibility="Collapsed">
+                            <Border.RenderTransform>
+                                <CompositeTransform x:Name="CopyToastTransform" TranslateY="-18" />
+                            </Border.RenderTransform>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <SymbolIcon VerticalAlignment="Center" Symbol="Accept" />
+                                <TextBlock x:Name="CopyToastText" VerticalAlignment="Center" FontWeight="SemiBold" Text="已复制" />
+                            </StackPanel>
                         </Border>
                     </Grid>
                     </Grid>

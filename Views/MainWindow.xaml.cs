@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.UI;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
@@ -45,10 +46,14 @@ public sealed partial class MainWindow : Window
     private readonly IntPtr _windowHandle;
     private readonly Storyboard _showDetailOverlayStoryboard;
     private readonly Storyboard _hideDetailOverlayStoryboard;
+    private readonly Storyboard _showCopyToastStoryboard;
+    private readonly Storyboard _hideCopyToastStoryboard;
+    private readonly DispatcherQueueTimer _copyToastTimer;
     private readonly WindowPlacementPreference? _pendingInitialWindowPlacement;
     private WindowPlacementPreference? _trackedWindowPlacement;
     private bool _hasAppliedInitialWindowPlacement;
     private bool _isDetailOverlayVisible;
+    private bool _isCopyToastVisible;
 
     public MainWindow(MainViewModel viewModel, IUserPreferencesService userPreferencesService, ILogger logger)
     {
@@ -60,13 +65,23 @@ public sealed partial class MainWindow : Window
         _appWindow = GetAppWindow();
         _showDetailOverlayStoryboard = CreateDetailOverlayStoryboard(isShowing: true);
         _hideDetailOverlayStoryboard = CreateDetailOverlayStoryboard(isShowing: false);
+        _showCopyToastStoryboard = CreateCopyToastStoryboard(isShowing: true);
+        _hideCopyToastStoryboard = CreateCopyToastStoryboard(isShowing: false);
+        var dispatcherQueue = DispatcherQueue.GetForCurrentThread()
+            ?? throw new InvalidOperationException("未找到当前窗口线程的调度队列。");
+        _copyToastTimer = dispatcherQueue.CreateTimer();
+        _copyToastTimer.Interval = TimeSpan.FromSeconds(1.6);
+        _copyToastTimer.IsRepeating = false;
         ConfigureWindowConstraints();
         _pendingInitialWindowPlacement = LoadPendingInitialWindowPlacement();
         _appWindow.Changed += OnAppWindowChanged;
         RootLayout.ActualThemeChanged += OnRootLayoutActualThemeChanged;
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         ViewModel.DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
+        ViewModel.TransientNotificationRequested += OnTransientNotificationRequested;
         _hideDetailOverlayStoryboard.Completed += OnHideDetailOverlayCompleted;
+        _hideCopyToastStoryboard.Completed += OnHideCopyToastCompleted;
+        _copyToastTimer.Tick += OnCopyToastTimerTick;
         Closed += OnClosed;
     }
 
@@ -79,7 +94,11 @@ public sealed partial class MainWindow : Window
         RootLayout.ActualThemeChanged -= OnRootLayoutActualThemeChanged;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.DetailPanel.PropertyChanged -= OnDetailPanelPropertyChanged;
+        ViewModel.TransientNotificationRequested -= OnTransientNotificationRequested;
         _hideDetailOverlayStoryboard.Completed -= OnHideDetailOverlayCompleted;
+        _hideCopyToastStoryboard.Completed -= OnHideCopyToastCompleted;
+        _copyToastTimer.Tick -= OnCopyToastTimerTick;
+        _copyToastTimer.Stop();
         Closed -= OnClosed;
         ViewModel.Dispose();
     }
@@ -93,6 +112,16 @@ public sealed partial class MainWindow : Window
 
     private void OnRootLayoutActualThemeChanged(FrameworkElement sender, object args) =>
         UpdateWindowChrome();
+
+    private void OnTransientNotificationRequested(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        ShowCopyToast(message);
+    }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -163,6 +192,41 @@ public sealed partial class MainWindow : Window
         return storyboard;
     }
 
+    private Storyboard CreateCopyToastStoryboard(bool isShowing)
+    {
+        var duration = new Duration(TimeSpan.FromMilliseconds(isShowing ? 220 : 200));
+        var storyboard = new Storyboard();
+
+        var translateAnimation = new DoubleAnimation
+        {
+            From = isShowing ? -18 : 0,
+            To = isShowing ? 0 : -18,
+            Duration = duration,
+            EnableDependentAnimation = true,
+            EasingFunction = new CubicEase
+            {
+                EasingMode = isShowing ? EasingMode.EaseOut : EasingMode.EaseIn
+            }
+        };
+
+        Storyboard.SetTarget(translateAnimation, CopyToastTransform);
+        Storyboard.SetTargetProperty(translateAnimation, "TranslateY");
+        storyboard.Children.Add(translateAnimation);
+
+        var opacityAnimation = new DoubleAnimation
+        {
+            From = isShowing ? 0 : 1,
+            To = isShowing ? 1 : 0,
+            Duration = duration
+        };
+
+        Storyboard.SetTarget(opacityAnimation, CopyToastPanel);
+        Storyboard.SetTargetProperty(opacityAnimation, "Opacity");
+        storyboard.Children.Add(opacityAnimation);
+
+        return storyboard;
+    }
+
     private void ShowDetailOverlay()
     {
         _hideDetailOverlayStoryboard.Stop();
@@ -209,6 +273,63 @@ public sealed partial class MainWindow : Window
         DetailOverlayPanel.Visibility = Visibility.Collapsed;
         DetailOverlayPanel.Opacity = 0;
         DetailOverlayTransform.TranslateX = 300;
+    }
+
+    private void ShowCopyToast(string message)
+    {
+        CopyToastText.Text = message;
+        _copyToastTimer.Stop();
+        _hideCopyToastStoryboard.Stop();
+        CopyToastPanel.Visibility = Visibility.Visible;
+
+        if (_isCopyToastVisible)
+        {
+            CopyToastPanel.Opacity = 1;
+            CopyToastTransform.TranslateY = 0;
+        }
+        else
+        {
+            _isCopyToastVisible = true;
+            CopyToastPanel.Opacity = 0;
+            CopyToastTransform.TranslateY = -18;
+            _showCopyToastStoryboard.Begin();
+        }
+
+        _copyToastTimer.Start();
+    }
+
+    private void HideCopyToast()
+    {
+        _showCopyToastStoryboard.Stop();
+
+        if (!_isCopyToastVisible)
+        {
+            CopyToastPanel.Visibility = Visibility.Collapsed;
+            CopyToastPanel.Opacity = 0;
+            CopyToastTransform.TranslateY = -18;
+            return;
+        }
+
+        _hideCopyToastStoryboard.Begin();
+    }
+
+    private void OnCopyToastTimerTick(DispatcherQueueTimer sender, object args)
+    {
+        sender.Stop();
+        HideCopyToast();
+    }
+
+    private void OnHideCopyToastCompleted(object? sender, object e)
+    {
+        if (_copyToastTimer.IsRunning)
+        {
+            return;
+        }
+
+        _isCopyToastVisible = false;
+        CopyToastPanel.Visibility = Visibility.Collapsed;
+        CopyToastPanel.Opacity = 0;
+        CopyToastTransform.TranslateY = -18;
     }
 
     private void UpdateTitleBarColors()

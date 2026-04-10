@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text;
 using Microsoft.UI.Xaml;
 using Vidvix.Core.Models;
 using Vidvix.Utils;
@@ -125,6 +126,51 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
 
     public string AudioOverviewSummaryText => FormatFields(GetAudioOverviewFields());
 
+    public bool CanCopySection(object? parameter)
+    {
+        if (!IsOpen || !HasContent)
+        {
+            return false;
+        }
+
+        return parameter switch
+        {
+            "Overview" => OverviewFields.Count > 0,
+            "Video" => VideoFields.Count > 0,
+            "Audio" => AudioFields.Count > 0,
+            "Advanced" => AdvancedFields.Count > 0,
+            "AudioOverview" => GetAudioOverviewFields().Count > 0,
+            _ => false
+        };
+    }
+
+    public bool TryBuildCopyText(object? parameter, out string text, out string feedbackMessage)
+    {
+        text = string.Empty;
+        feedbackMessage = string.Empty;
+
+        if (!IsOpen || !HasContent)
+        {
+            return false;
+        }
+
+        if (parameter is null or "All")
+        {
+            text = BuildAllCopyText();
+            feedbackMessage = "已复制全部详情";
+            return !string.IsNullOrWhiteSpace(text);
+        }
+
+        if (!TryResolveSection(parameter, out var title, out var fields))
+        {
+            return false;
+        }
+
+        text = BuildSectionCopyText(title, fields);
+        feedbackMessage = $"已复制{title}";
+        return !string.IsNullOrWhiteSpace(text);
+    }
+
     public void ShowLoading(string title, string inputPath, ProcessingWorkspaceKind workspaceKind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
@@ -199,6 +245,115 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
             .ToArray();
 
         return lines.Length == 0 ? string.Empty : string.Join(Environment.NewLine, lines);
+    }
+
+    private static string FormatFieldsForCopy(IEnumerable<MediaDetailField> fields)
+    {
+        var lines = fields
+            .Where(field => !string.IsNullOrWhiteSpace(field.Label) || !string.IsNullOrWhiteSpace(field.Value))
+            .Select(field => $"{field.Label}：{field.Value}")
+            .ToArray();
+
+        return lines.Length == 0 ? string.Empty : string.Join(Environment.NewLine, lines);
+    }
+
+    private string BuildAllCopyText()
+    {
+        var builder = new StringBuilder();
+
+        AppendLineIfPresent(builder, $"文件名：{HeaderTitle}");
+        AppendLineIfPresent(builder, $"文件路径：{HeaderSubtitle}");
+
+        if (builder.Length > 0)
+        {
+            builder.AppendLine();
+        }
+
+        if (_workspaceKind == ProcessingWorkspaceKind.Video)
+        {
+            AppendSection(builder, "概览", OverviewFields);
+            AppendSection(builder, "视频信息", VideoFields);
+            AppendSection(builder, "音频信息", AudioFields);
+            AppendSection(builder, "高级信息", AdvancedFields);
+        }
+        else
+        {
+            AppendSection(builder, "音频概览", GetAudioOverviewFields());
+            AppendSection(builder, "音频信息", AudioFields);
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static string BuildSectionCopyText(string title, IReadOnlyList<MediaDetailField> fields)
+    {
+        var summary = FormatFieldsForCopy(fields);
+        return string.IsNullOrWhiteSpace(summary)
+            ? string.Empty
+            : $"{title}{Environment.NewLine}{summary}";
+    }
+
+    private static void AppendSection(StringBuilder builder, string title, IReadOnlyList<MediaDetailField> fields)
+    {
+        var summary = BuildSectionCopyText(title, fields);
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            return;
+        }
+
+        if (builder.Length > 0)
+        {
+            builder.AppendLine();
+        }
+
+        builder.Append(summary);
+    }
+
+    private static void AppendLineIfPresent(StringBuilder builder, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        builder.AppendLine(text);
+    }
+
+    private bool TryResolveSection(object? parameter, out string title, out IReadOnlyList<MediaDetailField> fields)
+    {
+        switch (parameter)
+        {
+            case "Overview" when OverviewFields.Count > 0:
+                title = "概览";
+                fields = OverviewFields.ToArray();
+                return true;
+            case "Video" when VideoFields.Count > 0:
+                title = "视频信息";
+                fields = VideoFields.ToArray();
+                return true;
+            case "Audio" when AudioFields.Count > 0:
+                title = "音频信息";
+                fields = AudioFields.ToArray();
+                return true;
+            case "Advanced" when AdvancedFields.Count > 0:
+                title = "高级信息";
+                fields = AdvancedFields.ToArray();
+                return true;
+            case "AudioOverview":
+                var audioOverviewFields = GetAudioOverviewFields();
+                if (audioOverviewFields.Count > 0)
+                {
+                    title = "音频概览";
+                    fields = audioOverviewFields;
+                    return true;
+                }
+
+                break;
+        }
+
+        title = string.Empty;
+        fields = Array.Empty<MediaDetailField>();
+        return false;
     }
 
     private void ReplaceFields(ObservableCollection<MediaDetailField> target, IReadOnlyList<MediaDetailField> source)

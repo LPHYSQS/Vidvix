@@ -74,6 +74,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly RelayCommand _closeSettingsPaneCommand;
     private readonly RelayCommand _showMediaDetailsCommand;
     private readonly RelayCommand _closeMediaDetailsCommand;
+    private readonly RelayCommand _copyAllMediaDetailsCommand;
+    private readonly RelayCommand _copyMediaDetailSectionCommand;
     private readonly RelayCommand _switchToVideoWorkspaceCommand;
     private readonly RelayCommand _switchToAudioWorkspaceCommand;
     private readonly Dictionary<ProcessingMode, string> _preferredOutputFormatExtensionsByMode = new();
@@ -160,6 +162,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _closeSettingsPaneCommand = new RelayCommand(CloseSettingsPane, () => IsSettingsPaneOpen);
         _showMediaDetailsCommand = new RelayCommand(OpenMediaDetails, CanOpenMediaDetails);
         _closeMediaDetailsCommand = new RelayCommand(CloseMediaDetails, CanCloseMediaDetails);
+        _copyAllMediaDetailsCommand = new RelayCommand(CopyAllMediaDetails, CanCopyAllMediaDetails);
+        _copyMediaDetailSectionCommand = new RelayCommand(CopyMediaDetailSection, CanCopyMediaDetailSection);
         _switchToVideoWorkspaceCommand = new RelayCommand(SwitchToVideoWorkspace, () => CanModifyInputs);
         _switchToAudioWorkspaceCommand = new RelayCommand(SwitchToAudioWorkspace, () => CanModifyInputs);
 
@@ -206,6 +210,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public ICommand ShowMediaDetailsCommand => _showMediaDetailsCommand;
 
     public ICommand CloseMediaDetailsCommand => _closeMediaDetailsCommand;
+
+    public ICommand CopyAllMediaDetailsCommand => _copyAllMediaDetailsCommand;
+
+    public ICommand CopyMediaDetailSectionCommand => _copyMediaDetailSectionCommand;
 
     public ICommand SwitchToVideoWorkspaceCommand => _switchToVideoWorkspaceCommand;
 
@@ -441,7 +449,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnDetailPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MediaDetailPanelViewModel.IsOpen))
+        if (e.PropertyName == nameof(MediaDetailPanelViewModel.IsOpen) ||
+            e.PropertyName == nameof(MediaDetailPanelViewModel.HasContent) ||
+            e.PropertyName == nameof(MediaDetailPanelViewModel.VideoOverviewVisibility) ||
+            e.PropertyName == nameof(MediaDetailPanelViewModel.VideoInfoVisibility) ||
+            e.PropertyName == nameof(MediaDetailPanelViewModel.AudioInfoVisibility) ||
+            e.PropertyName == nameof(MediaDetailPanelViewModel.AdvancedVisibility) ||
+            e.PropertyName == nameof(MediaDetailPanelViewModel.AudioOverviewVisibility))
         {
             NotifyCommandStates();
         }

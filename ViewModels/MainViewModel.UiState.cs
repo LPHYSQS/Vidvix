@@ -19,6 +19,8 @@ public sealed partial class MainViewModel
         _executeProcessingCommand.NotifyCanExecuteChanged();
         _cancelExecutionCommand.NotifyCanExecuteChanged();
         _closeMediaDetailsCommand.NotifyCanExecuteChanged();
+        _copyAllMediaDetailsCommand.NotifyCanExecuteChanged();
+        _copyMediaDetailSectionCommand.NotifyCanExecuteChanged();
         _switchToVideoWorkspaceCommand.NotifyCanExecuteChanged();
         _switchToAudioWorkspaceCommand.NotifyCanExecuteChanged();
     }
