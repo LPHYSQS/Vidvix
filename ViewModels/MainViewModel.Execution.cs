@@ -284,6 +284,14 @@ public sealed partial class MainViewModel
 
             if (HasRequiredTrack(snapshot, requiredTrackType))
             {
+                if (!TryCreateSubtitleCompatibilityFailureMessage(snapshot, executionContext, out var compatibilityFailureMessage))
+                {
+                    continue;
+                }
+
+                item.MarkFailed($"原因：{compatibilityFailureMessage}");
+                failedCount++;
+                AddUiLog(executionContext.WorkspaceKind, LogLevel.Warning, $"{item.InputFileName} {compatibilityFailureMessage}", clearExisting: false);
                 continue;
             }
 
@@ -300,6 +308,21 @@ public sealed partial class MainViewModel
         ProcessingExecutionContext executionContext,
         CancellationToken cancellationToken)
     {
+        if (executionContext.ProcessingMode == ProcessingMode.SubtitleTrackExtract)
+        {
+            AddUiLog(
+                executionContext.WorkspaceKind,
+                LogLevel.Info,
+                executionContext.OutputFormat.Extension.Equals(".mks", StringComparison.OrdinalIgnoreCase)
+                    ? "当前为字幕轨道提取：MKS 会优先保留原始字幕编码输出，不使用 GPU。"
+                    : "当前为字幕轨道提取：会按所选字幕格式输出，必要时自动转换字幕编码，不使用 GPU。",
+                clearExisting: false);
+            return executionContext with
+            {
+                VideoAccelerationKind = VideoAccelerationKind.None
+            };
+        }
+
         if (executionContext.TranscodingMode != TranscodingMode.FullTranscode)
         {
             AddUiLog(
@@ -372,6 +395,9 @@ public sealed partial class MainViewModel
             case ProcessingMode.AudioTrackExtract:
                 requiredTrackType = RequiredTrackType.Audio;
                 return true;
+            case ProcessingMode.SubtitleTrackExtract:
+                requiredTrackType = RequiredTrackType.Subtitle;
+                return true;
             default:
                 requiredTrackType = default;
                 return false;
@@ -383,8 +409,36 @@ public sealed partial class MainViewModel
         {
             RequiredTrackType.Video => snapshot.HasVideoStream,
             RequiredTrackType.Audio => snapshot.HasAudioStream,
+            RequiredTrackType.Subtitle => snapshot.HasSubtitleStream,
             _ => false
         };
+
+    private static bool TryCreateSubtitleCompatibilityFailureMessage(
+        MediaDetailsSnapshot snapshot,
+        ProcessingExecutionContext executionContext,
+        out string failureMessage)
+    {
+        failureMessage = string.Empty;
+
+        if (executionContext.WorkspaceKind != ProcessingWorkspaceKind.Video ||
+            executionContext.ProcessingMode != ProcessingMode.SubtitleTrackExtract ||
+            executionContext.OutputFormat.Extension.Equals(".mks", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!IsBitmapSubtitleCodec(snapshot.PrimarySubtitleCodecName))
+        {
+            return false;
+        }
+
+        failureMessage = $"检测到图形字幕轨道，无法直接转换为 {executionContext.OutputFormat.DisplayName} 文本字幕；请改用 MKS 保留原字幕轨道。";
+        return true;
+    }
+
+    private static bool IsBitmapSubtitleCodec(string? codecName) =>
+        !string.IsNullOrWhiteSpace(codecName) &&
+        codecName.ToLowerInvariant() is "hdmv_pgs_subtitle" or "dvd_subtitle" or "dvb_subtitle" or "xsub";
 
     private string CreateMissingRequiredTrackMessage(RequiredTrackType requiredTrackType, ProcessingExecutionContext executionContext)
     {
@@ -399,6 +453,7 @@ public sealed partial class MainViewModel
         {
             RequiredTrackType.Video => $"未检测到视频轨道，无法提取为 {outputFormatName}。",
             RequiredTrackType.Audio => $"未检测到音频轨道，无法提取为 {outputFormatName}。",
+            RequiredTrackType.Subtitle => $"未检测到字幕轨道，无法提取为 {outputFormatName}。",
             _ => "当前文件不满足所选处理模式。"
         };
     }
@@ -460,6 +515,7 @@ public sealed partial class MainViewModel
     private enum RequiredTrackType
     {
         Video,
-        Audio
+        Audio,
+        Subtitle
     }
 }

@@ -378,7 +378,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public string GpuAccelerationDescription =>
         EnableGpuAccelerationForTranscoding
-            ? "开启后，会先检测当前电脑是否存在可用的 GPU 视频硬件编码能力；若不适用或不可用，会自动回退为 CPU 转码，不会影响任务继续执行。音频任务与部分旧式视频格式仍会继续使用 CPU。"
+            ? "开启后，会先检测当前电脑是否存在可用的 GPU 视频硬件编码能力；若不适用或不可用，会自动回退为 CPU 转码，不会影响任务继续执行。音频任务、字幕任务与部分旧式视频格式仍会继续使用 CPU。"
             : "关闭后，真正转码会始终使用 CPU 重新编码，速度更稳定，也不会额外检测显卡能力。";
 
     public ElementTheme RequestedTheme => ConvertThemePreferenceToElementTheme(SelectedThemeOption.Preference);

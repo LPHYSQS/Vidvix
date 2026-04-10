@@ -15,6 +15,12 @@ public sealed class MediaDetailsSnapshot
 
     public required bool HasAudioStream { get; init; }
 
+    public required bool HasSubtitleStream { get; init; }
+
+    public required int SubtitleStreamCount { get; init; }
+
+    public string? PrimarySubtitleCodecName { get; init; }
+
     public required IReadOnlyList<MediaDetailField> OverviewFields { get; init; }
 
     public required IReadOnlyList<MediaDetailField> VideoFields { get; init; }

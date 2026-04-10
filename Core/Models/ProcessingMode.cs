@@ -4,5 +4,6 @@ public enum ProcessingMode
 {
     VideoConvert,
     VideoTrackExtract,
-    AudioTrackExtract
+    AudioTrackExtract,
+    SubtitleTrackExtract
 }

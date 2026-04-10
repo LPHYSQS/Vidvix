@@ -67,6 +67,12 @@ public static class MediaPathResolver
         string? outputDirectory = null) =>
         CreateOutputPath(inputFilePath, outputExtension, outputDirectory, "_audio");
 
+    public static string CreateSubtitleTrackOutputPath(
+        string inputFilePath,
+        string outputExtension,
+        string? outputDirectory = null) =>
+        CreateOutputPath(inputFilePath, outputExtension, outputDirectory, "_subtitle");
+
     public static string CreateAudioConversionOutputPath(
         string inputFilePath,
         string outputExtension,

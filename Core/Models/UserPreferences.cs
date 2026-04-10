@@ -14,6 +14,8 @@ public sealed record UserPreferences
 
     public string? PreferredAudioTrackExtractOutputFormatExtension { get; init; }
 
+    public string? PreferredSubtitleTrackExtractOutputFormatExtension { get; init; }
+
     public string? PreferredOutputDirectory { get; init; }
 
     public ThemePreference ThemePreference { get; init; } = ThemePreference.UseSystem;

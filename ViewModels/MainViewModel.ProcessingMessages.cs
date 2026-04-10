@@ -52,8 +52,14 @@ public sealed partial class MainViewModel
             {
                 ProcessingMode.VideoTrackExtract => "该文件没有可提取的视频轨道。",
                 ProcessingMode.AudioTrackExtract => "该文件没有可提取的音频轨道。",
+                ProcessingMode.SubtitleTrackExtract => "该文件没有可提取的字幕轨道。",
                 _ => "该文件缺少可处理的媒体流。"
             };
+        }
+
+        if (standardError.Contains("Subtitle encoding currently only possible from text to text or bitmap to bitmap", StringComparison.OrdinalIgnoreCase))
+        {
+            return "当前字幕轨道与目标格式不兼容：图形字幕不能直接转成文本字幕。请尝试导出为 MKS 保留原字幕轨道。";
         }
 
         if (standardError.Contains("not currently supported in container", StringComparison.OrdinalIgnoreCase) ||

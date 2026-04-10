@@ -21,6 +21,7 @@ public sealed partial class MainViewModel
             PreferredVideoConvertOutputFormatExtension = GetRememberedOutputFormatExtension(ProcessingMode.VideoConvert),
             PreferredVideoTrackExtractOutputFormatExtension = GetRememberedOutputFormatExtension(ProcessingMode.VideoTrackExtract),
             PreferredAudioTrackExtractOutputFormatExtension = GetRememberedOutputFormatExtension(ProcessingMode.AudioTrackExtract),
+            PreferredSubtitleTrackExtractOutputFormatExtension = GetRememberedOutputFormatExtension(ProcessingMode.SubtitleTrackExtract),
             PreferredOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null,
             ThemePreference = SelectedThemeOption.Preference,
             RevealOutputFileAfterProcessing = RevealOutputFileAfterProcessing,
@@ -81,6 +82,7 @@ public sealed partial class MainViewModel
         RememberOutputFormatSelection(ProcessingMode.VideoConvert, userPreferences.PreferredVideoConvertOutputFormatExtension);
         RememberOutputFormatSelection(ProcessingMode.VideoTrackExtract, userPreferences.PreferredVideoTrackExtractOutputFormatExtension);
         RememberOutputFormatSelection(ProcessingMode.AudioTrackExtract, userPreferences.PreferredAudioTrackExtractOutputFormatExtension);
+        RememberOutputFormatSelection(ProcessingMode.SubtitleTrackExtract, userPreferences.PreferredSubtitleTrackExtractOutputFormatExtension);
 
         if (userPreferences.PreferredProcessingMode is ProcessingMode preferredMode &&
             !string.IsNullOrWhiteSpace(userPreferences.PreferredOutputFormatExtension) &&
@@ -91,9 +93,12 @@ public sealed partial class MainViewModel
     }
 
     private IReadOnlyList<OutputFormatOption> GetOutputFormatsForMode(ProcessingMode processingMode) =>
-        processingMode == ProcessingMode.AudioTrackExtract
-            ? _configuration.SupportedAudioOutputFormats
-            : _configuration.SupportedVideoOutputFormats;
+        processingMode switch
+        {
+            ProcessingMode.AudioTrackExtract => _configuration.SupportedAudioOutputFormats,
+            ProcessingMode.SubtitleTrackExtract => _configuration.SupportedSubtitleOutputFormats,
+            _ => _configuration.SupportedVideoOutputFormats
+        };
 
     private OutputFormatOption ResolvePreferredOutputFormat(ProcessingMode processingMode)
     {
@@ -146,6 +151,7 @@ public sealed partial class MainViewModel
         ProcessingMode.VideoConvert => MediaPathResolver.CreateVideoConversionOutputPath(inputPath, SelectedOutputFormat.Extension, GetEffectiveOutputDirectory()),
         ProcessingMode.VideoTrackExtract => MediaPathResolver.CreateVideoTrackOutputPath(inputPath, SelectedOutputFormat.Extension, GetEffectiveOutputDirectory()),
         ProcessingMode.AudioTrackExtract => MediaPathResolver.CreateAudioTrackOutputPath(inputPath, SelectedOutputFormat.Extension, GetEffectiveOutputDirectory()),
+        ProcessingMode.SubtitleTrackExtract => MediaPathResolver.CreateSubtitleTrackOutputPath(inputPath, SelectedOutputFormat.Extension, GetEffectiveOutputDirectory()),
         _ => throw new InvalidOperationException("不支持的处理模式。")
     };
 

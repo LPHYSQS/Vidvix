@@ -91,6 +91,7 @@ public sealed partial class MainViewModel
                 outputFormat,
                 executionContext),
             ProcessingMode.AudioTrackExtract => BuildAudioExtractionCommand(builder, outputFormat, executionContext),
+            ProcessingMode.SubtitleTrackExtract => BuildSubtitleExtractionCommand(builder, outputFormat),
             _ => throw new InvalidOperationException("不支持的处理模式。")
         };
     }
@@ -316,6 +317,46 @@ public sealed partial class MainViewModel
                 .AddParameter("-dn"),
             outputFormat,
             executionContext);
+
+    private static FFmpegCommand BuildSubtitleExtractionCommand(
+        IFFmpegCommandBuilder builder,
+        OutputFormatOption outputFormat)
+    {
+        builder = builder
+            .AddParameter("-map", "0:s:0")
+            .AddParameter("-vn")
+            .AddParameter("-an")
+            .AddParameter("-dn");
+
+        return outputFormat.Extension.ToLowerInvariant() switch
+        {
+            ".srt" => builder
+                .AddParameter("-c:s", "srt")
+                .AddParameter("-f", "srt")
+                .Build(),
+            ".ass" => builder
+                .AddParameter("-c:s", "ass")
+                .AddParameter("-f", "ass")
+                .Build(),
+            ".ssa" => builder
+                .AddParameter("-c:s", "ssa")
+                .AddParameter("-f", "ass")
+                .Build(),
+            ".vtt" => builder
+                .AddParameter("-c:s", "webvtt")
+                .AddParameter("-f", "webvtt")
+                .Build(),
+            ".ttml" => builder
+                .AddParameter("-c:s", "ttml")
+                .AddParameter("-f", "ttml")
+                .Build(),
+            ".mks" => builder
+                .AddParameter("-c:s", "copy")
+                .AddParameter("-f", "matroska")
+                .Build(),
+            _ => throw new InvalidOperationException("不支持的字幕输出格式。")
+        };
+    }
 
     private FFmpegCommand BuildAudioOutputCommand(
         IFFmpegCommandBuilder builder,

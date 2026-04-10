@@ -64,7 +64,11 @@ public sealed class ApplicationConfiguration
             new ProcessingModeOption(
                 ProcessingMode.AudioTrackExtract,
                 "音频轨道提取",
-                "默认提取第一条音频轨道，并按所选音频格式输出单独文件。")
+                "默认提取第一条音频轨道，并按所选音频格式输出单独文件。"),
+            new ProcessingModeOption(
+                ProcessingMode.SubtitleTrackExtract,
+                "字幕轨道提取",
+                "默认提取第一条字幕轨道；文本字幕会按目标格式输出，图形字幕建议导出为 MKS 以保留原始字幕编码。")
         };
 
     public IReadOnlyList<OutputFormatOption> SupportedVideoOutputFormats { get; init; } =
@@ -98,5 +102,16 @@ public sealed class ApplicationConfiguration
             new OutputFormatOption("AIFF", ".aiff", "无压缩音频，常见于部分专业音频和 Apple 工作流。"),
             new OutputFormatOption("AIF", ".aif", "AIFF 的常见扩展名，适合需要 .aif 后缀的场景。"),
             new OutputFormatOption("MKA", ".mka", "Matroska Audio 容器，适合保留原始音频编码输出。")
+        };
+
+    public IReadOnlyList<OutputFormatOption> SupportedSubtitleOutputFormats { get; init; } =
+        new[]
+        {
+            new OutputFormatOption("SRT", ".srt", "通用文本字幕格式，兼容性最好，适合常见播放器和字幕平台。"),
+            new OutputFormatOption("ASS", ".ass", "适合保留字幕样式、定位和特效信息，常用于进阶字幕工作流。"),
+            new OutputFormatOption("SSA", ".ssa", "适合兼容部分旧式字幕编辑或播放工作流。"),
+            new OutputFormatOption("VTT", ".vtt", "WebVTT 字幕格式，适合网页和 HTML5 播放器。"),
+            new OutputFormatOption("TTML", ".ttml", "标准化文本字幕格式，适合部分平台交换和发布流程。"),
+            new OutputFormatOption("MKS", ".mks", "Matroska 字幕容器，适合尽量保留原始字幕编码，包括图形字幕。")
         };
 }

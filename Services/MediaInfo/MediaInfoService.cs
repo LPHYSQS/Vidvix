@@ -194,6 +194,10 @@ public sealed class MediaInfoService : IMediaInfoService
         var streams = probeResult.streams ?? Array.Empty<FfprobeStream>();
         var videoStream = streams.FirstOrDefault(stream => string.Equals(stream.codec_type, "video", StringComparison.OrdinalIgnoreCase));
         var audioStream = streams.FirstOrDefault(stream => string.Equals(stream.codec_type, "audio", StringComparison.OrdinalIgnoreCase));
+        var subtitleStreams = streams
+            .Where(stream => string.Equals(stream.codec_type, "subtitle", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        var subtitleStream = subtitleStreams.FirstOrDefault();
 
         var resolutionText = FormatResolution(videoStream?.width, videoStream?.height);
         var videoProfileLevel = BuildProfileLevel(videoStream?.profile, videoStream?.level);
@@ -201,6 +205,7 @@ public sealed class MediaInfoService : IMediaInfoService
         var encoderTag = ResolveEncoderTag(format, videoStream, audioStream);
         var videoMissing = videoStream is null;
         var audioMissing = audioStream is null;
+        var subtitleCount = subtitleStreams.Length;
         var videoBitrateText = videoMissing ? MissingVideoStreamValue : FormatBitrate(resolvedBitrates.VideoBitrateText);
         var audioBitrateText = audioMissing ? MissingAudioStreamValue : FormatBitrate(resolvedBitrates.AudioBitrateText);
         var overviewFields = new List<MediaDetailField>
@@ -208,7 +213,8 @@ public sealed class MediaInfoService : IMediaInfoService
             new() { Label = "\u6587\u4ef6\u540d", Value = cacheContext.FileName },
             new() { Label = "\u65f6\u957f", Value = FormatDuration(format?.duration) },
             new() { Label = "\u603b\u7801\u7387", Value = FormatBitrate(format?.bit_rate) },
-            new() { Label = "\u5c01\u88c5\u683c\u5f0f", Value = FormatContainer(format?.format_long_name, format?.format_name) }
+            new() { Label = "\u5c01\u88c5\u683c\u5f0f", Value = FormatContainer(format?.format_long_name, format?.format_name) },
+            new() { Label = "\u5b57\u5e55\u8f68\u9053", Value = subtitleCount > 0 ? $"{subtitleCount} \u6761" : "\u672a\u68c0\u6d4b\u5230\u5b57\u5e55\u8f68\u9053" }
         };
 
         if (!videoMissing)
@@ -258,6 +264,9 @@ public sealed class MediaInfoService : IMediaInfoService
             LastWriteTimeUtc = cacheContext.LastWriteTimeUtc,
             HasVideoStream = !videoMissing,
             HasAudioStream = !audioMissing,
+            HasSubtitleStream = subtitleCount > 0,
+            SubtitleStreamCount = subtitleCount,
+            PrimarySubtitleCodecName = subtitleStream?.codec_name,
             OverviewFields = overviewFields,
             VideoFields = videoFields,
             AudioFields = audioFields,
