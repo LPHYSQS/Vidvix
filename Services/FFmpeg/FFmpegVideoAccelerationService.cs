@@ -124,7 +124,7 @@ public sealed class FFmpegVideoAccelerationService : IFFmpegVideoAccelerationSer
             "-f",
             "lavfi",
             "-i",
-            "color=c=black:s=64x64:r=1",
+            "color=c=black:s=256x256:r=1",
             "-vf",
             "format=nv12",
             "-frames:v",
