@@ -37,20 +37,25 @@ public sealed partial class MainViewModel
         NotifyCommandStates();
     }
 
-    private void AddUiLog(LogLevel level, string message, bool clearExisting)
+    private void AddUiLog(LogLevel level, string message, bool clearExisting) =>
+        AddUiLog(_selectedWorkspaceKind, level, message, clearExisting);
+
+    private void AddUiLog(ProcessingWorkspaceKind workspaceKind, LogLevel level, string message, bool clearExisting)
     {
+        var targetLogEntries = GetLogEntries(workspaceKind);
+
         void UpdateLogEntries()
         {
             if (clearExisting)
             {
-                LogEntries.Clear();
+                targetLogEntries.Clear();
             }
 
-            LogEntries.Insert(0, new LogEntry(DateTimeOffset.Now, level, message));
+            targetLogEntries.Insert(0, new LogEntry(DateTimeOffset.Now, level, message));
 
-            if (LogEntries.Count > 200)
+            if (targetLogEntries.Count > 200)
             {
-                LogEntries.RemoveAt(LogEntries.Count - 1);
+                targetLogEntries.RemoveAt(targetLogEntries.Count - 1);
             }
         }
 
@@ -63,15 +68,19 @@ public sealed partial class MainViewModel
         _dispatcherService.TryEnqueue(UpdateLogEntries);
     }
 
-    private void ClearUiLogs()
+    private void ClearUiLogs() => ClearUiLogs(_selectedWorkspaceKind);
+
+    private void ClearUiLogs(ProcessingWorkspaceKind workspaceKind)
     {
+        var targetLogEntries = GetLogEntries(workspaceKind);
+
         if (_dispatcherService.HasThreadAccess)
         {
-            LogEntries.Clear();
+            targetLogEntries.Clear();
             return;
         }
 
-        _dispatcherService.TryEnqueue(() => LogEntries.Clear());
+        _dispatcherService.TryEnqueue(() => targetLogEntries.Clear());
     }
 
     private static ElementTheme ConvertThemePreferenceToElementTheme(ThemePreference preference) => preference switch

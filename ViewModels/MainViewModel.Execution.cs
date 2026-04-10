@@ -13,10 +13,14 @@ public sealed partial class MainViewModel
 
     private async Task ExecuteProcessingAsync()
     {
-        if (ImportItems.Count == 0)
+        var executionWorkspaceKind = _selectedWorkspaceKind;
+        var executionItems = GetImportItems(executionWorkspaceKind);
+
+        if (executionItems.Count == 0)
         {
-            StatusMessage = GetEmptyQueueProcessingMessage();
-            AddUiLog(LogLevel.Warning, GetEmptyQueueProcessingMessage(), clearExisting: false);
+            var emptyQueueMessage = $"\u8bf7\u5148\u5bfc\u5165\u81f3\u5c11\u4e00\u4e2a{GetMediaFileLabel(executionWorkspaceKind)}\u3002";
+            StatusMessage = emptyQueueMessage;
+            AddUiLog(executionWorkspaceKind, LogLevel.Warning, emptyQueueMessage, clearExisting: false);
             return;
         }
 
@@ -25,6 +29,10 @@ public sealed partial class MainViewModel
             return;
         }
 
+        var executionContext = new ProcessingExecutionContext(
+            executionWorkspaceKind,
+            executionWorkspaceKind == ProcessingWorkspaceKind.Audio ? ProcessingMode.AudioTrackExtract : SelectedProcessingMode.Mode,
+            SelectedOutputFormat);
         _executionCancellationSource?.Dispose();
         _executionCancellationSource = new CancellationTokenSource();
 
@@ -36,15 +44,28 @@ public sealed partial class MainViewModel
             IsBusy = true;
             EnsureOutputDirectoryExists();
             RecalculatePlannedOutputs();
-            ClearUiLogs();
+            ClearUiLogs(executionWorkspaceKind);
 
-            foreach (var item in ImportItems)
+            foreach (var item in executionItems)
             {
                 item.ResetStatus();
             }
 
-            var preflightFailedCount = await ValidateProcessingPreconditionsAsync(_executionCancellationSource.Token);
-            var processableCount = ImportItems.Count(item => item.IsPending);
+            var standbyWorkspaceKind = executionWorkspaceKind == ProcessingWorkspaceKind.Audio
+                ? ProcessingWorkspaceKind.Video
+                : ProcessingWorkspaceKind.Audio;
+            var standbyItemCount = GetImportItems(standbyWorkspaceKind).Count;
+            if (standbyItemCount > 0)
+            {
+                AddUiLog(
+                    executionWorkspaceKind,
+                    LogLevel.Info,
+                    $"\u672c\u6b21\u4ec5\u5904\u7406\u5f53\u524d{GetMediaLabel(executionWorkspaceKind)}\u6a21\u5757\u4e2d\u7684 {executionItems.Count} \u4e2a\u6587\u4ef6\uff1b\u53e6\u4e00\u6a21\u5757\u6682\u5b58\u7684 {standbyItemCount} \u4e2a\u6587\u4ef6\u4f1a\u4fdd\u7559\uff0c\u4e0d\u4f1a\u53c2\u4e0e\u672c\u6b21\u5904\u7406\u3002",
+                    clearExisting: false);
+            }
+
+            var preflightFailedCount = await ValidateProcessingPreconditionsAsync(executionContext, executionItems, _executionCancellationSource.Token);
+            var processableCount = executionItems.Count(item => item.IsPending);
 
             var successCount = 0;
             var failedCount = preflightFailedCount;
@@ -56,22 +77,22 @@ public sealed partial class MainViewModel
                 StatusMessage = preflightFailedCount == 1
                     ? "当前队列中没有可执行的文件，请检查媒体轨道后重试。"
                     : "当前队列中的文件都不满足所选处理模式，未执行处理。";
-                AddUiLog(LogLevel.Warning, StatusMessage, clearExisting: false);
+                AddUiLog(executionWorkspaceKind, LogLevel.Warning, StatusMessage, clearExisting: false);
                 return;
             }
 
-            StatusMessage = $"开始处理 {ImportItems.Count} 个文件...";
-            AddUiLog(LogLevel.Info, $"开始处理 {ImportItems.Count} 个文件。", clearExisting: false);
+            StatusMessage = $"\u5f00\u59cb\u5904\u7406\u5f53\u524d{GetMediaLabel(executionWorkspaceKind)}\u6a21\u5757\u4e2d\u7684 {executionItems.Count} \u4e2a\u6587\u4ef6...";
+            AddUiLog(executionWorkspaceKind, LogLevel.Info, $"\u5f00\u59cb\u5904\u7406\u5f53\u524d{GetMediaLabel(executionWorkspaceKind)}\u6a21\u5757\u4e2d\u7684 {executionItems.Count} \u4e2a\u6587\u4ef6\u3002", clearExisting: false);
 
             if (preflightFailedCount > 0)
             {
                 StatusMessage = $"开始处理 {processableCount} 个文件，已提前跳过 {preflightFailedCount} 个不符合当前模式的文件。";
-                AddUiLog(LogLevel.Warning, $"开始处理 {processableCount} 个文件，已提前跳过 {preflightFailedCount} 个不符合当前模式的文件。", clearExisting: false);
+                AddUiLog(executionWorkspaceKind, LogLevel.Warning, $"开始处理 {processableCount} 个文件，已提前跳过 {preflightFailedCount} 个不符合当前模式的文件。", clearExisting: false);
             }
 
-            for (var index = 0; index < ImportItems.Count; index++)
+            for (var index = 0; index < executionItems.Count; index++)
             {
-                var item = ImportItems[index];
+                var item = executionItems[index];
 
                 if (!item.IsPending)
                 {
@@ -87,7 +108,7 @@ public sealed partial class MainViewModel
 
                 item.MarkRunning();
 
-                var command = BuildCommand(item.InputPath, item.PlannedOutputPath);
+                var command = BuildCommand(item.InputPath, item.PlannedOutputPath, executionContext.WorkspaceKind, executionContext.ProcessingMode, executionContext.OutputFormat);
                 var executionOptions = new FFmpegExecutionOptions
                 {
                     Timeout = _configuration.DefaultExecutionTimeout
@@ -105,7 +126,7 @@ public sealed partial class MainViewModel
                     item.MarkSucceeded($"用时 {elapsedText}");
                     successCount++;
                     lastSuccessfulOutputPath = item.PlannedOutputPath;
-                    AddUiLog(LogLevel.Info, $"{item.InputFileName} 处理成功，用时 {elapsedText}。", clearExisting: false);
+                    AddUiLog(executionWorkspaceKind, LogLevel.Info, $"{item.InputFileName} 处理成功，用时 {elapsedText}。", clearExisting: false);
                     continue;
                 }
 
@@ -113,15 +134,15 @@ public sealed partial class MainViewModel
                 {
                     item.MarkCancelled();
                     cancelledCount++;
-                    cancelledCount += MarkRemainingItemsCancelled(index + 1);
-                    AddUiLog(LogLevel.Warning, "任务已取消，未完成的文件已停止处理。", clearExisting: false);
+                    cancelledCount += MarkRemainingItemsCancelled(executionItems, index + 1);
+                    AddUiLog(executionWorkspaceKind, LogLevel.Warning, "任务已取消，未完成的文件已停止处理。", clearExisting: false);
                     break;
                 }
 
-                var failureMessage = CreateFriendlyFailureMessage(result);
+                var failureMessage = CreateFriendlyFailureMessage(result, executionContext);
                 item.MarkFailed($"原因：{failureMessage}");
                 failedCount++;
-                AddUiLog(LogLevel.Error, $"{item.InputFileName} 处理失败，用时 {elapsedText}。原因：{failureMessage}", clearExisting: false);
+                AddUiLog(executionWorkspaceKind, LogLevel.Error, $"{item.InputFileName} 处理失败，用时 {elapsedText}。原因：{failureMessage}", clearExisting: false);
             }
 
             var wasCancelled = _executionCancellationSource.IsCancellationRequested;
@@ -133,6 +154,7 @@ public sealed partial class MainViewModel
                     : $"处理完成，成功 {successCount} 个，失败 {failedCount} 个。";
 
             AddUiLog(
+                executionWorkspaceKind,
                 wasCancelled || failedCount > 0 ? LogLevel.Warning : LogLevel.Info,
                 CreateBatchSummaryMessage(successCount, failedCount, cancelledCount, DateTimeOffset.UtcNow - batchStartedAt, wasCancelled),
                 clearExisting: false);
@@ -141,17 +163,17 @@ public sealed partial class MainViewModel
         }
         catch (OperationCanceledException) when (_executionCancellationSource?.IsCancellationRequested == true)
         {
-            var cancelledCount = MarkRemainingItemsCancelled(0);
+            var cancelledCount = MarkRemainingItemsCancelled(executionItems, 0);
             StatusMessage = cancelledCount > 0
                 ? $"任务已取消，已取消 {cancelledCount} 个未完成文件。"
                 : "任务已取消。";
-            AddUiLog(LogLevel.Warning, "任务已取消，未完成的文件已停止处理。", clearExisting: false);
+            AddUiLog(executionWorkspaceKind, LogLevel.Warning, "任务已取消，未完成的文件已停止处理。", clearExisting: false);
         }
         catch (Exception exception)
         {
             StatusMessage = "处理过程中发生异常。";
             _logger.Log(LogLevel.Error, "批量处理流程被异常中断。", exception);
-            AddUiLog(LogLevel.Error, $"批量处理被中断。原因：{exception.Message}", clearExisting: false);
+            AddUiLog(executionWorkspaceKind, LogLevel.Error, $"批量处理被中断。原因：{exception.Message}", clearExisting: false);
         }
         finally
         {
@@ -178,16 +200,19 @@ public sealed partial class MainViewModel
         ImportItems.Count > 0 &&
         AvailableOutputFormats.Count > 0;
 
-    private async Task<int> ValidateProcessingPreconditionsAsync(CancellationToken cancellationToken)
+    private async Task<int> ValidateProcessingPreconditionsAsync(
+        ProcessingExecutionContext executionContext,
+        System.Collections.Generic.IReadOnlyList<MediaJobViewModel> executionItems,
+        CancellationToken cancellationToken)
     {
-        if (!TryGetRequiredTrackType(out var requiredTrackType))
+        if (!TryGetRequiredTrackType(executionContext, out var requiredTrackType))
         {
             return 0;
         }
 
         var failedCount = 0;
 
-        foreach (var item in ImportItems)
+        foreach (var item in executionItems)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -215,24 +240,24 @@ public sealed partial class MainViewModel
                 continue;
             }
 
-            var failureMessage = CreateMissingRequiredTrackMessage(requiredTrackType);
+            var failureMessage = CreateMissingRequiredTrackMessage(requiredTrackType, executionContext);
             item.MarkFailed($"原因：{failureMessage}");
             failedCount++;
-            AddUiLog(LogLevel.Warning, $"{item.InputFileName} {failureMessage}", clearExisting: false);
+            AddUiLog(executionContext.WorkspaceKind, LogLevel.Warning, $"{item.InputFileName} {failureMessage}", clearExisting: false);
         }
 
         return failedCount;
     }
 
-    private bool TryGetRequiredTrackType(out RequiredTrackType requiredTrackType)
+    private bool TryGetRequiredTrackType(ProcessingExecutionContext executionContext, out RequiredTrackType requiredTrackType)
     {
-        if (IsAudioWorkspace)
+        if (executionContext.WorkspaceKind == ProcessingWorkspaceKind.Audio)
         {
             requiredTrackType = RequiredTrackType.Audio;
             return true;
         }
 
-        switch (SelectedProcessingMode.Mode)
+        switch (executionContext.ProcessingMode)
         {
             case ProcessingMode.VideoTrackExtract:
                 requiredTrackType = RequiredTrackType.Video;
@@ -254,11 +279,11 @@ public sealed partial class MainViewModel
             _ => false
         };
 
-    private string CreateMissingRequiredTrackMessage(RequiredTrackType requiredTrackType)
+    private string CreateMissingRequiredTrackMessage(RequiredTrackType requiredTrackType, ProcessingExecutionContext executionContext)
     {
-        var outputFormatName = SelectedOutputFormat.DisplayName;
+        var outputFormatName = executionContext.OutputFormat.DisplayName;
 
-        if (IsAudioWorkspace)
+        if (executionContext.WorkspaceKind == ProcessingWorkspaceKind.Audio)
         {
             return $"未检测到音频流，无法转换为 {outputFormatName}。";
         }

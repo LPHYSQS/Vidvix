@@ -32,7 +32,7 @@ public sealed partial class MainViewModel
         }
     }
 
-    private string CreateFriendlyFailureMessage(FFmpegExecutionResult result)
+    private string CreateFriendlyFailureMessage(FFmpegExecutionResult result, ProcessingExecutionContext executionContext)
     {
         var standardError = result.StandardError;
 
@@ -43,12 +43,12 @@ public sealed partial class MainViewModel
 
         if (standardError.Contains("matches no streams", StringComparison.OrdinalIgnoreCase))
         {
-            if (IsAudioWorkspace)
+            if (executionContext.WorkspaceKind == ProcessingWorkspaceKind.Audio)
             {
                 return "该文件没有可转换的音频流。";
             }
 
-            return SelectedProcessingMode.Mode switch
+            return executionContext.ProcessingMode switch
             {
                 ProcessingMode.VideoTrackExtract => "该文件没有可提取的视频轨道。",
                 ProcessingMode.AudioTrackExtract => "该文件没有可提取的音频轨道。",
@@ -91,13 +91,13 @@ public sealed partial class MainViewModel
         return result.FailureReason ?? "处理失败。";
     }
 
-    private int MarkRemainingItemsCancelled(int startIndex)
+    private static int MarkRemainingItemsCancelled(System.Collections.Generic.IReadOnlyList<MediaJobViewModel> executionItems, int startIndex)
     {
         var cancelledCount = 0;
 
-        for (var index = startIndex; index < ImportItems.Count; index++)
+        for (var index = startIndex; index < executionItems.Count; index++)
         {
-            var item = ImportItems[index];
+            var item = executionItems[index];
             if (!item.IsPending)
             {
                 continue;

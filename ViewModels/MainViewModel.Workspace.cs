@@ -35,17 +35,32 @@ public sealed partial class MainViewModel
     private bool IsAudioWorkspace => _selectedWorkspaceKind == ProcessingWorkspaceKind.Audio;
 
     private ObservableCollection<MediaJobViewModel> GetCurrentImportItems() =>
-        IsAudioWorkspace ? _audioImportItems : _videoImportItems;
+        GetImportItems(_selectedWorkspaceKind);
+
+    private ObservableCollection<MediaJobViewModel> GetImportItems(ProcessingWorkspaceKind workspaceKind) =>
+        workspaceKind == ProcessingWorkspaceKind.Audio ? _audioImportItems : _videoImportItems;
 
     private ObservableCollection<LogEntry> GetCurrentLogEntries() =>
-        IsAudioWorkspace ? _audioLogEntries : _videoLogEntries;
+        GetLogEntries(_selectedWorkspaceKind);
+
+    private ObservableCollection<LogEntry> GetLogEntries(ProcessingWorkspaceKind workspaceKind) =>
+        workspaceKind == ProcessingWorkspaceKind.Audio ? _audioLogEntries : _videoLogEntries;
 
     private IReadOnlyList<string> GetCurrentSupportedInputFileTypes() =>
-        IsAudioWorkspace ? _configuration.SupportedAudioInputFileTypes : _configuration.SupportedVideoInputFileTypes;
+        GetSupportedInputFileTypes(_selectedWorkspaceKind);
 
-    private string GetCurrentMediaLabel() => IsAudioWorkspace ? "\u97f3\u9891" : "\u89c6\u9891";
+    private IReadOnlyList<string> GetSupportedInputFileTypes(ProcessingWorkspaceKind workspaceKind) =>
+        workspaceKind == ProcessingWorkspaceKind.Audio ? _configuration.SupportedAudioInputFileTypes : _configuration.SupportedVideoInputFileTypes;
 
-    private string GetCurrentMediaFileLabel() => IsAudioWorkspace ? "\u97f3\u9891\u6587\u4ef6" : "\u89c6\u9891\u6587\u4ef6";
+    private string GetCurrentMediaLabel() => GetMediaLabel(_selectedWorkspaceKind);
+
+    private static string GetMediaLabel(ProcessingWorkspaceKind workspaceKind) =>
+        workspaceKind == ProcessingWorkspaceKind.Audio ? "\u97f3\u9891" : "\u89c6\u9891";
+
+    private string GetCurrentMediaFileLabel() => GetMediaFileLabel(_selectedWorkspaceKind);
+
+    private static string GetMediaFileLabel(ProcessingWorkspaceKind workspaceKind) =>
+        workspaceKind == ProcessingWorkspaceKind.Audio ? "\u97f3\u9891\u6587\u4ef6" : "\u89c6\u9891\u6587\u4ef6";
 
     private string GetReadyForImportMessage() => $"\u8bf7\u5bfc\u5165{GetCurrentMediaFileLabel()}\u6216\u6587\u4ef6\u5939\u3002";
 
@@ -77,6 +92,12 @@ public sealed partial class MainViewModel
     {
         if (_selectedWorkspaceKind == workspaceKind)
         {
+            return;
+        }
+
+        if (IsBusy)
+        {
+            StatusMessage = "\u5f53\u524d\u4efb\u52a1\u5904\u7406\u4e2d\uff0c\u6682\u4e0d\u652f\u6301\u5207\u6362\u6a21\u5757\u3002";
             return;
         }
 

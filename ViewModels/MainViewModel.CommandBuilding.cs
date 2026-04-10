@@ -8,7 +8,20 @@ public sealed partial class MainViewModel
 {
     // 命令构建和错误消息提炼单独放置，方便未来替换为更多模式策略。
 
-    private FFmpegCommand BuildCommand(string inputPath, string outputPath)
+    private FFmpegCommand BuildCommand(string inputPath, string outputPath) =>
+        BuildCommand(
+            inputPath,
+            outputPath,
+            _selectedWorkspaceKind,
+            IsAudioWorkspace ? ProcessingMode.AudioTrackExtract : SelectedProcessingMode.Mode,
+            SelectedOutputFormat);
+
+    private FFmpegCommand BuildCommand(
+        string inputPath,
+        string outputPath,
+        ProcessingWorkspaceKind workspaceKind,
+        ProcessingMode processingMode,
+        OutputFormatOption outputFormat)
     {
         if (string.IsNullOrWhiteSpace(_runtimeExecutablePath))
         {
@@ -24,12 +37,12 @@ public sealed partial class MainViewModel
 
         builder = builder.AddGlobalParameter(_configuration.OverwriteOutputFiles ? "-y" : "-n");
 
-        if (IsAudioWorkspace)
+        if (workspaceKind == ProcessingWorkspaceKind.Audio)
         {
-            return BuildAudioConversionCommand(builder);
+            return BuildAudioConversionCommand(builder, outputFormat);
         }
 
-        return SelectedProcessingMode.Mode switch
+        return processingMode switch
         {
             ProcessingMode.VideoConvert => BuildVideoOutputCommand(
                 builder
@@ -37,22 +50,24 @@ public sealed partial class MainViewModel
                     .AddParameter("-map", "0:a?")
                     .AddParameter("-sn")
                     .AddParameter("-dn"),
-                includeAudio: true),
+                true,
+                outputFormat),
             ProcessingMode.VideoTrackExtract => BuildVideoOutputCommand(
                 builder
                     .AddParameter("-map", "0:v")
                     .AddParameter("-an")
                     .AddParameter("-sn")
                     .AddParameter("-dn"),
-                includeAudio: false),
-            ProcessingMode.AudioTrackExtract => BuildAudioExtractionCommand(builder),
+                false,
+                outputFormat),
+            ProcessingMode.AudioTrackExtract => BuildAudioExtractionCommand(builder, outputFormat),
             _ => throw new InvalidOperationException("不支持的处理模式。")
         };
     }
 
-    private FFmpegCommand BuildVideoOutputCommand(IFFmpegCommandBuilder builder, bool includeAudio)
+    private FFmpegCommand BuildVideoOutputCommand(IFFmpegCommandBuilder builder, bool includeAudio, OutputFormatOption outputFormat)
     {
-        var extension = SelectedOutputFormat.Extension.ToLowerInvariant();
+        var extension = outputFormat.Extension.ToLowerInvariant();
 
         return extension switch
         {
@@ -178,25 +193,27 @@ public sealed partial class MainViewModel
         return builder.Build();
     }
 
-    private FFmpegCommand BuildAudioConversionCommand(IFFmpegCommandBuilder builder) =>
+    private FFmpegCommand BuildAudioConversionCommand(IFFmpegCommandBuilder builder, OutputFormatOption outputFormat) =>
         BuildAudioOutputCommand(
             builder
                 .AddParameter("-map", "0:a:0")
                 .AddParameter("-vn")
                 .AddParameter("-sn")
-                .AddParameter("-dn"));
+                .AddParameter("-dn"),
+            outputFormat);
 
-    private FFmpegCommand BuildAudioExtractionCommand(IFFmpegCommandBuilder builder) =>
+    private FFmpegCommand BuildAudioExtractionCommand(IFFmpegCommandBuilder builder, OutputFormatOption outputFormat) =>
         BuildAudioOutputCommand(
             builder
                 .AddParameter("-map", "0:a:0")
                 .AddParameter("-vn")
                 .AddParameter("-sn")
-                .AddParameter("-dn"));
+                .AddParameter("-dn"),
+            outputFormat);
 
-    private FFmpegCommand BuildAudioOutputCommand(IFFmpegCommandBuilder builder)
+    private FFmpegCommand BuildAudioOutputCommand(IFFmpegCommandBuilder builder, OutputFormatOption outputFormat)
     {
-        var extension = SelectedOutputFormat.Extension.ToLowerInvariant();
+        var extension = outputFormat.Extension.ToLowerInvariant();
 
         builder = extension switch
         {

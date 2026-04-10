@@ -377,4 +377,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             NotifyCommandStates();
         }
     }
+
+    private readonly record struct ProcessingExecutionContext(
+        ProcessingWorkspaceKind WorkspaceKind,
+        ProcessingMode ProcessingMode,
+        OutputFormatOption OutputFormat);
 }
