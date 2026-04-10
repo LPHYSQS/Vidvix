@@ -316,7 +316,18 @@
                                                         <Image
                                                             Margin="1"
                                                             Source="{x:Bind ThumbnailSource, Mode=OneWay}"
+                                                            Opacity="0.24"
                                                             Stretch="UniformToFill"
+                                                            Visibility="{x:Bind ThumbnailVisibility, Mode=OneWay}" />
+                                                        <Border
+                                                            Margin="1"
+                                                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                                            Opacity="0.42"
+                                                            Visibility="{x:Bind ThumbnailVisibility, Mode=OneWay}" />
+                                                        <Image
+                                                            Margin="8"
+                                                            Source="{x:Bind ThumbnailSource, Mode=OneWay}"
+                                                            Stretch="Uniform"
                                                             Visibility="{x:Bind ThumbnailVisibility, Mode=OneWay}" />
                                                         <StackPanel
                                                             HorizontalAlignment="Center"
