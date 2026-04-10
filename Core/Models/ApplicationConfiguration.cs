@@ -89,6 +89,12 @@ public sealed class ApplicationConfiguration
             new OutputFormatOption("M4A", ".m4a", "AAC 封装，音质和体积较平衡。"),
             new OutputFormatOption("AAC", ".aac", "原始 AAC 音频流。"),
             new OutputFormatOption("WAV", ".wav", "无压缩音频，适合继续编辑。"),
-            new OutputFormatOption("FLAC", ".flac", "无损压缩音频，适合存档。")
+            new OutputFormatOption("FLAC", ".flac", "无损压缩音频，适合存档。"),
+            new OutputFormatOption("WMA", ".wma", "适合部分 Windows 播放环境和旧式工作流。"),
+            new OutputFormatOption("OGG", ".ogg", "开放音频容器，适合 Vorbis 音频分发。"),
+            new OutputFormatOption("OPUS", ".opus", "现代低码率高音质格式，适合语音和流媒体。"),
+            new OutputFormatOption("AIFF", ".aiff", "无压缩音频，常见于部分专业音频和 Apple 工作流。"),
+            new OutputFormatOption("AIF", ".aif", "AIFF 的常见扩展名，适合需要 .aif 后缀的场景。"),
+            new OutputFormatOption("MKA", ".mka", "Matroska Audio 容器，适合保留原始音频编码输出。")
         };
 }

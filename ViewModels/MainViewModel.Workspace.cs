@@ -10,7 +10,7 @@ namespace Vidvix.ViewModels;
 public sealed partial class MainViewModel
 {
     private const string AudioProcessingModeDisplayName = "\u97f3\u9891\u683c\u5f0f\u8f6c\u6362";
-    private const string AudioProcessingModeDescription = "\u5c06\u97f3\u9891\u6587\u4ef6\u8f6c\u6362\u4e3a\u76ee\u6807\u683c\u5f0f\uff0c\u652f\u6301 MP3\u3001M4A\u3001AAC\u3001WAV\u3001FLAC \u4e4b\u95f4\u4e92\u76f8\u8f6c\u6362\u3002";
+    private const string AudioProcessingModeDescription = "\u5c06\u97f3\u9891\u6587\u4ef6\u8f6c\u6362\u4e3a\u76ee\u6807\u683c\u5f0f\uff0c\u652f\u6301\u591a\u79cd\u97f3\u9891\u683c\u5f0f\u4e4b\u95f4\u4e92\u76f8\u8f6c\u6362\u3002";
 
     public ObservableCollection<LogEntry> LogEntries => GetCurrentLogEntries();
 

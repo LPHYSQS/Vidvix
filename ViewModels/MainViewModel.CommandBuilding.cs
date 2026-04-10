@@ -214,6 +214,22 @@ public sealed partial class MainViewModel
                 .AddParameter("-c:a", "pcm_s16le"),
             ".flac" => builder
                 .AddParameter("-c:a", "flac"),
+            ".wma" => builder
+                .AddParameter("-c:a", "wmav2")
+                .AddParameter("-b:a", "192k"),
+            ".ogg" => builder
+                .AddParameter("-c:a", "libvorbis")
+                .AddParameter("-q:a", "5"),
+            ".opus" => builder
+                .AddParameter("-c:a", "libopus")
+                .AddParameter("-b:a", "160k"),
+            ".aiff" => builder
+                .AddParameter("-c:a", "pcm_s16be"),
+            ".aif" => builder
+                .AddParameter("-c:a", "pcm_s16be"),
+            ".mka" => builder
+                .AddParameter("-c:a", "copy")
+                .AddParameter("-f", "matroska"),
             _ => throw new InvalidOperationException("不支持的音频输出格式。")
         };
 
