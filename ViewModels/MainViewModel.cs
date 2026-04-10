@@ -51,7 +51,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly IFFmpegVideoAccelerationService _ffmpegVideoAccelerationService;
     private readonly IMediaInfoService _mediaInfoService;
     private readonly IVideoThumbnailService _videoThumbnailService;
-    private readonly IFFmpegCommandBuilder _ffmpegCommandBuilder;
+    private readonly IMediaProcessingCommandFactory _mediaProcessingCommandFactory;
     private readonly IMediaImportDiscoveryService _mediaImportDiscoveryService;
     private readonly ILogger _logger;
     private readonly IFilePickerService _filePickerService;
@@ -106,7 +106,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         IFFmpegVideoAccelerationService ffmpegVideoAccelerationService,
         IMediaInfoService mediaInfoService,
         IVideoThumbnailService videoThumbnailService,
-        IFFmpegCommandBuilder ffmpegCommandBuilder,
+        IMediaProcessingCommandFactory mediaProcessingCommandFactory,
         IMediaImportDiscoveryService mediaImportDiscoveryService,
         ILogger logger,
         IFilePickerService filePickerService,
@@ -120,7 +120,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _ffmpegVideoAccelerationService = ffmpegVideoAccelerationService;
         _mediaInfoService = mediaInfoService;
         _videoThumbnailService = videoThumbnailService;
-        _ffmpegCommandBuilder = ffmpegCommandBuilder;
+        _mediaProcessingCommandFactory = mediaProcessingCommandFactory;
         _mediaImportDiscoveryService = mediaImportDiscoveryService;
         _logger = logger;
         _filePickerService = filePickerService;
@@ -412,9 +412,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     };
 
     public string SupportedInputFormatsHint =>
-        "支持导入格式（" +
-        string.Join("、", GetCurrentSupportedInputFileTypes().Select(extension => extension.TrimStart('.').ToUpperInvariant())) +
-        "）";
+        GetCurrentWorkspaceProfile().SupportedInputFormatsHint;
 
     public void Dispose()
     {
@@ -461,11 +459,4 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private readonly record struct ProcessingExecutionContext(
-        ProcessingWorkspaceKind WorkspaceKind,
-        ProcessingMode ProcessingMode,
-        OutputFormatOption OutputFormat,
-        TranscodingMode TranscodingMode,
-        bool IsGpuAccelerationRequested,
-        VideoAccelerationKind VideoAccelerationKind);
 }

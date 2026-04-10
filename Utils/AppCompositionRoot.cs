@@ -38,6 +38,7 @@ public sealed class AppCompositionRoot
         var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
         var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
         var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
+        var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(Configuration, commandBuilder);
         _userPreferencesService = new UserPreferencesService(Configuration, Logger);
         var fileRevealService = new FileRevealService();
 
@@ -48,7 +49,7 @@ public sealed class AppCompositionRoot
             ffmpegVideoAccelerationService,
             mediaInfoService,
             videoThumbnailService,
-            commandBuilder,
+            mediaProcessingCommandFactory,
             mediaImportDiscoveryService,
             Logger,
             filePickerService,

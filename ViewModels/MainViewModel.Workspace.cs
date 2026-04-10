@@ -9,9 +9,6 @@ namespace Vidvix.ViewModels;
 
 public sealed partial class MainViewModel
 {
-    private const string AudioProcessingModeDisplayName = "\u97f3\u9891\u683c\u5f0f\u8f6c\u6362";
-    private const string AudioProcessingModeDescription = "\u5c06\u97f3\u9891\u6587\u4ef6\u8f6c\u6362\u4e3a\u76ee\u6807\u683c\u5f0f\uff0c\u652f\u6301\u591a\u79cd\u97f3\u9891\u683c\u5f0f\u4e4b\u95f4\u4e92\u76f8\u8f6c\u6362\u3002";
-
     public ObservableCollection<LogEntry> LogEntries => GetCurrentLogEntries();
 
     public ObservableCollection<MediaJobViewModel> ImportItems => GetCurrentImportItems();
@@ -24,15 +21,23 @@ public sealed partial class MainViewModel
 
     public Visibility AudioProcessingModeVisibility => IsAudioWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
-    public string QueueDragDropHintText => $"\u652f\u6301\u62d6\u62fd{GetCurrentMediaFileLabel()}\u6216\u6587\u4ef6\u5939\u5230\u7a97\u53e3\u4efb\u610f\u4f4d\u7f6e";
+    public string QueueDragDropHintText => GetCurrentWorkspaceProfile().QueueDragDropHintText;
 
-    public string DragDropCaptionText => GetDragDropCaptionText();
+    public string DragDropCaptionText => GetCurrentWorkspaceProfile().DragDropCaptionText;
 
-    public string FixedProcessingModeDisplayName => AudioProcessingModeDisplayName;
+    public string FixedProcessingModeDisplayName => GetWorkspaceProfile(ProcessingWorkspaceKind.Audio).FixedProcessingModeDisplayName;
 
-    public string FixedProcessingModeDescription => AudioProcessingModeDescription;
+    public string FixedProcessingModeDescription => GetWorkspaceProfile(ProcessingWorkspaceKind.Audio).FixedProcessingModeDescription;
 
     private bool IsAudioWorkspace => _selectedWorkspaceKind == ProcessingWorkspaceKind.Audio;
+
+    private ProcessingWorkspaceProfile GetCurrentWorkspaceProfile() =>
+        GetWorkspaceProfile(_selectedWorkspaceKind);
+
+    private ProcessingWorkspaceProfile GetWorkspaceProfile(ProcessingWorkspaceKind workspaceKind) =>
+        _configuration.WorkspaceProfiles.TryGetValue(workspaceKind, out var profile)
+            ? profile
+            : _configuration.WorkspaceProfiles[ProcessingWorkspaceKind.Video];
 
     private ObservableCollection<MediaJobViewModel> GetCurrentImportItems() =>
         GetImportItems(_selectedWorkspaceKind);
@@ -50,31 +55,27 @@ public sealed partial class MainViewModel
         GetSupportedInputFileTypes(_selectedWorkspaceKind);
 
     private IReadOnlyList<string> GetSupportedInputFileTypes(ProcessingWorkspaceKind workspaceKind) =>
-        workspaceKind == ProcessingWorkspaceKind.Audio ? _configuration.SupportedAudioInputFileTypes : _configuration.SupportedVideoInputFileTypes;
+        GetWorkspaceProfile(workspaceKind).SupportedInputFileTypes;
 
-    private string GetCurrentMediaLabel() => GetMediaLabel(_selectedWorkspaceKind);
+    private string GetCurrentMediaLabel() => GetCurrentWorkspaceProfile().MediaLabel;
 
-    private static string GetMediaLabel(ProcessingWorkspaceKind workspaceKind) =>
-        workspaceKind == ProcessingWorkspaceKind.Audio ? "\u97f3\u9891" : "\u89c6\u9891";
+    private string GetMediaLabel(ProcessingWorkspaceKind workspaceKind) => GetWorkspaceProfile(workspaceKind).MediaLabel;
 
-    private string GetCurrentMediaFileLabel() => GetMediaFileLabel(_selectedWorkspaceKind);
+    private string GetCurrentMediaFileLabel() => GetCurrentWorkspaceProfile().MediaFileLabel;
 
-    private static string GetMediaFileLabel(ProcessingWorkspaceKind workspaceKind) =>
-        workspaceKind == ProcessingWorkspaceKind.Audio ? "\u97f3\u9891\u6587\u4ef6" : "\u89c6\u9891\u6587\u4ef6";
+    private string GetMediaFileLabel(ProcessingWorkspaceKind workspaceKind) => GetWorkspaceProfile(workspaceKind).MediaFileLabel;
 
-    private string GetReadyForImportMessage() => $"\u8bf7\u5bfc\u5165{GetCurrentMediaFileLabel()}\u6216\u6587\u4ef6\u5939\u3002";
+    private string GetReadyForImportMessage() => GetCurrentWorkspaceProfile().ReadyForImportMessage;
 
-    private string GetEmptyQueueProcessingMessage() => $"\u8bf7\u5148\u5bfc\u5165\u81f3\u5c11\u4e00\u4e2a{GetCurrentMediaFileLabel()}\u3002";
+    private string GetEmptyQueueProcessingMessage() => GetCurrentWorkspaceProfile().EmptyQueueProcessingMessage;
 
-    private string GetImportFilePickerCommitText() => $"\u5bfc\u5165{GetCurrentMediaFileLabel()}";
+    private string GetImportFilePickerCommitText() => GetCurrentWorkspaceProfile().ImportFilePickerCommitText;
 
-    private string GetImportFolderPickerCommitText() => $"\u5bfc\u5165{GetCurrentMediaLabel()}\u6587\u4ef6\u5939";
+    private string GetImportFolderPickerCommitText() => GetCurrentWorkspaceProfile().ImportFolderPickerCommitText;
 
-    private string GetDragDropCaptionText() => $"\u5bfc\u5165{GetCurrentMediaFileLabel()}\u6216\u6587\u4ef6\u5939";
+    private string CreateImportedCountMessage(int addedCount) => GetCurrentWorkspaceProfile().CreateImportedCountMessage(addedCount);
 
-    private string CreateImportedCountMessage(int addedCount) => $"\u5df2\u5bfc\u5165 {addedCount} \u4e2a{GetCurrentMediaFileLabel()}\u3002";
-
-    private string CreateNoProcessableImportMessage() => $"\u6ca1\u6709\u53d1\u73b0\u53ef\u5904\u7406\u7684{GetCurrentMediaFileLabel()}\u3002";
+    private string CreateNoProcessableImportMessage() => GetCurrentWorkspaceProfile().NoProcessableImportMessage;
 
     private ProcessingMode GetCurrentOutputFormatPreferenceMode() =>
         IsAudioWorkspace ? ProcessingMode.AudioTrackExtract : SelectedProcessingMode.Mode;
@@ -97,7 +98,7 @@ public sealed partial class MainViewModel
 
         if (IsBusy)
         {
-            StatusMessage = "\u5f53\u524d\u4efb\u52a1\u5904\u7406\u4e2d\uff0c\u6682\u4e0d\u652f\u6301\u5207\u6362\u6a21\u5757\u3002";
+            StatusMessage = "当前任务处理中，暂不支持切换模块。";
             return;
         }
 

@@ -23,6 +23,8 @@
 ## 本次整理后的重点
 
 - `MainViewModel` 按职责拆成 `Import`、`Details`、`Processing`、`Preferences` 四个 partial 文件。
+- FFmpeg 命令拼装已继续下沉到 `Services/FFmpeg/MediaProcessingCommandFactory`，ViewModel 只保留执行上下文编排。
+- 音频 / 视频工作区的中文文案、提示语和输入格式规则已集中到 `ProcessingWorkspaceProfile`。
 - 用户偏好改为“基于现有对象更新”的持久化方式，避免每次新增设置项时在多个调用点手动复制所有字段。
 - 新增 `.editorconfig` 统一中文源码采用 `UTF-8 BOM`，降低 Windows 默认工具、脚本和 AI Agent 误判乱码的概率。
 - 新增全局“转码方式”偏好：默认保持现有快速换封装行为，可切换到真正转码，并在视频可适用时接入 GPU 可用性检测与自动回退。

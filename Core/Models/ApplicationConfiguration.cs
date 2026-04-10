@@ -6,6 +6,12 @@ namespace Vidvix.Core.Models;
 
 public sealed class ApplicationConfiguration
 {
+    private static readonly IReadOnlyList<string> DefaultSupportedVideoInputFileTypes =
+        new[] { ".mp4", ".mkv", ".mov", ".avi", ".wmv", ".m4v", ".flv", ".webm", ".ts", ".m2ts", ".mpeg", ".mpg" };
+
+    private static readonly IReadOnlyList<string> DefaultSupportedAudioInputFileTypes =
+        new[] { ".mp3", ".m4a", ".aac", ".wav", ".flac", ".wma", ".ogg", ".opus", ".aiff", ".aif", ".mka" };
+
     public string ApplicationTitle { get; init; } = "Vidvix";
 
     public string ApplicationIconRelativePath { get; init; } = Path.Combine("Assets", "logo.ico");
@@ -44,11 +50,26 @@ public sealed class ApplicationConfiguration
 
     public TimeSpan? DefaultExecutionTimeout { get; init; }
 
-    public IReadOnlyList<string> SupportedVideoInputFileTypes { get; init; } =
-        new[] { ".mp4", ".mkv", ".mov", ".avi", ".wmv", ".m4v", ".flv", ".webm", ".ts", ".m2ts", ".mpeg", ".mpg" };
+    public IReadOnlyList<string> SupportedVideoInputFileTypes { get; init; } = DefaultSupportedVideoInputFileTypes;
 
-    public IReadOnlyList<string> SupportedAudioInputFileTypes { get; init; } =
-        new[] { ".mp3", ".m4a", ".aac", ".wav", ".flac", ".wma", ".ogg", ".opus", ".aiff", ".aif", ".mka" };
+    public IReadOnlyList<string> SupportedAudioInputFileTypes { get; init; } = DefaultSupportedAudioInputFileTypes;
+
+    public IReadOnlyDictionary<ProcessingWorkspaceKind, ProcessingWorkspaceProfile> WorkspaceProfiles { get; init; } =
+        new Dictionary<ProcessingWorkspaceKind, ProcessingWorkspaceProfile>
+        {
+            [ProcessingWorkspaceKind.Video] = new(
+                ProcessingWorkspaceKind.Video,
+                "视频",
+                "视频文件",
+                DefaultSupportedVideoInputFileTypes),
+            [ProcessingWorkspaceKind.Audio] = new(
+                ProcessingWorkspaceKind.Audio,
+                "音频",
+                "音频文件",
+                DefaultSupportedAudioInputFileTypes,
+                fixedProcessingModeDisplayName: "音频格式转换",
+                fixedProcessingModeDescription: "将音频文件转换为目标格式，支持多种音频格式之间互相转换。")
+        };
 
     public IReadOnlyList<ProcessingModeOption> SupportedProcessingModes { get; init; } =
         new[]

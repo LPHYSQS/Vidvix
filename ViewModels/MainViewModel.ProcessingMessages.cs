@@ -32,7 +32,7 @@ public sealed partial class MainViewModel
         }
     }
 
-    private string CreateFriendlyFailureMessage(FFmpegExecutionResult result, ProcessingExecutionContext executionContext)
+    private string CreateFriendlyFailureMessage(FFmpegExecutionResult result, MediaProcessingContext executionContext)
     {
         var standardError = result.StandardError;
 

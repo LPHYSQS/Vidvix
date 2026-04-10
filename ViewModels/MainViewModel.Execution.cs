@@ -18,7 +18,7 @@ public sealed partial class MainViewModel
 
         if (executionItems.Count == 0)
         {
-            var emptyQueueMessage = $"\u8bf7\u5148\u5bfc\u5165\u81f3\u5c11\u4e00\u4e2a{GetMediaFileLabel(executionWorkspaceKind)}\u3002";
+            var emptyQueueMessage = GetEmptyQueueProcessingMessage();
             StatusMessage = emptyQueueMessage;
             AddUiLog(executionWorkspaceKind, LogLevel.Warning, emptyQueueMessage, clearExisting: false);
             return;
@@ -29,7 +29,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        var executionContext = new ProcessingExecutionContext(
+        var executionContext = new MediaProcessingContext(
             executionWorkspaceKind,
             executionWorkspaceKind == ProcessingWorkspaceKind.Audio ? ProcessingMode.AudioTrackExtract : SelectedProcessingMode.Mode,
             SelectedOutputFormat,
@@ -112,13 +112,7 @@ public sealed partial class MainViewModel
 
                 item.MarkRunning();
 
-                var command = BuildCommand(
-                    item.InputPath,
-                    item.PlannedOutputPath,
-                    executionContext.WorkspaceKind,
-                    executionContext.ProcessingMode,
-                    executionContext.OutputFormat,
-                    executionContext);
+                var command = BuildCommand(item.InputPath, item.PlannedOutputPath, executionContext);
                 var executionOptions = new FFmpegExecutionOptions
                 {
                     Timeout = _configuration.DefaultExecutionTimeout
@@ -146,13 +140,7 @@ public sealed partial class MainViewModel
                         VideoAccelerationKind = VideoAccelerationKind.None
                     };
 
-                    command = BuildCommand(
-                        item.InputPath,
-                        item.PlannedOutputPath,
-                        cpuFallbackContext.WorkspaceKind,
-                        cpuFallbackContext.ProcessingMode,
-                        cpuFallbackContext.OutputFormat,
-                        cpuFallbackContext);
+                    command = BuildCommand(item.InputPath, item.PlannedOutputPath, cpuFallbackContext);
                     result = await _ffmpegService.ExecuteAsync(
                         command,
                         executionOptions,
@@ -248,7 +236,7 @@ public sealed partial class MainViewModel
         AvailableOutputFormats.Count > 0;
 
     private async Task<int> ValidateProcessingPreconditionsAsync(
-        ProcessingExecutionContext executionContext,
+        MediaProcessingContext executionContext,
         System.Collections.Generic.IReadOnlyList<MediaJobViewModel> executionItems,
         CancellationToken cancellationToken)
     {
@@ -304,8 +292,8 @@ public sealed partial class MainViewModel
         return failedCount;
     }
 
-    private async Task<ProcessingExecutionContext> ResolveExecutionContextAsync(
-        ProcessingExecutionContext executionContext,
+    private async Task<MediaProcessingContext> ResolveExecutionContextAsync(
+        MediaProcessingContext executionContext,
         CancellationToken cancellationToken)
     {
         if (executionContext.ProcessingMode == ProcessingMode.SubtitleTrackExtract)
@@ -379,7 +367,7 @@ public sealed partial class MainViewModel
         };
     }
 
-    private bool TryGetRequiredTrackType(ProcessingExecutionContext executionContext, out RequiredTrackType requiredTrackType)
+    private bool TryGetRequiredTrackType(MediaProcessingContext executionContext, out RequiredTrackType requiredTrackType)
     {
         if (executionContext.WorkspaceKind == ProcessingWorkspaceKind.Audio)
         {
@@ -415,7 +403,7 @@ public sealed partial class MainViewModel
 
     private static bool TryCreateSubtitleCompatibilityFailureMessage(
         MediaDetailsSnapshot snapshot,
-        ProcessingExecutionContext executionContext,
+        MediaProcessingContext executionContext,
         out string failureMessage)
     {
         failureMessage = string.Empty;
@@ -440,7 +428,7 @@ public sealed partial class MainViewModel
         !string.IsNullOrWhiteSpace(codecName) &&
         codecName.ToLowerInvariant() is "hdmv_pgs_subtitle" or "dvd_subtitle" or "dvb_subtitle" or "xsub";
 
-    private string CreateMissingRequiredTrackMessage(RequiredTrackType requiredTrackType, ProcessingExecutionContext executionContext)
+    private string CreateMissingRequiredTrackMessage(RequiredTrackType requiredTrackType, MediaProcessingContext executionContext)
     {
         var outputFormatName = executionContext.OutputFormat.DisplayName;
 
@@ -458,7 +446,7 @@ public sealed partial class MainViewModel
         };
     }
 
-    private static bool ShouldRetryWithCpuFallback(ProcessingExecutionContext executionContext, FFmpegExecutionResult result) =>
+    private static bool ShouldRetryWithCpuFallback(MediaProcessingContext executionContext, FFmpegExecutionResult result) =>
         executionContext.VideoAccelerationKind != VideoAccelerationKind.None &&
         !result.WasSuccessful &&
         !result.WasCancelled &&
