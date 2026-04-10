@@ -22,6 +22,8 @@ public sealed class ApplicationConfiguration
 
     public string BundledRuntimeDirectoryName { get; init; } = "ffmpeg";
 
+    public string ThumbnailCacheDirectoryName { get; init; } = "ThumbnailCache";
+
     public string RuntimeVendorDirectoryName { get; init; } = "MediaEngine";
 
     public string RuntimeCurrentVersionDirectoryName { get; init; } = "Current";

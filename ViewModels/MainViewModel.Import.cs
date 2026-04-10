@@ -48,9 +48,10 @@ public sealed partial class MainViewModel
                 continue;
             }
 
-            var item = new MediaJobViewModel(filePath);
+            var item = new MediaJobViewModel(filePath, supportsThumbnail: !IsAudioWorkspace);
             item.UpdatePlannedOutputPath(CreateOutputPath(filePath));
             ImportItems.Add(item);
+            _ = LoadQueueThumbnailAsync(item);
             addedCount++;
         }
 

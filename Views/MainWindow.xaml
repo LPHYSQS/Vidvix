@@ -288,6 +288,7 @@
                                             <Grid ColumnSpacing="12">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
 
@@ -304,8 +305,45 @@
                                                         VerticalAlignment="Center" />
                                                 </Border>
 
-                                                <StackPanel
+                                                <Border
                                                     Grid.Column="1"
+                                                    Width="152"
+                                                    Height="86"
+                                                    VerticalAlignment="Top"
+                                                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                                    CornerRadius="12">
+                                                    <Grid>
+                                                        <Image
+                                                            Margin="1"
+                                                            Source="{x:Bind ThumbnailSource, Mode=OneWay}"
+                                                            Stretch="UniformToFill"
+                                                            Visibility="{x:Bind ThumbnailVisibility, Mode=OneWay}" />
+                                                        <StackPanel
+                                                            HorizontalAlignment="Center"
+                                                            VerticalAlignment="Center"
+                                                            Spacing="6"
+                                                            Visibility="{x:Bind ThumbnailPlaceholderVisibility, Mode=OneWay}">
+                                                            <ProgressRing
+                                                                Width="18"
+                                                                Height="18"
+                                                                IsActive="{x:Bind IsThumbnailLoading, Mode=OneWay}"
+                                                                Visibility="{x:Bind ThumbnailProgressVisibility, Mode=OneWay}" />
+                                                            <SymbolIcon
+                                                                HorizontalAlignment="Center"
+                                                                Symbol="{x:Bind ThumbnailPlaceholderSymbol, Mode=OneWay}"
+                                                                Visibility="{x:Bind ThumbnailPlaceholderIconVisibility, Mode=OneWay}" />
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                Opacity="0.72"
+                                                                Text="{x:Bind ThumbnailPlaceholderText, Mode=OneWay}"
+                                                                TextAlignment="Center"
+                                                                TextWrapping="WrapWholeWords" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+
+                                                <StackPanel
+                                                    Grid.Column="2"
                                                     Spacing="4">
                                                     <Grid ColumnSpacing="12">
                                                         <Grid.ColumnDefinitions>

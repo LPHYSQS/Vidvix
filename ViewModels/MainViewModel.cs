@@ -36,6 +36,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
     private readonly IFFmpegService _ffmpegService;
     private readonly IMediaInfoService _mediaInfoService;
+    private readonly IVideoThumbnailService _videoThumbnailService;
     private readonly IFFmpegCommandBuilder _ffmpegCommandBuilder;
     private readonly IMediaImportDiscoveryService _mediaImportDiscoveryService;
     private readonly ILogger _logger;
@@ -85,6 +86,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         IFFmpegRuntimeService ffmpegRuntimeService,
         IFFmpegService ffmpegService,
         IMediaInfoService mediaInfoService,
+        IVideoThumbnailService videoThumbnailService,
         IFFmpegCommandBuilder ffmpegCommandBuilder,
         IMediaImportDiscoveryService mediaImportDiscoveryService,
         ILogger logger,
@@ -97,6 +99,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _ffmpegRuntimeService = ffmpegRuntimeService;
         _ffmpegService = ffmpegService;
         _mediaInfoService = mediaInfoService;
+        _videoThumbnailService = videoThumbnailService;
         _ffmpegCommandBuilder = ffmpegCommandBuilder;
         _mediaImportDiscoveryService = mediaImportDiscoveryService;
         _logger = logger;
