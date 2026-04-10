@@ -6,6 +6,7 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
@@ -86,17 +87,25 @@ public sealed partial class MainWindow : Window
     private void OnRootLayoutLoaded(object sender, RoutedEventArgs e)
     {
         UpdateTitleBarColors();
+        UpdateWorkspaceToggleVisuals();
         ApplyDetailOverlayState();
     }
 
     private void OnRootLayoutActualThemeChanged(FrameworkElement sender, object args) =>
-        UpdateTitleBarColors();
+        UpdateWindowChrome();
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MainViewModel.RequestedTheme))
         {
             UpdateTitleBarColors();
+            return;
+        }
+
+        if (e.PropertyName == nameof(MainViewModel.IsVideoWorkspaceSelected) ||
+            e.PropertyName == nameof(MainViewModel.IsAudioWorkspaceSelected))
+        {
+            UpdateWorkspaceToggleVisuals();
         }
     }
 
@@ -234,6 +243,28 @@ public sealed partial class MainWindow : Window
         titleBar.ButtonPressedBackgroundColor = pressedBackgroundColor;
         titleBar.ButtonPressedForegroundColor = pressedForegroundColor;
     }
+
+    private void UpdateWindowChrome()
+    {
+        UpdateTitleBarColors();
+        UpdateWorkspaceToggleVisuals();
+    }
+
+    private void UpdateWorkspaceToggleVisuals()
+    {
+        var accentBrush = ResolveBrushResource("AccentFillColorDefaultBrush");
+        var defaultBrush = ResolveBrushResource("TextFillColorPrimaryBrush");
+
+        VideoWorkspaceIcon.Foreground = ViewModel.IsVideoWorkspaceSelected ? accentBrush : defaultBrush;
+        VideoWorkspaceText.Foreground = ViewModel.IsVideoWorkspaceSelected ? accentBrush : defaultBrush;
+        AudioWorkspaceIcon.Foreground = ViewModel.IsAudioWorkspaceSelected ? accentBrush : defaultBrush;
+        AudioWorkspaceText.Foreground = ViewModel.IsAudioWorkspaceSelected ? accentBrush : defaultBrush;
+    }
+
+    private static Brush ResolveBrushResource(string resourceKey) =>
+        Application.Current.Resources.TryGetValue(resourceKey, out var resource) && resource is Brush brush
+            ? brush
+            : throw new InvalidOperationException($"未找到界面画笔资源：{resourceKey}。");
 
     private void ConfigureWindowConstraints()
     {
@@ -506,7 +537,7 @@ public sealed partial class MainWindow : Window
         }
 
         e.AcceptedOperation = DataPackageOperation.Copy;
-        e.DragUIOverride.Caption = "\u5bfc\u5165\u89c6\u9891\u6587\u4ef6\u6216\u6587\u4ef6\u5939";
+        e.DragUIOverride.Caption = ViewModel.DragDropCaptionText;
         e.DragUIOverride.IsCaptionVisible = true;
         e.DragUIOverride.IsContentVisible = true;
         e.Handled = true;

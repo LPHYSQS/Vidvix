@@ -20,7 +20,6 @@ namespace Vidvix.ViewModels;
 public sealed partial class MainViewModel : ObservableObject, IDisposable
 {
     private const string RuntimePreparingMessage = "正在准备运行环境...";
-    private const string ReadyForImportMessage = "请导入视频文件或文件夹。";
     private const string ReadyForProcessingMessage = "文件已准备完成，可以开始处理。";
     private const string RuntimePreparationCancelledMessage = "运行环境准备已取消。";
     private const string RuntimePreparationFailedMessage = "运行环境准备失败，请检查网络或运行目录。";
@@ -44,6 +43,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly IDispatcherService _dispatcherService;
     private readonly IUserPreferencesService _userPreferencesService;
     private readonly IFileRevealService _fileRevealService;
+    private readonly ObservableCollection<LogEntry> _videoLogEntries;
+    private readonly ObservableCollection<LogEntry> _audioLogEntries;
+    private readonly ObservableCollection<MediaJobViewModel> _videoImportItems;
+    private readonly ObservableCollection<MediaJobViewModel> _audioImportItems;
     private readonly AsyncRelayCommand _selectFilesCommand;
     private readonly AsyncRelayCommand _selectFolderCommand;
     private readonly AsyncRelayCommand _selectOutputDirectoryCommand;
@@ -56,6 +59,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly RelayCommand _closeSettingsPaneCommand;
     private readonly RelayCommand _showMediaDetailsCommand;
     private readonly RelayCommand _closeMediaDetailsCommand;
+    private readonly RelayCommand _switchToVideoWorkspaceCommand;
+    private readonly RelayCommand _switchToAudioWorkspaceCommand;
     private readonly Dictionary<ProcessingMode, string> _preferredOutputFormatExtensionsByMode = new();
 
     private string? _runtimeExecutablePath;
@@ -73,6 +78,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private bool _revealOutputFileAfterProcessing;
     private bool _isSettingsPaneOpen;
     private bool _isDisposed;
+    private ProcessingWorkspaceKind _selectedWorkspaceKind;
 
     public MainViewModel(
         ApplicationConfiguration configuration,
@@ -101,18 +107,22 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _statusMessage = RuntimePreparingMessage;
 
         ThemeOptions = ThemePreferenceOptions;
-        LogEntries = new ObservableCollection<LogEntry>();
-        ImportItems = new ObservableCollection<MediaJobViewModel>();
+        _videoLogEntries = new ObservableCollection<LogEntry>();
+        _audioLogEntries = new ObservableCollection<LogEntry>();
+        _videoImportItems = new ObservableCollection<MediaJobViewModel>();
+        _audioImportItems = new ObservableCollection<MediaJobViewModel>();
         DetailPanel = new MediaDetailPanelViewModel();
         ProcessingModes = _configuration.SupportedProcessingModes;
 
         var userPreferences = _userPreferencesService.Load();
+        _selectedWorkspaceKind = ResolvePreferredWorkspaceKind(userPreferences.PreferredWorkspaceKind);
         InitializePreferredOutputFormatSelections(userPreferences);
         _selectedThemeOption = ThemeOptions.FirstOrDefault(option => option.Preference == userPreferences.ThemePreference) ?? ThemeOptions[0];
         _outputDirectory = NormalizeOutputDirectory(userPreferences.PreferredOutputDirectory);
         _revealOutputFileAfterProcessing = userPreferences.RevealOutputFileAfterProcessing;
 
-        ImportItems.CollectionChanged += OnImportItemsChanged;
+        _videoImportItems.CollectionChanged += OnImportItemsChanged;
+        _audioImportItems.CollectionChanged += OnImportItemsChanged;
 
         _selectFilesCommand = new AsyncRelayCommand(SelectFilesAsync, () => CanModifyInputs);
         _selectFolderCommand = new AsyncRelayCommand(SelectFolderAsync, () => CanModifyInputs);
@@ -126,16 +136,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _closeSettingsPaneCommand = new RelayCommand(CloseSettingsPane, () => IsSettingsPaneOpen);
         _showMediaDetailsCommand = new RelayCommand(OpenMediaDetails, CanOpenMediaDetails);
         _closeMediaDetailsCommand = new RelayCommand(CloseMediaDetails, CanCloseMediaDetails);
+        _switchToVideoWorkspaceCommand = new RelayCommand(SwitchToVideoWorkspace, () => CanModifyInputs);
+        _switchToAudioWorkspaceCommand = new RelayCommand(SwitchToAudioWorkspace, () => CanModifyInputs);
 
         DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
 
         _selectedProcessingMode = ResolveProcessingMode(userPreferences.PreferredProcessingMode);
         ReloadOutputFormats();
     }
-
-    public ObservableCollection<LogEntry> LogEntries { get; }
-
-    public ObservableCollection<MediaJobViewModel> ImportItems { get; }
 
     public IReadOnlyList<OutputFormatOption> AvailableOutputFormats
     {
@@ -172,6 +180,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public ICommand ShowMediaDetailsCommand => _showMediaDetailsCommand;
 
     public ICommand CloseMediaDetailsCommand => _closeMediaDetailsCommand;
+
+    public ICommand SwitchToVideoWorkspaceCommand => _switchToVideoWorkspaceCommand;
+
+    public ICommand SwitchToAudioWorkspaceCommand => _switchToAudioWorkspaceCommand;
 
     public bool IsSettingsPaneOpen
     {
@@ -214,7 +226,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         get
         {
-            var formats = GetOutputFormatsForMode(SelectedProcessingMode.Mode);
+            var outputPreferenceMode = GetCurrentOutputFormatPreferenceMode();
+            var formats = GetOutputFormatsForMode(outputPreferenceMode);
             if (_selectedOutputFormat is not null)
             {
                 var matchingFormat = formats.FirstOrDefault(format => string.Equals(format.Extension, _selectedOutputFormat.Extension, StringComparison.OrdinalIgnoreCase));
@@ -224,7 +237,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 }
             }
 
-            return ResolvePreferredOutputFormat(SelectedProcessingMode.Mode);
+            return ResolvePreferredOutputFormat(outputPreferenceMode);
         }
         set
         {
@@ -235,7 +248,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             if (SetProperty(ref _selectedOutputFormat, value))
             {
-                RememberOutputFormatSelection(SelectedProcessingMode.Mode, value.Extension);
+                RememberOutputFormatSelection(GetCurrentOutputFormatPreferenceMode(), value.Extension);
                 RecalculatePlannedOutputs();
                 PersistUserPreferences();
             }
@@ -323,7 +336,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public string SupportedInputFormatsHint =>
         "支持导入格式（" +
-        string.Join("、", _configuration.SupportedInputFileTypes.Select(extension => extension.TrimStart('.').ToUpperInvariant())) +
+        string.Join("、", GetCurrentSupportedInputFileTypes().Select(extension => extension.TrimStart('.').ToUpperInvariant())) +
         "）";
 
     public void Dispose()
@@ -334,7 +347,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
 
         _isDisposed = true;
-        ImportItems.CollectionChanged -= OnImportItemsChanged;
+        _videoImportItems.CollectionChanged -= OnImportItemsChanged;
+        _audioImportItems.CollectionChanged -= OnImportItemsChanged;
         DetailPanel.PropertyChanged -= OnDetailPanelPropertyChanged;
 
         CancelDetailLoad();

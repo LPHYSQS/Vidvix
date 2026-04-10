@@ -222,7 +222,7 @@ public sealed class MediaInfoService : IMediaInfoService
             VideoFields =
             [
                 new() { Label = "\u7f16\u7801", Value = videoMissing ? MissingVideoStreamValue : FormatCodec(videoStream?.codec_name) },
-                new() { Label = "Profile / Level", Value = videoMissing ? MissingVideoStreamValue : videoProfileLevel },
+                new() { Label = "规格 / 级别", Value = videoMissing ? MissingVideoStreamValue : videoProfileLevel },
                 new() { Label = "\u5206\u8fa8\u7387", Value = videoMissing ? MissingVideoStreamValue : resolutionText },
                 new() { Label = "\u5e27\u7387", Value = videoMissing ? MissingVideoStreamValue : FormatFrameRate(videoStream?.avg_frame_rate, videoStream?.r_frame_rate) },
                 new() { Label = "\u89c6\u9891\u7801\u7387", Value = videoBitrateText },
@@ -241,9 +241,9 @@ public sealed class MediaInfoService : IMediaInfoService
             ],
             AdvancedFields =
             [
-                new() { Label = "chroma subsampling", Value = videoMissing ? MissingVideoStreamValue : DeriveChromaSubsampling(videoStream?.pix_fmt) },
-                new() { Label = "color transfer", Value = videoMissing ? MissingVideoStreamValue : NormalizeValue(videoStream?.color_transfer) },
-                new() { Label = "encoder tag", Value = encoderTag }
+                new() { Label = "色度抽样", Value = videoMissing ? MissingVideoStreamValue : DeriveChromaSubsampling(videoStream?.pix_fmt) },
+                new() { Label = "传输特性", Value = videoMissing ? MissingVideoStreamValue : NormalizeValue(videoStream?.color_transfer) },
+                new() { Label = "编码器标记", Value = encoderTag }
             ]
         };
     }
@@ -752,7 +752,7 @@ public sealed class MediaInfoService : IMediaInfoService
     private static string FormatFrameRate(string? averageFrameRate, string? realFrameRate)
     {
         var frameRate = ParseFrameRate(averageFrameRate) ?? ParseFrameRate(realFrameRate);
-        return frameRate is null ? UnknownValue : $"{frameRate.Value:0.###} fps";
+        return frameRate is null ? UnknownValue : $"{frameRate.Value:0.###} 帧/秒";
     }
 
     private static double? ParseFrameRate(string? rawFrameRate)
@@ -793,14 +793,14 @@ public sealed class MediaInfoService : IMediaInfoService
             return $"{bitsPerSecond / 1_000d:0.##} kbps";
         }
 
-        return $"{bitsPerSecond:0} bps";
+        return $"{bitsPerSecond:0} 比特/秒";
     }
 
     private static string FormatBitDepth(string? bitsPerRawSample, string? pixelFormat)
     {
         if (int.TryParse(bitsPerRawSample, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bitDepth) && bitDepth > 0)
         {
-            return bitDepth + " bit";
+            return bitDepth + " 位";
         }
 
         if (string.IsNullOrWhiteSpace(pixelFormat))
@@ -809,12 +809,12 @@ public sealed class MediaInfoService : IMediaInfoService
         }
 
         var normalized = pixelFormat.ToLowerInvariant();
-        if (normalized.Contains("p16", StringComparison.Ordinal)) return "16 bit";
-        if (normalized.Contains("p14", StringComparison.Ordinal)) return "14 bit";
-        if (normalized.Contains("p12", StringComparison.Ordinal)) return "12 bit";
-        if (normalized.Contains("p10", StringComparison.Ordinal)) return "10 bit";
-        if (normalized.Contains("p9", StringComparison.Ordinal)) return "9 bit";
-        return "8 bit";
+        if (normalized.Contains("p16", StringComparison.Ordinal)) return "16 位";
+        if (normalized.Contains("p14", StringComparison.Ordinal)) return "14 位";
+        if (normalized.Contains("p12", StringComparison.Ordinal)) return "12 位";
+        if (normalized.Contains("p10", StringComparison.Ordinal)) return "10 位";
+        if (normalized.Contains("p9", StringComparison.Ordinal)) return "9 位";
+        return "8 位";
     }
 
     private static string DetermineHdrType(string? colorTransfer)
@@ -874,7 +874,7 @@ public sealed class MediaInfoService : IMediaInfoService
 
         if (!string.IsNullOrWhiteSpace(friendlyLayout) && channels is > 0)
         {
-            return $"{friendlyLayout} ({channels} ch)";
+            return $"{friendlyLayout}（{channels} 声道）";
         }
 
         if (!string.IsNullOrWhiteSpace(friendlyLayout))

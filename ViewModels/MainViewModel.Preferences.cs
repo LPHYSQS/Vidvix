@@ -15,6 +15,7 @@ public sealed partial class MainViewModel
     {
         _userPreferencesService.Update(existingPreferences => existingPreferences with
         {
+            PreferredWorkspaceKind = _selectedWorkspaceKind,
             PreferredProcessingMode = _selectedProcessingMode?.Mode,
             PreferredOutputFormatExtension = _selectedOutputFormat?.Extension,
             PreferredVideoConvertOutputFormatExtension = GetRememberedOutputFormatExtension(ProcessingMode.VideoConvert),
@@ -28,9 +29,10 @@ public sealed partial class MainViewModel
 
     private void ReloadOutputFormats(string? preferredOutputFormatExtension = null)
     {
-        var formats = GetOutputFormatsForMode(SelectedProcessingMode.Mode);
+        var preferenceMode = GetCurrentOutputFormatPreferenceMode();
+        var formats = GetOutputFormatsForMode(preferenceMode);
         var desiredExtension = preferredOutputFormatExtension
-            ?? GetRememberedOutputFormatExtension(SelectedProcessingMode.Mode)
+            ?? GetRememberedOutputFormatExtension(preferenceMode)
             ?? _selectedOutputFormat?.Extension;
 
         AvailableOutputFormats = formats;
@@ -42,7 +44,7 @@ public sealed partial class MainViewModel
 
         if (resolvedFormat is not null)
         {
-            RememberOutputFormatSelection(SelectedProcessingMode.Mode, resolvedFormat.Extension);
+            RememberOutputFormatSelection(preferenceMode, resolvedFormat.Extension);
         }
 
         if (!ReferenceEquals(_selectedOutputFormat, resolvedFormat))
@@ -132,6 +134,7 @@ public sealed partial class MainViewModel
 
     private string CreateOutputPath(string inputPath) => SelectedProcessingMode.Mode switch
     {
+        _ when IsAudioWorkspace => MediaPathResolver.CreateAudioConversionOutputPath(inputPath, SelectedOutputFormat.Extension, GetEffectiveOutputDirectory()),
         ProcessingMode.VideoConvert => MediaPathResolver.CreateVideoConversionOutputPath(inputPath, SelectedOutputFormat.Extension, GetEffectiveOutputDirectory()),
         ProcessingMode.VideoTrackExtract => MediaPathResolver.CreateVideoTrackOutputPath(inputPath, SelectedOutputFormat.Extension, GetEffectiveOutputDirectory()),
         ProcessingMode.AudioTrackExtract => MediaPathResolver.CreateAudioTrackOutputPath(inputPath, SelectedOutputFormat.Extension, GetEffectiveOutputDirectory()),

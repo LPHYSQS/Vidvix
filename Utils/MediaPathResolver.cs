@@ -66,4 +66,10 @@ public static class MediaPathResolver
         string outputExtension,
         string? outputDirectory = null) =>
         CreateOutputPath(inputFilePath, outputExtension, outputDirectory, "_audio");
+
+    public static string CreateAudioConversionOutputPath(
+        string inputFilePath,
+        string outputExtension,
+        string? outputDirectory = null) =>
+        CreateOutputPath(inputFilePath, outputExtension, outputDirectory, string.Empty);
 }

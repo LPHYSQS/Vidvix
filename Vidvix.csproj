@@ -16,6 +16,7 @@
     <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
     <Nullable>enable</Nullable>
+    <NuGetAudit>false</NuGetAudit>
     <PublishReadyToRun>false</PublishReadyToRun>
     <PublishTrimmed>false</PublishTrimmed>
     <OfflinePackageDir>$(MSBuildProjectDirectory)\artifacts\publish-offline\</OfflinePackageDir>
@@ -67,6 +68,9 @@
     <Error
       Condition="!Exists('$(MSBuildProjectDirectory)\Tools\ffmpeg\ffmpeg.exe')"
       Text="Offline publish bundle is missing Tools\ffmpeg\ffmpeg.exe." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\ffmpeg\ffprobe.exe')"
+      Text="Offline publish bundle is missing Tools\ffmpeg\ffprobe.exe." />
   </Target>
 
   <Target Name="CopyGeneratedPriToPublish" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="Exists('$(TargetDir)$(AssemblyName).pri') and Exists('$(PublishDir)$(AssemblyName).exe')">

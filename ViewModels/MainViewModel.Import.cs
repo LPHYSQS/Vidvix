@@ -34,7 +34,8 @@ public sealed partial class MainViewModel
 
         StatusMessage = "正在整理导入内容...";
 
-        var discovery = await Task.Run(() => _mediaImportDiscoveryService.Discover(normalizedPaths));
+        var allowedInputFileTypes = GetCurrentSupportedInputFileTypes();
+        var discovery = await Task.Run(() => _mediaImportDiscoveryService.Discover(normalizedPaths, allowedInputFileTypes));
         var knownPaths = new HashSet<string>(ImportItems.Select(item => item.InputPath), StringComparer.OrdinalIgnoreCase);
         var addedCount = 0;
         var duplicateCount = 0;
@@ -66,7 +67,7 @@ public sealed partial class MainViewModel
         try
         {
             var selectedFiles = await _filePickerService.PickFilesAsync(
-                new FilePickerRequest(_configuration.SupportedInputFileTypes, "导入视频文件"));
+                new FilePickerRequest(GetCurrentSupportedInputFileTypes(), GetImportFilePickerCommitText()));
 
             if (selectedFiles.Count == 0)
             {
@@ -91,7 +92,7 @@ public sealed partial class MainViewModel
     {
         try
         {
-            var selectedFolder = await _filePickerService.PickFolderAsync("导入视频文件夹");
+            var selectedFolder = await _filePickerService.PickFolderAsync(GetImportFolderPickerCommitText());
 
             if (string.IsNullOrWhiteSpace(selectedFolder))
             {
@@ -185,7 +186,7 @@ public sealed partial class MainViewModel
     {
         if (addedCount > 0)
         {
-            return $"已导入 {addedCount} 个视频文件。";
+            return CreateImportedCountMessage(addedCount);
         }
 
         if (duplicateCount > 0)
@@ -194,7 +195,7 @@ public sealed partial class MainViewModel
         }
 
         return discovery.UnsupportedEntries > 0 || discovery.MissingEntries > 0
-            ? "没有发现可处理的视频文件。"
+            ? CreateNoProcessableImportMessage()
             : "未发现新的可处理文件。";
     }
 }

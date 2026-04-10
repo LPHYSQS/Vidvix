@@ -8,17 +8,12 @@ namespace Vidvix.Services;
 
 public sealed class MediaImportDiscoveryService : IMediaImportDiscoveryService
 {
-    private readonly HashSet<string> _supportedInputExtensions;
-
-    public MediaImportDiscoveryService(ApplicationConfiguration configuration)
-    {
-        ArgumentNullException.ThrowIfNull(configuration);
-        _supportedInputExtensions = new HashSet<string>(configuration.SupportedInputFileTypes, StringComparer.OrdinalIgnoreCase);
-    }
-
-    public MediaImportDiscoveryResult Discover(IEnumerable<string> inputPaths)
+    public MediaImportDiscoveryResult Discover(IEnumerable<string> inputPaths, IEnumerable<string> supportedInputFileTypes)
     {
         ArgumentNullException.ThrowIfNull(inputPaths);
+        ArgumentNullException.ThrowIfNull(supportedInputFileTypes);
+
+        var supportedInputExtensions = new HashSet<string>(supportedInputFileTypes, StringComparer.OrdinalIgnoreCase);
 
         var supportedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var unsupportedEntries = 0;
@@ -31,13 +26,13 @@ public sealed class MediaImportDiscoveryService : IMediaImportDiscoveryService
 
             if (File.Exists(path))
             {
-                AddFileIfSupported(path, supportedFiles, ref unsupportedEntries);
+                AddFileIfSupported(path, supportedInputExtensions, supportedFiles, ref unsupportedEntries);
                 continue;
             }
 
             if (Directory.Exists(path))
             {
-                CollectDirectory(path, supportedFiles, ref unsupportedEntries, ref unavailableDirectories);
+                CollectDirectory(path, supportedInputExtensions, supportedFiles, ref unsupportedEntries, ref unavailableDirectories);
                 continue;
             }
 
@@ -53,6 +48,7 @@ public sealed class MediaImportDiscoveryService : IMediaImportDiscoveryService
 
     private void CollectDirectory(
         string directoryPath,
+        HashSet<string> supportedInputExtensions,
         HashSet<string> supportedFiles,
         ref int unsupportedEntries,
         ref int unavailableDirectories)
@@ -61,12 +57,12 @@ public sealed class MediaImportDiscoveryService : IMediaImportDiscoveryService
         {
             foreach (var filePath in Directory.EnumerateFiles(directoryPath))
             {
-                AddFileIfSupported(filePath, supportedFiles, ref unsupportedEntries);
+                AddFileIfSupported(filePath, supportedInputExtensions, supportedFiles, ref unsupportedEntries);
             }
 
             foreach (var childDirectoryPath in Directory.EnumerateDirectories(directoryPath))
             {
-                CollectDirectory(childDirectoryPath, supportedFiles, ref unsupportedEntries, ref unavailableDirectories);
+                CollectDirectory(childDirectoryPath, supportedInputExtensions, supportedFiles, ref unsupportedEntries, ref unavailableDirectories);
             }
         }
         catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
@@ -77,12 +73,13 @@ public sealed class MediaImportDiscoveryService : IMediaImportDiscoveryService
 
     private void AddFileIfSupported(
         string filePath,
+        HashSet<string> supportedInputExtensions,
         HashSet<string> supportedFiles,
         ref int unsupportedEntries)
     {
         var extension = Path.GetExtension(filePath);
 
-        if (string.IsNullOrWhiteSpace(extension) || !_supportedInputExtensions.Contains(extension))
+        if (string.IsNullOrWhiteSpace(extension) || !supportedInputExtensions.Contains(extension))
         {
             unsupportedEntries++;
             return;

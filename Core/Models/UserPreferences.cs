@@ -2,6 +2,8 @@
 
 public sealed record UserPreferences
 {
+    public ProcessingWorkspaceKind PreferredWorkspaceKind { get; init; } = ProcessingWorkspaceKind.Video;
+
     public ProcessingMode? PreferredProcessingMode { get; init; }
 
     public string? PreferredOutputFormatExtension { get; init; }

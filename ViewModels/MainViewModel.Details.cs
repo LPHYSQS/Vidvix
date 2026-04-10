@@ -73,7 +73,7 @@ public sealed partial class MainViewModel
         }
 
         DetailPanel.ShowLoading(title, inputPath);
-        StatusMessage = $"正在解析 {item.InputFileName} 的视频详情...";
+        StatusMessage = $"正在解析 {item.InputFileName} 的媒体详情...";
         NotifyCommandStates();
 
         var detailLoadCancellationSource = new CancellationTokenSource();
@@ -97,11 +97,11 @@ public sealed partial class MainViewModel
                 if (result.IsSuccess && result.Snapshot is not null)
                 {
                     DetailPanel.ShowDetails(result.Snapshot);
-                    StatusMessage = $"视频详情已加载：{item.InputFileName}";
+                    StatusMessage = $"媒体详情已加载：{item.InputFileName}";
                     return;
                 }
 
-                var errorMessage = result.ErrorMessage ?? "无法解析该视频文件。";
+                var errorMessage = result.ErrorMessage ?? "无法解析该媒体文件。";
                 DetailPanel.ShowError(title, inputPath, errorMessage);
                 StatusMessage = errorMessage;
             });
@@ -111,7 +111,7 @@ public sealed partial class MainViewModel
         }
         catch (Exception exception)
         {
-            _logger.Log(LogLevel.Error, "读取视频详情时发生异常。", exception);
+            _logger.Log(LogLevel.Error, "读取媒体详情时发生异常。", exception);
             if (!IsCurrentDetailLoadVersion(detailLoadVersion))
             {
                 return;

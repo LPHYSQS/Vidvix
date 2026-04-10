@@ -15,8 +15,8 @@ public sealed partial class MainViewModel
     {
         if (ImportItems.Count == 0)
         {
-            StatusMessage = "请先导入至少一个视频文件。";
-            AddUiLog(LogLevel.Warning, "请先导入至少一个视频文件。", clearExisting: false);
+            StatusMessage = GetEmptyQueueProcessingMessage();
+            AddUiLog(LogLevel.Warning, GetEmptyQueueProcessingMessage(), clearExisting: false);
             return;
         }
 
@@ -226,6 +226,12 @@ public sealed partial class MainViewModel
 
     private bool TryGetRequiredTrackType(out RequiredTrackType requiredTrackType)
     {
+        if (IsAudioWorkspace)
+        {
+            requiredTrackType = RequiredTrackType.Audio;
+            return true;
+        }
+
         switch (SelectedProcessingMode.Mode)
         {
             case ProcessingMode.VideoTrackExtract:
@@ -251,6 +257,11 @@ public sealed partial class MainViewModel
     private string CreateMissingRequiredTrackMessage(RequiredTrackType requiredTrackType)
     {
         var outputFormatName = SelectedOutputFormat.DisplayName;
+
+        if (IsAudioWorkspace)
+        {
+            return $"未检测到音频流，无法转换为 {outputFormatName}。";
+        }
 
         return requiredTrackType switch
         {

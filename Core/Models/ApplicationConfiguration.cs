@@ -42,8 +42,11 @@ public sealed class ApplicationConfiguration
 
     public TimeSpan? DefaultExecutionTimeout { get; init; }
 
-    public IReadOnlyList<string> SupportedInputFileTypes { get; init; } =
+    public IReadOnlyList<string> SupportedVideoInputFileTypes { get; init; } =
         new[] { ".mp4", ".mkv", ".mov", ".avi", ".wmv", ".m4v", ".flv", ".webm", ".ts", ".m2ts", ".mpeg", ".mpg" };
+
+    public IReadOnlyList<string> SupportedAudioInputFileTypes { get; init; } =
+        new[] { ".mp3", ".m4a", ".aac", ".wav", ".flac", ".wma", ".ogg", ".opus", ".aiff", ".aif", ".mka" };
 
     public IReadOnlyList<ProcessingModeOption> SupportedProcessingModes { get; init; } =
         new[]
@@ -89,4 +92,3 @@ public sealed class ApplicationConfiguration
             new OutputFormatOption("FLAC", ".flac", "无损压缩音频，适合存档。")
         };
 }
-

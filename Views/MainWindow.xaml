@@ -137,13 +137,77 @@
             </SplitView.Pane>
 
             <SplitView.Content>
-                <Grid ColumnSpacing="12">
+                <Grid ColumnSpacing="11">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.55*" />
+                        <ColumnDefinition Width="76" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
                     <Border
+                        Grid.Column="0"
+                        Width="76"
+                        Padding="4,8"
+                        VerticalAlignment="Stretch"
+                        Style="{StaticResource SurfaceCardBorderStyle}">
+                        <StackPanel
+                            VerticalAlignment="Top"
+                            Spacing="6">
+                            <ToggleButton
+                                x:Name="VideoWorkspaceToggle"
+                                Command="{x:Bind ViewModel.SwitchToVideoWorkspaceCommand, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.IsVideoWorkspaceSelected, Mode=OneWay}"
+                                IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                <StackPanel
+                                    HorizontalAlignment="Center"
+                                    Spacing="5">
+                                    <SymbolIcon
+                                        x:Name="VideoWorkspaceIcon"
+                                        HorizontalAlignment="Center"
+                                        Symbol="Video" />
+                                    <TextBlock
+                                        x:Name="VideoWorkspaceText"
+                                        HorizontalAlignment="Center"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Text="视频" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <ToggleButton
+                                x:Name="AudioWorkspaceToggle"
+                                Command="{x:Bind ViewModel.SwitchToAudioWorkspaceCommand, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.IsAudioWorkspaceSelected, Mode=OneWay}"
+                                IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                <StackPanel
+                                    HorizontalAlignment="Center"
+                                    Spacing="5">
+                                    <SymbolIcon
+                                        x:Name="AudioWorkspaceIcon"
+                                        HorizontalAlignment="Center"
+                                        Symbol="Audio" />
+                                    <TextBlock
+                                        x:Name="AudioWorkspaceText"
+                                        HorizontalAlignment="Center"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Text="音频" />
+                                </StackPanel>
+                            </ToggleButton>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid
+                        Grid.Column="1"
+                        ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.55*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                    <Border
+                        Grid.Column="0"
                         Padding="16"
                         Style="{StaticResource SurfaceCardBorderStyle}">
                         <Grid RowSpacing="12">
@@ -164,7 +228,7 @@
                                         Text="待处理队列" />
                                     <TextBlock
                                         Opacity="0.72"
-                                        Text="支持拖拽视频文件或文件夹到窗口任意位置"
+                                        Text="{x:Bind ViewModel.QueueDragDropHintText, Mode=OneWay}"
                                         TextWrapping="WrapWholeWords" />
                                     <TextBlock
                                         Opacity="0.72"
@@ -298,13 +362,35 @@
                                     Style="{StaticResource SectionTitleTextStyle}"
                                     Text="处理设置" />
 
-                                <StackPanel Spacing="6">
+                                <StackPanel
+                                    Spacing="6"
+                                    Visibility="{x:Bind ViewModel.VideoProcessingModeVisibility, Mode=OneWay}">
                                     <TextBlock Text="处理模式" />
                                     <ComboBox
                                         DisplayMemberPath="DisplayName"
                                         IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
                                         ItemsSource="{x:Bind ViewModel.ProcessingModes, Mode=OneWay}"
                                         SelectedItem="{x:Bind ViewModel.SelectedProcessingMode, Mode=TwoWay}" />
+                                </StackPanel>
+
+                                <StackPanel
+                                    Spacing="6"
+                                    Visibility="{x:Bind ViewModel.AudioProcessingModeVisibility, Mode=OneWay}">
+                                    <TextBlock Text="处理模式" />
+                                    <Border
+                                        Padding="12,10"
+                                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                        CornerRadius="14">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock
+                                                FontWeight="SemiBold"
+                                                Text="{x:Bind ViewModel.FixedProcessingModeDisplayName, Mode=OneWay}" />
+                                            <TextBlock
+                                                Opacity="0.72"
+                                                Text="{x:Bind ViewModel.FixedProcessingModeDescription, Mode=OneWay}"
+                                                TextWrapping="WrapWholeWords" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
 
                                 <StackPanel Spacing="6">
@@ -462,6 +548,7 @@
                                 </ScrollViewer>
                             </Grid>
                         </Border>
+                    </Grid>
                     </Grid>
                 </Grid>
             </SplitView.Content>

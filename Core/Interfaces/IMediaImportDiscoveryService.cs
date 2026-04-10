@@ -5,5 +5,5 @@ namespace Vidvix.Core.Interfaces;
 
 public interface IMediaImportDiscoveryService
 {
-    MediaImportDiscoveryResult Discover(IEnumerable<string> inputPaths);
+    MediaImportDiscoveryResult Discover(IEnumerable<string> inputPaths, IEnumerable<string> supportedInputFileTypes);
 }

@@ -24,6 +24,11 @@ public sealed partial class MainViewModel
 
         builder = builder.AddGlobalParameter(_configuration.OverwriteOutputFiles ? "-y" : "-n");
 
+        if (IsAudioWorkspace)
+        {
+            return BuildAudioConversionCommand(builder);
+        }
+
         return SelectedProcessingMode.Mode switch
         {
             ProcessingMode.VideoConvert => BuildVideoOutputCommand(
@@ -173,14 +178,24 @@ public sealed partial class MainViewModel
         return builder.Build();
     }
 
-    private FFmpegCommand BuildAudioExtractionCommand(IFFmpegCommandBuilder builder)
-    {
-        builder = builder
-            .AddParameter("-map", "0:a:0")
-            .AddParameter("-vn")
-            .AddParameter("-sn")
-            .AddParameter("-dn");
+    private FFmpegCommand BuildAudioConversionCommand(IFFmpegCommandBuilder builder) =>
+        BuildAudioOutputCommand(
+            builder
+                .AddParameter("-map", "0:a:0")
+                .AddParameter("-vn")
+                .AddParameter("-sn")
+                .AddParameter("-dn"));
 
+    private FFmpegCommand BuildAudioExtractionCommand(IFFmpegCommandBuilder builder) =>
+        BuildAudioOutputCommand(
+            builder
+                .AddParameter("-map", "0:a:0")
+                .AddParameter("-vn")
+                .AddParameter("-sn")
+                .AddParameter("-dn"));
+
+    private FFmpegCommand BuildAudioOutputCommand(IFFmpegCommandBuilder builder)
+    {
         var extension = SelectedOutputFormat.Extension.ToLowerInvariant();
 
         builder = extension switch

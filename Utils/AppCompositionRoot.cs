@@ -30,7 +30,7 @@ public sealed class AppCompositionRoot
         _windowIconService = new WindowIconService(Configuration, Logger);
         var dispatcherService = new DispatcherService(dispatcherQueue);
         var filePickerService = new FilePickerService(_windowContext);
-        var mediaImportDiscoveryService = new MediaImportDiscoveryService(Configuration);
+        var mediaImportDiscoveryService = new MediaImportDiscoveryService();
         var packageSource = new FFmpegPackageSource(Configuration, Logger);
         var runtimeService = new FFmpegRuntimeService(Configuration, packageSource, Logger);
         var ffmpegService = new FFmpegService(Logger);

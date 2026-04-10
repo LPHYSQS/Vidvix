@@ -19,12 +19,14 @@ public sealed partial class MainViewModel
         _executeProcessingCommand.NotifyCanExecuteChanged();
         _cancelExecutionCommand.NotifyCanExecuteChanged();
         _closeMediaDetailsCommand.NotifyCanExecuteChanged();
+        _switchToVideoWorkspaceCommand.NotifyCanExecuteChanged();
+        _switchToAudioWorkspaceCommand.NotifyCanExecuteChanged();
     }
 
     private void SetReadyStatusMessage()
     {
         StatusMessage = ImportItems.Count == 0
-            ? ReadyForImportMessage
+            ? GetReadyForImportMessage()
             : ReadyForProcessingMessage;
     }
 

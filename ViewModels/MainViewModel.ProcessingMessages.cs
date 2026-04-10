@@ -43,6 +43,11 @@ public sealed partial class MainViewModel
 
         if (standardError.Contains("matches no streams", StringComparison.OrdinalIgnoreCase))
         {
+            if (IsAudioWorkspace)
+            {
+                return "该文件没有可转换的音频流。";
+            }
+
             return SelectedProcessingMode.Mode switch
             {
                 ProcessingMode.VideoTrackExtract => "该文件没有可提取的视频轨道。",
