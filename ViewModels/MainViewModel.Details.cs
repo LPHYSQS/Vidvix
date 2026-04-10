@@ -61,7 +61,7 @@ public sealed partial class MainViewModel
                 return;
             }
 
-            DetailPanel.ShowDetails(cachedSnapshot);
+            DetailPanel.ShowDetails(cachedSnapshot, _selectedWorkspaceKind);
             StatusMessage = $"已从缓存载入 {item.InputFileName} 的详情。";
             NotifyCommandStates();
             return;
@@ -72,7 +72,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        DetailPanel.ShowLoading(title, inputPath);
+        DetailPanel.ShowLoading(title, inputPath, _selectedWorkspaceKind);
         StatusMessage = $"正在解析 {item.InputFileName} 的媒体详情...";
         NotifyCommandStates();
 
@@ -96,13 +96,13 @@ public sealed partial class MainViewModel
 
                 if (result.IsSuccess && result.Snapshot is not null)
                 {
-                    DetailPanel.ShowDetails(result.Snapshot);
+                    DetailPanel.ShowDetails(result.Snapshot, _selectedWorkspaceKind);
                     StatusMessage = $"媒体详情已加载：{item.InputFileName}";
                     return;
                 }
 
                 var errorMessage = result.ErrorMessage ?? "无法解析该媒体文件。";
-                DetailPanel.ShowError(title, inputPath, errorMessage);
+                DetailPanel.ShowError(title, inputPath, errorMessage, _selectedWorkspaceKind);
                 StatusMessage = errorMessage;
             });
         }
@@ -125,7 +125,7 @@ public sealed partial class MainViewModel
                     return;
                 }
 
-                DetailPanel.ShowError(title, inputPath, errorMessage);
+                DetailPanel.ShowError(title, inputPath, errorMessage, _selectedWorkspaceKind);
                 StatusMessage = errorMessage;
             });
         }

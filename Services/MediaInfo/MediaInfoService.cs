@@ -203,6 +203,53 @@ public sealed class MediaInfoService : IMediaInfoService
         var audioMissing = audioStream is null;
         var videoBitrateText = videoMissing ? MissingVideoStreamValue : FormatBitrate(resolvedBitrates.VideoBitrateText);
         var audioBitrateText = audioMissing ? MissingAudioStreamValue : FormatBitrate(resolvedBitrates.AudioBitrateText);
+        var overviewFields = new List<MediaDetailField>
+        {
+            new() { Label = "\u6587\u4ef6\u540d", Value = cacheContext.FileName },
+            new() { Label = "\u65f6\u957f", Value = FormatDuration(format?.duration) },
+            new() { Label = "\u603b\u7801\u7387", Value = FormatBitrate(format?.bit_rate) },
+            new() { Label = "\u5c01\u88c5\u683c\u5f0f", Value = FormatContainer(format?.format_long_name, format?.format_name) }
+        };
+
+        if (!videoMissing)
+        {
+            overviewFields.Insert(2, new MediaDetailField { Label = "\u5206\u8fa8\u7387", Value = resolutionText });
+        }
+
+        var videoFields = videoMissing
+            ? Array.Empty<MediaDetailField>()
+            : new[]
+            {
+                new MediaDetailField { Label = "\u7f16\u7801", Value = FormatCodec(videoStream?.codec_name) },
+                new MediaDetailField { Label = "规格 / 级别", Value = videoProfileLevel },
+                new MediaDetailField { Label = "\u5206\u8fa8\u7387", Value = resolutionText },
+                new MediaDetailField { Label = "\u5e27\u7387", Value = FormatFrameRate(videoStream?.avg_frame_rate, videoStream?.r_frame_rate) },
+                new MediaDetailField { Label = "\u89c6\u9891\u7801\u7387", Value = videoBitrateText },
+                new MediaDetailField { Label = "\u8272\u6df1", Value = FormatBitDepth(videoStream?.bits_per_raw_sample, videoStream?.pix_fmt) },
+                new MediaDetailField { Label = "\u50cf\u7d20\u683c\u5f0f", Value = NormalizeValue(videoStream?.pix_fmt) },
+                new MediaDetailField { Label = "\u8272\u5f69\u7a7a\u95f4", Value = NormalizeValue(videoStream?.color_space) },
+                new MediaDetailField { Label = "\u8272\u57df", Value = NormalizeValue(videoStream?.color_primaries) },
+                new MediaDetailField { Label = "HDR \u7c7b\u578b", Value = hdrType }
+            };
+
+        var audioFields = audioMissing
+            ? Array.Empty<MediaDetailField>()
+            : new[]
+            {
+                new MediaDetailField { Label = "\u7f16\u7801", Value = FormatCodec(audioStream?.codec_name) },
+                new MediaDetailField { Label = "\u58f0\u9053", Value = FormatChannels(audioStream?.channel_layout, audioStream?.channels) },
+                new MediaDetailField { Label = "\u91c7\u6837\u7387", Value = FormatSampleRate(audioStream?.sample_rate) },
+                new MediaDetailField { Label = "\u97f3\u9891\u7801\u7387", Value = audioBitrateText }
+            };
+
+        var advancedFields = videoMissing
+            ? Array.Empty<MediaDetailField>()
+            : new[]
+            {
+                new MediaDetailField { Label = "色度抽样", Value = DeriveChromaSubsampling(videoStream?.pix_fmt) },
+                new MediaDetailField { Label = "传输特性", Value = NormalizeValue(videoStream?.color_transfer) },
+                new MediaDetailField { Label = "编码器标记", Value = encoderTag }
+            };
 
         return new MediaDetailsSnapshot
         {
@@ -211,40 +258,10 @@ public sealed class MediaInfoService : IMediaInfoService
             LastWriteTimeUtc = cacheContext.LastWriteTimeUtc,
             HasVideoStream = !videoMissing,
             HasAudioStream = !audioMissing,
-            OverviewFields =
-            [
-                new() { Label = "\u6587\u4ef6\u540d", Value = cacheContext.FileName },
-                new() { Label = "\u65f6\u957f", Value = FormatDuration(format?.duration) },
-                new() { Label = "\u5206\u8fa8\u7387", Value = resolutionText },
-                new() { Label = "\u603b\u7801\u7387", Value = FormatBitrate(format?.bit_rate) },
-                new() { Label = "\u5c01\u88c5\u683c\u5f0f", Value = FormatContainer(format?.format_long_name, format?.format_name) }
-            ],
-            VideoFields =
-            [
-                new() { Label = "\u7f16\u7801", Value = videoMissing ? MissingVideoStreamValue : FormatCodec(videoStream?.codec_name) },
-                new() { Label = "规格 / 级别", Value = videoMissing ? MissingVideoStreamValue : videoProfileLevel },
-                new() { Label = "\u5206\u8fa8\u7387", Value = videoMissing ? MissingVideoStreamValue : resolutionText },
-                new() { Label = "\u5e27\u7387", Value = videoMissing ? MissingVideoStreamValue : FormatFrameRate(videoStream?.avg_frame_rate, videoStream?.r_frame_rate) },
-                new() { Label = "\u89c6\u9891\u7801\u7387", Value = videoBitrateText },
-                new() { Label = "\u8272\u6df1", Value = videoMissing ? MissingVideoStreamValue : FormatBitDepth(videoStream?.bits_per_raw_sample, videoStream?.pix_fmt) },
-                new() { Label = "\u50cf\u7d20\u683c\u5f0f", Value = videoMissing ? MissingVideoStreamValue : NormalizeValue(videoStream?.pix_fmt) },
-                new() { Label = "\u8272\u5f69\u7a7a\u95f4", Value = videoMissing ? MissingVideoStreamValue : NormalizeValue(videoStream?.color_space) },
-                new() { Label = "\u8272\u57df", Value = videoMissing ? MissingVideoStreamValue : NormalizeValue(videoStream?.color_primaries) },
-                new() { Label = "HDR \u7c7b\u578b", Value = videoMissing ? MissingVideoStreamValue : hdrType }
-            ],
-            AudioFields =
-            [
-                new() { Label = "\u7f16\u7801", Value = audioMissing ? MissingAudioStreamValue : FormatCodec(audioStream?.codec_name) },
-                new() { Label = "\u58f0\u9053", Value = audioMissing ? MissingAudioStreamValue : FormatChannels(audioStream?.channel_layout, audioStream?.channels) },
-                new() { Label = "\u91c7\u6837\u7387", Value = audioMissing ? MissingAudioStreamValue : FormatSampleRate(audioStream?.sample_rate) },
-                new() { Label = "\u97f3\u9891\u7801\u7387", Value = audioBitrateText }
-            ],
-            AdvancedFields =
-            [
-                new() { Label = "色度抽样", Value = videoMissing ? MissingVideoStreamValue : DeriveChromaSubsampling(videoStream?.pix_fmt) },
-                new() { Label = "传输特性", Value = videoMissing ? MissingVideoStreamValue : NormalizeValue(videoStream?.color_transfer) },
-                new() { Label = "编码器标记", Value = encoderTag }
-            ]
+            OverviewFields = overviewFields,
+            VideoFields = videoFields,
+            AudioFields = audioFields,
+            AdvancedFields = advancedFields
         };
     }
 

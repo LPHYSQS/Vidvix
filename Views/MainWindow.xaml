@@ -519,29 +519,43 @@
                                                 <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.ErrorMessage}" TextWrapping="WrapWholeWords" />
                                             </StackPanel>
                                         </Border>
-                                        <StackPanel Spacing="16" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.ContentVisibility}">
-                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18">
+                                        <StackPanel Spacing="16" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.VideoTemplateVisibility}">
+                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.VideoOverviewVisibility}">
                                                 <StackPanel Spacing="12">
                                                     <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="概览" />
                                                     <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.OverviewSummaryText}" TextWrapping="WrapWholeWords" />
                                                 </StackPanel>
                                             </Border>
-                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18">
+                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.VideoInfoVisibility}">
                                                 <StackPanel Spacing="12">
                                                     <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="视频信息" />
                                                     <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.VideoSummaryText}" TextWrapping="WrapWholeWords" />
                                                 </StackPanel>
                                             </Border>
-                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18">
+                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioInfoVisibility}">
                                                 <StackPanel Spacing="12">
                                                     <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="音频信息" />
                                                     <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioSummaryText}" TextWrapping="WrapWholeWords" />
                                                 </StackPanel>
                                             </Border>
-                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18">
+                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AdvancedVisibility}">
                                                 <StackPanel Spacing="12">
                                                     <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="高级信息" />
                                                     <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AdvancedSummaryText}" TextWrapping="WrapWholeWords" />
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Spacing="16" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioTemplateVisibility}">
+                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioOverviewVisibility}">
+                                                <StackPanel Spacing="12">
+                                                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="音频概览" />
+                                                    <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioOverviewSummaryText}" TextWrapping="WrapWholeWords" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Padding="18" Background="{ThemeResource DetailOverlaySectionBrush}" BorderBrush="{ThemeResource DetailOverlayBorderBrush}" BorderThickness="1" CornerRadius="18" Visibility="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioInfoVisibility}">
+                                                <StackPanel Spacing="12">
+                                                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="音频信息" />
+                                                    <TextBlock Text="{Binding ElementName=RootWindow, Path=ViewModel.DetailPanel.AudioSummaryText}" TextWrapping="WrapWholeWords" />
                                                 </StackPanel>
                                             </Border>
                                         </StackPanel>

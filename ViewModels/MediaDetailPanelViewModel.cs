@@ -10,12 +10,15 @@ namespace Vidvix.ViewModels;
 
 public sealed class MediaDetailPanelViewModel : ObservableObject
 {
-    private string _headerTitle = "\u89c6\u9891\u8be6\u60c5";
+    private static readonly string[] AudioOverviewExcludedLabels = ["\u5206\u8fa8\u7387"];
+
+    private string _headerTitle = "\u5a92\u4f53\u8be6\u60c5";
     private string _headerSubtitle = "\u70b9\u51fb\u961f\u5217\u4e2d\u7684\u8be6\u60c5\u6309\u94ae\u67e5\u770b\u5a92\u4f53\u4fe1\u606f\u3002";
     private string _currentInputPath = string.Empty;
     private string _errorMessage = string.Empty;
     private bool _isOpen;
     private bool _isLoading;
+    private ProcessingWorkspaceKind _workspaceKind = ProcessingWorkspaceKind.Video;
 
     public MediaDetailPanelViewModel()
     {
@@ -86,13 +89,31 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
     public bool HasContent =>
         !IsLoading &&
         !HasError &&
-        (OverviewFields.Count > 0 || VideoFields.Count > 0 || AudioFields.Count > 0 || AdvancedFields.Count > 0);
+        (_workspaceKind == ProcessingWorkspaceKind.Video
+            ? OverviewFields.Count > 0 || VideoFields.Count > 0 || AudioFields.Count > 0 || AdvancedFields.Count > 0
+            : GetAudioOverviewFields().Count > 0 || AudioFields.Count > 0);
 
     public Visibility LoadingVisibility => IsLoading ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility ErrorVisibility => HasError ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility ContentVisibility => HasContent ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility VideoTemplateVisibility =>
+        HasContent && _workspaceKind == ProcessingWorkspaceKind.Video ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility AudioTemplateVisibility =>
+        HasContent && _workspaceKind == ProcessingWorkspaceKind.Audio ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility VideoOverviewVisibility => GetFieldsVisibility(OverviewFields);
+
+    public Visibility VideoInfoVisibility => GetFieldsVisibility(VideoFields);
+
+    public Visibility AudioInfoVisibility => GetFieldsVisibility(AudioFields);
+
+    public Visibility AdvancedVisibility => GetFieldsVisibility(AdvancedFields);
+
+    public Visibility AudioOverviewVisibility => GetFieldsVisibility(GetAudioOverviewFields());
 
     public string OverviewSummaryText => FormatFields(OverviewFields);
 
@@ -102,11 +123,14 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
 
     public string AdvancedSummaryText => FormatFields(AdvancedFields);
 
-    public void ShowLoading(string title, string inputPath)
+    public string AudioOverviewSummaryText => FormatFields(GetAudioOverviewFields());
+
+    public void ShowLoading(string title, string inputPath, ProcessingWorkspaceKind workspaceKind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
 
+        SetWorkspaceKind(workspaceKind);
         HeaderTitle = title;
         HeaderSubtitle = inputPath;
         CurrentInputPath = inputPath;
@@ -116,10 +140,11 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
         IsOpen = true;
     }
 
-    public void ShowDetails(MediaDetailsSnapshot snapshot)
+    public void ShowDetails(MediaDetailsSnapshot snapshot, ProcessingWorkspaceKind workspaceKind)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
+        SetWorkspaceKind(workspaceKind);
         HeaderTitle = snapshot.FileName;
         HeaderSubtitle = snapshot.InputPath;
         CurrentInputPath = snapshot.InputPath;
@@ -134,12 +159,13 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
         IsOpen = true;
     }
 
-    public void ShowError(string title, string inputPath, string errorMessage)
+    public void ShowError(string title, string inputPath, string errorMessage, ProcessingWorkspaceKind workspaceKind)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
 
+        SetWorkspaceKind(workspaceKind);
         HeaderTitle = title;
         HeaderSubtitle = inputPath;
         CurrentInputPath = inputPath;
@@ -191,6 +217,7 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
         OnPropertyChanged(nameof(VideoSummaryText));
         OnPropertyChanged(nameof(AudioSummaryText));
         OnPropertyChanged(nameof(AdvancedSummaryText));
+        OnPropertyChanged(nameof(AudioOverviewSummaryText));
     }
 
     private void NotifyStateVisualsChanged()
@@ -200,5 +227,42 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
         OnPropertyChanged(nameof(LoadingVisibility));
         OnPropertyChanged(nameof(ErrorVisibility));
         OnPropertyChanged(nameof(ContentVisibility));
+        OnPropertyChanged(nameof(VideoTemplateVisibility));
+        OnPropertyChanged(nameof(AudioTemplateVisibility));
+        OnPropertyChanged(nameof(VideoOverviewVisibility));
+        OnPropertyChanged(nameof(VideoInfoVisibility));
+        OnPropertyChanged(nameof(AudioInfoVisibility));
+        OnPropertyChanged(nameof(AdvancedVisibility));
+        OnPropertyChanged(nameof(AudioOverviewVisibility));
+    }
+
+    private IReadOnlyList<MediaDetailField> GetAudioOverviewFields() =>
+        OverviewFields
+            .Where(field => !AudioOverviewExcludedLabels.Contains(field.Label, StringComparer.Ordinal))
+            .ToArray();
+
+    private Visibility GetFieldsVisibility(IEnumerable<MediaDetailField> fields)
+    {
+        if (_workspaceKind == ProcessingWorkspaceKind.Audio &&
+            (ReferenceEquals(fields, VideoFields) || ReferenceEquals(fields, AdvancedFields)))
+        {
+            return Visibility.Collapsed;
+        }
+
+        return fields.Any()
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void SetWorkspaceKind(ProcessingWorkspaceKind workspaceKind)
+    {
+        if (_workspaceKind == workspaceKind)
+        {
+            return;
+        }
+
+        _workspaceKind = workspaceKind;
+        NotifyStateVisualsChanged();
+        NotifySummaryTextChanged();
     }
 }
