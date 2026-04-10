@@ -150,6 +150,7 @@
                         VerticalAlignment="Stretch"
                         Style="{StaticResource SurfaceCardBorderStyle}">
                         <StackPanel
+                            HorizontalAlignment="Center"
                             VerticalAlignment="Top"
                             Spacing="6">
                             <ToggleButton
