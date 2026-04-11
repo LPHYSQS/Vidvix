@@ -27,6 +27,7 @@
         RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -114,8 +115,75 @@
             </Grid>
         </Border>
 
-        <SplitView
+        <Border
             Grid.Row="1"
+            Padding="14,12"
+            Style="{StaticResource SurfaceCardBorderStyle}"
+            Visibility="{x:Bind ViewModel.ExecutionProgressVisibility, Mode=OneWay}">
+            <Grid ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border
+                    Width="34"
+                    Height="34"
+                    VerticalAlignment="Top"
+                    Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                    CornerRadius="17">
+                    <SymbolIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Symbol="Sync" />
+                </Border>
+
+                <StackPanel
+                    Grid.Column="1"
+                    Spacing="8">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Spacing="2">
+                            <TextBlock
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="处理进度" />
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.ExecutionProgressSummaryText, Mode=OneWay}" />
+                        </StackPanel>
+
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.ExecutionProgressPercentText, Mode=OneWay}" />
+                    </Grid>
+
+                    <ProgressBar
+                        Height="6"
+                        IsIndeterminate="{x:Bind ViewModel.IsExecutionProgressIndeterminate, Mode=OneWay}"
+                        Maximum="100"
+                        Value="{x:Bind ViewModel.ExecutionProgressValue, Mode=OneWay}" />
+
+                    <TextBlock
+                        FontWeight="SemiBold"
+                        Text="{x:Bind ViewModel.ExecutionProgressCurrentItemText, Mode=OneWay}"
+                        TextTrimming="CharacterEllipsis" />
+
+                    <TextBlock
+                        Style="{StaticResource CaptionTextStyle}"
+                        Text="{x:Bind ViewModel.ExecutionProgressDetailText, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <SplitView
+            Grid.Row="2"
             CompactPaneLength="0"
             DisplayMode="Overlay"
             IsPaneOpen="{x:Bind ViewModel.IsSettingsPaneOpen, Mode=TwoWay}"

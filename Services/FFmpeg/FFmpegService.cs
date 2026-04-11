@@ -1,6 +1,8 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,10 +30,13 @@ public sealed class FFmpegService : IFFmpegService
         var standardOutputBuilder = new StringBuilder();
         var standardErrorBuilder = new StringBuilder();
         var startedAt = DateTimeOffset.UtcNow;
+        var progressParser = executionOptions?.Progress is null
+            ? null
+            : new FFmpegProgressParser(executionOptions.InputDuration, executionOptions.Progress);
 
         using var process = new Process
         {
-            StartInfo = CreateStartInfo(command),
+            StartInfo = CreateStartInfo(command, executionOptions),
             EnableRaisingEvents = true
         };
 
@@ -46,6 +51,7 @@ public sealed class FFmpegService : IFFmpegService
                 return;
             }
 
+            progressParser?.HandleStandardOutputLine(eventArgs.Data);
             standardOutputBuilder.AppendLine(eventArgs.Data);
         };
 
@@ -70,7 +76,7 @@ public sealed class FFmpegService : IFFmpegService
                     standardOutputBuilder.ToString(),
                     standardErrorBuilder.ToString(),
                     DateTimeOffset.UtcNow - startedAt,
-                    "FFmpeg 进程无法启动。");
+                    "FFmpeg \u8fdb\u7a0b\u65e0\u6cd5\u542f\u52a8\u3002");
             }
 
             process.BeginOutputReadLine();
@@ -106,6 +112,11 @@ public sealed class FFmpegService : IFFmpegService
 
             await AwaitOutputCompletionAsync(standardOutputClosed.Task, standardErrorClosed.Task).ConfigureAwait(false);
 
+            if (process.ExitCode == 0)
+            {
+                progressParser?.CompleteIfNeeded();
+            }
+
             var standardOutput = standardOutputBuilder.ToString();
             var standardError = standardErrorBuilder.ToString();
             var duration = DateTimeOffset.UtcNow - startedAt;
@@ -121,12 +132,12 @@ public sealed class FFmpegService : IFFmpegService
                 standardOutput,
                 standardError,
                 duration,
-                $"FFmpeg 进程已退出，返回代码：{process.ExitCode}。");
+                $"FFmpeg \u8fdb\u7a0b\u5df2\u9000\u51fa\uff0c\u8fd4\u56de\u4ee3\u7801\uff1a{process.ExitCode}\u3002");
         }
         catch (Win32Exception exception)
         {
             var duration = DateTimeOffset.UtcNow - startedAt;
-            const string failureReason = "本地 FFmpeg 不可用，请先完成运行时准备。";
+            const string failureReason = "\u672c\u5730 FFmpeg \u4e0d\u53ef\u7528\uff0c\u8bf7\u5148\u5b8c\u6210\u8fd0\u884c\u65f6\u51c6\u5907\u3002";
             _logger.Log(LogLevel.Error, failureReason, exception);
 
             return FFmpegExecutionResult.Failed(
@@ -140,7 +151,7 @@ public sealed class FFmpegService : IFFmpegService
         catch (Exception exception)
         {
             var duration = DateTimeOffset.UtcNow - startedAt;
-            const string failureReason = "执行 FFmpeg 任务时发生异常。";
+            const string failureReason = "\u6267\u884c FFmpeg \u4efb\u52a1\u65f6\u53d1\u751f\u5f02\u5e38\u3002";
             _logger.Log(LogLevel.Error, failureReason, exception);
 
             return FFmpegExecutionResult.Failed(
@@ -153,7 +164,7 @@ public sealed class FFmpegService : IFFmpegService
         }
     }
 
-    private static ProcessStartInfo CreateStartInfo(FFmpegCommand command)
+    private static ProcessStartInfo CreateStartInfo(FFmpegCommand command, FFmpegExecutionOptions? executionOptions)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -166,7 +177,7 @@ public sealed class FFmpegService : IFFmpegService
             StandardErrorEncoding = Encoding.UTF8
         };
 
-        foreach (var argument in command.Arguments)
+        foreach (var argument in BuildArguments(command.Arguments, executionOptions?.Progress is not null))
         {
             startInfo.ArgumentList.Add(argument);
         }
@@ -193,6 +204,62 @@ public sealed class FFmpegService : IFFmpegService
         await Task.WhenAll(standardOutputTask, standardErrorTask).ConfigureAwait(false);
     }
 
+    private static IReadOnlyList<string> BuildArguments(IReadOnlyList<string> arguments, bool enableProgressReporting)
+    {
+        if (!enableProgressReporting || ContainsArgument(arguments, "-progress"))
+        {
+            return arguments;
+        }
+
+        var containsNoStats = ContainsArgument(arguments, "-nostats");
+        var preparedArguments = new List<string>(arguments.Count + (containsNoStats ? 2 : 3));
+        var inserted = false;
+
+        for (var index = 0; index < arguments.Count; index++)
+        {
+            if (!inserted && string.Equals(arguments[index], "-i", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!containsNoStats)
+                {
+                    preparedArguments.Add("-nostats");
+                }
+
+                preparedArguments.Add("-progress");
+                preparedArguments.Add("pipe:1");
+                inserted = true;
+            }
+
+            preparedArguments.Add(arguments[index]);
+        }
+
+        if (inserted)
+        {
+            return preparedArguments;
+        }
+
+        if (!containsNoStats)
+        {
+            preparedArguments.Insert(0, "-nostats");
+        }
+
+        preparedArguments.Insert(containsNoStats ? 0 : 1, "-progress");
+        preparedArguments.Insert(containsNoStats ? 1 : 2, "pipe:1");
+        return preparedArguments;
+    }
+
+    private static bool ContainsArgument(IReadOnlyList<string> arguments, string targetArgument)
+    {
+        for (var index = 0; index < arguments.Count; index++)
+        {
+            if (string.Equals(arguments[index], targetArgument, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void TryTerminateProcess(Process process)
     {
         try
@@ -204,6 +271,90 @@ public sealed class FFmpegService : IFFmpegService
         }
         catch
         {
+        }
+    }
+
+    private sealed class FFmpegProgressParser
+    {
+        private readonly TimeSpan? _inputDuration;
+        private readonly IProgress<FFmpegProgressUpdate> _progress;
+        private TimeSpan? _processedDuration;
+        private bool _completionReported;
+
+        public FFmpegProgressParser(TimeSpan? inputDuration, IProgress<FFmpegProgressUpdate> progress)
+        {
+            _inputDuration = inputDuration;
+            _progress = progress;
+        }
+
+        public void HandleStandardOutputLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return;
+            }
+
+            var separatorIndex = line.IndexOf('=');
+            if (separatorIndex <= 0 || separatorIndex >= line.Length - 1)
+            {
+                return;
+            }
+
+            var key = line[..separatorIndex];
+            var value = line[(separatorIndex + 1)..];
+
+            switch (key)
+            {
+                case "out_time":
+                    if (TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out var parsedDuration))
+                    {
+                        _processedDuration = parsedDuration;
+                    }
+
+                    break;
+                case "out_time_us":
+                    if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var microseconds) &&
+                        microseconds >= 0)
+                    {
+                        _processedDuration = TimeSpan.FromTicks(microseconds * 10);
+                    }
+
+                    break;
+                case "progress":
+                    Report(isCompleted: string.Equals(value, "end", StringComparison.OrdinalIgnoreCase));
+                    break;
+            }
+        }
+
+        public void CompleteIfNeeded() => Report(isCompleted: true);
+
+        private void Report(bool isCompleted)
+        {
+            if (isCompleted && _completionReported)
+            {
+                return;
+            }
+
+            var totalDuration = _inputDuration.HasValue && _inputDuration.Value > TimeSpan.Zero
+                ? _inputDuration
+                : null;
+            var processedDuration = isCompleted
+                ? totalDuration ?? _processedDuration
+                : _processedDuration;
+
+            double? progressRatio = null;
+            if (processedDuration is { } processed && totalDuration is { } total && total > TimeSpan.Zero)
+            {
+                progressRatio = Math.Clamp(processed.TotalMilliseconds / total.TotalMilliseconds, 0d, 1d);
+            }
+
+            if (isCompleted)
+            {
+                progressRatio = 1d;
+                _completionReported = true;
+            }
+
+            _progress.Report(new FFmpegProgressUpdate(processedDuration, totalDuration, progressRatio, isCompleted));
         }
     }
 }

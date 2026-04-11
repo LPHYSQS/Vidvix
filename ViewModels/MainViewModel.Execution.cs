@@ -70,10 +70,12 @@ public sealed partial class MainViewModel
             executionContext = await ResolveExecutionContextAsync(executionContext, _executionCancellationSource.Token);
             var preflightFailedCount = await ValidateProcessingPreconditionsAsync(executionContext, executionItems, _executionCancellationSource.Token);
             var processableCount = executionItems.Count(item => item.IsPending);
+            var totalProcessableCount = processableCount;
 
             var successCount = 0;
             var failedCount = preflightFailedCount;
             var cancelledCount = 0;
+            var completedProcessCount = 0;
             string? lastSuccessfulOutputPath = null;
 
             if (processableCount == 0)
@@ -94,6 +96,8 @@ public sealed partial class MainViewModel
                 AddUiLog(executionWorkspaceKind, LogLevel.Warning, $"开始处理 {processableCount} 个文件，已提前跳过 {preflightFailedCount} 个不符合当前模式的文件。", clearExisting: false);
             }
 
+            ShowExecutionPreparationProgress(totalProcessableCount);
+
             for (var index = 0; index < executionItems.Count; index++)
             {
                 var item = executionItems[index];
@@ -110,12 +114,43 @@ public sealed partial class MainViewModel
                     continue;
                 }
 
-                item.MarkRunning();
+                var completedBeforeCurrent = completedProcessCount;
+                var currentItemOrdinal = completedBeforeCurrent + 1;
+                var inputDuration = await TryGetMediaDurationAsync(item.InputPath, _executionCancellationSource.Token);
+
+                item.MarkRunning(
+                    inputDuration.HasValue
+                        ? CreateRunningItemProgressDetail(TimeSpan.Zero, inputDuration.Value, 0d)
+                        : "正在处理，正在估算总进度...");
+                StatusMessage = $"正在处理第 {currentItemOrdinal} / {totalProcessableCount} 个文件：{item.InputFileName}";
+                UpdateExecutionProgress(
+                    totalProcessableCount,
+                    completedBeforeCurrent,
+                    item,
+                    inputDuration is null ? null : 0d,
+                    TimeSpan.Zero,
+                    inputDuration,
+                    inputDuration is null
+                        ? "正在处理当前文件，暂时无法估算总进度。"
+                        : "等待 FFmpeg 返回实时进度...");
 
                 var command = BuildCommand(item.InputPath, item.PlannedOutputPath, executionContext);
+                var progressReporter = new Progress<FFmpegProgressUpdate>(update =>
+                    UpdateExecutionProgress(
+                        totalProcessableCount,
+                        completedBeforeCurrent,
+                        item,
+                        update.ProgressRatio,
+                        update.ProcessedDuration,
+                        update.TotalDuration ?? inputDuration,
+                        update.ProgressRatio is null && !update.IsCompleted
+                            ? "正在处理当前文件，暂时无法估算总进度。"
+                            : null));
                 var executionOptions = new FFmpegExecutionOptions
                 {
-                    Timeout = _configuration.DefaultExecutionTimeout
+                    Timeout = _configuration.DefaultExecutionTimeout,
+                    InputDuration = inputDuration,
+                    Progress = progressReporter
                 };
 
                 var totalDuration = TimeSpan.Zero;
@@ -140,6 +175,21 @@ public sealed partial class MainViewModel
                         VideoAccelerationKind = VideoAccelerationKind.None
                     };
 
+                    item.MarkRunning(
+                        inputDuration.HasValue
+                            ? CreateRunningItemProgressDetail(TimeSpan.Zero, inputDuration.Value, 0d)
+                            : "已回退为 CPU，正在重新尝试...");
+                    UpdateExecutionProgress(
+                        totalProcessableCount,
+                        completedBeforeCurrent,
+                        item,
+                        inputDuration is null ? null : 0d,
+                        TimeSpan.Zero,
+                        inputDuration,
+                        inputDuration is null
+                            ? "已回退为 CPU，正在重新尝试并估算进度。"
+                            : "已回退为 CPU，正在重新尝试...");
+
                     command = BuildCommand(item.InputPath, item.PlannedOutputPath, cpuFallbackContext);
                     result = await _ffmpegService.ExecuteAsync(
                         command,
@@ -154,6 +204,7 @@ public sealed partial class MainViewModel
                 {
                     item.MarkSucceeded(usedCpuFallback ? $"用时 {elapsedText}（已自动回退 CPU）" : $"用时 {elapsedText}");
                     successCount++;
+                    completedProcessCount++;
                     lastSuccessfulOutputPath = item.PlannedOutputPath;
                     AddUiLog(
                         executionWorkspaceKind,
@@ -177,10 +228,21 @@ public sealed partial class MainViewModel
                 var failureMessage = CreateFriendlyFailureMessage(result, executionContext);
                 item.MarkFailed($"原因：{failureMessage}");
                 failedCount++;
+                completedProcessCount++;
                 AddUiLog(executionWorkspaceKind, LogLevel.Error, $"{item.InputFileName} 处理失败，用时 {elapsedText}。原因：{failureMessage}", clearExisting: false);
             }
 
             var wasCancelled = _executionCancellationSource.IsCancellationRequested;
+            UpdateExecutionProgress(
+                totalProcessableCount,
+                wasCancelled ? completedProcessCount : totalProcessableCount,
+                currentItem: null,
+                currentItemProgressRatio: null,
+                processedDuration: null,
+                totalDuration: null,
+                detailOverride: wasCancelled
+                    ? "任务已取消，正在整理当前结果..."
+                    : "处理完成，正在整理结果...");
 
             StatusMessage = wasCancelled
                 ? $"任务已取消，成功 {successCount} 个，失败 {failedCount} 个，取消 {cancelledCount} 个。"
@@ -212,6 +274,7 @@ public sealed partial class MainViewModel
         }
         finally
         {
+            ResetExecutionProgress();
             IsBusy = false;
             _executionCancellationSource?.Dispose();
             _executionCancellationSource = null;

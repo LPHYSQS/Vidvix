@@ -140,8 +140,18 @@ public sealed class MediaJobViewModel : ObservableObject
     public void ResetStatus() =>
         SetStatus(MediaJobState.Pending, "\u7b49\u5f85\u5f00\u59cb");
 
-    public void MarkRunning() =>
-        SetStatus(MediaJobState.Running, "\u6b63\u5728\u5904\u7406");
+    public void MarkRunning(string detail = "\u6b63\u5728\u5904\u7406") =>
+        SetStatus(MediaJobState.Running, detail);
+
+    public void UpdateRunningDetail(string detail)
+    {
+        if (State != MediaJobState.Running)
+        {
+            return;
+        }
+
+        StatusDetail = detail;
+    }
 
     public void MarkSucceeded(string detail) =>
         SetStatus(MediaJobState.Succeeded, detail);

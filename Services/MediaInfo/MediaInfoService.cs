@@ -198,6 +198,11 @@ public sealed class MediaInfoService : IMediaInfoService
             .Where(stream => string.Equals(stream.codec_type, "subtitle", StringComparison.OrdinalIgnoreCase))
             .ToArray();
         var subtitleStream = subtitleStreams.FirstOrDefault();
+        var mediaDurationSeconds = FirstPositive(
+            ParseDurationSeconds(format?.duration),
+            ResolveStreamDurationSeconds(videoStream, format),
+            ResolveStreamDurationSeconds(audioStream, format),
+            ResolveStreamDurationSeconds(subtitleStream, format));
 
         var resolutionText = FormatResolution(videoStream?.width, videoStream?.height);
         var videoProfileLevel = BuildProfileLevel(videoStream?.profile, videoStream?.level);
@@ -211,7 +216,7 @@ public sealed class MediaInfoService : IMediaInfoService
         var overviewFields = new List<MediaDetailField>
         {
             new() { Label = "\u6587\u4ef6\u540d", Value = cacheContext.FileName },
-            new() { Label = "\u65f6\u957f", Value = FormatDuration(format?.duration) },
+            new() { Label = "\u65f6\u957f", Value = FormatDuration(mediaDurationSeconds) },
             new() { Label = "\u603b\u7801\u7387", Value = FormatBitrate(format?.bit_rate) },
             new() { Label = "\u5c01\u88c5\u683c\u5f0f", Value = FormatContainer(format?.format_long_name, format?.format_name) },
             new() { Label = "\u5b57\u5e55\u8f68\u9053", Value = subtitleCount > 0 ? $"{subtitleCount} \u6761" : "\u672a\u68c0\u6d4b\u5230\u5b57\u5e55\u8f68\u9053" }
@@ -262,6 +267,9 @@ public sealed class MediaInfoService : IMediaInfoService
             InputPath = cacheContext.InputPath,
             FileName = cacheContext.FileName,
             LastWriteTimeUtc = cacheContext.LastWriteTimeUtc,
+            MediaDuration = mediaDurationSeconds is > 0
+                ? TimeSpan.FromSeconds(mediaDurationSeconds.Value)
+                : null,
             HasVideoStream = !videoMissing,
             HasAudioStream = !audioMissing,
             HasSubtitleStream = subtitleCount > 0,
@@ -744,14 +752,17 @@ public sealed class MediaInfoService : IMediaInfoService
         return profileText + " / " + levelText;
     }
 
-    private static string FormatDuration(string? durationText)
+    private static string FormatDuration(string? durationText) =>
+        FormatDuration(ParseDurationSeconds(durationText));
+
+    private static string FormatDuration(double? durationSeconds)
     {
-        if (!double.TryParse(durationText, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds) || seconds < 0)
+        if (durationSeconds is not >= 0)
         {
             return UnknownValue;
         }
 
-        var duration = TimeSpan.FromSeconds(seconds);
+        var duration = TimeSpan.FromSeconds(durationSeconds.Value);
         if (duration.TotalHours >= 1)
         {
             return $"{(int)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";

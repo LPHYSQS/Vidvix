@@ -11,6 +11,8 @@ public sealed class MediaDetailsSnapshot
 
     public required DateTime LastWriteTimeUtc { get; init; }
 
+    public required TimeSpan? MediaDuration { get; init; }
+
     public required bool HasVideoStream { get; init; }
 
     public required bool HasAudioStream { get; init; }
