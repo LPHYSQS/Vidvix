@@ -17,7 +17,9 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Grid ColumnSpacing="16">
+            <Grid
+                ColumnSpacing="16"
+                Visibility="{x:Bind ViewModel.EditorVisibility, Mode=OneWay}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -51,13 +53,14 @@
             </Grid>
 
             <Grid
-                Grid.Row="1"
-                MinHeight="620">
-                <Grid Visibility="{x:Bind ViewModel.PlaceholderVisibility, Mode=OneWay}">
+                Grid.RowSpan="2"
+                MinHeight="620"
+                Visibility="{x:Bind ViewModel.PlaceholderVisibility, Mode=OneWay}">
+                <Grid>
                     <StackPanel
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
-                        MaxWidth="460"
+                        MaxWidth="560"
                         Spacing="16">
                         <SymbolIcon
                             HorizontalAlignment="Center"
@@ -65,14 +68,16 @@
                         <TextBlock
                             FontSize="28"
                             FontWeight="SemiBold"
+                            MaxWidth="520"
                             Text="请导入视频文件或拖拽到此处开始裁剪"
                             TextAlignment="Center"
-                            TextWrapping="WrapWholeWords" />
+                            TextWrapping="Wrap" />
                         <TextBlock
+                            MaxWidth="520"
                             Opacity="0.72"
                             Text="导入后会在同一张主卡片中显示视频预览、播放控制、时间轴、双滑块裁剪和输出格式选择。"
                             TextAlignment="Center"
-                            TextWrapping="WrapWholeWords" />
+                            TextWrapping="Wrap" />
                         <Button
                             HorizontalAlignment="Center"
                             Command="{x:Bind ViewModel.SelectVideoCommand, Mode=OneWay}">
@@ -82,11 +87,14 @@
                             </StackPanel>
                         </Button>
                         <TextBlock
+                            MaxWidth="520"
                             Opacity="0.72"
                             Text="{x:Bind ViewModel.SupportedInputFormatsHint, Mode=OneWay}"
                             TextAlignment="Center"
-                            TextWrapping="WrapWholeWords" />
+                            TextWrapping="Wrap" />
                         <Border
+                            HorizontalAlignment="Center"
+                            MaxWidth="520"
                             Padding="14"
                             Background="{ThemeResource ControlFillColorSecondaryBrush}"
                             CornerRadius="14"
@@ -94,11 +102,13 @@
                             <StackPanel Spacing="8">
                                 <TextBlock
                                     FontWeight="SemiBold"
+                                    TextAlignment="Center"
                                     Text="导入失败详情" />
                                 <TextBlock
                                     Opacity="0.82"
                                     Text="{x:Bind ViewModel.LastImportErrorDetails, Mode=OneWay}"
-                                    TextWrapping="WrapWholeWords" />
+                                    TextAlignment="Center"
+                                    TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
