@@ -26,6 +26,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private bool _isUpdatingTimeline;
     private TimeSpan _pendingTimelinePosition;
     private int _sourceVersion;
+    private int _timelineRefreshVersion;
 
     public VideoTrimWorkspaceView()
     {
@@ -118,6 +119,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             SeekTo(selectionStart);
         }
 
+        TrySetPlaybackRate(1d);
         _mediaPlayer.Play();
         StartPositionTimer();
         SetViewModelPlaying(true);
@@ -221,6 +223,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
                 return;
             }
 
+            TrySetPlaybackRate(1d);
             _mediaPlayer.Source = MediaSource.CreateFromStorageFile(file);
             _mediaPlayer.Volume = ViewModel.VolumeLevel;
         }
@@ -348,8 +351,8 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private void PausePlayback(bool syncTimelinePosition, bool updateViewModelState = true, TimeSpan? seekPosition = null)
     {
+        var pausedPosition = PauseMediaPlayer();
         StopPositionTimer();
-        PauseMediaPlayer();
 
         if (updateViewModelState)
         {
@@ -364,11 +367,24 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
         if (syncTimelinePosition)
         {
-            UpdateTimelinePosition(_mediaPlayer.PlaybackSession.Position);
+            UpdateTimelinePosition(pausedPosition);
         }
     }
 
-    private void PauseMediaPlayer() => _mediaPlayer.Pause();
+    private TimeSpan PauseMediaPlayer()
+    {
+        if (_mediaPlayer.Source is null)
+        {
+            return TimeSpan.Zero;
+        }
+
+        _mediaPlayer.Pause();
+        var playbackSession = _mediaPlayer.PlaybackSession;
+        var pausedPosition = playbackSession.Position;
+        playbackSession.Position = pausedPosition;
+        TrySetPlaybackRate(0d);
+        return playbackSession.Position;
+    }
 
     private void StartPositionTimer()
     {
@@ -383,6 +399,8 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private void StopPositionTimer()
     {
+        _timelineRefreshVersion++;
+
         if (!_isPositionTimerRunning)
         {
             _hasPendingTimelineRefresh = false;
@@ -403,9 +421,15 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         }
 
         _hasPendingTimelineRefresh = true;
+        var refreshVersion = _timelineRefreshVersion;
         _dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
         {
             _hasPendingTimelineRefresh = false;
+            if (refreshVersion != _timelineRefreshVersion)
+            {
+                return;
+            }
+
             UpdateTimelinePosition(_pendingTimelinePosition);
         });
     }
@@ -454,4 +478,18 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private static TimeSpan Clamp(TimeSpan value, TimeSpan minimum, TimeSpan maximum) =>
         value < minimum ? minimum : value > maximum ? maximum : value;
+
+    private void TrySetPlaybackRate(double playbackRate)
+    {
+        try
+        {
+            _mediaPlayer.PlaybackSession.PlaybackRate = playbackRate;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+        }
+        catch (NotSupportedException)
+        {
+        }
+    }
 }
