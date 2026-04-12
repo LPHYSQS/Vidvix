@@ -311,6 +311,8 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 
     public string CurrentPositionText => FormatTime(_currentPosition);
 
+    public string TimelinePositionText => $"{FormatCompactTime(_currentPosition)} / {FormatCompactTime(_mediaDuration)}";
+
     public string SelectionStartText => FormatTime(_selectionStart);
 
     public string SelectionEndText => FormatTime(_selectionEnd);
@@ -769,6 +771,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(SelectionMaximum));
         OnPropertyChanged(nameof(CurrentPositionMilliseconds));
         OnPropertyChanged(nameof(CurrentPositionText));
+        OnPropertyChanged(nameof(TimelinePositionText));
         OnPropertyChanged(nameof(SelectionStartMilliseconds));
         OnPropertyChanged(nameof(SelectionEndMilliseconds));
         OnPropertyChanged(nameof(SelectionStartText));
@@ -866,6 +869,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         {
             OnPropertyChanged(nameof(CurrentPositionMilliseconds));
             OnPropertyChanged(nameof(CurrentPositionText));
+            OnPropertyChanged(nameof(TimelinePositionText));
         }
     }
 
@@ -1083,5 +1087,18 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         return totalHours >= 1
             ? $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}.{duration.Milliseconds:000}"
             : $"{duration.Minutes:00}:{duration.Seconds:00}.{duration.Milliseconds:000}";
+    }
+
+    private static string FormatCompactTime(TimeSpan duration)
+    {
+        if (duration < TimeSpan.Zero)
+        {
+            duration = TimeSpan.Zero;
+        }
+
+        var totalHours = (int)duration.TotalHours;
+        return totalHours >= 1
+            ? $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}"
+            : $"{duration.Minutes:00}:{duration.Seconds:00}";
     }
 }

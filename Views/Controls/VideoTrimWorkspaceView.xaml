@@ -8,6 +8,22 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     x:Name="Root"
     mc:Ignorable="d">
+    <UserControl.Resources>
+        <Style
+            x:Key="TimelineStripButtonStyle"
+            TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Padding" Value="6" />
+            <Setter Property="MinWidth" Value="30" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+    </UserControl.Resources>
     <Border Padding="16" Style="{StaticResource SurfaceCardBorderStyle}">
         <Grid RowSpacing="14">
             <Grid.RowDefinitions>
@@ -74,71 +90,99 @@
                     </Grid>
                 </Border>
 
-                <Border Grid.Column="0" Grid.Row="1" Padding="14" Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="16">
-                    <Grid RowSpacing="10">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <Grid ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock FontSize="14" FontWeight="SemiBold" Text="时间轴" />
-                            <TextBlock Grid.Column="2" Opacity="0.72" Text="{x:Bind ViewModel.CurrentPositionText, Mode=OneWay}" />
-                        </Grid>
-                        <Slider Grid.Row="1" x:Name="TimelineSlider" Minimum="{x:Bind ViewModel.TimelineMinimum, Mode=OneWay}" Maximum="{x:Bind ViewModel.TimelineMaximum, Mode=OneWay}" Value="{x:Bind ViewModel.CurrentPositionMilliseconds, Mode=TwoWay}" ValueChanged="OnTimelineSliderValueChanged" />
-                        <Grid Grid.Row="2" ColumnSpacing="10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="{x:Bind ViewModel.SelectionStartText, Mode=OneWay}" />
-                            <TextBlock Grid.Column="1" HorizontalAlignment="Center" Opacity="0.72" Text="拖动时间轴可快速定位预览位置" TextWrapping="WrapWholeWords" />
-                            <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.SelectionEndText, Mode=OneWay}" />
-                        </Grid>
-                        <Grid Grid.Row="3" ColumnSpacing="14">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <Button Click="OnPlayPauseClick" IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <SymbolIcon Symbol="{x:Bind ViewModel.PlayPauseButtonSymbol, Mode=OneWay}" />
-                                        <TextBlock Text="{x:Bind ViewModel.PlayPauseButtonText, Mode=OneWay}" />
-                                    </StackPanel>
-                                </Button>
-                                <Button Click="OnResetPreviewClick" IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}" Content="回到起点" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" HorizontalAlignment="Center" Spacing="2">
-                                <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind ViewModel.CurrentPositionText, Mode=OneWay}" />
-                                <TextBlock HorizontalAlignment="Center" Opacity="0.72" Text="{x:Bind ViewModel.SelectedDurationText, Mode=OneWay}" />
-                            </StackPanel>
-                            <Button Grid.Column="2" HorizontalAlignment="Right" IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}" PointerWheelChanged="OnVolumeButtonPointerWheelChanged" ToolTipService.ToolTip="滚轮调节音量，点击展开竖向滑块">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <SymbolIcon Symbol="{x:Bind ViewModel.VolumeButtonSymbol, Mode=OneWay}" />
-                                    <TextBlock Text="{x:Bind ViewModel.VolumeButtonText, Mode=OneWay}" />
+                <Grid Grid.Column="0" Grid.Row="1" MinHeight="44" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button
+                        Margin="0,0,8,0"
+                        AutomationProperties.Name="{x:Bind ViewModel.PlayPauseButtonText, Mode=OneWay}"
+                        Click="OnPlayPauseClick"
+                        IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
+                        Style="{StaticResource TimelineStripButtonStyle}"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.PlayPauseButtonText, Mode=OneWay}">
+                        <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="{x:Bind ViewModel.PlayPauseButtonSymbol, Mode=OneWay}" />
+                    </Button>
+
+                    <Button
+                        Grid.Column="1"
+                        Margin="0,0,14,0"
+                        AutomationProperties.Name="回到入点"
+                        Click="OnResetPreviewClick"
+                        IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
+                        Style="{StaticResource TimelineStripButtonStyle}"
+                        ToolTipService.ToolTip="回到入点">
+                        <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="Back" />
+                    </Button>
+
+                    <Slider
+                        Grid.Column="2"
+                        x:Name="TimelineSlider"
+                        Height="24"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="时间轴定位"
+                        Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                        CornerRadius="999"
+                        Foreground="{ThemeResource ControlStrongFillColorDefaultBrush}"
+                        Maximum="{x:Bind ViewModel.TimelineMaximum, Mode=OneWay}"
+                        Minimum="{x:Bind ViewModel.TimelineMinimum, Mode=OneWay}"
+                        Value="{x:Bind ViewModel.CurrentPositionMilliseconds, Mode=TwoWay}"
+                        ValueChanged="OnTimelineSliderValueChanged">
+                        <Slider.Resources>
+                            <x:Double x:Key="SliderHorizontalHeight">24</x:Double>
+                            <x:Double x:Key="SliderTrackThemeHeight">4</x:Double>
+                            <x:Double x:Key="SliderHorizontalThumbWidth">14</x:Double>
+                            <x:Double x:Key="SliderHorizontalThumbHeight">14</x:Double>
+                            <StaticResource x:Key="SliderThumbBackground" ResourceKey="ControlStrongFillColorDefaultBrush" />
+                            <StaticResource x:Key="SliderThumbBackgroundPointerOver" ResourceKey="TextFillColorPrimaryBrush" />
+                            <StaticResource x:Key="SliderThumbBackgroundPressed" ResourceKey="TextFillColorPrimaryBrush" />
+                        </Slider.Resources>
+                    </Slider>
+
+                    <TextBlock
+                        Grid.Column="3"
+                        Margin="14,0,12,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource CaptionTextStyle}"
+                        Text="{x:Bind ViewModel.TimelinePositionText, Mode=OneWay}" />
+
+                    <Button
+                        Grid.Column="4"
+                        Margin="0,0,8,0"
+                        AutomationProperties.Name="回到出点"
+                        Click="OnJumpToSelectionEndClick"
+                        IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
+                        Style="{StaticResource TimelineStripButtonStyle}"
+                        ToolTipService.ToolTip="回到出点">
+                        <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="Forward" />
+                    </Button>
+
+                    <Button
+                        Grid.Column="5"
+                        AutomationProperties.Name="音量"
+                        HorizontalAlignment="Right"
+                        IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
+                        PointerWheelChanged="OnVolumeButtonPointerWheelChanged"
+                        Style="{StaticResource TimelineStripButtonStyle}"
+                        ToolTipService.ToolTip="音量">
+                        <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="{x:Bind ViewModel.VolumeButtonSymbol, Mode=OneWay}" />
+                        <Button.Flyout>
+                            <Flyout Placement="TopEdgeAlignedRight">
+                                <StackPanel Padding="4" HorizontalAlignment="Center" Spacing="10">
+                                    <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="音量" />
+                                    <TextBlock HorizontalAlignment="Center" Opacity="0.72" Text="{x:Bind ViewModel.VolumePercentText, Mode=OneWay}" />
+                                    <Slider Height="150" Minimum="0" Maximum="100" Orientation="Vertical" StepFrequency="1" Value="{x:Bind ViewModel.VolumePercent, Mode=TwoWay}" />
                                 </StackPanel>
-                                <Button.Flyout>
-                                    <Flyout Placement="TopEdgeAlignedRight">
-                                        <StackPanel Padding="4" HorizontalAlignment="Center" Spacing="10">
-                                            <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="音量" />
-                                            <TextBlock HorizontalAlignment="Center" Opacity="0.72" Text="{x:Bind ViewModel.VolumePercentText, Mode=OneWay}" />
-                                            <Slider Height="150" Minimum="0" Maximum="100" Orientation="Vertical" StepFrequency="1" Value="{x:Bind ViewModel.VolumePercent, Mode=TwoWay}" />
-                                        </StackPanel>
-                                    </Flyout>
-                                </Button.Flyout>
-                            </Button>
-                        </Grid>
-                    </Grid>
-                </Border>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                </Grid>
 
                 <Border Grid.Column="0" Grid.Row="2" Padding="14" Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="16">
                     <StackPanel Spacing="12">

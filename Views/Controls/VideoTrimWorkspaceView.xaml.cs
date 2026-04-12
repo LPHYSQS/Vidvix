@@ -157,6 +157,17 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         SeekTo(GetSelectionStart());
     }
 
+    private void OnJumpToSelectionEndClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        PausePlayback(syncTimelinePosition: true);
+        SeekTo(GetSelectionEnd());
+    }
+
     private void OnVolumeButtonPointerWheelChanged(object sender, PointerRoutedEventArgs e)
     {
         if (ViewModel is null)
