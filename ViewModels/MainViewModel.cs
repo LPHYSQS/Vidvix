@@ -60,8 +60,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly IFileRevealService _fileRevealService;
     private readonly ObservableCollection<LogEntry> _videoLogEntries;
     private readonly ObservableCollection<LogEntry> _audioLogEntries;
+    private readonly ObservableCollection<LogEntry> _trimLogEntries;
     private readonly ObservableCollection<MediaJobViewModel> _videoImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _audioImportItems;
+    private readonly ObservableCollection<MediaJobViewModel> _trimImportItems;
     private readonly AsyncRelayCommand _selectFilesCommand;
     private readonly AsyncRelayCommand _selectFolderCommand;
     private readonly AsyncRelayCommand _selectOutputDirectoryCommand;
@@ -78,6 +80,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly RelayCommand _copyMediaDetailSectionCommand;
     private readonly RelayCommand _switchToVideoWorkspaceCommand;
     private readonly RelayCommand _switchToAudioWorkspaceCommand;
+    private readonly RelayCommand _switchToTrimWorkspaceCommand;
     private readonly Dictionary<ProcessingMode, string> _preferredOutputFormatExtensionsByMode = new();
 
     private string? _runtimeExecutablePath;
@@ -112,7 +115,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         IFilePickerService filePickerService,
         IDispatcherService dispatcherService,
         IUserPreferencesService userPreferencesService,
-        IFileRevealService fileRevealService)
+        IFileRevealService fileRevealService,
+        VideoTrimWorkspaceViewModel trimWorkspace)
     {
         _configuration = configuration;
         _ffmpegRuntimeService = ffmpegRuntimeService;
@@ -127,14 +131,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _dispatcherService = dispatcherService;
         _userPreferencesService = userPreferencesService;
         _fileRevealService = fileRevealService;
+        TrimWorkspace = trimWorkspace ?? throw new ArgumentNullException(nameof(trimWorkspace));
         _statusMessage = RuntimePreparingMessage;
 
         ThemeOptions = ThemePreferenceOptions;
         TranscodingOptions = TranscodingModeOptions;
         _videoLogEntries = new ObservableCollection<LogEntry>();
         _audioLogEntries = new ObservableCollection<LogEntry>();
+        _trimLogEntries = new ObservableCollection<LogEntry>();
         _videoImportItems = new ObservableCollection<MediaJobViewModel>();
         _audioImportItems = new ObservableCollection<MediaJobViewModel>();
+        _trimImportItems = new ObservableCollection<MediaJobViewModel>();
         DetailPanel = new MediaDetailPanelViewModel();
         ProcessingModes = _configuration.SupportedProcessingModes;
 
@@ -166,8 +173,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _copyMediaDetailSectionCommand = new RelayCommand(CopyMediaDetailSection, CanCopyMediaDetailSection);
         _switchToVideoWorkspaceCommand = new RelayCommand(SwitchToVideoWorkspace, () => CanModifyInputs);
         _switchToAudioWorkspaceCommand = new RelayCommand(SwitchToAudioWorkspace, () => CanModifyInputs);
+        _switchToTrimWorkspaceCommand = new RelayCommand(SwitchToTrimWorkspace, () => CanModifyInputs);
 
         DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
+        TrimWorkspace.PropertyChanged += OnTrimWorkspacePropertyChanged;
 
         _selectedProcessingMode = ResolveProcessingMode(userPreferences.PreferredProcessingMode);
         ReloadOutputFormats();
@@ -186,6 +195,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public IReadOnlyList<TranscodingModeOption> TranscodingOptions { get; }
 
     public MediaDetailPanelViewModel DetailPanel { get; }
+
+    public VideoTrimWorkspaceViewModel TrimWorkspace { get; }
 
     public ICommand SelectFilesCommand => _selectFilesCommand;
 
@@ -218,6 +229,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public ICommand SwitchToVideoWorkspaceCommand => _switchToVideoWorkspaceCommand;
 
     public ICommand SwitchToAudioWorkspaceCommand => _switchToAudioWorkspaceCommand;
+
+    public ICommand SwitchToTrimWorkspaceCommand => _switchToTrimWorkspaceCommand;
 
     public bool IsSettingsPaneOpen
     {
@@ -402,7 +415,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public bool CanModifyInputs => !IsBusy;
+    public bool CanModifyInputs => !IsBusy && !TrimWorkspace.IsBusy;
 
     public string QueueSummaryText => ImportItems.Count switch
     {
@@ -424,7 +437,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _isDisposed = true;
         _videoImportItems.CollectionChanged -= OnImportItemsChanged;
         _audioImportItems.CollectionChanged -= OnImportItemsChanged;
+        TrimWorkspace.PropertyChanged -= OnTrimWorkspacePropertyChanged;
         DetailPanel.PropertyChanged -= OnDetailPanelPropertyChanged;
+        TrimWorkspace.Dispose();
 
         CancelDetailLoad();
         _detailLoadCancellationSource?.Dispose();
@@ -455,6 +470,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             e.PropertyName == nameof(MediaDetailPanelViewModel.AdvancedVisibility) ||
             e.PropertyName == nameof(MediaDetailPanelViewModel.AudioOverviewVisibility))
         {
+            NotifyCommandStates();
+        }
+    }
+
+    private void OnTrimWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(VideoTrimWorkspaceViewModel.IsBusy))
+        {
+            OnPropertyChanged(nameof(CanModifyInputs));
             NotifyCommandStates();
         }
     }

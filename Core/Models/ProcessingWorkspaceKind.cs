@@ -3,5 +3,6 @@
 public enum ProcessingWorkspaceKind
 {
     Video,
-    Audio
+    Audio,
+    Trim
 }

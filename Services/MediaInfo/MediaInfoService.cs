@@ -84,33 +84,51 @@ public sealed class MediaInfoService : IMediaInfoService
 
     private async Task<MediaDetailsLoadResult> LoadMediaDetailsCoreAsync(MediaCacheContext cacheContext)
     {
+        string? ffprobePath = null;
+        FfprobeExecutionResult? executionResult = null;
+
         try
         {
             var runtimeResolution = await _ffmpegRuntimeService.EnsureAvailableAsync().ConfigureAwait(false);
-            var ffprobePath = ResolveFfprobePath(runtimeResolution.ExecutablePath);
+            ffprobePath = ResolveFfprobePath(runtimeResolution.ExecutablePath);
 
             if (!File.Exists(ffprobePath))
             {
-                return MediaDetailsLoadResult.Failure("\u672a\u627e\u5230\u5185\u7f6e ffprobe\uff0c\u65e0\u6cd5\u89e3\u6790\u8be5\u89c6\u9891\u6587\u4ef6\u3002", isToolMissing: true);
+                var diagnosticDetails = CreateFfprobeDiagnosticDetails(
+                    ffprobePath,
+                    cacheContext.InputPath,
+                    executionResult,
+                    "未找到内置 ffprobe 可执行文件。");
+                return MediaDetailsLoadResult.Failure(
+                    "\u672a\u627e\u5230\u5185\u7f6e ffprobe\uff0c\u65e0\u6cd5\u89e3\u6790\u8be5\u89c6\u9891\u6587\u4ef6\u3002",
+                    diagnosticDetails,
+                    isToolMissing: true);
             }
 
-            var executionResult = await ExecuteFfprobeAsync(ffprobePath, cacheContext.InputPath).ConfigureAwait(false);
-            if (executionResult.ExitCode != 0)
+            executionResult = await ExecuteFfprobeAsync(ffprobePath, cacheContext.InputPath).ConfigureAwait(false);
+            var probeExecutionResult = executionResult.Value;
+            if (probeExecutionResult.ExitCode != 0)
             {
-                var failureReason = ExtractFailureReason(executionResult.StandardError);
+                var failureReason = ExtractFailureReason(probeExecutionResult.StandardError);
+                var diagnosticDetails = CreateFfprobeDiagnosticDetails(ffprobePath, cacheContext.InputPath, probeExecutionResult);
                 _logger.Log(
                     LogLevel.Warning,
-                    $"ffprobe \u89e3\u6790\u5931\u8d25\uff1a{cacheContext.InputPath}\uff0c\u9000\u51fa\u7801 {executionResult.ExitCode}\uff0c\u539f\u56e0\uff1a{failureReason}");
-                return MediaDetailsLoadResult.Failure(failureReason);
+                    $"ffprobe \u89e3\u6790\u5931\u8d25\uff1a{cacheContext.InputPath}\uff0c\u9000\u51fa\u7801 {probeExecutionResult.ExitCode}\uff0c\u539f\u56e0\uff1a{failureReason}{Environment.NewLine}{diagnosticDetails}");
+                return MediaDetailsLoadResult.Failure(failureReason, diagnosticDetails);
             }
 
-            if (string.IsNullOrWhiteSpace(executionResult.StandardOutput))
+            if (string.IsNullOrWhiteSpace(probeExecutionResult.StandardOutput))
             {
-                _logger.Log(LogLevel.Warning, $"ffprobe \u672a\u8fd4\u56de\u53ef\u7528\u8f93\u51fa\uff1a{cacheContext.InputPath}");
-                return MediaDetailsLoadResult.Failure(ParseFailedMessage);
+                var diagnosticDetails = CreateFfprobeDiagnosticDetails(
+                    ffprobePath,
+                    cacheContext.InputPath,
+                    probeExecutionResult,
+                    "ffprobe 未返回可用输出。");
+                _logger.Log(LogLevel.Warning, $"ffprobe \u672a\u8fd4\u56de\u53ef\u7528\u8f93\u51fa\uff1a{cacheContext.InputPath}{Environment.NewLine}{diagnosticDetails}");
+                return MediaDetailsLoadResult.Failure(ParseFailedMessage, diagnosticDetails);
             }
 
-            var probeResult = ParseProbeResult(executionResult.StandardOutput);
+            var probeResult = ParseProbeResult(probeExecutionResult.StandardOutput);
             var resolvedBitrates = await ResolveStreamBitratesAsync(runtimeResolution.ExecutablePath, cacheContext.InputPath, probeResult).ConfigureAwait(false);
             var snapshot = BuildSnapshot(cacheContext, probeResult, resolvedBitrates);
             _cache[cacheContext.CacheKey] = snapshot;
@@ -123,13 +141,23 @@ public sealed class MediaInfoService : IMediaInfoService
         }
         catch (JsonException exception)
         {
-            _logger.Log(LogLevel.Warning, $"ffprobe \u8f93\u51fa\u89e3\u6790\u5931\u8d25\uff1a{cacheContext.InputPath}", exception);
-            return MediaDetailsLoadResult.Failure(ParseFailedMessage);
+            var diagnosticDetails = CreateFfprobeDiagnosticDetails(
+                ffprobePath,
+                cacheContext.InputPath,
+                executionResult,
+                $"ffprobe \u8f93\u51fa\u89e3\u6790\u5931\u8d25\uff1a{exception.Message}");
+            _logger.Log(LogLevel.Warning, $"ffprobe \u8f93\u51fa\u89e3\u6790\u5931\u8d25\uff1a{cacheContext.InputPath}{Environment.NewLine}{diagnosticDetails}", exception);
+            return MediaDetailsLoadResult.Failure(ParseFailedMessage, diagnosticDetails);
         }
         catch (Exception exception)
         {
-            _logger.Log(LogLevel.Error, $"\u8bfb\u53d6\u5a92\u4f53\u8be6\u60c5\u65f6\u53d1\u751f\u5f02\u5e38\uff1a{cacheContext.InputPath}", exception);
-            return MediaDetailsLoadResult.Failure(ParseFailedMessage);
+            var diagnosticDetails = CreateFfprobeDiagnosticDetails(
+                ffprobePath,
+                cacheContext.InputPath,
+                executionResult,
+                $"\u8bfb\u53d6\u5a92\u4f53\u8be6\u60c5\u65f6\u53d1\u751f\u5f02\u5e38\uff1a{exception.Message}");
+            _logger.Log(LogLevel.Error, $"\u8bfb\u53d6\u5a92\u4f53\u8be6\u60c5\u65f6\u53d1\u751f\u5f02\u5e38\uff1a{cacheContext.InputPath}{Environment.NewLine}{diagnosticDetails}", exception);
+            return MediaDetailsLoadResult.Failure(ParseFailedMessage, diagnosticDetails);
         }
     }
 
@@ -344,6 +372,75 @@ public sealed class MediaInfoService : IMediaInfoService
         var lines = standardError.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         return lines.LastOrDefault() ?? ParseFailedMessage;
     }
+
+    private static string CreateFfprobeDiagnosticDetails(
+        string? ffprobePath,
+        string inputPath,
+        FfprobeExecutionResult? executionResult,
+        string? additionalMessage = null)
+    {
+        var builder = new StringBuilder();
+
+        if (!string.IsNullOrWhiteSpace(additionalMessage))
+        {
+            builder.AppendLine(additionalMessage);
+        }
+
+        builder.AppendLine($"输入文件：{inputPath}");
+
+        if (!string.IsNullOrWhiteSpace(ffprobePath))
+        {
+            builder.AppendLine($"命令：{BuildFfprobeCommandLine(ffprobePath, inputPath)}");
+        }
+
+        if (executionResult is { } result)
+        {
+            builder.AppendLine($"退出码：{result.ExitCode}");
+            AppendDiagnosticSection(builder, "标准错误", result.StandardError);
+            AppendDiagnosticSection(builder, "标准输出", result.StandardOutput);
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static void AppendDiagnosticSection(StringBuilder builder, string title, string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return;
+        }
+
+        builder.AppendLine(title + "：");
+        builder.AppendLine(TrimDiagnosticContent(content));
+    }
+
+    private static string TrimDiagnosticContent(string content)
+    {
+        var lines = content
+            .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .TakeLast(12)
+            .ToArray();
+
+        return lines.Length == 0 ? content.Trim() : string.Join(Environment.NewLine, lines);
+    }
+
+    private static string BuildFfprobeCommandLine(string ffprobePath, string inputPath) =>
+        string.Join(
+            " ",
+            new[]
+            {
+                QuoteArgument(ffprobePath),
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_format",
+                "-show_streams",
+                QuoteArgument(inputPath)
+            });
+
+    private static string QuoteArgument(string value) =>
+        "\"" + value.Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
 
     private static FfprobeResponse ParseProbeResult(string json)
     {

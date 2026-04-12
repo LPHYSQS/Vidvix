@@ -12,6 +12,8 @@ public sealed class MediaDetailsLoadResult
 
     public string? ErrorMessage { get; private init; }
 
+    public string? DiagnosticDetails { get; private init; }
+
     public bool IsToolMissing { get; private init; }
 
     public bool IsSuccess => Snapshot is not null && string.IsNullOrWhiteSpace(ErrorMessage);
@@ -25,12 +27,16 @@ public sealed class MediaDetailsLoadResult
         };
     }
 
-    public static MediaDetailsLoadResult Failure(string errorMessage, bool isToolMissing = false)
+    public static MediaDetailsLoadResult Failure(
+        string errorMessage,
+        string? diagnosticDetails = null,
+        bool isToolMissing = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
         return new MediaDetailsLoadResult
         {
             ErrorMessage = errorMessage,
+            DiagnosticDetails = diagnosticDetails,
             IsToolMissing = isToolMissing
         };
     }

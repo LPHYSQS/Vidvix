@@ -132,7 +132,8 @@ public sealed partial class MainWindow : Window
         }
 
         if (e.PropertyName == nameof(MainViewModel.IsVideoWorkspaceSelected) ||
-            e.PropertyName == nameof(MainViewModel.IsAudioWorkspaceSelected))
+            e.PropertyName == nameof(MainViewModel.IsAudioWorkspaceSelected) ||
+            e.PropertyName == nameof(MainViewModel.IsTrimWorkspaceSelected))
         {
             UpdateWorkspaceToggleVisuals();
         }
@@ -380,6 +381,8 @@ public sealed partial class MainWindow : Window
         VideoWorkspaceText.Foreground = ViewModel.IsVideoWorkspaceSelected ? accentBrush : defaultBrush;
         AudioWorkspaceIcon.Foreground = ViewModel.IsAudioWorkspaceSelected ? accentBrush : defaultBrush;
         AudioWorkspaceText.Foreground = ViewModel.IsAudioWorkspaceSelected ? accentBrush : defaultBrush;
+        TrimWorkspaceIcon.Foreground = ViewModel.IsTrimWorkspaceSelected ? accentBrush : defaultBrush;
+        TrimWorkspaceText.Foreground = ViewModel.IsTrimWorkspaceSelected ? accentBrush : defaultBrush;
     }
 
     private static Brush ResolveBrushResource(string resourceKey) =>
@@ -658,7 +661,9 @@ public sealed partial class MainWindow : Window
         }
 
         e.AcceptedOperation = DataPackageOperation.Copy;
-        e.DragUIOverride.Caption = ViewModel.DragDropCaptionText;
+        e.DragUIOverride.Caption = ViewModel.IsTrimWorkspaceSelected
+            ? ViewModel.TrimWorkspace.DragDropCaptionText
+            : ViewModel.DragDropCaptionText;
         e.DragUIOverride.IsCaptionVisible = true;
         e.DragUIOverride.IsContentVisible = true;
         e.Handled = true;
@@ -679,6 +684,12 @@ public sealed partial class MainWindow : Window
 
         if (paths.Length == 0)
         {
+            return;
+        }
+
+        if (ViewModel.IsTrimWorkspaceSelected)
+        {
+            await ViewModel.TrimWorkspace.ImportPathsAsync(paths);
             return;
         }
 

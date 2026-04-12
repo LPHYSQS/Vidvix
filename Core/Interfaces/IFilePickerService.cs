@@ -7,6 +7,10 @@ namespace Vidvix.Core.Interfaces;
 
 public interface IFilePickerService
 {
+    Task<string?> PickSingleFileAsync(
+        FilePickerRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<string>> PickFilesAsync(
         FilePickerRequest request,
         CancellationToken cancellationToken = default);

@@ -64,11 +64,26 @@
                             MaxLines="2"
                             Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
                             TextTrimming="CharacterEllipsis"
-                            TextWrapping="WrapWholeWords" />
+                            TextWrapping="WrapWholeWords"
+                            Visibility="{x:Bind ViewModel.ProcessingWorkspaceVisibility, Mode=OneWay}" />
+                        <TextBlock
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            MaxLines="2"
+                            Text="{x:Bind ViewModel.TrimWorkspace.StatusMessage, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="WrapWholeWords"
+                            Visibility="{x:Bind ViewModel.TrimWorkspaceVisibility, Mode=OneWay}" />
                         <TextBlock
                             Opacity="0.72"
                             Text="支持导入文件、文件夹，也支持直接拖拽到窗口"
-                            TextWrapping="WrapWholeWords" />
+                            TextWrapping="WrapWholeWords"
+                            Visibility="{x:Bind ViewModel.ProcessingWorkspaceVisibility, Mode=OneWay}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="裁剪模块仅支持单个视频文件，可通过按钮或拖拽方式导入"
+                            TextWrapping="WrapWholeWords"
+                            Visibility="{x:Bind ViewModel.TrimWorkspaceVisibility, Mode=OneWay}" />
                     </StackPanel>
                 </StackPanel>
 
@@ -77,7 +92,8 @@
                     Background="Transparent"
                     DefaultLabelPosition="Right"
                     IsDynamicOverflowEnabled="True"
-                    VerticalAlignment="Center">
+                    VerticalAlignment="Center"
+                    Visibility="{x:Bind ViewModel.ProcessingWorkspaceVisibility, Mode=OneWay}">
                     <AppBarButton Command="{x:Bind ViewModel.SelectFilesCommand}" Label="导入文件">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="OpenFile" />
@@ -100,6 +116,42 @@
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarButton Command="{x:Bind ViewModel.CancelExecutionCommand}" Label="取消任务">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Cancel" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarSeparator />
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Setting" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                </CommandBar>
+
+                <CommandBar
+                    Grid.Column="1"
+                    Background="Transparent"
+                    DefaultLabelPosition="Right"
+                    IsDynamicOverflowEnabled="True"
+                    VerticalAlignment="Center"
+                    Visibility="{x:Bind ViewModel.TrimWorkspaceVisibility, Mode=OneWay}">
+                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.SelectVideoCommand}" Label="导入视频">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="OpenFile" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.RemoveVideoCommand}" Label="移除视频">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Delete" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarSeparator />
+                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.ExportTrimCommand}" Label="导出片段">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Save" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.CancelExportCommand}" Label="取消导出">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Cancel" />
                         </AppBarButton.Icon>
@@ -177,6 +229,63 @@
                     <TextBlock
                         Style="{StaticResource CaptionTextStyle}"
                         Text="{x:Bind ViewModel.ExecutionProgressDetailText, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border
+            Grid.Row="1"
+            Padding="14,12"
+            Style="{StaticResource SurfaceCardBorderStyle}"
+            Visibility="{x:Bind ViewModel.TrimWorkspace.ExportProgressVisibility, Mode=OneWay}">
+            <Grid ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border
+                    Width="34"
+                    Height="34"
+                    VerticalAlignment="Top"
+                    Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                    CornerRadius="17">
+                    <SymbolIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Symbol="Cut" />
+                </Border>
+
+                <StackPanel
+                    Grid.Column="1"
+                    Spacing="8">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="{x:Bind ViewModel.TrimWorkspace.ExportProgressSummaryText, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.TrimWorkspace.ExportProgressPercentText, Mode=OneWay}" />
+                    </Grid>
+
+                    <ProgressBar
+                        Height="6"
+                        IsIndeterminate="{x:Bind ViewModel.TrimWorkspace.IsExportProgressIndeterminate, Mode=OneWay}"
+                        Maximum="100"
+                        Value="{x:Bind ViewModel.TrimWorkspace.ExportProgressValue, Mode=OneWay}" />
+
+                    <TextBlock
+                        Style="{StaticResource CaptionTextStyle}"
+                        Text="{x:Bind ViewModel.TrimWorkspace.ExportProgressDetailText, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
             </Grid>
@@ -264,12 +373,35 @@
                                         Text="音频" />
                                 </StackPanel>
                             </ToggleButton>
+
+                            <ToggleButton
+                                x:Name="TrimWorkspaceToggle"
+                                Command="{x:Bind ViewModel.SwitchToTrimWorkspaceCommand, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.IsTrimWorkspaceSelected, Mode=OneWay}"
+                                IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                <StackPanel
+                                    HorizontalAlignment="Center"
+                                    Spacing="5">
+                                    <SymbolIcon
+                                        x:Name="TrimWorkspaceIcon"
+                                        HorizontalAlignment="Center"
+                                        Symbol="Cut" />
+                                    <TextBlock
+                                        x:Name="TrimWorkspaceText"
+                                        HorizontalAlignment="Center"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Text="裁剪" />
+                                </StackPanel>
+                            </ToggleButton>
                         </StackPanel>
                     </Border>
 
                     <Grid
                         Grid.Column="1"
-                        ColumnSpacing="12">
+                        ColumnSpacing="12"
+                        Visibility="{x:Bind ViewModel.ProcessingWorkspaceVisibility, Mode=OneWay}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="1.55*" />
                             <ColumnDefinition Width="*" />
@@ -734,7 +866,15 @@
                             </StackPanel>
                         </Border>
                     </Grid>
+
                     </Grid>
+
+                    <controls:VideoTrimWorkspaceView
+                        Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        ViewModel="{x:Bind ViewModel.TrimWorkspace, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.TrimWorkspaceVisibility, Mode=OneWay}" />
                 </Grid>
             </SplitView.Content>
         </SplitView>

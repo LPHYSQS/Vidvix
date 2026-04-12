@@ -12,6 +12,9 @@ public sealed class ApplicationConfiguration
     private static readonly IReadOnlyList<string> DefaultSupportedAudioInputFileTypes =
         new[] { ".mp3", ".m4a", ".aac", ".wav", ".flac", ".wma", ".ogg", ".opus", ".aiff", ".aif", ".mka" };
 
+    private static readonly IReadOnlyList<string> DefaultSupportedTrimInputFileTypes =
+        new[] { ".mp4", ".mkv", ".mov", ".avi", ".wmv", ".m4v", ".flv", ".webm", ".ts", ".m2ts", ".mpeg", ".mpg" };
+
     public string ApplicationTitle { get; init; } = "Vidvix";
 
     public string ApplicationIconRelativePath { get; init; } = Path.Combine("Assets", "logo.ico");
@@ -54,6 +57,8 @@ public sealed class ApplicationConfiguration
 
     public IReadOnlyList<string> SupportedAudioInputFileTypes { get; init; } = DefaultSupportedAudioInputFileTypes;
 
+    public IReadOnlyList<string> SupportedTrimInputFileTypes { get; init; } = DefaultSupportedTrimInputFileTypes;
+
     public IReadOnlyDictionary<ProcessingWorkspaceKind, ProcessingWorkspaceProfile> WorkspaceProfiles { get; init; } =
         new Dictionary<ProcessingWorkspaceKind, ProcessingWorkspaceProfile>
         {
@@ -68,7 +73,14 @@ public sealed class ApplicationConfiguration
                 "音频文件",
                 DefaultSupportedAudioInputFileTypes,
                 fixedProcessingModeDisplayName: "音频格式转换",
-                fixedProcessingModeDescription: "将音频文件转换为目标格式，支持多种音频格式之间互相转换。")
+                fixedProcessingModeDescription: "将音频文件转换为目标格式，支持多种音频格式之间互相转换。"),
+            [ProcessingWorkspaceKind.Trim] = new(
+                ProcessingWorkspaceKind.Trim,
+                "裁剪",
+                "视频文件",
+                DefaultSupportedTrimInputFileTypes,
+                fixedProcessingModeDisplayName: "视频裁剪",
+                fixedProcessingModeDescription: "导入单个视频文件后，按所选起止时间精确导出对应片段。")
         };
 
     public IReadOnlyList<ProcessingModeOption> SupportedProcessingModes { get; init; } =
@@ -105,6 +117,23 @@ public sealed class ApplicationConfiguration
             new OutputFormatOption("WEBM", ".webm", "面向网页和浏览器场景，适合更重视开放媒体格式的分发。"),
             new OutputFormatOption("TS", ".ts", "适合封装流媒体或广播侧素材。"),
             new OutputFormatOption("M2TS", ".m2ts", "适合蓝光或高码率传输场景。"),
+            new OutputFormatOption("MPEG", ".mpeg", "适合传统视频工作流和部分广播参考场景。"),
+            new OutputFormatOption("MPG", ".mpg", "同为 MPEG 容器的常见扩展名，适合需要 .mpg 后缀的场景。")
+        };
+
+    public IReadOnlyList<OutputFormatOption> SupportedTrimOutputFormats { get; init; } =
+        new[]
+        {
+            new OutputFormatOption("MP4", ".mp4", "兼容性最好，适合常见播放器和移动设备。"),
+            new OutputFormatOption("MKV", ".mkv", "封装更宽松，更适合保留高质量剪辑片段。"),
+            new OutputFormatOption("MOV", ".mov", "适合部分剪辑软件和 Apple 工作流。"),
+            new OutputFormatOption("AVI", ".avi", "传统视频容器，适合老牌软件或基础兼容场景。"),
+            new OutputFormatOption("WMV", ".wmv", "适合 Windows 系统和部分老旧播放环境。"),
+            new OutputFormatOption("M4V", ".m4v", "兼容 MP4 工作流，适合部分移动设备和 Apple 生态。"),
+            new OutputFormatOption("FLV", ".flv", "适合老的流媒体或特定支持 FLV 的平台。"),
+            new OutputFormatOption("WEBM", ".webm", "面向网页和浏览器场景，适合开放媒体格式分发。"),
+            new OutputFormatOption("TS", ".ts", "适合流媒体封装或广播侧片段输出。"),
+            new OutputFormatOption("M2TS", ".m2ts", "适合蓝光或高码率传输片段场景。"),
             new OutputFormatOption("MPEG", ".mpeg", "适合传统视频工作流和部分广播参考场景。"),
             new OutputFormatOption("MPG", ".mpg", "同为 MPEG 容器的常见扩展名，适合需要 .mpg 后缀的场景。")
         };

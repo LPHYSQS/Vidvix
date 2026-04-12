@@ -17,6 +17,12 @@ public sealed partial class MainViewModel
 
     public bool IsAudioWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.Audio;
 
+    public bool IsTrimWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.Trim;
+
+    public Visibility ProcessingWorkspaceVisibility => IsTrimWorkspaceSelected ? Visibility.Collapsed : Visibility.Visible;
+
+    public Visibility TrimWorkspaceVisibility => IsTrimWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
+
     public Visibility VideoProcessingModeVisibility => IsVideoWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility AudioProcessingModeVisibility => IsAudioWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
@@ -31,6 +37,8 @@ public sealed partial class MainViewModel
 
     private bool IsAudioWorkspace => _selectedWorkspaceKind == ProcessingWorkspaceKind.Audio;
 
+    private bool IsTrimWorkspace => _selectedWorkspaceKind == ProcessingWorkspaceKind.Trim;
+
     private ProcessingWorkspaceProfile GetCurrentWorkspaceProfile() =>
         GetWorkspaceProfile(_selectedWorkspaceKind);
 
@@ -43,13 +51,23 @@ public sealed partial class MainViewModel
         GetImportItems(_selectedWorkspaceKind);
 
     private ObservableCollection<MediaJobViewModel> GetImportItems(ProcessingWorkspaceKind workspaceKind) =>
-        workspaceKind == ProcessingWorkspaceKind.Audio ? _audioImportItems : _videoImportItems;
+        workspaceKind switch
+        {
+            ProcessingWorkspaceKind.Audio => _audioImportItems,
+            ProcessingWorkspaceKind.Trim => _trimImportItems,
+            _ => _videoImportItems
+        };
 
     private ObservableCollection<LogEntry> GetCurrentLogEntries() =>
         GetLogEntries(_selectedWorkspaceKind);
 
     private ObservableCollection<LogEntry> GetLogEntries(ProcessingWorkspaceKind workspaceKind) =>
-        workspaceKind == ProcessingWorkspaceKind.Audio ? _audioLogEntries : _videoLogEntries;
+        workspaceKind switch
+        {
+            ProcessingWorkspaceKind.Audio => _audioLogEntries,
+            ProcessingWorkspaceKind.Trim => _trimLogEntries,
+            _ => _videoLogEntries
+        };
 
     private IReadOnlyList<string> GetCurrentSupportedInputFileTypes() =>
         GetSupportedInputFileTypes(_selectedWorkspaceKind);
@@ -78,7 +96,11 @@ public sealed partial class MainViewModel
     private string CreateNoProcessableImportMessage() => GetCurrentWorkspaceProfile().NoProcessableImportMessage;
 
     private ProcessingMode GetCurrentOutputFormatPreferenceMode() =>
-        IsAudioWorkspace ? ProcessingMode.AudioTrackExtract : SelectedProcessingMode.Mode;
+        IsTrimWorkspace
+            ? ProcessingMode.VideoConvert
+            : IsAudioWorkspace
+                ? ProcessingMode.AudioTrackExtract
+                : SelectedProcessingMode.Mode;
 
     private ProcessingWorkspaceKind ResolvePreferredWorkspaceKind(ProcessingWorkspaceKind preferredWorkspaceKind) =>
         Enum.IsDefined(typeof(ProcessingWorkspaceKind), preferredWorkspaceKind)
@@ -89,6 +111,8 @@ public sealed partial class MainViewModel
 
     private void SwitchToAudioWorkspace() => SetWorkspace(ProcessingWorkspaceKind.Audio);
 
+    private void SwitchToTrimWorkspace() => SetWorkspace(ProcessingWorkspaceKind.Trim);
+
     private void SetWorkspace(ProcessingWorkspaceKind workspaceKind)
     {
         if (_selectedWorkspaceKind == workspaceKind)
@@ -96,7 +120,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        if (IsBusy)
+        if (IsBusy || TrimWorkspace.IsBusy)
         {
             StatusMessage = "当前任务处理中，暂不支持切换模块。";
             return;
@@ -110,6 +134,9 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(LogEntries));
         OnPropertyChanged(nameof(IsVideoWorkspaceSelected));
         OnPropertyChanged(nameof(IsAudioWorkspaceSelected));
+        OnPropertyChanged(nameof(IsTrimWorkspaceSelected));
+        OnPropertyChanged(nameof(ProcessingWorkspaceVisibility));
+        OnPropertyChanged(nameof(TrimWorkspaceVisibility));
         OnPropertyChanged(nameof(VideoProcessingModeVisibility));
         OnPropertyChanged(nameof(AudioProcessingModeVisibility));
         OnPropertyChanged(nameof(QueueSummaryText));
@@ -119,8 +146,12 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(FixedProcessingModeDisplayName));
         OnPropertyChanged(nameof(FixedProcessingModeDescription));
 
-        ReloadOutputFormats();
-        RecalculatePlannedOutputs();
+        if (!IsTrimWorkspaceSelected)
+        {
+            ReloadOutputFormats();
+            RecalculatePlannedOutputs();
+        }
+
         NotifyCommandStates();
         PersistUserPreferences();
 

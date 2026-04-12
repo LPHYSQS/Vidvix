@@ -49,6 +49,32 @@ public sealed class FilePickerService : IFilePickerService
             .ToArray();
     }
 
+    public async Task<string?> PickSingleFileAsync(
+        FilePickerRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var picker = new FileOpenPicker
+        {
+            CommitButtonText = request.CommitButtonText,
+            SuggestedStartLocation = PickerLocationId.VideosLibrary,
+            ViewMode = PickerViewMode.List
+        };
+
+        foreach (var fileType in request.AllowedFileTypes)
+        {
+            picker.FileTypeFilter.Add(fileType);
+        }
+
+        InitializeWithWindow.Initialize(picker, _windowContext.Handle);
+
+        var file = await picker.PickSingleFileAsync();
+        return file?.Path;
+    }
+
     public async Task<string?> PickFolderAsync(
         string commitButtonText,
         CancellationToken cancellationToken = default)

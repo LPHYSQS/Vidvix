@@ -23,6 +23,7 @@ public sealed partial class MainViewModel
         _copyMediaDetailSectionCommand.NotifyCanExecuteChanged();
         _switchToVideoWorkspaceCommand.NotifyCanExecuteChanged();
         _switchToAudioWorkspaceCommand.NotifyCanExecuteChanged();
+        _switchToTrimWorkspaceCommand.NotifyCanExecuteChanged();
     }
 
     private void SetReadyStatusMessage()

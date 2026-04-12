@@ -39,8 +39,19 @@ public sealed class AppCompositionRoot
         var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
         var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
         var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(Configuration, commandBuilder);
+        var videoTrimCommandFactory = new VideoTrimCommandFactory(Configuration, commandBuilder);
         _userPreferencesService = new UserPreferencesService(Configuration, Logger);
         var fileRevealService = new FileRevealService();
+        var trimWorkspace = new VideoTrimWorkspaceViewModel(
+            Configuration,
+            runtimeService,
+            ffmpegService,
+            mediaInfoService,
+            videoTrimCommandFactory,
+            filePickerService,
+            _userPreferencesService,
+            fileRevealService,
+            Logger);
 
         _mainViewModel = new MainViewModel(
             Configuration,
@@ -55,7 +66,8 @@ public sealed class AppCompositionRoot
             filePickerService,
             dispatcherService,
             _userPreferencesService,
-            fileRevealService);
+            fileRevealService,
+            trimWorkspace);
     }
 
     public ApplicationConfiguration Configuration { get; }
