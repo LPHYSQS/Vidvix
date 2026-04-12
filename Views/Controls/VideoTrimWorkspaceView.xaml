@@ -131,7 +131,7 @@
                 <Border
                     Grid.Column="0"
                     Grid.Row="0"
-                    MinHeight="0"
+                    MinHeight="190"
                     Background="Black"
                     CornerRadius="18">
                     <Grid
@@ -142,10 +142,8 @@
                             x:Name="PreviewPlayer"
                             AreTransportControlsEnabled="False"
                             AutoPlay="False"
-                            Width="{Binding ElementName=PreviewViewport, Path=ActualWidth}"
-                            Height="{Binding ElementName=PreviewViewport, Path=ActualHeight}"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
                             Stretch="Uniform" />
 
                         <Border
