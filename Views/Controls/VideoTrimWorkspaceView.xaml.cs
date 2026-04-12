@@ -16,14 +16,20 @@ namespace Vidvix.Views.Controls;
 
 public sealed partial class VideoTrimWorkspaceView : UserControl
 {
+    private static readonly TimeSpan ScrubPreviewInterval = TimeSpan.FromMilliseconds(90);
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly MediaPlayer _mediaPlayer;
     private readonly DispatcherQueueTimer _positionTimer;
+    private readonly DispatcherQueueTimer _scrubPreviewTimer;
     private bool _hasPendingTimelineRefresh;
+    private bool _hasPendingScrubPreviewPosition;
     private bool _isPositionTimerRunning;
-    private bool _isTimelineDragActive;
+    private bool _isSuppressingPlaybackStateSync;
+    private bool _isTimelineScrubbing;
+    private bool _resumePlaybackAfterScrub;
     private bool _isUpdatingPlaybackState;
     private bool _isUpdatingTimeline;
+    private TimeSpan _pendingScrubPreviewPosition;
     private TimeSpan _pendingTimelinePosition;
     private int _sourceVersion;
     private int _timelineRefreshVersion;
@@ -31,6 +37,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     public VideoTrimWorkspaceView()
     {
         InitializeComponent();
+        RegisterTimelineInteractionHandlers();
         _dispatcherQueue = DispatcherQueue.GetForCurrentThread()
             ?? throw new InvalidOperationException("\u672a\u627e\u5230\u5f53\u524d\u7ebf\u7a0b\u7684\u8c03\u5ea6\u961f\u5217\u3002");
         _mediaPlayer = new MediaPlayer
@@ -49,8 +56,20 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         _positionTimer.IsRepeating = true;
         _positionTimer.Tick += OnPositionTimerTick;
 
+        _scrubPreviewTimer = _dispatcherQueue.CreateTimer();
+        _scrubPreviewTimer.Interval = ScrubPreviewInterval;
+        _scrubPreviewTimer.IsRepeating = true;
+        _scrubPreviewTimer.Tick += OnScrubPreviewTimerTick;
+
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+    }
+
+    private void RegisterTimelineInteractionHandlers()
+    {
+        TimelineSlider.AddHandler(PointerPressedEvent, new PointerEventHandler(OnTimelineSliderPointerPressed), true);
+        TimelineSlider.AddHandler(PointerReleasedEvent, new PointerEventHandler(OnTimelineSliderPointerReleased), true);
+        TimelineSlider.AddHandler(PointerCaptureLostEvent, new PointerEventHandler(OnTimelineSliderPointerCaptureLost), true);
     }
 
     public VideoTrimWorkspaceViewModel? ViewModel
@@ -94,6 +113,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        StopScrubPreviewTimer();
         StopPositionTimer();
         PauseMediaPlayer();
     }
@@ -137,28 +157,56 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         SeekTo(GetSelectionStart());
     }
 
-    private void OnTimelineSliderPointerPressed(object sender, PointerRoutedEventArgs e) => _isTimelineDragActive = true;
+    private void OnTimelineSliderPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        _isTimelineScrubbing = true;
+        _resumePlaybackAfterScrub = ViewModel?.IsPlaying == true;
+        _timelineRefreshVersion++;
+        _hasPendingTimelineRefresh = false;
+        _hasPendingScrubPreviewPosition = false;
+        StartScrubPreviewTimer();
+
+        if (!_resumePlaybackAfterScrub || _mediaPlayer.Source is null)
+        {
+            return;
+        }
+
+        _isSuppressingPlaybackStateSync = true;
+        PauseMediaPlayer();
+        StopPositionTimer();
+    }
 
     private void OnTimelineSliderPointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        _isTimelineDragActive = false;
+        _isTimelineScrubbing = false;
         CommitTimelinePosition();
     }
 
     private void OnTimelineSliderPointerCaptureLost(object sender, PointerRoutedEventArgs e)
     {
-        _isTimelineDragActive = false;
+        _isTimelineScrubbing = false;
         CommitTimelinePosition();
     }
 
     private void OnTimelineSliderValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
-        if (ViewModel is null || _isUpdatingTimeline || !_isTimelineDragActive)
+        if (ViewModel is null || _isUpdatingTimeline || !_isTimelineScrubbing)
         {
             return;
         }
 
-        SeekTo(TimeSpan.FromMilliseconds(e.NewValue));
+        _isUpdatingTimeline = true;
+        try
+        {
+            var target = TimeSpan.FromMilliseconds(e.NewValue);
+            ViewModel.SyncCurrentPosition(target);
+            _pendingScrubPreviewPosition = Clamp(target, GetSelectionStart(), GetSelectionEnd());
+            _hasPendingScrubPreviewPosition = true;
+        }
+        finally
+        {
+            _isUpdatingTimeline = false;
+        }
     }
 
     private void OnRangeSelectorSelectionChanged(object sender, EventArgs e)
@@ -282,7 +330,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     {
         _dispatcherQueue.TryEnqueue(() =>
         {
-            if (ViewModel is null)
+            if (ViewModel is null || _isTimelineScrubbing || _isSuppressingPlaybackStateSync)
             {
                 return;
             }
@@ -307,6 +355,14 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
                 return;
             }
 
+            if (_isTimelineScrubbing)
+            {
+                StopScrubPreviewTimer();
+                PauseMediaPlayer();
+                StopPositionTimer();
+                return;
+            }
+
             PausePlayback(syncTimelinePosition: false, seekPosition: GetSelectionEnd());
         });
     }
@@ -324,7 +380,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     {
         _dispatcherQueue.TryEnqueue(() =>
         {
-            if (ViewModel is null)
+            if (ViewModel is null || _isTimelineScrubbing || _isSuppressingPlaybackStateSync)
             {
                 return;
             }
@@ -358,11 +414,19 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         var selectionEnd = GetSelectionEnd();
         if (ViewModel.IsPlaying && selectionEnd > selectionStart && current >= selectionEnd)
         {
+            if (_isTimelineScrubbing)
+            {
+                StopScrubPreviewTimer();
+                PauseMediaPlayer();
+                StopPositionTimer();
+                return;
+            }
+
             PausePlayback(syncTimelinePosition: false, seekPosition: selectionEnd);
             return;
         }
 
-        if (_isTimelineDragActive)
+        if (_isTimelineScrubbing)
         {
             return;
         }
@@ -397,7 +461,20 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
+        StopScrubPreviewTimer();
+        _hasPendingScrubPreviewPosition = false;
         SeekTo(TimeSpan.FromMilliseconds(TimelineSlider.Value));
+
+        if (_resumePlaybackAfterScrub)
+        {
+            _resumePlaybackAfterScrub = false;
+            TrySetPlaybackRate(1d);
+            _mediaPlayer.Play();
+            StartPositionTimer();
+            SetViewModelPlaying(true);
+        }
+
+        _isSuppressingPlaybackStateSync = false;
     }
 
     private void PausePlayback(bool syncTimelinePosition, bool updateViewModelState = true, TimeSpan? seekPosition = null)
@@ -485,9 +562,44 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         });
     }
 
+    private void OnScrubPreviewTimerTick(DispatcherQueueTimer sender, object args)
+    {
+        if (!_isTimelineScrubbing || _mediaPlayer.Source is null)
+        {
+            return;
+        }
+
+        if (!_hasPendingScrubPreviewPosition)
+        {
+            return;
+        }
+
+        _hasPendingScrubPreviewPosition = false;
+        SeekTo(_pendingScrubPreviewPosition);
+    }
+
+    private void StartScrubPreviewTimer()
+    {
+        if (_scrubPreviewTimer.IsRunning)
+        {
+            return;
+        }
+
+        _scrubPreviewTimer.Start();
+    }
+
+    private void StopScrubPreviewTimer()
+    {
+        _hasPendingScrubPreviewPosition = false;
+        if (_scrubPreviewTimer.IsRunning)
+        {
+            _scrubPreviewTimer.Stop();
+        }
+    }
+
     private void UpdateTimelinePosition(TimeSpan position)
     {
-        if (ViewModel is null || _isTimelineDragActive)
+        if (ViewModel is null || _isTimelineScrubbing)
         {
             return;
         }

@@ -240,9 +240,6 @@
                                     x:Name="TimelineSlider"
                                     Minimum="{x:Bind ViewModel.TimelineMinimum, Mode=OneWay}"
                                     Maximum="{x:Bind ViewModel.TimelineMaximum, Mode=OneWay}"
-                                    PointerCaptureLost="OnTimelineSliderPointerCaptureLost"
-                                    PointerPressed="OnTimelineSliderPointerPressed"
-                                    PointerReleased="OnTimelineSliderPointerReleased"
                                     Value="{x:Bind ViewModel.CurrentPositionMilliseconds, Mode=TwoWay}"
                                     ValueChanged="OnTimelineSliderValueChanged" />
                                 <TextBlock
