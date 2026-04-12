@@ -292,11 +292,20 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
             {
                 OnPropertyChanged(nameof(VolumeLevel));
                 OnPropertyChanged(nameof(VolumePercentText));
+                OnPropertyChanged(nameof(IsMuted));
+                OnPropertyChanged(nameof(VolumeButtonSymbol));
+                OnPropertyChanged(nameof(VolumeButtonText));
             }
         }
     }
 
     public double VolumeLevel => _volume;
+
+    public bool IsMuted => VolumePercent <= 0.5d;
+
+    public Symbol VolumeButtonSymbol => IsMuted ? Symbol.Mute : Symbol.Volume;
+
+    public string VolumeButtonText => IsMuted ? "静音" : VolumePercentText;
 
     public string VolumePercentText => $"{Math.Round(VolumePercent):0}%";
 

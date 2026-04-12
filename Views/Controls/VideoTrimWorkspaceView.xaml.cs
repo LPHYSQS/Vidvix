@@ -157,6 +157,23 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         SeekTo(GetSelectionStart());
     }
 
+    private void OnVolumeButtonPointerWheelChanged(object sender, PointerRoutedEventArgs e)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        var delta = e.GetCurrentPoint((UIElement)sender).Properties.MouseWheelDelta;
+        if (delta == 0)
+        {
+            return;
+        }
+
+        AdjustVolume(Math.Sign(delta) * 5d);
+        e.Handled = true;
+    }
+
     private void OnTimelineSliderPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         _isTimelineScrubbing = true;
@@ -644,6 +661,17 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private static bool AreClose(TimeSpan left, TimeSpan right) =>
         Math.Abs((left - right).TotalMilliseconds) < 1d;
+
+    private void AdjustVolume(double deltaPercent)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        ViewModel.VolumePercent = Math.Clamp(ViewModel.VolumePercent + deltaPercent, 0d, 100d);
+        _mediaPlayer.Volume = ViewModel.VolumeLevel;
+    }
 
     private void TrySetPlaybackRate(double playbackRate)
     {
