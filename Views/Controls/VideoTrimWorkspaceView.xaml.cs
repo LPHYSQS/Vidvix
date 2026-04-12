@@ -21,6 +21,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private readonly MediaPlayer _mediaPlayer;
     private readonly DispatcherQueueTimer _positionTimer;
     private readonly DispatcherQueueTimer _scrubPreviewTimer;
+    private readonly ToolTip _volumeToolTip;
     private bool _hasPendingTimelineRefresh;
     private bool _hasPendingScrubPreviewPosition;
     private bool _isPositionTimerRunning;
@@ -38,6 +39,9 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     {
         InitializeComponent();
         RegisterTimelineInteractionHandlers();
+        _volumeToolTip = new ToolTip();
+        ToolTipService.SetToolTip(VolumeButton, _volumeToolTip);
+        UpdateVolumeToolTip();
         _dispatcherQueue = DispatcherQueue.GetForCurrentThread()
             ?? throw new InvalidOperationException("\u672a\u627e\u5230\u5f53\u524d\u7ebf\u7a0b\u7684\u8c03\u5ea6\u961f\u5217\u3002");
         _mediaPlayer = new MediaPlayer
@@ -98,6 +102,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             control._mediaPlayer.Volume = newViewModel.VolumeLevel;
         }
 
+        control.UpdateVolumeToolTip();
         _ = control.ReloadSourceAsync();
     }
 
@@ -108,6 +113,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             _mediaPlayer.Volume = ViewModel.VolumeLevel;
         }
 
+        UpdateVolumeToolTip();
         _ = ReloadSourceAsync();
     }
 
@@ -305,6 +311,13 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         if (e.PropertyName == nameof(VideoTrimWorkspaceViewModel.VolumeLevel))
         {
             _mediaPlayer.Volume = ViewModel.VolumeLevel;
+            UpdateVolumeToolTip();
+            return;
+        }
+
+        if (e.PropertyName == nameof(VideoTrimWorkspaceViewModel.VolumeToolTipText))
+        {
+            UpdateVolumeToolTip();
             return;
         }
 
@@ -682,6 +695,11 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
         ViewModel.VolumePercent = Math.Clamp(ViewModel.VolumePercent + deltaPercent, 0d, 100d);
         _mediaPlayer.Volume = ViewModel.VolumeLevel;
+    }
+
+    private void UpdateVolumeToolTip()
+    {
+        _volumeToolTip.Content = ViewModel?.VolumeToolTipText ?? "\u97f3\u91cf";
     }
 
     private void TrySetPlaybackRate(double playbackRate)

@@ -20,6 +20,7 @@
             <Setter Property="Padding" Value="6" />
             <Setter Property="MinWidth" Value="30" />
             <Setter Property="MinHeight" Value="30" />
+            <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
@@ -113,12 +114,26 @@
                     <Button
                         Grid.Column="1"
                         Margin="0,0,14,0"
-                        AutomationProperties.Name="回到入点"
+                        AutomationProperties.Name="跳转到裁剪入点"
                         Click="OnResetPreviewClick"
                         IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
                         Style="{StaticResource TimelineStripButtonStyle}"
-                        ToolTipService.ToolTip="回到入点">
-                        <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="Back" />
+                        ToolTipService.ToolTip="跳转到裁剪入点">
+                        <Grid Width="14" Height="14">
+                            <Rectangle
+                                Width="2"
+                                RadiusX="1"
+                                RadiusY="1"
+                                Fill="{ThemeResource TextFillColorSecondaryBrush}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Stretch" />
+                            <Polygon
+                                Margin="4,1,0,1"
+                                Fill="{ThemeResource TextFillColorSecondaryBrush}"
+                                HorizontalAlignment="Stretch"
+                                Points="0,6 7,0 7,12"
+                                VerticalAlignment="Stretch" />
+                        </Grid>
                     </Button>
 
                     <Slider
@@ -155,22 +170,36 @@
                     <Button
                         Grid.Column="4"
                         Margin="0,0,8,0"
-                        AutomationProperties.Name="回到出点"
+                        AutomationProperties.Name="跳转到裁剪出点"
                         Click="OnJumpToSelectionEndClick"
                         IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
                         Style="{StaticResource TimelineStripButtonStyle}"
-                        ToolTipService.ToolTip="回到出点">
-                        <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="Forward" />
+                        ToolTipService.ToolTip="跳转到裁剪出点">
+                        <Grid Width="14" Height="14">
+                            <Rectangle
+                                Width="2"
+                                RadiusX="1"
+                                RadiusY="1"
+                                Fill="{ThemeResource TextFillColorSecondaryBrush}"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Stretch" />
+                            <Polygon
+                                Margin="0,1,4,1"
+                                Fill="{ThemeResource TextFillColorSecondaryBrush}"
+                                HorizontalAlignment="Stretch"
+                                Points="0,0 7,6 0,12"
+                                VerticalAlignment="Stretch" />
+                        </Grid>
                     </Button>
 
                     <Button
                         Grid.Column="5"
+                        x:Name="VolumeButton"
                         AutomationProperties.Name="音量"
                         HorizontalAlignment="Right"
                         IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
                         PointerWheelChanged="OnVolumeButtonPointerWheelChanged"
-                        Style="{StaticResource TimelineStripButtonStyle}"
-                        ToolTipService.ToolTip="音量">
+                        Style="{StaticResource TimelineStripButtonStyle}">
                         <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="{x:Bind ViewModel.VolumeButtonSymbol, Mode=OneWay}" />
                         <Button.Flyout>
                             <Flyout Placement="TopEdgeAlignedRight">
