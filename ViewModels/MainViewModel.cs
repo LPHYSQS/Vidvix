@@ -295,12 +295,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             if (SetProperty(ref _selectedOutputFormat, value))
             {
+                OnPropertyChanged(nameof(SelectedOutputFormatDescription));
                 RememberOutputFormatSelection(GetCurrentOutputFormatPreferenceMode(), value.Extension);
                 RecalculatePlannedOutputs();
                 PersistUserPreferences();
             }
         }
     }
+
+    public string SelectedOutputFormatDescription => SelectedOutputFormat.Description;
 
     public string OutputDirectory
     {

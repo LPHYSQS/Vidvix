@@ -650,6 +650,10 @@
                                         IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
                                         ItemsSource="{x:Bind ViewModel.AvailableOutputFormats, Mode=OneWay}"
                                         SelectedItem="{x:Bind ViewModel.SelectedOutputFormat, Mode=TwoWay}" />
+                                    <TextBlock
+                                        Opacity="0.72"
+                                        Text="{x:Bind ViewModel.SelectedOutputFormatDescription, Mode=OneWay}"
+                                        TextWrapping="WrapWholeWords" />
                                 </StackPanel>
 
                                 <StackPanel Spacing="6">

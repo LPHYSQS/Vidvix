@@ -55,6 +55,8 @@ public sealed partial class MainViewModel
             _selectedOutputFormat = resolvedFormat;
             OnPropertyChanged(nameof(SelectedOutputFormat));
         }
+
+        OnPropertyChanged(nameof(SelectedOutputFormatDescription));
     }
 
     private ProcessingModeOption ResolveProcessingMode(ProcessingMode? preferredProcessingMode)
