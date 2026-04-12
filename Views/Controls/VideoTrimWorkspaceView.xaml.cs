@@ -270,7 +270,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         {
             if (ViewModel.IsPlaying)
             {
-                PausePlayback(syncTimelinePosition: false, seekPosition: selectionEnd);
+                LoopPlaybackToSelectionStart();
             }
             else
             {
@@ -282,7 +282,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
         if (ViewModel.IsPlaying && playbackPosition >= selectionEnd)
         {
-            PausePlayback(syncTimelinePosition: false, seekPosition: selectionEnd);
+            LoopPlaybackToSelectionStart();
             return;
         }
 
@@ -404,7 +404,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
                 return;
             }
 
-            PausePlayback(syncTimelinePosition: false, seekPosition: GetSelectionEnd());
+            LoopPlaybackToSelectionStart();
         });
     }
 
@@ -463,7 +463,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
                 return;
             }
 
-            PausePlayback(syncTimelinePosition: false, seekPosition: selectionEnd);
+            LoopPlaybackToSelectionStart();
             return;
         }
 
@@ -695,6 +695,27 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
         ViewModel.VolumePercent = Math.Clamp(ViewModel.VolumePercent + deltaPercent, 0d, 100d);
         _mediaPlayer.Volume = ViewModel.VolumeLevel;
+    }
+
+    private void LoopPlaybackToSelectionStart()
+    {
+        if (ViewModel is null || _mediaPlayer.Source is null)
+        {
+            return;
+        }
+
+        _isSuppressingPlaybackStateSync = true;
+        SeekTo(GetSelectionStart());
+        TrySetPlaybackRate(1d);
+
+        if (_mediaPlayer.PlaybackSession.PlaybackState != MediaPlaybackState.Playing)
+        {
+            _mediaPlayer.Play();
+        }
+
+        StartPositionTimer();
+        SetViewModelPlaying(true);
+        _dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => _isSuppressingPlaybackStateSync = false);
     }
 
     private void UpdateVolumeToolTip()
