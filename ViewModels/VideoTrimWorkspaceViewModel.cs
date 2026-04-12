@@ -38,6 +38,10 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
     private OutputFormatOption? _selectedOutputFormat;
     private string _inputPath = string.Empty;
     private string _inputFileName = string.Empty;
+    private MediaDetailsSnapshot? _mediaDetailsSnapshot;
+    private IReadOnlyList<MediaDetailField> _basicInfoFields = Array.Empty<MediaDetailField>();
+    private IReadOnlyList<MediaDetailField> _videoInfoFields = Array.Empty<MediaDetailField>();
+    private IReadOnlyList<MediaDetailField> _audioInfoFields = Array.Empty<MediaDetailField>();
     private string _outputDirectory = string.Empty;
     private string _plannedOutputPath = string.Empty;
     private string _lastImportErrorDetails = string.Empty;
@@ -176,6 +180,18 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
     public string InputPath => _inputPath;
 
     public string InputFileName => _inputFileName;
+
+    public IReadOnlyList<MediaDetailField> BasicInfoFields => _basicInfoFields;
+
+    public IReadOnlyList<MediaDetailField> VideoInfoFields => _videoInfoFields;
+
+    public IReadOnlyList<MediaDetailField> AudioInfoFields => _audioInfoFields;
+
+    public Visibility BasicInfoVisibility => BasicInfoFields.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility VideoInfoVisibility => VideoInfoFields.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility AudioInfoVisibility => AudioInfoFields.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
 
     public string SupportedInputFormatsHint =>
         "\u652f\u6301\u5bfc\u5165\u683c\u5f0f\uff08" +
@@ -397,11 +413,13 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 
         _inputPath = inputPath;
         _inputFileName = Path.GetFileName(inputPath);
+        _mediaDetailsSnapshot = details.Snapshot;
         _mediaDuration = duration.Value;
         _selectionStart = TimeSpan.Zero;
         _selectionEnd = duration.Value;
         _currentPosition = TimeSpan.Zero;
         IsPlaying = false;
+        RefreshMediaInfoFields();
         RaiseTrimStateChanged();
         RefreshPlannedOutputPath();
         LastImportErrorDetails = string.Empty;
@@ -428,6 +446,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
             _currentPosition = duration;
         }
 
+        RefreshMediaInfoFields();
         RaiseTimelineChanged();
     }
 
@@ -516,6 +535,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 
         _inputPath = string.Empty;
         _inputFileName = string.Empty;
+        _mediaDetailsSnapshot = null;
         _plannedOutputPath = string.Empty;
         _mediaDuration = TimeSpan.Zero;
         _selectionStart = TimeSpan.Zero;
@@ -524,6 +544,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         IsPlaying = false;
         LastImportErrorDetails = string.Empty;
         SetPreviewFailed("\u8bf7\u5148\u5bfc\u5165\u89c6\u9891\u6587\u4ef6\u6216\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002");
+        RefreshMediaInfoFields();
         RaiseTrimStateChanged();
         StatusMessage = "\u5df2\u79fb\u9664\u5f53\u524d\u89c6\u9891\u3002";
     }
@@ -636,6 +657,72 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         HasInput &&
         SelectedDuration > TimeSpan.Zero &&
         !string.IsNullOrWhiteSpace(PlannedOutputPath);
+
+    private void RefreshMediaInfoFields()
+    {
+        var snapshot = _mediaDetailsSnapshot;
+        _basicInfoFields = snapshot is null
+            ? Array.Empty<MediaDetailField>()
+            : BuildBasicInfoFields(snapshot);
+        _videoInfoFields = snapshot is null || !snapshot.HasVideoStream
+            ? Array.Empty<MediaDetailField>()
+            : BuildVideoInfoFields(snapshot);
+        _audioInfoFields = snapshot is null || !snapshot.HasAudioStream
+            ? Array.Empty<MediaDetailField>()
+            : BuildAudioInfoFields(snapshot);
+
+        OnPropertyChanged(nameof(BasicInfoFields));
+        OnPropertyChanged(nameof(VideoInfoFields));
+        OnPropertyChanged(nameof(AudioInfoFields));
+        OnPropertyChanged(nameof(BasicInfoVisibility));
+        OnPropertyChanged(nameof(VideoInfoVisibility));
+        OnPropertyChanged(nameof(AudioInfoVisibility));
+    }
+
+    private IReadOnlyList<MediaDetailField> BuildBasicInfoFields(MediaDetailsSnapshot snapshot) =>
+        new[]
+        {
+            new MediaDetailField { Label = "\u5927\u5c0f", Value = FormatFileSize(GetInputFileSizeBytes(snapshot.InputPath)) },
+            new MediaDetailField { Label = "\u65f6\u957f", Value = FormatInfoDuration(_mediaDuration) }
+        };
+
+    private static IReadOnlyList<MediaDetailField> BuildVideoInfoFields(MediaDetailsSnapshot snapshot) =>
+        new[]
+        {
+            new MediaDetailField { Label = "\u5206\u8fa8\u7387", Value = GetFieldValue(snapshot.VideoFields, "\u5206\u8fa8\u7387") },
+            new MediaDetailField { Label = "\u5e27\u7387", Value = GetFieldValue(snapshot.VideoFields, "\u5e27\u7387") },
+            new MediaDetailField { Label = "\u7f16\u7801", Value = GetFieldValue(snapshot.VideoFields, "\u7f16\u7801") }
+        };
+
+    private static IReadOnlyList<MediaDetailField> BuildAudioInfoFields(MediaDetailsSnapshot snapshot) =>
+        new[]
+        {
+            new MediaDetailField { Label = "\u7f16\u7801", Value = GetFieldValue(snapshot.AudioFields, "\u7f16\u7801") },
+            new MediaDetailField { Label = "\u91c7\u6837\u7387", Value = GetFieldValue(snapshot.AudioFields, "\u91c7\u6837\u7387") },
+            new MediaDetailField { Label = "\u58f0\u9053", Value = GetFieldValue(snapshot.AudioFields, "\u58f0\u9053") }
+        };
+
+    private static string GetFieldValue(IEnumerable<MediaDetailField> fields, string label)
+    {
+        var value = fields.FirstOrDefault(field => string.Equals(field.Label, label, StringComparison.Ordinal))?.Value;
+        return string.IsNullOrWhiteSpace(value) ? "\u672a\u77e5" : value;
+    }
+
+    private static long GetInputFileSizeBytes(string inputPath)
+    {
+        try
+        {
+            return File.Exists(inputPath) ? new FileInfo(inputPath).Length : 0L;
+        }
+        catch (IOException)
+        {
+            return 0L;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return 0L;
+        }
+    }
 
     private void NotifyCommandStates()
     {
@@ -900,6 +987,35 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
             _logger.Log(LogLevel.Warning, "\u68c0\u6d4b\u5230\u65e0\u6548\u7684\u88c1\u526a\u8f93\u51fa\u76ee\u5f55\u914d\u7f6e\uff0c\u5df2\u56de\u9000\u4e3a\u539f\u6587\u4ef6\u5939\u8f93\u51fa\u3002", exception);
             return string.Empty;
         }
+    }
+
+    private static string FormatFileSize(long sizeBytes)
+    {
+        if (sizeBytes <= 0)
+        {
+            return "\u672a\u77e5";
+        }
+
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var size = (double)sizeBytes;
+        var unitIndex = 0;
+        while (size >= 1024d && unitIndex < units.Length - 1)
+        {
+            size /= 1024d;
+            unitIndex++;
+        }
+
+        return $"{size:0.##} {units[unitIndex]}";
+    }
+
+    private static string FormatInfoDuration(TimeSpan duration)
+    {
+        if (duration <= TimeSpan.Zero)
+        {
+            return "\u672a\u77e5";
+        }
+
+        return $"{(int)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
     }
 
     private static string ExtractFriendlyFailureMessage(FFmpegExecutionResult result)

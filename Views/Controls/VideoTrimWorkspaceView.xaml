@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:Vidvix.Views.Controls"
+    xmlns:models="using:Vidvix.Core.Models"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     x:Name="Root"
     mc:Ignorable="d">
@@ -230,7 +231,7 @@
                             Padding="12"
                             Background="{ThemeResource ControlFillColorSecondaryBrush}"
                             CornerRadius="16">
-                            <StackPanel Spacing="8">
+                            <StackPanel Spacing="10">
                                 <TextBlock
                                     FontSize="14"
                                     FontWeight="SemiBold"
@@ -270,7 +271,7 @@
                             Padding="12"
                             Background="{ThemeResource ControlFillColorSecondaryBrush}"
                             CornerRadius="16">
-                            <StackPanel Spacing="8">
+                            <StackPanel Spacing="10">
                                 <TextBlock
                                     FontSize="14"
                                     FontWeight="SemiBold"
@@ -333,7 +334,9 @@
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     VerticalScrollMode="Enabled">
-                    <StackPanel Spacing="12">
+                    <StackPanel
+                        Padding="0,0,16,0"
+                        Spacing="12">
                         <Border
                             Padding="12"
                             Background="{ThemeResource ControlFillColorSecondaryBrush}"
@@ -341,18 +344,38 @@
                             <StackPanel Spacing="8">
                                 <TextBlock
                                     Style="{StaticResource SectionTitleTextStyle}"
-                                    Text="视频信息" />
+                                    Text="当前选区" />
                                 <TextBlock
                                     FontWeight="SemiBold"
-                                    Text="{x:Bind ViewModel.InputFileName, Mode=OneWay}"
-                                    TextTrimming="CharacterEllipsis" />
-                                <TextBlock
-                                    Opacity="0.72"
-                                    Text="{x:Bind ViewModel.InputPath, Mode=OneWay}"
+                                    Text="{x:Bind ViewModel.SelectionSummaryText, Mode=OneWay}"
                                     TextWrapping="WrapWholeWords" />
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock
+                                            Style="{StaticResource CaptionTextStyle}"
+                                            Text="入点" />
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.SelectionStartText, Mode=OneWay}" />
+                                    </StackPanel>
+                                    <StackPanel
+                                        Grid.Column="1"
+                                        Spacing="2">
+                                        <TextBlock
+                                            Style="{StaticResource CaptionTextStyle}"
+                                            Text="出点" />
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.SelectionEndText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </Grid>
                                 <TextBlock
                                     Opacity="0.72"
-                                    Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                                    Text="导出时会严格按照入点与出点截取视频片段。"
                                     TextWrapping="WrapWholeWords" />
                             </StackPanel>
                         </Border>
@@ -422,38 +445,117 @@
                             <StackPanel Spacing="8">
                                 <TextBlock
                                     Style="{StaticResource SectionTitleTextStyle}"
-                                    Text="当前选区" />
+                                    Text="视频信息" />
                                 <TextBlock
+                                    MaxLines="2"
                                     FontWeight="SemiBold"
-                                    Text="{x:Bind ViewModel.SelectionSummaryText, Mode=OneWay}"
-                                    TextWrapping="WrapWholeWords" />
-                                <Grid ColumnSpacing="12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Spacing="2">
-                                        <TextBlock
-                                            Style="{StaticResource CaptionTextStyle}"
-                                            Text="入点" />
-                                        <TextBlock
-                                            FontWeight="SemiBold"
-                                            Text="{x:Bind ViewModel.SelectionStartText, Mode=OneWay}" />
-                                    </StackPanel>
-                                    <StackPanel
-                                        Grid.Column="1"
-                                        Spacing="2">
-                                        <TextBlock
-                                            Style="{StaticResource CaptionTextStyle}"
-                                            Text="出点" />
-                                        <TextBlock
-                                            FontWeight="SemiBold"
-                                            Text="{x:Bind ViewModel.SelectionEndText, Mode=OneWay}" />
-                                    </StackPanel>
-                                </Grid>
+                                    Text="{x:Bind ViewModel.InputFileName, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis" />
                                 <TextBlock
+                                    Style="{StaticResource CaptionTextStyle}"
                                     Opacity="0.72"
-                                    Text="导出时会严格按照入点与出点截取视频片段。"
+                                    Text="{x:Bind ViewModel.InputPath, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                                <StackPanel
+                                    Spacing="6"
+                                    Visibility="{x:Bind ViewModel.BasicInfoVisibility, Mode=OneWay}">
+                                    <TextBlock
+                                        Style="{StaticResource CaptionTextStyle}"
+                                        Text="&#x57FA;&#x7840;&#x4FE1;&#x606F;" />
+                                    <ItemsControl ItemsSource="{x:Bind ViewModel.BasicInfoFields, Mode=OneWay}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:MediaDetailField">
+                                                <Grid ColumnSpacing="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="70" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock
+                                                        Opacity="0.72"
+                                                        Text="{x:Bind Label}" />
+                                                    <TextBlock
+                                                        Grid.Column="1"
+                                                        Opacity="0.72"
+                                                        Text=":" />
+                                                    <TextBlock
+                                                        Grid.Column="2"
+                                                        FontWeight="SemiBold"
+                                                        Text="{x:Bind Value}"
+                                                        TextWrapping="WrapWholeWords" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                                <StackPanel
+                                    Spacing="6"
+                                    Visibility="{x:Bind ViewModel.VideoInfoVisibility, Mode=OneWay}">
+                                    <TextBlock
+                                        Style="{StaticResource CaptionTextStyle}"
+                                        Text="&#x89C6;&#x9891;&#x4FE1;&#x606F;" />
+                                    <ItemsControl ItemsSource="{x:Bind ViewModel.VideoInfoFields, Mode=OneWay}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:MediaDetailField">
+                                                <Grid ColumnSpacing="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="70" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock
+                                                        Opacity="0.72"
+                                                        Text="{x:Bind Label}" />
+                                                    <TextBlock
+                                                        Grid.Column="1"
+                                                        Opacity="0.72"
+                                                        Text=":" />
+                                                    <TextBlock
+                                                        Grid.Column="2"
+                                                        FontWeight="SemiBold"
+                                                        Text="{x:Bind Value}"
+                                                        TextWrapping="WrapWholeWords" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                                <StackPanel
+                                    Spacing="6"
+                                    Visibility="{x:Bind ViewModel.AudioInfoVisibility, Mode=OneWay}">
+                                    <TextBlock
+                                        Style="{StaticResource CaptionTextStyle}"
+                                        Text="&#x97F3;&#x9891;&#x4FE1;&#x606F;" />
+                                    <ItemsControl ItemsSource="{x:Bind ViewModel.AudioInfoFields, Mode=OneWay}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:MediaDetailField">
+                                                <Grid ColumnSpacing="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="70" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock
+                                                        Opacity="0.72"
+                                                        Text="{x:Bind Label}" />
+                                                    <TextBlock
+                                                        Grid.Column="1"
+                                                        Opacity="0.72"
+                                                        Text=":" />
+                                                    <TextBlock
+                                                        Grid.Column="2"
+                                                        FontWeight="SemiBold"
+                                                        Text="{x:Bind Value}"
+                                                        TextWrapping="WrapWholeWords" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                                <TextBlock
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Opacity="0.72"
+                                    Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
                                     TextWrapping="WrapWholeWords" />
                             </StackPanel>
                         </Border>
