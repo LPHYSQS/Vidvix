@@ -9,9 +9,9 @@
     mc:Ignorable="d">
 
     <Border
-        Padding="20"
+        Padding="16"
         Style="{StaticResource SurfaceCardBorderStyle}">
-        <Grid RowSpacing="18">
+        <Grid RowSpacing="14">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -31,7 +31,7 @@
                         Text="视频裁剪" />
                     <TextBlock
                         Opacity="0.72"
-                        Text="主界面始终渲染同一张卡片，未导入时显示引导，导入后直接切换到完整裁剪编辑器。"
+                        Text="导入后会在同一张主卡片中显示预览、时间轴、裁剪范围与导出设置。"
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
 
@@ -54,405 +54,415 @@
 
             <Grid
                 Grid.RowSpan="2"
-                MinHeight="620"
+                MinHeight="420"
                 Visibility="{x:Bind ViewModel.PlaceholderVisibility, Mode=OneWay}">
-                <Grid>
-                    <StackPanel
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    MaxWidth="760"
+                    Spacing="16">
+                    <SymbolIcon
                         HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
+                        Symbol="Video" />
+                    <TextBlock
+                        FontSize="28"
+                        FontWeight="SemiBold"
+                        MaxWidth="720"
+                        Text="请导入视频文件或拖拽到此处开始裁剪"
+                        TextAlignment="Center"
+                        TextWrapping="Wrap" />
+                    <TextBlock
                         MaxWidth="760"
-                        Spacing="16">
-                        <SymbolIcon
-                            HorizontalAlignment="Center"
-                            Symbol="Video" />
-                        <TextBlock
-                            FontSize="28"
-                            FontWeight="SemiBold"
-                            MaxWidth="720"
-                            Text="请导入视频文件或拖拽到此处开始裁剪"
-                            TextAlignment="Center"
-                            TextWrapping="Wrap" />
-                        <TextBlock
-                            MaxWidth="760"
-                            Opacity="0.72"
-                            Text="导入后会在同一张主卡片中显示视频预览、播放控制、时间轴、双滑块裁剪和输出格式选择。"
-                            TextAlignment="Center"
-                            TextWrapping="Wrap" />
+                        Opacity="0.72"
+                        Text="导入后会在同一张主卡片中显示视频预览、播放控制、时间轴、双滑块裁剪和输出格式选择。"
+                        TextAlignment="Center"
+                        TextWrapping="Wrap" />
+                    <Button
+                        HorizontalAlignment="Center"
+                        Command="{x:Bind ViewModel.SelectVideoCommand, Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <SymbolIcon Symbol="OpenFile" />
+                            <TextBlock Text="导入视频" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock
+                        MaxWidth="760"
+                        Opacity="0.72"
+                        Text="{x:Bind ViewModel.SupportedInputFormatsHint, Mode=OneWay}"
+                        TextAlignment="Center"
+                        TextWrapping="Wrap" />
+                    <Border
+                        HorizontalAlignment="Center"
+                        MaxWidth="760"
+                        Padding="14"
+                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                        CornerRadius="14"
+                        Visibility="{x:Bind ViewModel.ImportErrorVisibility, Mode=OneWay}">
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="导入失败详情"
+                                TextAlignment="Center" />
+                            <TextBlock
+                                Opacity="0.82"
+                                Text="{x:Bind ViewModel.LastImportErrorDetails, Mode=OneWay}"
+                                TextAlignment="Center"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <Grid
+                Grid.Row="1"
+                ColumnSpacing="16"
+                RowSpacing="14"
+                Visibility="{x:Bind ViewModel.EditorVisibility, Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.75*" />
+                    <ColumnDefinition Width="1.05*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border
+                    Grid.Column="0"
+                    MinHeight="190"
+                    MaxHeight="280"
+                    VerticalAlignment="Top"
+                    Background="Black"
+                    CornerRadius="18">
+                    <Grid>
+                        <MediaPlayerElement
+                            x:Name="PreviewPlayer"
+                            AreTransportControlsEnabled="False"
+                            AutoPlay="False"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Stretch="Uniform" />
+
+                        <Border
+                            Background="#66000000"
+                            CornerRadius="18"
+                            Visibility="{x:Bind ViewModel.PreviewOverlayVisibility, Mode=OneWay}">
+                            <StackPanel
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                MaxWidth="320"
+                                Spacing="10">
+                                <SymbolIcon
+                                    HorizontalAlignment="Center"
+                                    Foreground="White"
+                                    Symbol="Video" />
+                                <TextBlock
+                                    Foreground="White"
+                                    Text="{x:Bind ViewModel.PreviewStateMessage, Mode=OneWay}"
+                                    TextAlignment="Center"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Grid
+                    Grid.Column="0"
+                    Grid.Row="1"
+                    RowSpacing="12"
+                    VerticalAlignment="Top">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
                         <Button
-                            HorizontalAlignment="Center"
-                            Command="{x:Bind ViewModel.SelectVideoCommand, Mode=OneWay}">
+                            Click="OnPlayPauseClick"
+                            IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <SymbolIcon Symbol="OpenFile" />
-                                <TextBlock Text="导入视频" />
+                                <SymbolIcon Symbol="{x:Bind ViewModel.PlayPauseButtonSymbol, Mode=OneWay}" />
+                                <TextBlock Text="{x:Bind ViewModel.PlayPauseButtonText, Mode=OneWay}" />
                             </StackPanel>
                         </Button>
-                        <TextBlock
-                            MaxWidth="760"
-                            Opacity="0.72"
-                            Text="{x:Bind ViewModel.SupportedInputFormatsHint, Mode=OneWay}"
-                            TextAlignment="Center"
-                            TextWrapping="Wrap" />
+
+                        <Button
+                            Grid.Column="1"
+                            Click="OnResetPreviewClick"
+                            IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
+                            Content="回到起点" />
+
+                        <StackPanel
+                            Grid.Column="2"
+                            HorizontalAlignment="Stretch"
+                            Spacing="4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="音量" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    Opacity="0.72"
+                                    Text="{x:Bind ViewModel.VolumePercentText, Mode=OneWay}" />
+                            </Grid>
+                            <Slider
+                                Minimum="0"
+                                Maximum="100"
+                                Value="{x:Bind ViewModel.VolumePercent, Mode=TwoWay}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid
+                        Grid.Row="1"
+                        ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.05*" />
+                            <ColumnDefinition Width="0.95*" />
+                        </Grid.ColumnDefinitions>
+
                         <Border
-                            HorizontalAlignment="Center"
-                            MaxWidth="760"
-                            Padding="14"
+                            Padding="12"
                             Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                            CornerRadius="14"
-                            Visibility="{x:Bind ViewModel.ImportErrorVisibility, Mode=OneWay}">
+                            CornerRadius="16">
                             <StackPanel Spacing="8">
                                 <TextBlock
+                                    FontSize="14"
                                     FontWeight="SemiBold"
-                                    TextAlignment="Center"
-                                    Text="导入失败详情" />
+                                    Text="时间轴" />
+                                <Slider
+                                    x:Name="TimelineSlider"
+                                    Minimum="0"
+                                    Maximum="{x:Bind ViewModel.TimelineMaximum, Mode=OneWay}"
+                                    PointerCaptureLost="OnTimelineSliderPointerCaptureLost"
+                                    PointerPressed="OnTimelineSliderPointerPressed"
+                                    PointerReleased="OnTimelineSliderPointerReleased"
+                                    Value="{x:Bind ViewModel.CurrentPositionMilliseconds, Mode=TwoWay}"
+                                    ValueChanged="OnTimelineSliderValueChanged" />
+                                <Grid ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Text="{x:Bind ViewModel.CurrentPositionText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        HorizontalAlignment="Center"
+                                        Opacity="0.72"
+                                        Text="拖动时间轴即可快速定位预览位置"
+                                        TextWrapping="WrapWholeWords" />
+                                    <TextBlock
+                                        Grid.Column="2"
+                                        Text="{x:Bind ViewModel.MediaDurationText, Mode=OneWay}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border
+                            Grid.Column="1"
+                            Padding="12"
+                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                            CornerRadius="16">
+                            <StackPanel Spacing="8">
                                 <TextBlock
-                                    Opacity="0.82"
-                                    Text="{x:Bind ViewModel.LastImportErrorDetails, Mode=OneWay}"
-                                    TextAlignment="Center"
-                                    TextWrapping="Wrap" />
+                                    FontSize="14"
+                                    FontWeight="SemiBold"
+                                    Text="裁剪区间" />
+                                <local:DualThumbRangeSelector
+                                    x:Name="RangeSelector"
+                                    EndValue="{x:Bind ViewModel.SelectionEndMilliseconds, Mode=TwoWay}"
+                                    Maximum="{x:Bind ViewModel.TimelineMaximum, Mode=OneWay}"
+                                    Minimum="0"
+                                    MinimumRange="1"
+                                    SelectionChanged="OnRangeSelectorSelectionChanged"
+                                    StartValue="{x:Bind ViewModel.SelectionStartMilliseconds, Mode=TwoWay}" />
+                                <Grid ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Spacing="2">
+                                        <TextBlock
+                                            Style="{StaticResource CaptionTextStyle}"
+                                            Text="入点" />
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.SelectionStartText, Mode=OneWay}" />
+                                    </StackPanel>
+
+                                    <StackPanel
+                                        Grid.Column="1"
+                                        HorizontalAlignment="Center"
+                                        Spacing="2">
+                                        <TextBlock
+                                            Style="{StaticResource CaptionTextStyle}"
+                                            Text="片段时长" />
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.SelectedDurationText, Mode=OneWay}" />
+                                    </StackPanel>
+
+                                    <StackPanel
+                                        Grid.Column="2"
+                                        HorizontalAlignment="Right"
+                                        Spacing="2">
+                                        <TextBlock
+                                            Style="{StaticResource CaptionTextStyle}"
+                                            Text="出点" />
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.SelectionEndText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <ScrollViewer
+                    Grid.Column="1"
+                    Grid.RowSpan="2"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto"
+                    VerticalScrollMode="Enabled">
+                    <StackPanel Spacing="12">
+                        <Border
+                            Padding="12"
+                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                            CornerRadius="16">
+                            <StackPanel Spacing="8">
+                                <TextBlock
+                                    Style="{StaticResource SectionTitleTextStyle}"
+                                    Text="视频信息" />
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ViewModel.InputFileName, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Text="{x:Bind ViewModel.InputPath, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border
+                            Padding="12"
+                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                            CornerRadius="16">
+                            <StackPanel Spacing="10">
+                                <TextBlock
+                                    Style="{StaticResource SectionTitleTextStyle}"
+                                    Text="输出设置" />
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="输出格式" />
+                                    <ComboBox
+                                        DisplayMemberPath="DisplayName"
+                                        ItemsSource="{x:Bind ViewModel.AvailableOutputFormats, Mode=OneWay}"
+                                        SelectedItem="{x:Bind ViewModel.SelectedOutputFormat, Mode=TwoWay}" />
+                                    <TextBlock
+                                        Opacity="0.72"
+                                        Text="{x:Bind ViewModel.SelectedOutputFormatDescription, Mode=OneWay}"
+                                        TextWrapping="WrapWholeWords" />
+                                </StackPanel>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="输出目录" />
+                                    <TextBox
+                                        IsReadOnly="True"
+                                        Text="{x:Bind ViewModel.OutputDirectory, Mode=OneWay}" />
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            Opacity="0.72"
+                                            Text="留空时默认导出到原视频所在文件夹"
+                                            TextWrapping="WrapWholeWords" />
+                                        <Button
+                                            Grid.Column="1"
+                                            Command="{x:Bind ViewModel.SelectOutputDirectoryCommand, Mode=OneWay}"
+                                            Content="选择目录" />
+                                        <Button
+                                            Grid.Column="2"
+                                            Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
+                                            Content="清空" />
+                                    </Grid>
+                                </StackPanel>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="计划输出路径" />
+                                    <TextBox
+                                        IsReadOnly="True"
+                                        Text="{x:Bind ViewModel.PlannedOutputPath, Mode=OneWay}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border
+                            Padding="12"
+                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                            CornerRadius="16">
+                            <StackPanel Spacing="8">
+                                <TextBlock
+                                    Style="{StaticResource SectionTitleTextStyle}"
+                                    Text="当前选区" />
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ViewModel.SelectionSummaryText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock
+                                            Style="{StaticResource CaptionTextStyle}"
+                                            Text="入点" />
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.SelectionStartText, Mode=OneWay}" />
+                                    </StackPanel>
+                                    <StackPanel
+                                        Grid.Column="1"
+                                        Spacing="2">
+                                        <TextBlock
+                                            Style="{StaticResource CaptionTextStyle}"
+                                            Text="出点" />
+                                        <TextBlock
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.SelectionEndText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Text="导出时会严格按照入点与出点截取视频片段。"
+                                    TextWrapping="WrapWholeWords" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
-                </Grid>
+                </ScrollViewer>
             </Grid>
-
-            <ScrollViewer
-                Grid.Row="1"
-                VerticalScrollBarVisibility="Auto"
-                VerticalScrollMode="Enabled"
-                Visibility="{x:Bind ViewModel.EditorVisibility, Mode=OneWay}">
-                    <Grid
-                        ColumnSpacing="20"
-                        RowSpacing="20">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="1.7*" />
-                            <ColumnDefinition Width="1.05*" />
-                        </Grid.ColumnDefinitions>
-
-                        <Grid
-                            Grid.Column="0"
-                            RowSpacing="16">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-
-                            <Border
-                                Height="360"
-                                MaxHeight="360"
-                                VerticalAlignment="Top"
-                                Background="Black"
-                                CornerRadius="18">
-                                <Grid>
-                                    <MediaPlayerElement
-                                        x:Name="PreviewPlayer"
-                                        AreTransportControlsEnabled="False"
-                                        AutoPlay="False"
-                                        HorizontalAlignment="Stretch"
-                                        VerticalAlignment="Stretch"
-                                        Stretch="Uniform" />
-
-                                    <Border
-                                        Background="#66000000"
-                                        CornerRadius="18"
-                                        Visibility="{x:Bind ViewModel.PreviewOverlayVisibility, Mode=OneWay}">
-                                        <StackPanel
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"
-                                            MaxWidth="320"
-                                            Spacing="10">
-                                            <SymbolIcon
-                                                HorizontalAlignment="Center"
-                                                Foreground="White"
-                                                Symbol="Video" />
-                                            <TextBlock
-                                                Foreground="White"
-                                                Text="{x:Bind ViewModel.PreviewStateMessage, Mode=OneWay}"
-                                                TextAlignment="Center"
-                                                TextWrapping="WrapWholeWords" />
-                                        </StackPanel>
-                                    </Border>
-                                </Grid>
-                            </Border>
-
-                            <Grid
-                                Grid.Row="1"
-                                ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-
-                                <Button
-                                    Click="OnPlayPauseClick"
-                                    IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <SymbolIcon Symbol="{x:Bind ViewModel.PlayPauseButtonSymbol, Mode=OneWay}" />
-                                        <TextBlock Text="{x:Bind ViewModel.PlayPauseButtonText, Mode=OneWay}" />
-                                    </StackPanel>
-                                </Button>
-
-                                <Button
-                                    Grid.Column="1"
-                                    Click="OnResetPreviewClick"
-                                    IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
-                                    Content="回到入点" />
-
-                                <StackPanel
-                                    Grid.Column="2"
-                                    HorizontalAlignment="Stretch"
-                                    Spacing="6">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="音量" />
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            Opacity="0.72"
-                                            Text="{x:Bind ViewModel.VolumePercentText, Mode=OneWay}" />
-                                    </Grid>
-                                    <Slider
-                                        Minimum="0"
-                                        Maximum="100"
-                                        Value="{x:Bind ViewModel.VolumePercent, Mode=TwoWay}" />
-                                </StackPanel>
-                            </Grid>
-
-                            <Border
-                                Grid.Row="2"
-                                Padding="16"
-                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                CornerRadius="16">
-                                <StackPanel Spacing="10">
-                                    <TextBlock
-                                        FontSize="14"
-                                        FontWeight="SemiBold"
-                                        Text="时间轴" />
-                                    <Slider
-                                        x:Name="TimelineSlider"
-                                        Minimum="0"
-                                        Maximum="{x:Bind ViewModel.TimelineMaximum, Mode=OneWay}"
-                                        PointerCaptureLost="OnTimelineSliderPointerCaptureLost"
-                                        PointerPressed="OnTimelineSliderPointerPressed"
-                                        PointerReleased="OnTimelineSliderPointerReleased"
-                                        Value="{x:Bind ViewModel.CurrentPositionMilliseconds, Mode=TwoWay}"
-                                        ValueChanged="OnTimelineSliderValueChanged" />
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <TextBlock Text="{x:Bind ViewModel.CurrentPositionText, Mode=OneWay}" />
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            HorizontalAlignment="Center"
-                                            Opacity="0.72"
-                                            Text="拖动时间轴即可按毫秒级定位预览位置"
-                                            TextWrapping="WrapWholeWords" />
-                                        <TextBlock
-                                            Grid.Column="2"
-                                            Text="{x:Bind ViewModel.MediaDurationText, Mode=OneWay}" />
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                            <Border
-                                Grid.Row="3"
-                                Padding="16"
-                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                CornerRadius="16">
-                                <StackPanel Spacing="10">
-                                    <TextBlock
-                                        FontSize="14"
-                                        FontWeight="SemiBold"
-                                        Text="裁剪区间" />
-                                    <local:DualThumbRangeSelector
-                                        x:Name="RangeSelector"
-                                        EndValue="{x:Bind ViewModel.SelectionEndMilliseconds, Mode=TwoWay}"
-                                        Maximum="{x:Bind ViewModel.TimelineMaximum, Mode=OneWay}"
-                                        Minimum="0"
-                                        MinimumRange="1"
-                                        SelectionChanged="OnRangeSelectorSelectionChanged"
-                                        StartValue="{x:Bind ViewModel.SelectionStartMilliseconds, Mode=TwoWay}" />
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <StackPanel Spacing="2">
-                                            <TextBlock
-                                                Style="{StaticResource CaptionTextStyle}"
-                                                Text="入点" />
-                                            <TextBlock
-                                                FontWeight="SemiBold"
-                                                Text="{x:Bind ViewModel.SelectionStartText, Mode=OneWay}" />
-                                        </StackPanel>
-
-                                        <StackPanel
-                                            Grid.Column="1"
-                                            HorizontalAlignment="Center"
-                                            Spacing="2">
-                                            <TextBlock
-                                                Style="{StaticResource CaptionTextStyle}"
-                                                Text="片段时长" />
-                                            <TextBlock
-                                                FontWeight="SemiBold"
-                                                Text="{x:Bind ViewModel.SelectedDurationText, Mode=OneWay}" />
-                                        </StackPanel>
-
-                                        <StackPanel
-                                            Grid.Column="2"
-                                            HorizontalAlignment="Right"
-                                            Spacing="2">
-                                            <TextBlock
-                                                Style="{StaticResource CaptionTextStyle}"
-                                                Text="出点" />
-                                            <TextBlock
-                                                FontWeight="SemiBold"
-                                                Text="{x:Bind ViewModel.SelectionEndText, Mode=OneWay}" />
-                                        </StackPanel>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-                        </Grid>
-
-                        <StackPanel
-                            Grid.Column="1"
-                            Spacing="16">
-                            <Border
-                                Padding="16"
-                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                CornerRadius="16">
-                                <StackPanel Spacing="10">
-                                    <TextBlock
-                                        Style="{StaticResource SectionTitleTextStyle}"
-                                        Text="视频信息" />
-                                    <TextBlock
-                                        FontWeight="SemiBold"
-                                        Text="{x:Bind ViewModel.InputFileName, Mode=OneWay}"
-                                        TextTrimming="CharacterEllipsis" />
-                                    <TextBlock
-                                        Opacity="0.72"
-                                        Text="{x:Bind ViewModel.InputPath, Mode=OneWay}"
-                                        TextWrapping="WrapWholeWords" />
-                                    <TextBlock
-                                        Opacity="0.72"
-                                        Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
-                                        TextWrapping="WrapWholeWords" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border
-                                Padding="16"
-                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                CornerRadius="16">
-                                <StackPanel Spacing="12">
-                                    <TextBlock
-                                        Style="{StaticResource SectionTitleTextStyle}"
-                                        Text="输出设置" />
-
-                                    <StackPanel Spacing="6">
-                                        <TextBlock Text="输出格式" />
-                                        <ComboBox
-                                            DisplayMemberPath="DisplayName"
-                                            ItemsSource="{x:Bind ViewModel.AvailableOutputFormats, Mode=OneWay}"
-                                            SelectedItem="{x:Bind ViewModel.SelectedOutputFormat, Mode=TwoWay}" />
-                                        <TextBlock
-                                            Opacity="0.72"
-                                            Text="{x:Bind ViewModel.SelectedOutputFormatDescription, Mode=OneWay}"
-                                            TextWrapping="WrapWholeWords" />
-                                    </StackPanel>
-
-                                    <StackPanel Spacing="6">
-                                        <TextBlock Text="输出目录" />
-                                        <TextBox
-                                            IsReadOnly="True"
-                                            Text="{x:Bind ViewModel.OutputDirectory, Mode=OneWay}" />
-                                        <Grid ColumnSpacing="10">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock
-                                                VerticalAlignment="Center"
-                                                Opacity="0.72"
-                                                Text="留空时默认输出到原视频所在文件夹"
-                                                TextWrapping="WrapWholeWords" />
-                                            <Button
-                                                Grid.Column="1"
-                                                Command="{x:Bind ViewModel.SelectOutputDirectoryCommand, Mode=OneWay}"
-                                                Content="选择目录" />
-                                            <Button
-                                                Grid.Column="2"
-                                                Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
-                                                Content="清空" />
-                                        </Grid>
-                                    </StackPanel>
-
-                                    <StackPanel Spacing="6">
-                                        <TextBlock Text="计划输出路径" />
-                                        <TextBox
-                                            IsReadOnly="True"
-                                            Text="{x:Bind ViewModel.PlannedOutputPath, Mode=OneWay}"
-                                            TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </Border>
-
-                            <Border
-                                Padding="16"
-                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                CornerRadius="16">
-                                <StackPanel Spacing="10">
-                                    <TextBlock
-                                        Style="{StaticResource SectionTitleTextStyle}"
-                                        Text="当前选区" />
-                                    <TextBlock
-                                        FontWeight="SemiBold"
-                                        Text="{x:Bind ViewModel.SelectionSummaryText, Mode=OneWay}"
-                                        TextWrapping="WrapWholeWords" />
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Spacing="2">
-                                            <TextBlock
-                                                Style="{StaticResource CaptionTextStyle}"
-                                                Text="入点" />
-                                            <TextBlock
-                                                FontWeight="SemiBold"
-                                                Text="{x:Bind ViewModel.SelectionStartText, Mode=OneWay}" />
-                                        </StackPanel>
-                                        <StackPanel
-                                            Grid.Column="1"
-                                            Spacing="2">
-                                            <TextBlock
-                                                Style="{StaticResource CaptionTextStyle}"
-                                                Text="出点" />
-                                            <TextBlock
-                                                FontWeight="SemiBold"
-                                                Text="{x:Bind ViewModel.SelectionEndText, Mode=OneWay}" />
-                                        </StackPanel>
-                                    </Grid>
-                                    <TextBlock
-                                        Opacity="0.72"
-                                        Text="导出时会严格按照入点与出点截取视频片段。"
-                                        TextWrapping="WrapWholeWords" />
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </Grid>
-            </ScrollViewer>
         </Grid>
     </Border>
 </UserControl>
