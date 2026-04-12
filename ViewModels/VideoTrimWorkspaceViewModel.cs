@@ -256,7 +256,13 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         private set => SetProperty(ref _plannedOutputPath, value);
     }
 
-    public double TimelineMaximum => Math.Max(1d, _mediaDuration.TotalMilliseconds);
+    public double TimelineMinimum => HasInput ? _selectionStart.TotalMilliseconds : 0d;
+
+    public double TimelineMaximum => HasInput
+        ? Math.Max(TimelineMinimum + 1d, _selectionEnd.TotalMilliseconds)
+        : 1d;
+
+    public double SelectionMaximum => Math.Max(1d, _mediaDuration.TotalMilliseconds);
 
     public double CurrentPositionMilliseconds
     {
@@ -436,16 +442,19 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         var keepFullRange = _selectionStart == TimeSpan.Zero && AreClose(_selectionEnd, _mediaDuration);
         _mediaDuration = duration;
 
+        var minimumRange = duration < MinimumSelectionLength ? duration : MinimumSelectionLength;
         if (keepFullRange || _selectionEnd > duration)
         {
             _selectionEnd = duration;
         }
 
-        if (_currentPosition > duration)
+        var maxStart = MaxTime(TimeSpan.Zero, _selectionEnd - minimumRange);
+        if (_selectionStart > maxStart)
         {
-            _currentPosition = duration;
+            _selectionStart = maxStart;
         }
 
+        _currentPosition = ClampToSelection(_currentPosition);
         RefreshMediaInfoFields();
         RaiseTimelineChanged();
     }
@@ -477,12 +486,10 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 
     public void SyncCurrentPosition(TimeSpan position) => SetCurrentPosition(position);
 
-    public void EnsureCurrentPositionWithinSelection()
+    public TimeSpan EnsureCurrentPositionWithinSelection()
     {
-        if (_currentPosition < _selectionStart || _currentPosition > _selectionEnd)
-        {
-            SetCurrentPosition(_selectionStart);
-        }
+        SetCurrentPosition(ClampToSelection(_currentPosition));
+        return _currentPosition;
     }
 
     public void Dispose()
@@ -748,7 +755,9 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 
     private void RaiseTimelineChanged()
     {
+        OnPropertyChanged(nameof(TimelineMinimum));
         OnPropertyChanged(nameof(TimelineMaximum));
+        OnPropertyChanged(nameof(SelectionMaximum));
         OnPropertyChanged(nameof(CurrentPositionMilliseconds));
         OnPropertyChanged(nameof(CurrentPositionText));
         OnPropertyChanged(nameof(SelectionStartMilliseconds));
@@ -843,8 +852,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 
     private void SetCurrentPosition(TimeSpan position)
     {
-        var max = _mediaDuration > TimeSpan.Zero ? _mediaDuration : TimeSpan.Zero;
-        var normalized = Clamp(position, TimeSpan.Zero, max);
+        var normalized = ClampToSelection(position);
         if (SetProperty(ref _currentPosition, normalized))
         {
             OnPropertyChanged(nameof(CurrentPositionMilliseconds));
@@ -868,6 +876,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
                 _selectionEnd = MinTime(_mediaDuration, _selectionStart + GetMinimumRange());
             }
 
+            _currentPosition = ClampToSelection(_currentPosition);
             RaiseTimelineChanged();
         }
     }
@@ -882,8 +891,21 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         var normalized = Clamp(position, _selectionStart + GetMinimumRange(), _mediaDuration);
         if (SetProperty(ref _selectionEnd, normalized))
         {
+            _currentPosition = ClampToSelection(_currentPosition);
             RaiseTimelineChanged();
         }
+    }
+
+    private TimeSpan ClampToSelection(TimeSpan position)
+    {
+        if (_mediaDuration <= TimeSpan.Zero)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var minimum = Clamp(_selectionStart, TimeSpan.Zero, _mediaDuration);
+        var maximum = Clamp(_selectionEnd, minimum, _mediaDuration);
+        return Clamp(position, minimum, maximum);
     }
 
     private TimeSpan GetMinimumRange() => _mediaDuration < MinimumSelectionLength ? _mediaDuration : MinimumSelectionLength;

@@ -238,13 +238,17 @@
                                     Text="时间轴" />
                                 <Slider
                                     x:Name="TimelineSlider"
-                                    Minimum="0"
+                                    Minimum="{x:Bind ViewModel.TimelineMinimum, Mode=OneWay}"
                                     Maximum="{x:Bind ViewModel.TimelineMaximum, Mode=OneWay}"
                                     PointerCaptureLost="OnTimelineSliderPointerCaptureLost"
                                     PointerPressed="OnTimelineSliderPointerPressed"
                                     PointerReleased="OnTimelineSliderPointerReleased"
                                     Value="{x:Bind ViewModel.CurrentPositionMilliseconds, Mode=TwoWay}"
                                     ValueChanged="OnTimelineSliderValueChanged" />
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ViewModel.CurrentPositionText, Mode=OneWay}" />
                                 <Grid ColumnSpacing="10">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
@@ -252,7 +256,7 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
-                                    <TextBlock Text="{x:Bind ViewModel.CurrentPositionText, Mode=OneWay}" />
+                                    <TextBlock Text="{x:Bind ViewModel.SelectionStartText, Mode=OneWay}" />
                                     <TextBlock
                                         Grid.Column="1"
                                         HorizontalAlignment="Center"
@@ -261,7 +265,7 @@
                                         TextWrapping="WrapWholeWords" />
                                     <TextBlock
                                         Grid.Column="2"
-                                        Text="{x:Bind ViewModel.MediaDurationText, Mode=OneWay}" />
+                                        Text="{x:Bind ViewModel.SelectionEndText, Mode=OneWay}" />
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -279,7 +283,7 @@
                                 <local:DualThumbRangeSelector
                                     x:Name="RangeSelector"
                                     EndValue="{x:Bind ViewModel.SelectionEndMilliseconds, Mode=TwoWay}"
-                                    Maximum="{x:Bind ViewModel.TimelineMaximum, Mode=OneWay}"
+                                    Maximum="{x:Bind ViewModel.SelectionMaximum, Mode=OneWay}"
                                     Minimum="0"
                                     MinimumRange="1"
                                     SelectionChanged="OnRangeSelectorSelectionChanged"

@@ -113,12 +113,13 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
         var selectionStart = GetSelectionStart();
         var selectionEnd = GetSelectionEnd();
-        var current = _mediaPlayer.PlaybackSession.Position;
+        var current = TimeSpan.FromMilliseconds(ViewModel.CurrentPositionMilliseconds);
         if (current < selectionStart || current >= selectionEnd)
         {
-            SeekTo(selectionStart);
+            current = selectionStart;
         }
 
+        SeekTo(current);
         TrySetPlaybackRate(1d);
         _mediaPlayer.Play();
         StartPositionTimer();
@@ -138,9 +139,17 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private void OnTimelineSliderPointerPressed(object sender, PointerRoutedEventArgs e) => _isTimelineDragActive = true;
 
-    private void OnTimelineSliderPointerReleased(object sender, PointerRoutedEventArgs e) => _isTimelineDragActive = false;
+    private void OnTimelineSliderPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        _isTimelineDragActive = false;
+        CommitTimelinePosition();
+    }
 
-    private void OnTimelineSliderPointerCaptureLost(object sender, PointerRoutedEventArgs e) => _isTimelineDragActive = false;
+    private void OnTimelineSliderPointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        _isTimelineDragActive = false;
+        CommitTimelinePosition();
+    }
 
     private void OnTimelineSliderValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
@@ -149,13 +158,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
-        var target = TimeSpan.FromMilliseconds(e.NewValue);
-        if (ViewModel.IsPlaying)
-        {
-            target = Clamp(target, GetSelectionStart(), GetSelectionEnd());
-        }
-
-        SeekTo(target);
+        SeekTo(TimeSpan.FromMilliseconds(e.NewValue));
     }
 
     private void OnRangeSelectorSelectionChanged(object sender, EventArgs e)
@@ -165,12 +168,49 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
-        ViewModel.EnsureCurrentPositionWithinSelection();
-        var current = TimeSpan.FromMilliseconds(ViewModel.CurrentPositionMilliseconds);
-        if (current < GetSelectionStart() || current > GetSelectionEnd())
+        var constrainedPosition = ViewModel.EnsureCurrentPositionWithinSelection();
+        if (_mediaPlayer.Source is null)
         {
-            SeekTo(GetSelectionStart());
+            return;
         }
+
+        var selectionStart = GetSelectionStart();
+        var selectionEnd = GetSelectionEnd();
+        var playbackPosition = _mediaPlayer.PlaybackSession.Position;
+
+        if (playbackPosition < selectionStart)
+        {
+            SeekTo(selectionStart);
+            return;
+        }
+
+        if (playbackPosition > selectionEnd)
+        {
+            if (ViewModel.IsPlaying)
+            {
+                PausePlayback(syncTimelinePosition: false, seekPosition: selectionEnd);
+            }
+            else
+            {
+                SeekTo(selectionEnd);
+            }
+
+            return;
+        }
+
+        if (ViewModel.IsPlaying && playbackPosition >= selectionEnd)
+        {
+            PausePlayback(syncTimelinePosition: false, seekPosition: selectionEnd);
+            return;
+        }
+
+        if (!AreClose(constrainedPosition, playbackPosition))
+        {
+            SeekTo(constrainedPosition);
+            return;
+        }
+
+        UpdateTimelinePosition(constrainedPosition);
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -267,7 +307,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
                 return;
             }
 
-            PausePlayback(syncTimelinePosition: false, seekPosition: GetSelectionStart());
+            PausePlayback(syncTimelinePosition: false, seekPosition: GetSelectionEnd());
         });
     }
 
@@ -318,7 +358,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         var selectionEnd = GetSelectionEnd();
         if (ViewModel.IsPlaying && selectionEnd > selectionStart && current >= selectionEnd)
         {
-            PausePlayback(syncTimelinePosition: false, seekPosition: selectionStart);
+            PausePlayback(syncTimelinePosition: false, seekPosition: selectionEnd);
             return;
         }
 
@@ -337,16 +377,27 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
-        _mediaPlayer.PlaybackSession.Position = position;
+        var target = Clamp(position, GetSelectionStart(), GetSelectionEnd());
+        _mediaPlayer.PlaybackSession.Position = target;
         _isUpdatingTimeline = true;
         try
         {
-            ViewModel.SyncCurrentPosition(position);
+            ViewModel.SyncCurrentPosition(target);
         }
         finally
         {
             _isUpdatingTimeline = false;
         }
+    }
+
+    private void CommitTimelinePosition()
+    {
+        if (ViewModel is null || _isUpdatingTimeline)
+        {
+            return;
+        }
+
+        SeekTo(TimeSpan.FromMilliseconds(TimelineSlider.Value));
     }
 
     private void PausePlayback(bool syncTimelinePosition, bool updateViewModelState = true, TimeSpan? seekPosition = null)
@@ -478,6 +529,9 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private static TimeSpan Clamp(TimeSpan value, TimeSpan minimum, TimeSpan maximum) =>
         value < minimum ? minimum : value > maximum ? maximum : value;
+
+    private static bool AreClose(TimeSpan left, TimeSpan right) =>
+        Math.Abs((left - right).TotalMilliseconds) < 1d;
 
     private void TrySetPlaybackRate(double playbackRate)
     {
