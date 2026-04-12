@@ -139,14 +139,18 @@
                             </Grid.RowDefinitions>
 
                             <Border
-                                MinHeight="380"
-                                Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                Height="360"
+                                MaxHeight="360"
+                                VerticalAlignment="Top"
+                                Background="Black"
                                 CornerRadius="18">
                                 <Grid>
                                     <MediaPlayerElement
                                         x:Name="PreviewPlayer"
                                         AreTransportControlsEnabled="False"
                                         AutoPlay="False"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
                                         Stretch="Uniform" />
 
                                     <Border
