@@ -13,12 +13,16 @@ namespace Vidvix.Services.VideoPreview;
 public sealed class MpvVideoPreviewService : IVideoPreviewService
 {
     private const ulong PausePropertyObserverId = 1;
+    private const ulong TimePositionPropertyObserverId = 2;
     private static readonly TimeSpan EndFrameSafetyBackoff = TimeSpan.FromMilliseconds(1);
+    private static readonly TimeSpan SeekTimeout = TimeSpan.FromMilliseconds(1200);
+    private static readonly TimeSpan CacheWarmupTarget = TimeSpan.FromSeconds(1);
 
     private readonly ApplicationConfiguration _configuration;
     private readonly IWindowContext _windowContext;
     private readonly ILogger _logger;
     private readonly object _syncRoot = new();
+    private readonly SemaphoreSlim _commandSemaphore = new(1, 1);
     private MpvNativeLibrary? _nativeLibrary;
     private IntPtr _mpvHandle;
     private IntPtr _hostWindowHandle;
@@ -34,8 +38,13 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
     private double _volume = 0.8d;
     private string? _requestedSourcePath;
     private string? _activeSourcePath;
+    private string _observedTimePositionPropertyName = "time-pos/full";
     private TimeSpan _duration;
     private TimeSpan _currentPosition;
+    private int _loadSessionId;
+    private TaskCompletionSource<bool>? _loadCompletionSource;
+    private TaskCompletionSource<TimeSpan>? _seekCompletionSource;
+    private TimeSpan _pendingSeekTarget;
 
     public MpvVideoPreviewService(
         ApplicationConfiguration configuration,
@@ -50,6 +59,8 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
     public event EventHandler<VideoPreviewMediaOpenedEventArgs>? MediaOpened;
 
     public event EventHandler<VideoPreviewFailedEventArgs>? MediaFailed;
+
+    public event EventHandler<VideoPreviewPositionChangedEventArgs>? PositionChanged;
 
     public event EventHandler<VideoPreviewPlaybackStateChangedEventArgs>? PlaybackStateChanged;
 
@@ -106,11 +117,10 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             ThrowIfDisposed();
             EnsureHostWindow();
             ApplyHostPlacement(placement);
-            EnsureInitialized();
         }
     }
 
-    public Task LoadAsync(string inputPath, double volume, CancellationToken cancellationToken = default)
+    public async Task LoadAsync(string inputPath, double volume, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
         cancellationToken.ThrowIfCancellationRequested();
@@ -121,11 +131,17 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             throw new FileNotFoundException($"未找到用于预览的视频文件：{fullPath}", fullPath);
         }
 
+        TaskCompletionSource<bool>? previousLoadCompletionSource;
+        TaskCompletionSource<bool>? currentLoadCompletionSource;
+        var normalizedVolume = Math.Clamp(volume, 0d, 1d);
+
         lock (_syncRoot)
         {
             ThrowIfDisposed();
-            EnsureHostWindow();
-            EnsureInitialized();
+            previousLoadCompletionSource = _loadCompletionSource;
+            _loadCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            currentLoadCompletionSource = _loadCompletionSource;
+            _loadSessionId++;
             _requestedSourcePath = fullPath;
             _activeSourcePath = null;
             _duration = TimeSpan.Zero;
@@ -135,36 +151,76 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             _isLoading = true;
             _isUnloading = false;
             _ignoreNextStopEndEvent = true;
+            _volume = normalizedVolume;
         }
 
-        SetVolume(volume);
-        ExecuteCommand("set", "pause", "yes");
-        ExecuteCommand("loadfile", fullPath, "replace");
-        RaisePlaybackStateChanged(isPlaying: false);
-        return Task.CompletedTask;
-    }
+        previousLoadCompletionSource?.TrySetResult(false);
 
-    public void Unload()
-    {
-        lock (_syncRoot)
+        await RunCommandAsync(() =>
         {
-            if (!_isInitialized || _mpvHandle == IntPtr.Zero)
+            lock (_syncRoot)
             {
-                ResetMediaState();
-                return;
+                ThrowIfDisposed();
+                EnsureHostWindow();
+                EnsureInitialized();
             }
 
+            TrySetPropertyDouble("volume", normalizedVolume * 100d);
+            ExecuteCommand("set", "pause", "yes");
+            ExecuteCommand("loadfile", fullPath, "replace");
+        }, cancellationToken).ConfigureAwait(false);
+
+        RaisePlaybackStateChanged(isPlaying: false);
+
+        if (currentLoadCompletionSource is not null)
+        {
+            var isReady = await currentLoadCompletionSource.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!isReady)
+            {
+                return;
+            }
+        }
+    }
+
+    public async Task UnloadAsync(CancellationToken cancellationToken = default)
+    {
+        TaskCompletionSource<bool>? loadCompletionSource;
+        TaskCompletionSource<TimeSpan>? seekCompletionSource;
+        var shouldStop = false;
+
+        lock (_syncRoot)
+        {
+            loadCompletionSource = _loadCompletionSource;
+            _loadCompletionSource = null;
+            seekCompletionSource = _seekCompletionSource;
+            _seekCompletionSource = null;
+            _loadSessionId++;
             _requestedSourcePath = null;
             _activeSourcePath = null;
             _isLoading = false;
             _isUnloading = true;
             _ignoreNextStopEndEvent = true;
+
+            if (_isInitialized && _mpvHandle != IntPtr.Zero)
+            {
+                shouldStop = true;
+            }
+
             ResetMediaState();
+        }
+
+        loadCompletionSource?.TrySetResult(false);
+        seekCompletionSource?.TrySetResult(TimeSpan.Zero);
+
+        if (!shouldStop)
+        {
+            RaisePlaybackStateChanged(isPlaying: false);
+            return;
         }
 
         try
         {
-            ExecuteCommand("stop");
+            await RunCommandAsync(() => ExecuteCommand("stop"), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception)
         {
@@ -174,75 +230,118 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         RaisePlaybackStateChanged(isPlaying: false);
     }
 
-    public void Play()
+    public async Task PlayAsync(CancellationToken cancellationToken = default)
     {
         if (!HasLoadedMedia)
         {
             return;
         }
 
-        ExecuteCommand("set", "pause", "no");
+        await RunCommandAsync(() => ExecuteCommand("set", "pause", "no"), cancellationToken).ConfigureAwait(false);
     }
 
-    public void Pause()
+    public async Task<TimeSpan> PauseAsync(CancellationToken cancellationToken = default)
     {
         if (!_isInitialized)
         {
-            return;
+            return CurrentPosition;
         }
 
-        ExecuteCommand("set", "pause", "yes");
-        UpdateCurrentPositionFromPlayer();
+        var position = await RunCommandAsync(() =>
+        {
+            ExecuteCommand("set", "pause", "yes");
+            return UpdateCurrentPositionFromPlayer();
+        }, cancellationToken).ConfigureAwait(false);
+
+        RaisePositionChanged(position);
+        return position;
     }
 
-    public void Seek(TimeSpan position)
+    public async Task<TimeSpan> SeekAsync(TimeSpan position, CancellationToken cancellationToken = default)
     {
         if (!HasLoadedMedia)
         {
-            return;
+            return CurrentPosition;
         }
 
         var normalized = NormalizePreviewPosition(position);
-        ExecuteCommand("seek", normalized.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture), "absolute+exact");
-        lock (_syncRoot)
+        TaskCompletionSource<TimeSpan>? seekCompletionSource = null;
+
+        await RunCommandAsync(() =>
         {
-            _currentPosition = normalized;
+            seekCompletionSource = BeginPendingSeek(normalized);
+            ExecuteCommand(
+                "seek",
+                normalized.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture),
+                "absolute+keyframes");
+        }, cancellationToken).ConfigureAwait(false);
+
+        if (seekCompletionSource is null)
+        {
+            return CurrentPosition;
         }
+
+        var completedTask = await Task.WhenAny(
+            seekCompletionSource.Task,
+            Task.Delay(SeekTimeout, CancellationToken.None)).ConfigureAwait(false);
+
+        if (completedTask == seekCompletionSource.Task)
+        {
+            return await seekCompletionSource.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        var refreshedPosition = await RunCommandAsync(() =>
+        {
+            SetPropertyDouble("time-pos", normalized.TotalSeconds);
+            return UpdateCurrentPositionFromPlayer();
+        }, CancellationToken.None).ConfigureAwait(false);
+
+        _logger.Log(
+            LogLevel.Warning,
+            $"MPV Seek 超时，已回退为一次 time-pos 强制刷新，目标时间：{normalized.TotalSeconds:0.###} 秒。");
+
+        CompletePendingSeek(refreshedPosition);
+        RaisePositionChanged(refreshedPosition);
+        return await seekCompletionSource.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public void SetPlaybackPosition(TimeSpan position)
+    public async Task<TimeSpan> SetPlaybackPositionAsync(TimeSpan position, CancellationToken cancellationToken = default)
     {
         if (!HasLoadedMedia)
         {
-            return;
+            return CurrentPosition;
         }
 
         var normalized = NormalizePreviewPosition(position);
-        SetPropertyDouble("time-pos", normalized.TotalSeconds);
-        lock (_syncRoot)
+        await RunCommandAsync(() =>
         {
-            _currentPosition = normalized;
-        }
+            SetPropertyDouble("time-pos", normalized.TotalSeconds);
+            UpdateCurrentPosition(normalized);
+        }, cancellationToken).ConfigureAwait(false);
+
+        RaisePositionChanged(normalized);
+        return normalized;
     }
 
-    public TimeSpan GetCurrentPosition()
-    {
-        return UpdateCurrentPositionFromPlayer();
-    }
-
-    public void SetVolume(double volume)
+    public async Task SetVolumeAsync(double volume, CancellationToken cancellationToken = default)
     {
         var normalized = Math.Clamp(volume, 0d, 1d);
+        var canApply = false;
+
         lock (_syncRoot)
         {
             _volume = normalized;
-            if (!_isInitialized || _mpvHandle == IntPtr.Zero)
-            {
-                return;
-            }
+            canApply = _isInitialized && _mpvHandle != IntPtr.Zero;
         }
 
-        TrySetPropertyDouble("volume", normalized * 100d);
+        if (!canApply)
+        {
+            return;
+        }
+
+        await RunCommandAsync(
+            () => TrySetPropertyDouble("volume", normalized * 100d),
+            cancellationToken).ConfigureAwait(false);
     }
 
     public void Dispose()
@@ -314,6 +413,40 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             _mpvHandle = IntPtr.Zero;
             _eventLoopCancellationSource = null;
             _eventLoopTask = null;
+            _commandSemaphore.Dispose();
+        }
+    }
+
+    private async Task RunCommandAsync(Action action, CancellationToken cancellationToken)
+    {
+        await RunCommandAsync(
+            () =>
+            {
+                action();
+                return 0;
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<T> RunCommandAsync<T>(Func<T> action, CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        await _commandSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            return await Task.Run(
+                () =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    ThrowIfDisposed();
+                    return action();
+                },
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _commandSemaphore.Release();
         }
     }
 
@@ -437,11 +570,13 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
                     continue;
                 }
 
-                SetVolume(_volume);
+                TrySetPropertyDouble("volume", _volume * 100d);
                 RequestEvent(MpvEventId.FileLoaded);
                 RequestEvent(MpvEventId.EndFile);
                 RequestEvent(MpvEventId.PropertyChange);
+                RequestEvent(MpvEventId.PlaybackRestart);
                 ObserveProperty(PausePropertyObserverId, "pause", MpvFormat.Flag);
+                ObserveTimePositionProperty();
                 _nativeLibrary.RequestLogMessages(_mpvHandle, MpvUtf8.GetBytes("warn"));
                 _eventLoopCancellationSource = new CancellationTokenSource();
                 _eventLoopTask = Task.Factory.StartNew(
@@ -511,6 +646,24 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         SetOptionString("osd-level", "0");
         SetOptionString("profile", "fast");
         SetOptionString("background-color", "#000000");
+        SetOptionString("cache", "yes");
+        SetOptionString("cache-secs", "15");
+        SetOptionString("demuxer-max-bytes", "134217728");
+        SetOptionString("demuxer-readahead-secs", "5");
+    }
+
+    private void ObserveTimePositionProperty()
+    {
+        try
+        {
+            ObserveProperty(TimePositionPropertyObserverId, "time-pos/full", MpvFormat.Double);
+            _observedTimePositionPropertyName = "time-pos/full";
+        }
+        catch
+        {
+            ObserveProperty(TimePositionPropertyObserverId, "time-pos", MpvFormat.Double);
+            _observedTimePositionPropertyName = "time-pos";
+        }
     }
 
     private void ObserveProperty(ulong replyUserData, string name, MpvFormat format)
@@ -583,19 +736,29 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
 
     private TimeSpan UpdateCurrentPositionFromPlayer()
     {
-        if (TryGetPropertyDouble("time-pos/full", out var preciseSeconds) ||
+        if (TryGetPropertyDouble(_observedTimePositionPropertyName, out var preciseSeconds) ||
+            TryGetPropertyDouble("time-pos/full", out preciseSeconds) ||
             TryGetPropertyDouble("time-pos", out preciseSeconds))
         {
-            lock (_syncRoot)
-            {
-                _currentPosition = TimeSpan.FromSeconds(Math.Max(0d, preciseSeconds));
-                return _currentPosition;
-            }
+            var normalized = TimeSpan.FromSeconds(Math.Max(0d, preciseSeconds));
+            UpdateCurrentPosition(normalized);
+            return normalized;
         }
 
         lock (_syncRoot)
         {
             return _currentPosition;
+        }
+    }
+
+    private bool UpdateCurrentPosition(TimeSpan position)
+    {
+        lock (_syncRoot)
+        {
+            var normalized = position < TimeSpan.Zero ? TimeSpan.Zero : position;
+            var hasChanged = !AreClose(_currentPosition, normalized);
+            _currentPosition = normalized;
+            return hasChanged;
         }
     }
 
@@ -611,6 +774,82 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             }
 
             return requestedPosition < TimeSpan.Zero ? TimeSpan.Zero : requestedPosition;
+        }
+    }
+
+    private TaskCompletionSource<TimeSpan> BeginPendingSeek(TimeSpan target)
+    {
+        TaskCompletionSource<TimeSpan>? previousCompletionSource;
+        TaskCompletionSource<TimeSpan> currentCompletionSource;
+
+        lock (_syncRoot)
+        {
+            previousCompletionSource = _seekCompletionSource;
+            currentCompletionSource = new TaskCompletionSource<TimeSpan>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _seekCompletionSource = currentCompletionSource;
+            _pendingSeekTarget = target;
+        }
+
+        previousCompletionSource?.TrySetResult(CurrentPosition);
+        return currentCompletionSource;
+    }
+
+    private void CompletePendingSeek(TimeSpan position)
+    {
+        TaskCompletionSource<TimeSpan>? seekCompletionSource = null;
+
+        lock (_syncRoot)
+        {
+            if (_seekCompletionSource is null)
+            {
+                return;
+            }
+
+            seekCompletionSource = _seekCompletionSource;
+            _seekCompletionSource = null;
+            _pendingSeekTarget = TimeSpan.Zero;
+        }
+
+        seekCompletionSource.TrySetResult(position);
+    }
+
+    private void FinishPendingLoad(int sessionId, bool isReady)
+    {
+        TaskCompletionSource<bool>? loadCompletionSource = null;
+
+        lock (_syncRoot)
+        {
+            if (sessionId != _loadSessionId)
+            {
+                return;
+            }
+
+            loadCompletionSource = _loadCompletionSource;
+            _loadCompletionSource = null;
+        }
+
+        loadCompletionSource?.TrySetResult(isReady);
+    }
+
+    private void FailPendingLoad(int errorCode)
+    {
+        TaskCompletionSource<bool>? loadCompletionSource = null;
+
+        lock (_syncRoot)
+        {
+            loadCompletionSource = _loadCompletionSource;
+            _loadCompletionSource = null;
+        }
+
+        loadCompletionSource?.TrySetException(new InvalidOperationException(BuildFailureMessage(errorCode)));
+    }
+
+    private bool IsCurrentLoadSession(int sessionId, string sourcePath)
+    {
+        lock (_syncRoot)
+        {
+            return sessionId == _loadSessionId &&
+                   string.Equals(_activeSourcePath, sourcePath, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -657,6 +896,9 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             case MpvEventId.EndFile:
                 HandleEndFile(mpvEvent.Data);
                 break;
+            case MpvEventId.PlaybackRestart:
+                HandlePlaybackRestart();
+                break;
             case MpvEventId.PropertyChange:
                 HandlePropertyChange(mpvEvent.Data);
                 break;
@@ -673,6 +915,8 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
     {
         var sourcePath = string.Empty;
         var duration = TimeSpan.Zero;
+        var sessionId = 0;
+
         lock (_syncRoot)
         {
             _isLoading = false;
@@ -682,18 +926,46 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             _isPlaying = false;
             _activeSourcePath = _requestedSourcePath ?? string.Empty;
             sourcePath = _activeSourcePath;
+            sessionId = _loadSessionId;
             if (TryGetPropertyDouble("duration/full", out var durationSeconds) ||
                 TryGetPropertyDouble("duration", out durationSeconds))
             {
                 _duration = durationSeconds > 0d ? TimeSpan.FromSeconds(durationSeconds) : TimeSpan.Zero;
             }
 
+            _currentPosition = TimeSpan.Zero;
             duration = _duration;
         }
 
-        SetVolume(_volume);
+        _ = PrepareLoadedMediaAsync(sessionId, sourcePath, duration);
+    }
+
+    private async Task PrepareLoadedMediaAsync(int sessionId, string sourcePath, TimeSpan duration)
+    {
+        try
+        {
+            await SeekAsync(TimeSpan.Zero).ConfigureAwait(false);
+
+            if (duration > CacheWarmupTarget + EndFrameSafetyBackoff)
+            {
+                await SeekAsync(CacheWarmupTarget).ConfigureAwait(false);
+                await SeekAsync(TimeSpan.Zero).ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.Log(LogLevel.Warning, "MPV 预览首帧预热失败，正在继续显示当前预览。", exception);
+        }
+
+        if (!IsCurrentLoadSession(sessionId, sourcePath))
+        {
+            return;
+        }
+
         RaisePlaybackStateChanged(isPlaying: false);
+        RaisePositionChanged(CurrentPosition);
         MediaOpened?.Invoke(this, new VideoPreviewMediaOpenedEventArgs(sourcePath, duration));
+        FinishPendingLoad(sessionId, isReady: true);
     }
 
     private void HandleEndFile(IntPtr eventData)
@@ -729,9 +1001,11 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             }
         }
 
+        CompletePendingSeek(CurrentPosition);
         RaisePlaybackStateChanged(isPlaying: false);
         if (endFileEvent.Reason == MpvEndFileReason.Error)
         {
+            FailPendingLoad(endFileEvent.Error);
             MediaFailed?.Invoke(
                 this,
                 new VideoPreviewFailedEventArgs(
@@ -747,6 +1021,13 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         }
     }
 
+    private void HandlePlaybackRestart()
+    {
+        var position = UpdateCurrentPositionFromPlayer();
+        CompletePendingSeek(position);
+        RaisePositionChanged(position);
+    }
+
     private void HandlePropertyChange(IntPtr eventData)
     {
         if (eventData == IntPtr.Zero)
@@ -756,22 +1037,44 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
 
         var property = Marshal.PtrToStructure<MpvEventProperty>(eventData);
         var name = MpvNativeLibrary.PtrToUtf8String(property.Name);
-        if (!string.Equals(name, "pause", StringComparison.Ordinal) ||
-            property.Format != MpvFormat.Flag ||
+
+        if (string.Equals(name, "pause", StringComparison.Ordinal) &&
+            property.Format == MpvFormat.Flag &&
+            property.Data != IntPtr.Zero)
+        {
+            var isPaused = Marshal.ReadInt32(property.Data) != 0;
+            bool isPlaying;
+            lock (_syncRoot)
+            {
+                _isPlaying = _hasLoadedMedia && !isPaused;
+                isPlaying = _isPlaying;
+            }
+
+            RaisePlaybackStateChanged(isPlaying);
+            return;
+        }
+
+        if (!string.Equals(name, _observedTimePositionPropertyName, StringComparison.Ordinal) ||
+            property.Format != MpvFormat.Double ||
             property.Data == IntPtr.Zero)
         {
             return;
         }
 
-        var isPaused = Marshal.ReadInt32(property.Data) != 0;
-        bool isPlaying;
-        lock (_syncRoot)
+        var seconds = Marshal.PtrToStructure<double>(property.Data);
+        if (double.IsNaN(seconds) || double.IsInfinity(seconds))
         {
-            _isPlaying = _hasLoadedMedia && !isPaused;
-            isPlaying = _isPlaying;
+            return;
         }
 
-        RaisePlaybackStateChanged(isPlaying);
+        var position = TimeSpan.FromSeconds(Math.Max(0d, seconds));
+        var hasChanged = UpdateCurrentPosition(position);
+        CompletePendingSeek(position);
+
+        if (hasChanged)
+        {
+            RaisePositionChanged(position);
+        }
     }
 
     private void HandleLogMessage(IntPtr eventData)
@@ -794,6 +1097,9 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             : LogLevel.Warning;
         _logger.Log(logLevel, $"MPV: {message}");
     }
+
+    private void RaisePositionChanged(TimeSpan position) =>
+        PositionChanged?.Invoke(this, new VideoPreviewPositionChangedEventArgs(position));
 
     private void RaisePlaybackStateChanged(bool isPlaying) =>
         PlaybackStateChanged?.Invoke(this, new VideoPreviewPlaybackStateChangedEventArgs(isPlaying));
@@ -836,7 +1142,11 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         _currentPosition = TimeSpan.Zero;
         _hasLoadedMedia = false;
         _isPlaying = false;
+        _pendingSeekTarget = TimeSpan.Zero;
     }
+
+    private static bool AreClose(TimeSpan left, TimeSpan right) =>
+        Math.Abs((left - right).TotalMilliseconds) < 1d;
 
     private sealed class MpvInitializationProfile
     {

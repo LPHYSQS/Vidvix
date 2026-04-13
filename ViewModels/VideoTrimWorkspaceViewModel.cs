@@ -179,9 +179,9 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         }
     }
 
-    public bool CanPlayPreview => HasInput && IsPreviewReady && !IsBusy && _mediaDuration > TimeSpan.Zero;
+    public bool CanPlayPreview => HasInput && IsPreviewReady && !IsBusy && !IsSeeking && _mediaDuration > TimeSpan.Zero;
 
-    public bool CanJumpToSelectionBoundary => CanPlayPreview && !IsPlaying;
+    public bool CanJumpToSelectionBoundary => CanPlayPreview && !IsPlaying && !IsDragging;
 
     public Visibility PreviewOverlayVisibility => IsPreviewReady ? Visibility.Collapsed : Visibility.Visible;
 
@@ -452,7 +452,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         _selectionStart = TimeSpan.Zero;
         _selectionEnd = duration;
         _currentPosition = TimeSpan.Zero;
-        IsPlaying = false;
+        ResetPreviewInteractionState();
         RefreshMediaInfoFields();
         RaiseTrimStateChanged();
         RefreshPlannedOutputPath();
@@ -489,6 +489,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public void SetPreviewPreparing(string message)
     {
+        ResetPreviewInteractionState();
         IsPreviewReady = false;
         PreviewStateMessage = string.IsNullOrWhiteSpace(message)
             ? "\u6b63\u5728\u51c6\u5907\u89c6\u9891\u9884\u89c8..."
@@ -503,8 +504,8 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public void SetPreviewFailed(string message)
     {
+        ResetPreviewInteractionState();
         IsPreviewReady = false;
-        IsPlaying = false;
         PreviewStateMessage = string.IsNullOrWhiteSpace(message)
             ? "\u5f53\u524d\u6587\u4ef6\u6682\u65f6\u65e0\u6cd5\u9884\u89c8\u3002"
             : message;
@@ -618,7 +619,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         _selectionStart = TimeSpan.Zero;
         _selectionEnd = TimeSpan.Zero;
         _currentPosition = TimeSpan.Zero;
-        IsPlaying = false;
+        ResetPreviewInteractionState();
         LastImportErrorDetails = string.Empty;
         SetPreviewFailed("\u8bf7\u5148\u5bfc\u5165\u89c6\u9891\u6587\u4ef6\u6216\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002");
         RefreshMediaInfoFields();

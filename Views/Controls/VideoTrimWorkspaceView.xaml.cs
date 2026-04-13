@@ -24,10 +24,10 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private bool _hasPendingScrubPreviewPosition;
     private bool _isControlLoaded;
     private bool _isPositionTimerRunning;
-    private bool _isTimelineScrubbing;
-    private bool _isUpdatingPlaybackState;
+    private bool _isScrubPreviewUpdateInProgress;
+    private bool _isStopAtSelectionEndInProgress;
+    private bool _isTimelineCommitInProgress;
     private bool _isUpdatingTimeline;
-    private bool _resumePlaybackAfterScrub;
     private int _sourceVersion;
     private TimeSpan _pendingScrubPreviewPosition;
     private VideoPreviewHostPlacement? _lastPreviewPlacement;
@@ -109,8 +109,6 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         _isControlLoaded = false;
         StopScrubPreviewTimer();
         StopPositionTimer();
-        _resumePlaybackAfterScrub = false;
-        _isTimelineScrubbing = false;
         UpdatePreviewHostPlacement(force: true);
     }
 
@@ -124,51 +122,34 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         UpdatePreviewHostPlacement();
     }
 
-    private void OnPlayPauseClick(object sender, RoutedEventArgs e)
+    private async void OnPlayPauseClick(object sender, RoutedEventArgs e)
     {
         if (ViewModel is null || !ViewModel.CanPlayPreview)
         {
             return;
         }
 
-        if (ViewModel.IsPlaying)
-        {
-            PausePlayback(syncTimelinePosition: true);
-            return;
-        }
-
-        var selectionStart = GetSelectionStart();
-        var selectionEnd = GetSelectionEnd();
-        var current = TimeSpan.FromMilliseconds(ViewModel.CurrentPositionMilliseconds);
-        if (current < selectionStart || current >= selectionEnd)
-        {
-            current = selectionStart;
-        }
-
-        ViewModel.SeekPreview(current);
-        ViewModel.PlayPreview();
-        StartPositionTimer();
-        SetViewModelPlaying(true);
+        await ViewModel.TogglePreviewPlaybackAsync();
     }
 
-    private void OnJumpToSelectionStartClick(object sender, RoutedEventArgs e)
+    private async void OnJumpToSelectionStartClick(object sender, RoutedEventArgs e)
     {
         if (ViewModel is null)
         {
             return;
         }
 
-        JumpToSelectionBoundary(GetSelectionStart());
+        await ViewModel.JumpToSelectionBoundaryAsync(GetSelectionStart());
     }
 
-    private void OnJumpToSelectionEndClick(object sender, RoutedEventArgs e)
+    private async void OnJumpToSelectionEndClick(object sender, RoutedEventArgs e)
     {
         if (ViewModel is null)
         {
             return;
         }
 
-        JumpToSelectionBoundary(GetSelectionEnd());
+        await ViewModel.JumpToSelectionBoundaryAsync(GetSelectionEnd());
     }
 
     private void OnVolumeButtonPointerWheelChanged(object sender, PointerRoutedEventArgs e)
@@ -235,38 +216,33 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         e.Handled = true;
     }
 
-    private void OnTimelineSliderPointerPressed(object sender, PointerRoutedEventArgs e)
+    private async void OnTimelineSliderPointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        _isTimelineScrubbing = true;
-        _resumePlaybackAfterScrub = ViewModel?.IsPlaying == true;
         _hasPendingScrubPreviewPosition = false;
         StartScrubPreviewTimer();
 
-        if (!_resumePlaybackAfterScrub || ViewModel is null || !ViewModel.HasLoadedPreview)
+        if (ViewModel is null)
         {
             return;
         }
 
-        ViewModel.PausePreview();
+        await ViewModel.BeginTimelineDragAsync();
         StopPositionTimer();
-        SetViewModelPlaying(false);
     }
 
     private void OnTimelineSliderPointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        _isTimelineScrubbing = false;
-        CommitTimelinePosition();
+        _ = CommitTimelinePositionAsync();
     }
 
     private void OnTimelineSliderPointerCaptureLost(object sender, PointerRoutedEventArgs e)
     {
-        _isTimelineScrubbing = false;
-        CommitTimelinePosition();
+        _ = CommitTimelinePositionAsync();
     }
 
     private void OnTimelineSliderValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
-        if (ViewModel is null || _isUpdatingTimeline || !_isTimelineScrubbing)
+        if (ViewModel is null || _isUpdatingTimeline || !ViewModel.IsDragging)
         {
             return;
         }
@@ -275,7 +251,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         try
         {
             var target = TimeSpan.FromMilliseconds(e.NewValue);
-            ViewModel.SyncCurrentPosition(target);
+            ViewModel.UpdateDraggingPosition(target);
             _pendingScrubPreviewPosition = Clamp(target, GetSelectionStart(), GetSelectionEnd());
             _hasPendingScrubPreviewPosition = true;
         }
@@ -285,54 +261,14 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         }
     }
 
-    private void OnRangeSelectorSelectionChanged(object sender, EventArgs e)
+    private async void OnRangeSelectorSelectionChanged(object sender, EventArgs e)
     {
         if (ViewModel is null)
         {
             return;
         }
 
-        var constrainedPosition = ViewModel.EnsureCurrentPositionWithinSelection();
-        if (!ViewModel.HasLoadedPreview)
-        {
-            UpdateTimelinePosition(constrainedPosition);
-            return;
-        }
-
-        var selectionStart = GetSelectionStart();
-        var selectionEnd = GetSelectionEnd();
-        var playbackPosition = ViewModel.GetPreviewPosition();
-
-        if (playbackPosition < selectionStart)
-        {
-            ViewModel.SeekPreview(selectionStart);
-            UpdateTimelinePosition(selectionStart);
-            return;
-        }
-
-        if (playbackPosition > selectionEnd)
-        {
-            if (ViewModel.IsPlaying)
-            {
-                StopPlaybackAtSelectionEnd();
-            }
-            else
-            {
-                ViewModel.SeekPreview(selectionEnd);
-                UpdateTimelinePosition(selectionEnd);
-            }
-
-            return;
-        }
-
-        if (!AreClose(constrainedPosition, playbackPosition))
-        {
-            ViewModel.SeekPreview(constrainedPosition);
-            UpdateTimelinePosition(constrainedPosition);
-            return;
-        }
-
-        UpdateTimelinePosition(constrainedPosition);
+        await ViewModel.HandleSelectionRangeChangedAsync();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -362,7 +298,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
-        if (e.PropertyName == nameof(VideoTrimWorkspaceViewModel.IsPlaying) && !_isUpdatingPlaybackState)
+        if (e.PropertyName == nameof(VideoTrimWorkspaceViewModel.IsPlaying))
         {
             if (ViewModel.IsPlaying)
             {
@@ -371,7 +307,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             }
 
             StopPositionTimer();
-            UpdateTimelinePosition(ViewModel.GetPreviewPosition());
+            UpdateTimelinePosition(TimeSpan.FromMilliseconds(ViewModel.CurrentPositionMilliseconds));
         }
     }
 
@@ -381,8 +317,6 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         var version = _sourceVersion;
         StopScrubPreviewTimer();
         StopPositionTimer();
-        _resumePlaybackAfterScrub = false;
-        _isTimelineScrubbing = false;
 
         if (ViewModel is null)
         {
@@ -416,12 +350,13 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
-        var current = ViewModel.GetPreviewPosition();
+        var current = TimeSpan.FromMilliseconds(ViewModel.CurrentPositionMilliseconds);
         var selectionStart = GetSelectionStart();
         var selectionEnd = GetSelectionEnd();
         if (ViewModel.IsPlaying && selectionEnd > selectionStart && current >= selectionEnd)
         {
-            StopPlaybackAtSelectionEnd();
+            StopPositionTimer();
+            _ = StopPlaybackAtSelectionEndAsync();
             return;
         }
 
@@ -437,94 +372,46 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         UpdateTimelinePosition(current);
     }
 
-    private void OnScrubPreviewTimerTick(DispatcherQueueTimer sender, object args)
+    private async void OnScrubPreviewTimerTick(DispatcherQueueTimer sender, object args)
     {
-        if (ViewModel is null || !_hasPendingScrubPreviewPosition || !ViewModel.HasLoadedPreview)
+        if (ViewModel is null ||
+            !_hasPendingScrubPreviewPosition ||
+            !ViewModel.HasLoadedPreview ||
+            _isScrubPreviewUpdateInProgress)
         {
             return;
         }
 
+        _isScrubPreviewUpdateInProgress = true;
         _hasPendingScrubPreviewPosition = false;
-        ViewModel.SetPreviewPlaybackPosition(_pendingScrubPreviewPosition);
+        try
+        {
+            await ViewModel.PreviewScrubAsync(_pendingScrubPreviewPosition);
+        }
+        finally
+        {
+            _isScrubPreviewUpdateInProgress = false;
+        }
     }
 
-    private void CommitTimelinePosition()
+    private async Task CommitTimelinePositionAsync()
     {
         StopScrubPreviewTimer();
-        if (ViewModel is null)
+        if (ViewModel is null || _isTimelineCommitInProgress)
         {
-            _resumePlaybackAfterScrub = false;
             return;
         }
 
+        _isTimelineCommitInProgress = true;
         var target = Clamp(TimeSpan.FromMilliseconds(ViewModel.CurrentPositionMilliseconds), GetSelectionStart(), GetSelectionEnd());
-        if (!ViewModel.HasLoadedPreview)
+        try
         {
-            UpdateTimelinePosition(target);
-            _resumePlaybackAfterScrub = false;
-            return;
+            await ViewModel.CompleteTimelineDragAsync(target);
         }
-
-        ViewModel.SeekPreview(target);
-        UpdateTimelinePosition(target);
-
-        if (_resumePlaybackAfterScrub)
+        finally
         {
-            ViewModel.PlayPreview();
-            StartPositionTimer();
-            SetViewModelPlaying(true);
+            _isTimelineCommitInProgress = false;
         }
-        else
-        {
-            ViewModel.PausePreview();
-            SetViewModelPlaying(false);
-        }
-
-        _resumePlaybackAfterScrub = false;
-    }
-
-    private void PausePlayback(bool syncTimelinePosition, bool updateViewModelState = true, TimeSpan? seekPosition = null)
-    {
-        if (ViewModel is null)
-        {
-            return;
-        }
-
-        var pausedPosition = ViewModel.HasLoadedPreview
-            ? ViewModel.PausePreview()
-            : TimeSpan.FromMilliseconds(ViewModel.CurrentPositionMilliseconds);
-        StopPositionTimer();
-
-        if (seekPosition is { } target && ViewModel.HasLoadedPreview)
-        {
-            ViewModel.SeekPreview(target);
-            pausedPosition = ViewModel.GetPreviewPosition();
-        }
-        else if (seekPosition is { } fallbackTarget)
-        {
-            pausedPosition = fallbackTarget;
-        }
-
-        if (syncTimelinePosition || seekPosition is not null)
-        {
-            UpdateTimelinePosition(pausedPosition);
-        }
-
-        if (updateViewModelState)
-        {
-            SetViewModelPlaying(false);
-        }
-    }
-
-    private void JumpToSelectionBoundary(TimeSpan target)
-    {
-        if (ViewModel is null || !ViewModel.HasLoadedPreview)
-        {
-            return;
-        }
-
-        StopScrubPreviewTimer();
-        PausePlayback(syncTimelinePosition: false, seekPosition: target);
     }
 
     private void StartPositionTimer()
@@ -570,7 +457,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private void UpdateTimelinePosition(TimeSpan position)
     {
-        if (ViewModel is null || _isTimelineScrubbing)
+        if (ViewModel is null || ViewModel.IsDragging)
         {
             return;
         }
@@ -583,24 +470,6 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         finally
         {
             _isUpdatingTimeline = false;
-        }
-    }
-
-    private void SetViewModelPlaying(bool isPlaying)
-    {
-        if (ViewModel is null)
-        {
-            return;
-        }
-
-        _isUpdatingPlaybackState = true;
-        try
-        {
-            ViewModel.SetPlaying(isPlaying);
-        }
-        finally
-        {
-            _isUpdatingPlaybackState = false;
         }
     }
 
@@ -663,16 +532,23 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         ViewModel.VolumePercent = Math.Clamp(ViewModel.VolumePercent + deltaPercent, 0d, 100d);
     }
 
-    private void StopPlaybackAtSelectionEnd()
+    private async Task StopPlaybackAtSelectionEndAsync()
     {
-        if (ViewModel is null)
+        if (ViewModel is null || _isStopAtSelectionEndInProgress)
         {
             return;
         }
 
-        _resumePlaybackAfterScrub = false;
-        StopScrubPreviewTimer();
-        PausePlayback(syncTimelinePosition: false, seekPosition: GetSelectionEnd());
+        _isStopAtSelectionEndInProgress = true;
+        try
+        {
+            StopScrubPreviewTimer();
+            await ViewModel.StopPlaybackAtSelectionEndAsync();
+        }
+        finally
+        {
+            _isStopAtSelectionEndInProgress = false;
+        }
     }
 
     private void UpdateVolumeToolTip()

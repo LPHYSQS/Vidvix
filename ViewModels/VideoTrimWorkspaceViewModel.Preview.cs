@@ -11,21 +11,52 @@ public sealed partial class VideoTrimWorkspaceViewModel
 {
     private readonly IDispatcherService _dispatcherService;
     private readonly IVideoPreviewService _videoPreviewService;
+    private readonly SemaphoreSlim _previewInteractionSemaphore = new(1, 1);
+    private bool _isSeeking;
+    private bool _isDragging;
+    private bool _resumePlaybackAfterDragging;
+
+    public bool IsSeeking
+    {
+        get => _isSeeking;
+        private set
+        {
+            if (SetProperty(ref _isSeeking, value))
+            {
+                OnPropertyChanged(nameof(CanPlayPreview));
+                OnPropertyChanged(nameof(CanJumpToSelectionBoundary));
+            }
+        }
+    }
+
+    public bool IsDragging
+    {
+        get => _isDragging;
+        private set
+        {
+            if (SetProperty(ref _isDragging, value))
+            {
+                OnPropertyChanged(nameof(CanJumpToSelectionBoundary));
+            }
+        }
+    }
 
     private void InitializePreview()
     {
         _videoPreviewService.MediaOpened += OnPreviewMediaOpened;
         _videoPreviewService.MediaFailed += OnPreviewMediaFailed;
+        _videoPreviewService.PositionChanged += OnPreviewPositionChanged;
         _videoPreviewService.PlaybackStateChanged += OnPreviewPlaybackStateChanged;
         _videoPreviewService.MediaEnded += OnPreviewMediaEnded;
-        _videoPreviewService.SetVolume(_volume);
+        _ = _videoPreviewService.SetVolumeAsync(_volume);
     }
 
     internal async Task ReloadPreviewAsync(CancellationToken cancellationToken = default)
     {
         if (!HasInput || string.IsNullOrWhiteSpace(_inputPath) || !File.Exists(_inputPath))
         {
-            _videoPreviewService.Unload();
+            ResetPreviewInteractionState();
+            await _videoPreviewService.UnloadAsync(cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -52,29 +83,258 @@ public sealed partial class VideoTrimWorkspaceViewModel
 
     internal bool HasLoadedPreview => _videoPreviewService.HasLoadedMedia;
 
-    internal TimeSpan GetPreviewPosition() => _videoPreviewService.GetCurrentPosition();
-
-    internal void PlayPreview() => _videoPreviewService.Play();
-
-    internal TimeSpan PausePreview()
+    internal async Task TogglePreviewPlaybackAsync()
     {
-        _videoPreviewService.Pause();
-        return _videoPreviewService.GetCurrentPosition();
+        await _previewInteractionSemaphore.WaitAsync();
+        try
+        {
+            if (!HasLoadedPreview || IsSeeking || IsDragging)
+            {
+                return;
+            }
+
+            if (IsPlaying)
+            {
+                await PausePreviewAsync();
+                return;
+            }
+
+            var target = ClampToSelection(_currentPosition);
+            if (target < _selectionStart || target >= _selectionEnd)
+            {
+                target = _selectionStart;
+            }
+
+            var actual = await SeekPreviewCoreAsync(target);
+            SyncCurrentPosition(actual);
+            await _videoPreviewService.PlayAsync();
+            SetPlaying(true);
+        }
+        finally
+        {
+            _previewInteractionSemaphore.Release();
+        }
     }
 
-    internal void SeekPreview(TimeSpan position) => _videoPreviewService.Seek(position);
+    internal async Task BeginTimelineDragAsync()
+    {
+        await _previewInteractionSemaphore.WaitAsync();
+        try
+        {
+            if (IsDragging || IsSeeking)
+            {
+                return;
+            }
 
-    internal void SetPreviewPlaybackPosition(TimeSpan position) =>
-        _videoPreviewService.SetPlaybackPosition(position);
+            _resumePlaybackAfterDragging = IsPlaying;
+            IsDragging = true;
 
-    private void UpdatePreviewVolume() => _videoPreviewService.SetVolume(_volume);
+            if (_resumePlaybackAfterDragging && HasLoadedPreview)
+            {
+                await PausePreviewAsync();
+            }
+        }
+        finally
+        {
+            _previewInteractionSemaphore.Release();
+        }
+    }
+
+    internal void UpdateDraggingPosition(TimeSpan position)
+    {
+        if (!HasInput)
+        {
+            return;
+        }
+
+        SyncCurrentPosition(ClampToSelection(position));
+    }
+
+    internal async Task PreviewScrubAsync(TimeSpan position)
+    {
+        if (!HasLoadedPreview || IsSeeking)
+        {
+            return;
+        }
+
+        var actual = await _videoPreviewService.SetPlaybackPositionAsync(ClampToSelection(position));
+        SyncCurrentPosition(actual);
+    }
+
+    internal async Task CompleteTimelineDragAsync(TimeSpan position)
+    {
+        await _previewInteractionSemaphore.WaitAsync();
+        try
+        {
+            if (!IsDragging && !_resumePlaybackAfterDragging)
+            {
+                return;
+            }
+
+            var target = ClampToSelection(position);
+            var shouldResumePlayback = _resumePlaybackAfterDragging;
+            _resumePlaybackAfterDragging = false;
+            IsDragging = false;
+
+            if (!HasLoadedPreview)
+            {
+                SyncCurrentPosition(target);
+                SetPlaying(false);
+                return;
+            }
+
+            var actual = await SeekPreviewCoreAsync(target);
+            SyncCurrentPosition(actual);
+
+            if (shouldResumePlayback)
+            {
+                await _videoPreviewService.PlayAsync();
+                SetPlaying(true);
+            }
+            else
+            {
+                SetPlaying(false);
+            }
+        }
+        finally
+        {
+            _previewInteractionSemaphore.Release();
+        }
+    }
+
+    internal async Task JumpToSelectionBoundaryAsync(TimeSpan position)
+    {
+        await _previewInteractionSemaphore.WaitAsync();
+        try
+        {
+            if (!HasLoadedPreview)
+            {
+                return;
+            }
+
+            var actual = await SeekPreviewCoreAsync(position);
+            SyncCurrentPosition(actual);
+            SetPlaying(false);
+        }
+        finally
+        {
+            _previewInteractionSemaphore.Release();
+        }
+    }
+
+    internal async Task HandleSelectionRangeChangedAsync()
+    {
+        await _previewInteractionSemaphore.WaitAsync();
+        try
+        {
+            var constrainedPosition = EnsureCurrentPositionWithinSelection();
+            if (!HasLoadedPreview || IsSeeking || IsDragging)
+            {
+                SyncCurrentPosition(constrainedPosition);
+                return;
+            }
+
+            var playbackPosition = _videoPreviewService.CurrentPosition;
+            if (playbackPosition < _selectionStart)
+            {
+                SyncCurrentPosition(await SeekPreviewCoreAsync(_selectionStart));
+                return;
+            }
+
+            if (playbackPosition > _selectionEnd)
+            {
+                if (IsPlaying)
+                {
+                    await PausePreviewAsync();
+                }
+
+                SyncCurrentPosition(await SeekPreviewCoreAsync(_selectionEnd));
+                SetPlaying(false);
+                return;
+            }
+
+            if (!AreClose(constrainedPosition, playbackPosition))
+            {
+                SyncCurrentPosition(await SeekPreviewCoreAsync(constrainedPosition));
+                return;
+            }
+
+            SyncCurrentPosition(constrainedPosition);
+        }
+        finally
+        {
+            _previewInteractionSemaphore.Release();
+        }
+    }
+
+    internal async Task StopPlaybackAtSelectionEndAsync()
+    {
+        await _previewInteractionSemaphore.WaitAsync();
+        try
+        {
+            _resumePlaybackAfterDragging = false;
+            IsDragging = false;
+
+            if (!HasLoadedPreview)
+            {
+                SyncCurrentPosition(_selectionEnd);
+                SetPlaying(false);
+                return;
+            }
+
+            await PausePreviewAsync();
+            SyncCurrentPosition(await SeekPreviewCoreAsync(_selectionEnd));
+            SetPlaying(false);
+        }
+        finally
+        {
+            _previewInteractionSemaphore.Release();
+        }
+    }
+
+    private async Task<TimeSpan> PausePreviewAsync()
+    {
+        var position = HasLoadedPreview
+            ? await _videoPreviewService.PauseAsync()
+            : ClampToSelection(_currentPosition);
+
+        SyncCurrentPosition(position);
+        SetPlaying(false);
+        return position;
+    }
+
+    private async Task<TimeSpan> SeekPreviewCoreAsync(TimeSpan position)
+    {
+        var target = ClampToSelection(position);
+        if (!HasLoadedPreview)
+        {
+            SyncCurrentPosition(target);
+            return target;
+        }
+
+        IsSeeking = true;
+        try
+        {
+            var actual = await _videoPreviewService.SeekAsync(target);
+            SyncCurrentPosition(actual);
+            return actual;
+        }
+        finally
+        {
+            IsSeeking = false;
+        }
+    }
+
+    private void UpdatePreviewVolume() => _ = _videoPreviewService.SetVolumeAsync(_volume);
 
     private void DisposePreview()
     {
         _videoPreviewService.MediaOpened -= OnPreviewMediaOpened;
         _videoPreviewService.MediaFailed -= OnPreviewMediaFailed;
+        _videoPreviewService.PositionChanged -= OnPreviewPositionChanged;
         _videoPreviewService.PlaybackStateChanged -= OnPreviewPlaybackStateChanged;
         _videoPreviewService.MediaEnded -= OnPreviewMediaEnded;
+        _previewInteractionSemaphore.Dispose();
         _videoPreviewService.Dispose();
     }
 
@@ -88,10 +348,8 @@ public sealed partial class VideoTrimWorkspaceViewModel
             }
 
             ApplyPlayableDuration(e.Duration);
-            var selectionStart = ClampToSelection(_selectionStart);
-            _videoPreviewService.Seek(selectionStart);
-            SyncCurrentPosition(selectionStart);
-            SetPlaying(false);
+            ResetPreviewInteractionState();
+            SyncCurrentPosition(ClampToSelection(_videoPreviewService.CurrentPosition));
             SetPreviewReady();
         });
     }
@@ -111,6 +369,19 @@ public sealed partial class VideoTrimWorkspaceViewModel
         });
     }
 
+    private void OnPreviewPositionChanged(object? sender, VideoPreviewPositionChangedEventArgs e)
+    {
+        RunPreviewOnUiThread(() =>
+        {
+            if (!HasInput || !IsPreviewReady || IsDragging || IsSeeking)
+            {
+                return;
+            }
+
+            SyncCurrentPosition(ClampToSelection(e.Position));
+        });
+    }
+
     private void OnPreviewPlaybackStateChanged(object? sender, VideoPreviewPlaybackStateChangedEventArgs e)
     {
         RunPreviewOnUiThread(() =>
@@ -121,9 +392,9 @@ public sealed partial class VideoTrimWorkspaceViewModel
             }
 
             SetPlaying(e.IsPlaying);
-            if (!e.IsPlaying)
+            if (!e.IsPlaying && !IsDragging && !IsSeeking)
             {
-                SyncCurrentPosition(_videoPreviewService.GetCurrentPosition());
+                SyncCurrentPosition(ClampToSelection(_videoPreviewService.CurrentPosition));
             }
         });
     }
@@ -138,8 +409,16 @@ public sealed partial class VideoTrimWorkspaceViewModel
             }
 
             SetPlaying(false);
-            SyncCurrentPosition(_videoPreviewService.GetCurrentPosition());
+            SyncCurrentPosition(ClampToSelection(_videoPreviewService.CurrentPosition));
         });
+    }
+
+    private void ResetPreviewInteractionState()
+    {
+        _resumePlaybackAfterDragging = false;
+        IsDragging = false;
+        IsSeeking = false;
+        SetPlaying(false);
     }
 
     private bool IsCurrentPreviewSource(string sourcePath) =>

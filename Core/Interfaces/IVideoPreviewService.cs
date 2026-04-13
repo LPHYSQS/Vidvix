@@ -11,6 +11,8 @@ public interface IVideoPreviewService : IDisposable
 
     event EventHandler<VideoPreviewFailedEventArgs>? MediaFailed;
 
+    event EventHandler<VideoPreviewPositionChangedEventArgs>? PositionChanged;
+
     event EventHandler<VideoPreviewPlaybackStateChangedEventArgs>? PlaybackStateChanged;
 
     event EventHandler? MediaEnded;
@@ -27,17 +29,15 @@ public interface IVideoPreviewService : IDisposable
 
     Task LoadAsync(string inputPath, double volume, CancellationToken cancellationToken = default);
 
-    void Unload();
+    Task UnloadAsync(CancellationToken cancellationToken = default);
 
-    void Play();
+    Task PlayAsync(CancellationToken cancellationToken = default);
 
-    void Pause();
+    Task<TimeSpan> PauseAsync(CancellationToken cancellationToken = default);
 
-    void Seek(TimeSpan position);
+    Task<TimeSpan> SeekAsync(TimeSpan position, CancellationToken cancellationToken = default);
 
-    void SetPlaybackPosition(TimeSpan position);
+    Task<TimeSpan> SetPlaybackPositionAsync(TimeSpan position, CancellationToken cancellationToken = default);
 
-    TimeSpan GetCurrentPosition();
-
-    void SetVolume(double volume);
+    Task SetVolumeAsync(double volume, CancellationToken cancellationToken = default);
 }
