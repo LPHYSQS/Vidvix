@@ -23,6 +23,53 @@
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid
+                            x:Name="LayoutRoot"
+                            MinWidth="{TemplateBinding MinWidth}"
+                            MinHeight="{TemplateBinding MinHeight}">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="InteractionSurface.Background" Value="{ThemeResource ControlFillColorTertiaryBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="InteractionSurface.Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="LayoutRoot.Opacity" Value="0.42" />
+                                            <Setter Target="InteractionSurface.Background" Value="Transparent" />
+                                            <Setter Target="InteractionSurface.BorderBrush" Value="Transparent" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+
+                            <Border
+                                x:Name="InteractionSurface"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                Padding="{TemplateBinding Padding}">
+                                <ContentPresenter
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}" />
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style
             x:Key="SelectionTimeInputTextBoxStyle"
@@ -126,7 +173,7 @@
                         Margin="0,0,14,0"
                         AutomationProperties.Name="跳转到裁剪入点"
                         Click="OnJumpToSelectionStartClick"
-                        IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
+                        IsEnabled="{x:Bind ViewModel.CanJumpToSelectionBoundary, Mode=OneWay}"
                         Style="{StaticResource TimelineStripButtonStyle}"
                         ToolTipService.ToolTip="跳转到裁剪入点">
                         <Grid Width="14" Height="14">
@@ -183,7 +230,7 @@
                         Margin="0,0,8,0"
                         AutomationProperties.Name="跳转到裁剪出点"
                         Click="OnJumpToSelectionEndClick"
-                        IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
+                        IsEnabled="{x:Bind ViewModel.CanJumpToSelectionBoundary, Mode=OneWay}"
                         Style="{StaticResource TimelineStripButtonStyle}"
                         ToolTipService.ToolTip="跳转到裁剪出点">
                         <Grid Width="14" Height="14">

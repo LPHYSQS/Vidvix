@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -18,9 +21,18 @@ namespace Vidvix.Views.Controls;
 public sealed partial class VideoTrimWorkspaceView : UserControl
 {
     private static readonly TimeSpan ScrubPreviewInterval = TimeSpan.FromMilliseconds(90);
+    private static readonly TimeSpan ScrubPreviewCacheInterval = TimeSpan.FromMilliseconds(120);
+    private static readonly TimeSpan SelectionBoundaryPreviewBackoff = TimeSpan.FromMilliseconds(80);
+    private static readonly TimeSpan PausedPreviewRefreshDelay = TimeSpan.FromMilliseconds(80);
+    private static readonly TimeSpan PausedPreviewWarmupLead = TimeSpan.FromMilliseconds(180);
+    private const int PreviewSeekCacheCapacity = 18;
+
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly MediaPlayer _mediaPlayer;
     private readonly DispatcherQueueTimer _positionTimer;
+    private readonly HashSet<long> _previewSeekCacheBuckets = new();
+    private readonly LinkedList<long> _previewSeekCacheOrder = new();
+    private readonly object _previewSeekSyncRoot = new();
     private readonly DispatcherQueueTimer _scrubPreviewTimer;
     private readonly ToolTip _volumeToolTip;
     private bool _hasPendingTimelineRefresh;
@@ -33,6 +45,8 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private bool _isUpdatingTimeline;
     private TimeSpan _pendingScrubPreviewPosition;
     private TimeSpan _pendingTimelinePosition;
+    private CancellationTokenSource? _previewSeekCancellationSource;
+    private int _previewSeekCacheSourceVersion = -1;
     private int _sourceVersion;
     private int _timelineRefreshVersion;
 
@@ -120,6 +134,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        ResetPreviewSeekState();
         StopScrubPreviewTimer();
         StopPositionTimer();
         PauseMediaPlayer();
@@ -244,6 +259,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         _timelineRefreshVersion++;
         _hasPendingTimelineRefresh = false;
         _hasPendingScrubPreviewPosition = false;
+        CancelPendingPreviewSeek();
         StartScrubPreviewTimer();
 
         if (!_resumePlaybackAfterScrub || _mediaPlayer.Source is null)
@@ -380,6 +396,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         _sourceVersion++;
         var version = _sourceVersion;
 
+        ResetPreviewSeekState();
         StopPositionTimer();
         PauseMediaPlayer();
         _mediaPlayer.Source = null;
@@ -428,6 +445,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
                 ViewModel.ApplyPlayableDuration(duration);
             }
 
+            ClearPreviewSeekCache();
             ViewModel.SetPreviewReady();
             SeekTo(GetSelectionStart());
         });
@@ -458,6 +476,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     {
         _dispatcherQueue.TryEnqueue(() =>
         {
+            ResetPreviewSeekState();
             StopPositionTimer();
             ViewModel?.SetPreviewFailed("\u5f53\u524d\u89c6\u9891\u65e0\u6cd5\u9884\u89c8\uff0c\u4f46\u4ecd\u53ef\u5c1d\u8bd5\u76f4\u63a5\u5bfc\u51fa\u3002");
         });
@@ -528,39 +547,31 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
-        var shouldResumePlayback = ViewModel.IsPlaying || _mediaPlayer.PlaybackSession.PlaybackState == MediaPlaybackState.Playing;
         StopScrubPreviewTimer();
         _resumePlaybackAfterScrub = false;
         InvalidatePendingTimelineRefresh();
-        SeekTo(target);
-
-        if (shouldResumePlayback)
-        {
-            TrySetPlaybackRate(1d);
-            _mediaPlayer.Play();
-            StartPositionTimer();
-            SetViewModelPlaying(true);
-            return;
-        }
-
-        StopPositionTimer();
-        SetViewModelPlaying(false);
+        PausePlayback(syncTimelinePosition: false);
+        QueuePreviewSeek(
+            target,
+            PreviewSeekMode.Exact,
+            resumePlaybackAfterSeek: false);
     }
 
-    private void SeekTo(TimeSpan position)
+    private void SeekTo(TimeSpan position) => SeekTo(position, PreviewSeekMode.Exact, allowBoundaryBackoff: true);
+
+    private void SeekTo(TimeSpan position, PreviewSeekMode mode, bool allowBoundaryBackoff)
     {
         if (_mediaPlayer.Source is null || ViewModel is null)
         {
             return;
         }
 
-        var target = Clamp(position, GetSelectionStart(), GetSelectionEnd());
-        InvalidatePendingTimelineRefresh();
-        _mediaPlayer.PlaybackSession.Position = target;
+        var requestedTarget = Clamp(position, GetSelectionStart(), GetSelectionEnd());
+        SetPreviewPosition(requestedTarget, mode, allowBoundaryBackoff);
         _isUpdatingTimeline = true;
         try
         {
-            ViewModel.SyncCurrentPosition(target);
+            ViewModel.SyncCurrentPosition(requestedTarget);
         }
         finally
         {
@@ -583,18 +594,13 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
         StopScrubPreviewTimer();
         _hasPendingScrubPreviewPosition = false;
-        SeekTo(TimeSpan.FromMilliseconds(TimelineSlider.Value));
-
-        if (_resumePlaybackAfterScrub)
-        {
-            _resumePlaybackAfterScrub = false;
-            TrySetPlaybackRate(1d);
-            _mediaPlayer.Play();
-            StartPositionTimer();
-            SetViewModelPlaying(true);
-        }
-
-        _isSuppressingPlaybackStateSync = false;
+        var resumePlaybackAfterSeek = _resumePlaybackAfterScrub;
+        _resumePlaybackAfterScrub = false;
+        QueuePreviewSeek(
+            TimeSpan.FromMilliseconds(TimelineSlider.Value),
+            PreviewSeekMode.Exact,
+            resumePlaybackAfterSeek,
+            releasePlaybackStateSuppressionAfterSeek: true);
     }
 
     private void PausePlayback(bool syncTimelinePosition, bool updateViewModelState = true, TimeSpan? seekPosition = null)
@@ -627,11 +633,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         }
 
         _mediaPlayer.Pause();
-        var playbackSession = _mediaPlayer.PlaybackSession;
-        var pausedPosition = playbackSession.Position;
-        playbackSession.Position = pausedPosition;
-        TrySetPlaybackRate(0d);
-        return playbackSession.Position;
+        return _mediaPlayer.PlaybackSession.Position;
     }
 
     private void StartPositionTimer()
@@ -695,7 +697,10 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         }
 
         _hasPendingScrubPreviewPosition = false;
-        SeekTo(_pendingScrubPreviewPosition);
+        QueuePreviewSeek(
+            _pendingScrubPreviewPosition,
+            PreviewSeekMode.FastScrub,
+            resumePlaybackAfterSeek: false);
     }
 
     private void StartScrubPreviewTimer()
@@ -806,4 +811,399 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         {
         }
     }
+
+    private void QueuePreviewSeek(
+        TimeSpan position,
+        PreviewSeekMode mode,
+        bool resumePlaybackAfterSeek,
+        bool releasePlaybackStateSuppressionAfterSeek = false)
+    {
+        if (ViewModel is null || _mediaPlayer.Source is null)
+        {
+            if (releasePlaybackStateSuppressionAfterSeek)
+            {
+                _isSuppressingPlaybackStateSync = false;
+            }
+
+            return;
+        }
+
+        var request = new PreviewSeekRequest(
+            Clamp(position, GetSelectionStart(), GetSelectionEnd()),
+            mode,
+            resumePlaybackAfterSeek,
+            releasePlaybackStateSuppressionAfterSeek,
+            _sourceVersion);
+
+        var nextCancellationSource = new CancellationTokenSource();
+        var previousCancellationSource = SwapPreviewSeekCancellationSource(nextCancellationSource);
+        previousCancellationSource?.Cancel();
+        previousCancellationSource?.Dispose();
+
+        _ = Task.Run(
+            () => ProcessPreviewSeekAsync(request, nextCancellationSource.Token),
+            nextCancellationSource.Token);
+    }
+
+    private async Task ProcessPreviewSeekAsync(PreviewSeekRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (request.Mode == PreviewSeekMode.FastScrub &&
+                IsPreviewSeekCached(request.SourceVersion, request.RequestedPosition))
+            {
+                return;
+            }
+
+            var dispatcherPriority = request.Mode == PreviewSeekMode.FastScrub
+                ? DispatcherQueuePriority.Low
+                : DispatcherQueuePriority.Normal;
+
+            await EnqueueOnDispatcherAsync(() =>
+            {
+                if (!CanApplyPreviewSeek(request.SourceVersion))
+                {
+                    return;
+                }
+
+                if (_mediaPlayer.PlaybackSession.PlaybackState == MediaPlaybackState.Playing)
+                {
+                    PauseMediaPlayer();
+                }
+
+                StopPositionTimer();
+                SetViewModelPlaying(false);
+                SeekTo(
+                    request.RequestedPosition,
+                    request.Mode,
+                    allowBoundaryBackoff: !request.ResumePlaybackAfterSeek);
+            }, cancellationToken, dispatcherPriority).ConfigureAwait(false);
+
+            if (request.ResumePlaybackAfterSeek)
+            {
+                await EnqueueOnDispatcherAsync(() =>
+                {
+                    if (!CanApplyPreviewSeek(request.SourceVersion))
+                    {
+                        return;
+                    }
+
+                    TrySetPlaybackRate(1d);
+                    _mediaPlayer.Play();
+                    StartPositionTimer();
+                    SetViewModelPlaying(true);
+                    if (request.ReleasePlaybackStateSuppressionAfterSeek)
+                    {
+                        _isSuppressingPlaybackStateSync = false;
+                    }
+                }, cancellationToken).ConfigureAwait(false);
+
+                return;
+            }
+
+            if (request.Mode == PreviewSeekMode.Exact)
+            {
+                await ForcePausedPreviewRefreshAsync(
+                    request.RequestedPosition,
+                    request.SourceVersion,
+                    request.ReleasePlaybackStateSuppressionAfterSeek,
+                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (request.ReleasePlaybackStateSuppressionAfterSeek)
+            {
+                await EnqueueOnDispatcherAsync(
+                    () => _isSuppressingPlaybackStateSync = false,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            if (request.ReleasePlaybackStateSuppressionAfterSeek)
+            {
+                await EnqueueOnDispatcherAsync(
+                    () => _isSuppressingPlaybackStateSync = false,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"裁剪预览刷新失败：{exception}");
+            if (request.ReleasePlaybackStateSuppressionAfterSeek)
+            {
+                await EnqueueOnDispatcherAsync(
+                    () => _isSuppressingPlaybackStateSync = false,
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task ForcePausedPreviewRefreshAsync(
+        TimeSpan requestedPosition,
+        int sourceVersion,
+        bool releasePlaybackStateSuppressionAfterSeek,
+        CancellationToken cancellationToken)
+    {
+        var warmupPosition = ResolvePausedPreviewWarmupPosition(requestedPosition);
+
+        try
+        {
+            await EnqueueOnDispatcherAsync(() =>
+            {
+                if (!CanApplyPreviewSeek(sourceVersion))
+                {
+                    return;
+                }
+
+                _isSuppressingPlaybackStateSync = true;
+                if (!AreClose(_mediaPlayer.PlaybackSession.Position, warmupPosition))
+                {
+                    SetPreviewPosition(warmupPosition, PreviewSeekMode.Exact, allowBoundaryBackoff: false);
+                }
+
+                TrySetPlaybackRate(1d);
+                _mediaPlayer.Play();
+            }, cancellationToken).ConfigureAwait(false);
+
+            await Task.Delay(PausedPreviewRefreshDelay, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            await EnqueueOnDispatcherAsync(() =>
+            {
+                if (_mediaPlayer.Source is not null && CanApplyPreviewSeek(sourceVersion))
+                {
+                    PauseMediaPlayer();
+                    StopPositionTimer();
+                    SetViewModelPlaying(false);
+                    SeekTo(requestedPosition, PreviewSeekMode.Exact, allowBoundaryBackoff: true);
+                }
+
+                _isSuppressingPlaybackStateSync = false;
+                if (releasePlaybackStateSuppressionAfterSeek)
+                {
+                    _isSuppressingPlaybackStateSync = false;
+                }
+            }, CancellationToken.None).ConfigureAwait(false);
+        }
+    }
+
+    private TimeSpan SetPreviewPosition(TimeSpan requestedPosition, PreviewSeekMode mode, bool allowBoundaryBackoff)
+    {
+        var previewTarget = ResolvePreviewTargetPosition(requestedPosition, mode, allowBoundaryBackoff);
+        InvalidatePendingTimelineRefresh();
+        _mediaPlayer.PlaybackSession.Position = previewTarget;
+        if (mode == PreviewSeekMode.FastScrub)
+        {
+            RememberPreviewSeek(previewTarget);
+        }
+
+        return previewTarget;
+    }
+
+    private TimeSpan ResolvePreviewTargetPosition(TimeSpan requestedPosition, PreviewSeekMode mode, bool allowBoundaryBackoff)
+    {
+        var selectionStart = GetSelectionStart();
+        var selectionEnd = GetSelectionEnd();
+        var target = mode == PreviewSeekMode.FastScrub
+            ? QuantizeScrubPreviewPosition(requestedPosition)
+            : requestedPosition;
+
+        if (allowBoundaryBackoff &&
+            mode == PreviewSeekMode.Exact &&
+            selectionEnd > selectionStart &&
+            AreClose(requestedPosition, selectionEnd))
+        {
+            var availableBackoff = requestedPosition - selectionStart;
+            if (availableBackoff > TimeSpan.Zero)
+            {
+                var backoffMilliseconds = Math.Min(
+                    SelectionBoundaryPreviewBackoff.TotalMilliseconds,
+                    Math.Max(1d, availableBackoff.TotalMilliseconds / 2d));
+                target = requestedPosition - TimeSpan.FromMilliseconds(backoffMilliseconds);
+            }
+        }
+
+        return Clamp(target, selectionStart, selectionEnd);
+    }
+
+    private TimeSpan ResolvePausedPreviewWarmupPosition(TimeSpan requestedPosition)
+    {
+        var previewTarget = ResolvePreviewTargetPosition(
+            requestedPosition,
+            PreviewSeekMode.Exact,
+            allowBoundaryBackoff: true);
+        var selectionStart = GetSelectionStart();
+        var availableLead = previewTarget - selectionStart;
+        if (availableLead <= TimeSpan.Zero)
+        {
+            return previewTarget;
+        }
+
+        // Paused seeks near trim boundaries need a short decoder run-up, otherwise the frame can stay stale.
+        var leadMilliseconds = Math.Min(
+            PausedPreviewWarmupLead.TotalMilliseconds,
+            Math.Max(SelectionBoundaryPreviewBackoff.TotalMilliseconds, availableLead.TotalMilliseconds / 2d));
+        return Clamp(
+            previewTarget - TimeSpan.FromMilliseconds(leadMilliseconds),
+            selectionStart,
+            previewTarget);
+    }
+
+    private TimeSpan QuantizeScrubPreviewPosition(TimeSpan position)
+    {
+        var bucket = GetPreviewSeekBucket(position);
+        return TimeSpan.FromMilliseconds(bucket * ScrubPreviewCacheInterval.TotalMilliseconds);
+    }
+
+    private bool CanApplyPreviewSeek(int sourceVersion) =>
+        sourceVersion == _sourceVersion &&
+        ViewModel is not null &&
+        _mediaPlayer.Source is not null;
+
+    private bool IsPreviewSeekCached(int sourceVersion, TimeSpan position)
+    {
+        if (_previewSeekCacheSourceVersion != sourceVersion)
+        {
+            return false;
+        }
+
+        return _previewSeekCacheBuckets.Contains(GetPreviewSeekBucket(position));
+    }
+
+    private void RememberPreviewSeek(TimeSpan position)
+    {
+        if (_previewSeekCacheSourceVersion != _sourceVersion)
+        {
+            ClearPreviewSeekCache();
+            _previewSeekCacheSourceVersion = _sourceVersion;
+        }
+
+        var bucket = GetPreviewSeekBucket(position);
+        if (_previewSeekCacheBuckets.Add(bucket))
+        {
+            _previewSeekCacheOrder.AddLast(bucket);
+        }
+
+        while (_previewSeekCacheOrder.Count > PreviewSeekCacheCapacity)
+        {
+            var oldestNode = _previewSeekCacheOrder.First;
+            if (oldestNode is null)
+            {
+                break;
+            }
+
+            _previewSeekCacheOrder.RemoveFirst();
+            _previewSeekCacheBuckets.Remove(oldestNode.Value);
+        }
+    }
+
+    private void ResetPreviewSeekState()
+    {
+        CancelPendingPreviewSeek();
+        ClearPreviewSeekCache();
+        _hasPendingScrubPreviewPosition = false;
+        _isSuppressingPlaybackStateSync = false;
+    }
+
+    private void CancelPendingPreviewSeek()
+    {
+        var cancellationSource = SwapPreviewSeekCancellationSource(null);
+        cancellationSource?.Cancel();
+        cancellationSource?.Dispose();
+    }
+
+    private CancellationTokenSource? SwapPreviewSeekCancellationSource(CancellationTokenSource? nextCancellationSource)
+    {
+        lock (_previewSeekSyncRoot)
+        {
+            var previousCancellationSource = _previewSeekCancellationSource;
+            _previewSeekCancellationSource = nextCancellationSource;
+            return previousCancellationSource;
+        }
+    }
+
+    private void ClearPreviewSeekCache()
+    {
+        _previewSeekCacheBuckets.Clear();
+        _previewSeekCacheOrder.Clear();
+        _previewSeekCacheSourceVersion = -1;
+    }
+
+    private static long GetPreviewSeekBucket(TimeSpan position) =>
+        (long)Math.Round(
+            position.TotalMilliseconds / ScrubPreviewCacheInterval.TotalMilliseconds,
+            MidpointRounding.AwayFromZero);
+
+    private Task EnqueueOnDispatcherAsync(
+        Action action,
+        CancellationToken cancellationToken = default,
+        DispatcherQueuePriority priority = DispatcherQueuePriority.Normal)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Task.FromCanceled(cancellationToken);
+        }
+
+        if (_dispatcherQueue.HasThreadAccess)
+        {
+            action();
+            return Task.CompletedTask;
+        }
+
+        var taskCompletionSource = new TaskCompletionSource<object?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationTokenRegistration cancellationRegistration = default;
+        if (cancellationToken.CanBeCanceled)
+        {
+            cancellationRegistration = cancellationToken.Register(
+                () => taskCompletionSource.TrySetCanceled(cancellationToken));
+        }
+
+        if (!_dispatcherQueue.TryEnqueue(priority, () =>
+        {
+            cancellationRegistration.Dispose();
+            if (cancellationToken.IsCancellationRequested)
+            {
+                taskCompletionSource.TrySetCanceled(cancellationToken);
+                return;
+            }
+
+            try
+            {
+                action();
+                taskCompletionSource.TrySetResult(null);
+            }
+            catch (Exception exception)
+            {
+                taskCompletionSource.TrySetException(exception);
+            }
+        }))
+        {
+            cancellationRegistration.Dispose();
+            taskCompletionSource.TrySetException(
+                new InvalidOperationException("\u65e0\u6cd5\u5c06\u88c1\u526a\u9884\u89c8\u4efb\u52a1\u63d0\u4ea4\u5230 UI \u7ebf\u7a0b\u3002"));
+        }
+
+        return taskCompletionSource.Task;
+    }
+
+    private enum PreviewSeekMode
+    {
+        FastScrub,
+        Exact
+    }
+
+    private readonly record struct PreviewSeekRequest(
+        TimeSpan RequestedPosition,
+        PreviewSeekMode Mode,
+        bool ResumePlaybackAfterSeek,
+        bool ReleasePlaybackStateSuppressionAfterSeek,
+        int SourceVersion);
 }

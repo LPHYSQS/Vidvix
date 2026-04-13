@@ -139,6 +139,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _isPreviewReady, value))
             {
                 OnPropertyChanged(nameof(CanPlayPreview));
+                OnPropertyChanged(nameof(CanJumpToSelectionBoundary));
                 OnPropertyChanged(nameof(PreviewOverlayVisibility));
             }
         }
@@ -152,6 +153,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _isBusy, value))
             {
                 OnPropertyChanged(nameof(CanPlayPreview));
+                OnPropertyChanged(nameof(CanJumpToSelectionBoundary));
                 OnPropertyChanged(nameof(CanEditSelectionInputs));
                 NotifyCommandStates();
             }
@@ -165,6 +167,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         {
             if (SetProperty(ref _isPlaying, value))
             {
+                OnPropertyChanged(nameof(CanJumpToSelectionBoundary));
                 OnPropertyChanged(nameof(PlayPauseButtonText));
                 OnPropertyChanged(nameof(PlayPauseButtonSymbol));
             }
@@ -172,6 +175,8 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
     }
 
     public bool CanPlayPreview => HasInput && IsPreviewReady && !IsBusy && _mediaDuration > TimeSpan.Zero;
+
+    public bool CanJumpToSelectionBoundary => CanPlayPreview && !IsPlaying;
 
     public Visibility PreviewOverlayVisibility => IsPreviewReady ? Visibility.Collapsed : Visibility.Visible;
 
@@ -810,6 +815,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(EditorVisibility));
         OnPropertyChanged(nameof(CanEditSelectionInputs));
         OnPropertyChanged(nameof(CanPlayPreview));
+        OnPropertyChanged(nameof(CanJumpToSelectionBoundary));
         OnPropertyChanged(nameof(InputPath));
         OnPropertyChanged(nameof(InputFileName));
         RaiseTimelineChanged();
