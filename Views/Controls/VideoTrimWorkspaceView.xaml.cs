@@ -11,6 +11,7 @@ using Vidvix.ViewModels;
 using Windows.Media.Core;
 using Windows.Media.Playback;
 using Windows.Storage;
+using VirtualKey = Windows.System.VirtualKey;
 
 namespace Vidvix.Views.Controls;
 
@@ -152,15 +153,14 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         SetViewModelPlaying(true);
     }
 
-    private void OnResetPreviewClick(object sender, RoutedEventArgs e)
+    private void OnJumpToSelectionStartClick(object sender, RoutedEventArgs e)
     {
         if (ViewModel is null)
         {
             return;
         }
 
-        PausePlayback(syncTimelinePosition: true);
-        SeekTo(GetSelectionStart());
+        JumpToSelectionBoundary(GetSelectionStart());
     }
 
     private void OnJumpToSelectionEndClick(object sender, RoutedEventArgs e)
@@ -170,8 +170,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
-        PausePlayback(syncTimelinePosition: true);
-        SeekTo(GetSelectionEnd());
+        JumpToSelectionBoundary(GetSelectionEnd());
     }
 
     private void OnVolumeButtonPointerWheelChanged(object sender, PointerRoutedEventArgs e)
@@ -188,6 +187,53 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         }
 
         AdjustVolume(Math.Sign(delta) * 5d);
+        e.Handled = true;
+    }
+
+    private void OnSelectionInputBeforeTextChanging(TextBox sender, TextBoxBeforeTextChangingEventArgs args)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        if (!ViewModel.IsPotentialSelectionInputText(args.NewText))
+        {
+            args.Cancel = true;
+        }
+    }
+
+    private void OnSelectionStartInputGotFocus(object sender, RoutedEventArgs e) =>
+        ViewModel?.BeginSelectionStartInputEdit();
+
+    private void OnSelectionEndInputGotFocus(object sender, RoutedEventArgs e) =>
+        ViewModel?.BeginSelectionEndInputEdit();
+
+    private void OnSelectionStartInputLostFocus(object sender, RoutedEventArgs e) =>
+        ViewModel?.CommitSelectionStartInput();
+
+    private void OnSelectionEndInputLostFocus(object sender, RoutedEventArgs e) =>
+        ViewModel?.CommitSelectionEndInput();
+
+    private void OnSelectionStartInputKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Enter)
+        {
+            return;
+        }
+
+        ViewModel?.CommitSelectionStartInput();
+        e.Handled = true;
+    }
+
+    private void OnSelectionEndInputKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Enter)
+        {
+            return;
+        }
+
+        ViewModel?.CommitSelectionEndInput();
         e.Handled = true;
     }
 
@@ -270,7 +316,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         {
             if (ViewModel.IsPlaying)
             {
-                LoopPlaybackToSelectionStart();
+                StopPlaybackAtSelectionEnd();
             }
             else
             {
@@ -282,7 +328,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
         if (ViewModel.IsPlaying && playbackPosition >= selectionEnd)
         {
-            LoopPlaybackToSelectionStart();
+            StopPlaybackAtSelectionEnd();
             return;
         }
 
@@ -404,7 +450,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
                 return;
             }
 
-            LoopPlaybackToSelectionStart();
+            StopPlaybackAtSelectionEnd();
         });
     }
 
@@ -463,7 +509,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
                 return;
             }
 
-            LoopPlaybackToSelectionStart();
+            StopPlaybackAtSelectionEnd();
             return;
         }
 
@@ -475,6 +521,32 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         QueueTimelineRefresh(current);
     }
 
+    private void JumpToSelectionBoundary(TimeSpan target)
+    {
+        if (ViewModel is null || _mediaPlayer.Source is null)
+        {
+            return;
+        }
+
+        var shouldResumePlayback = ViewModel.IsPlaying || _mediaPlayer.PlaybackSession.PlaybackState == MediaPlaybackState.Playing;
+        StopScrubPreviewTimer();
+        _resumePlaybackAfterScrub = false;
+        InvalidatePendingTimelineRefresh();
+        SeekTo(target);
+
+        if (shouldResumePlayback)
+        {
+            TrySetPlaybackRate(1d);
+            _mediaPlayer.Play();
+            StartPositionTimer();
+            SetViewModelPlaying(true);
+            return;
+        }
+
+        StopPositionTimer();
+        SetViewModelPlaying(false);
+    }
+
     private void SeekTo(TimeSpan position)
     {
         if (_mediaPlayer.Source is null || ViewModel is null)
@@ -483,6 +555,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         }
 
         var target = Clamp(position, GetSelectionStart(), GetSelectionEnd());
+        InvalidatePendingTimelineRefresh();
         _mediaPlayer.PlaybackSession.Position = target;
         _isUpdatingTimeline = true;
         try
@@ -493,6 +566,12 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         {
             _isUpdatingTimeline = false;
         }
+    }
+
+    private void InvalidatePendingTimelineRefresh()
+    {
+        _timelineRefreshVersion++;
+        _hasPendingTimelineRefresh = false;
     }
 
     private void CommitTimelinePosition()
@@ -697,25 +776,16 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         _mediaPlayer.Volume = ViewModel.VolumeLevel;
     }
 
-    private void LoopPlaybackToSelectionStart()
+    private void StopPlaybackAtSelectionEnd()
     {
         if (ViewModel is null || _mediaPlayer.Source is null)
         {
             return;
         }
 
-        _isSuppressingPlaybackStateSync = true;
-        SeekTo(GetSelectionStart());
-        TrySetPlaybackRate(1d);
-
-        if (_mediaPlayer.PlaybackSession.PlaybackState != MediaPlaybackState.Playing)
-        {
-            _mediaPlayer.Play();
-        }
-
-        StartPositionTimer();
-        SetViewModelPlaying(true);
-        _dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => _isSuppressingPlaybackStateSync = false);
+        _resumePlaybackAfterScrub = false;
+        StopScrubPreviewTimer();
+        PausePlayback(syncTimelinePosition: false, seekPosition: GetSelectionEnd());
     }
 
     private void UpdateVolumeToolTip()

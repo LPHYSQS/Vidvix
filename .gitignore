@@ -1,29 +1,43 @@
 # Build outputs
-bin/
-obj/
+[Bb]in/
+[Oo]bj/
 artifacts/
+out/
+publish/
 TestResults/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
 
 # IDE and user-specific settings
-/.vs/
-/.idea/
-/.vscode/
+.vs/
+.idea/
+.vscode/
 *.user
+*.rsuser
 *.suo
+*.userosscache
+*.sln.docstates
 
 # Local .NET SDK, NuGet, and Codex caches
-/.dotnet/
-/.dotnet-cli/
-/.dotnet-cli-home/
-/.nuget-packages/
-/.codex-dotnet/
-/.appdata/
-/.localappdata/
+.dotnet/
+.dotnet-cli/
+.dotnet-cli-home/
+.nuget/
+.nuget-packages/
+packages/
+.codex-dotnet/
+.appdata/
+.localappdata/
+AppData/
 
 # Temporary logs and diagnostics
 *.log
+*.binlog
 *.tmp
 *.temp
+*.cache
 *.pdb
 
 # Windows app packaging outputs

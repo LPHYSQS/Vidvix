@@ -20,6 +20,12 @@ public sealed class MediaInfoService : IMediaInfoService
     private const string ParseFailedMessage = "\u65e0\u6cd5\u89e3\u6790\u8be5\u89c6\u9891\u6587\u4ef6\u3002";
     private const string MissingVideoStreamValue = "\u672a\u68c0\u6d4b\u5230\u89c6\u9891\u6d41";
     private const string MissingAudioStreamValue = "\u672a\u68c0\u6d4b\u5230\u97f3\u9891\u6d41";
+    private const string LightweightProbeEntries =
+        "format=duration,bit_rate,format_name,format_long_name:format_tags=encoder:" +
+        "stream=codec_type,codec_name,profile,level,width,height,avg_frame_rate,r_frame_rate,duration,bit_rate," +
+        "bits_per_raw_sample,bits_per_sample,pix_fmt,color_space,color_primaries,color_transfer,channels,channel_layout," +
+        "sample_rate,codec_tag_string:stream_tags=encoder,DURATION,DURATION-eng,BPS,BPS-eng,variant_bitrate,BANDWIDTH," +
+        "NUMBER_OF_BYTES,NUMBER_OF_BYTES-eng";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -129,7 +135,7 @@ public sealed class MediaInfoService : IMediaInfoService
             }
 
             var probeResult = ParseProbeResult(probeExecutionResult.StandardOutput);
-            var resolvedBitrates = await ResolveStreamBitratesAsync(runtimeResolution.ExecutablePath, cacheContext.InputPath, probeResult).ConfigureAwait(false);
+            var resolvedBitrates = ResolveStreamBitrates(probeResult);
             var snapshot = BuildSnapshot(cacheContext, probeResult, resolvedBitrates);
             _cache[cacheContext.CacheKey] = snapshot;
             RemoveStaleEntries(cacheContext);
@@ -210,8 +216,8 @@ public sealed class MediaInfoService : IMediaInfoService
         startInfo.ArgumentList.Add("quiet");
         startInfo.ArgumentList.Add("-print_format");
         startInfo.ArgumentList.Add("json");
-        startInfo.ArgumentList.Add("-show_format");
-        startInfo.ArgumentList.Add("-show_streams");
+        startInfo.ArgumentList.Add("-show_entries");
+        startInfo.ArgumentList.Add(LightweightProbeEntries);
         startInfo.ArgumentList.Add(inputPath);
         return startInfo;
     }
@@ -434,8 +440,8 @@ public sealed class MediaInfoService : IMediaInfoService
                 "quiet",
                 "-print_format",
                 "json",
-                "-show_format",
-                "-show_streams",
+                "-show_entries",
+                LightweightProbeEntries,
                 QuoteArgument(inputPath)
             });
 
@@ -448,7 +454,7 @@ public sealed class MediaInfoService : IMediaInfoService
             ?? throw new JsonException("ffprobe \u8f93\u51fa\u4e3a\u7a7a\u3002");
     }
 
-    private async Task<ResolvedStreamBitrates> ResolveStreamBitratesAsync(string ffmpegPath, string inputPath, FfprobeResponse probeResult)
+    private static ResolvedStreamBitrates ResolveStreamBitrates(FfprobeResponse probeResult)
     {
         var streams = probeResult.streams ?? Array.Empty<FfprobeStream>();
         var format = probeResult.format;
@@ -457,26 +463,6 @@ public sealed class MediaInfoService : IMediaInfoService
 
         var videoBitrateText = ResolveStreamBitrateText(videoStream, format, audioStream is null, isAudioStream: false);
         var audioBitrateText = ResolveStreamBitrateText(audioStream, format, videoStream is null, isAudioStream: true);
-
-        if (videoStream is not null && string.IsNullOrWhiteSpace(videoBitrateText))
-        {
-            videoBitrateText = await ProbeMappedStreamBitrateAsync(
-                ffmpegPath,
-                inputPath,
-                "0:v:0",
-                "video",
-                ResolveStreamDurationSeconds(videoStream, format)).ConfigureAwait(false);
-        }
-
-        if (audioStream is not null && string.IsNullOrWhiteSpace(audioBitrateText))
-        {
-            audioBitrateText = await ProbeMappedStreamBitrateAsync(
-                ffmpegPath,
-                inputPath,
-                "0:a:0",
-                "audio",
-                ResolveStreamDurationSeconds(audioStream, format)).ConfigureAwait(false);
-        }
 
         return new ResolvedStreamBitrates(videoBitrateText, audioBitrateText);
     }

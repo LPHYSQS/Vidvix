@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -20,6 +21,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
     private readonly ApplicationConfiguration _configuration;
     private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
     private readonly IFFmpegService _ffmpegService;
+    private readonly IFFmpegVideoAccelerationService _ffmpegVideoAccelerationService;
     private readonly IMediaInfoService _mediaInfoService;
     private readonly IVideoTrimCommandFactory _videoTrimCommandFactory;
     private readonly IFilePickerService _filePickerService;
@@ -49,10 +51,14 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
     private TimeSpan _selectionStart;
     private TimeSpan _selectionEnd;
     private TimeSpan _currentPosition;
+    private string _selectionStartInputText = string.Empty;
+    private string _selectionEndInputText = string.Empty;
     private double _volume = 0.8d;
     private bool _isBusy;
     private bool _isPreviewReady;
     private bool _isPlaying;
+    private bool _isSelectionStartInputEditing;
+    private bool _isSelectionEndInputEditing;
     private CancellationTokenSource? _exportCancellationSource;
     private Visibility _exportProgressVisibility = Visibility.Collapsed;
     private bool _isExportProgressIndeterminate;
@@ -66,6 +72,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         ApplicationConfiguration configuration,
         IFFmpegRuntimeService ffmpegRuntimeService,
         IFFmpegService ffmpegService,
+        IFFmpegVideoAccelerationService ffmpegVideoAccelerationService,
         IMediaInfoService mediaInfoService,
         IVideoTrimCommandFactory videoTrimCommandFactory,
         IFilePickerService filePickerService,
@@ -76,6 +83,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _ffmpegRuntimeService = ffmpegRuntimeService ?? throw new ArgumentNullException(nameof(ffmpegRuntimeService));
         _ffmpegService = ffmpegService ?? throw new ArgumentNullException(nameof(ffmpegService));
+        _ffmpegVideoAccelerationService = ffmpegVideoAccelerationService ?? throw new ArgumentNullException(nameof(ffmpegVideoAccelerationService));
         _mediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
         _videoTrimCommandFactory = videoTrimCommandFactory ?? throw new ArgumentNullException(nameof(videoTrimCommandFactory));
         _filePickerService = filePickerService ?? throw new ArgumentNullException(nameof(filePickerService));
@@ -130,6 +138,8 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 
     public Visibility EditorVisibility => HasInput ? Visibility.Visible : Visibility.Collapsed;
 
+    public bool CanEditSelectionInputs => HasInput && !IsBusy;
+
     public bool IsPreviewReady
     {
         get => _isPreviewReady;
@@ -151,6 +161,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _isBusy, value))
             {
                 OnPropertyChanged(nameof(CanPlayPreview));
+                OnPropertyChanged(nameof(CanEditSelectionInputs));
                 NotifyCommandStates();
             }
         }
@@ -312,19 +323,39 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 
     public string VolumeToolTipText => "\u97f3\u91cf\uff1a" + VolumePercentText;
 
-    public string CurrentPositionText => FormatTime(_currentPosition);
+    public string SelectionTimeInputFormatHint => GetSelectionInputFormatPattern();
 
-    public string TimelinePositionText => $"{FormatCompactTime(_currentPosition)} / {FormatCompactTime(_mediaDuration)}";
+    public int SelectionTimeInputMaxLength => SelectionTimeInputFormatHint.Length;
 
-    public string SelectionStartText => FormatTime(_selectionStart);
+    public double SelectionTimeInputBoxWidth => GetSelectionTimeInputBoxWidth();
 
-    public string SelectionEndText => FormatTime(_selectionEnd);
+    public string SelectionTimeInputAssistText => "格式：" + SelectionTimeInputFormatHint;
 
-    public string MediaDurationText => FormatTime(_mediaDuration);
+    public string SelectionStartInputText
+    {
+        get => _selectionStartInputText;
+        set => SetSelectionInputText(SelectionInputKind.Start, value);
+    }
+
+    public string SelectionEndInputText
+    {
+        get => _selectionEndInputText;
+        set => SetSelectionInputText(SelectionInputKind.End, value);
+    }
+
+    public string CurrentPositionText => FormatSelectionTime(_currentPosition);
+
+    public string TimelinePositionText => $"{FormatCompactSelectionTime(_currentPosition)} / {FormatCompactSelectionTime(_mediaDuration)}";
+
+    public string SelectionStartText => FormatSelectionTime(_selectionStart);
+
+    public string SelectionEndText => FormatSelectionTime(_selectionEnd);
+
+    public string MediaDurationText => FormatSelectionTime(_mediaDuration);
 
     public TimeSpan SelectedDuration => _selectionEnd > _selectionStart ? _selectionEnd - _selectionStart : TimeSpan.Zero;
 
-    public string SelectedDurationText => FormatTime(SelectedDuration);
+    public string SelectedDurationText => FormatSelectionTime(SelectedDuration);
 
     public string SelectionSummaryText => HasInput
         ? $"\u88c1\u526a\u533a\u95f4\uff1a{SelectionStartText} - {SelectionEndText}\uff08\u5171 {SelectedDurationText}\uff09"
@@ -500,6 +531,47 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 
     public void SyncCurrentPosition(TimeSpan position) => SetCurrentPosition(position);
 
+    public void BeginSelectionStartInputEdit() => _isSelectionStartInputEditing = true;
+
+    public void BeginSelectionEndInputEdit() => _isSelectionEndInputEditing = true;
+
+    public void CommitSelectionStartInput()
+    {
+        CommitSelectionInput(SelectionInputKind.Start);
+    }
+
+    public void CommitSelectionEndInput()
+    {
+        CommitSelectionInput(SelectionInputKind.End);
+    }
+
+    public bool IsPotentialSelectionInputText(string? text)
+    {
+        if (text is null)
+        {
+            return true;
+        }
+
+        var candidate = text.Trim();
+        if (candidate.Length == 0)
+        {
+            return true;
+        }
+
+        if (candidate.Length > SelectionTimeInputMaxLength ||
+            candidate.Any(character => !char.IsDigit(character) && character is not ':' and not '.'))
+        {
+            return false;
+        }
+
+        return GetSelectionInputFormat() switch
+        {
+            SelectionInputFormat.Hours => IsPotentialCompositeTimeInput(candidate, expectedSegmentCount: 3),
+            SelectionInputFormat.Minutes => IsPotentialCompositeTimeInput(candidate, expectedSegmentCount: 2),
+            _ => IsPotentialSecondsOnlyInput(candidate)
+        };
+    }
+
     public TimeSpan EnsureCurrentPositionWithinSelection()
     {
         SetCurrentPosition(ClampToSelection(_currentPosition));
@@ -629,7 +701,19 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
             StatusMessage = "\u6b63\u5728\u51c6\u5907\u5bfc\u51fa\u88c1\u526a\u7247\u6bb5...";
 
             var runtime = await _ffmpegRuntimeService.EnsureAvailableAsync(_exportCancellationSource.Token);
-            var request = new VideoTrimExportRequest(_inputPath, PlannedOutputPath, _selectionStart, _selectionEnd, SelectedOutputFormat);
+            var preferences = _userPreferencesService.Load();
+            var videoAccelerationKind = await ResolveVideoAccelerationKindAsync(
+                runtime.ExecutablePath,
+                preferences,
+                _exportCancellationSource.Token);
+            var request = new VideoTrimExportRequest(
+                _inputPath,
+                PlannedOutputPath,
+                _selectionStart,
+                _selectionEnd,
+                SelectedOutputFormat,
+                preferences.PreferredTranscodingMode,
+                videoAccelerationKind);
             var command = _videoTrimCommandFactory.Create(request, runtime.ExecutablePath);
             var options = new FFmpegExecutionOptions
             {
@@ -678,6 +762,25 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         HasInput &&
         SelectedDuration > TimeSpan.Zero &&
         !string.IsNullOrWhiteSpace(PlannedOutputPath);
+
+    private async Task<VideoAccelerationKind> ResolveVideoAccelerationKindAsync(
+        string runtimeExecutablePath,
+        UserPreferences preferences,
+        CancellationToken cancellationToken)
+    {
+        if (preferences.PreferredTranscodingMode != TranscodingMode.FullTranscode ||
+            !preferences.EnableGpuAccelerationForTranscoding ||
+            !SupportsHardwareVideoEncoding(SelectedOutputFormat))
+        {
+            return VideoAccelerationKind.None;
+        }
+
+        var probeResult = await _ffmpegVideoAccelerationService
+            .ProbeBestEncoderAsync(runtimeExecutablePath, cancellationToken)
+            .ConfigureAwait(false);
+
+        return probeResult.IsAvailable ? probeResult.Kind : VideoAccelerationKind.None;
+    }
 
     private void RefreshMediaInfoFields()
     {
@@ -760,6 +863,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasInput));
         OnPropertyChanged(nameof(PlaceholderVisibility));
         OnPropertyChanged(nameof(EditorVisibility));
+        OnPropertyChanged(nameof(CanEditSelectionInputs));
         OnPropertyChanged(nameof(CanPlayPreview));
         OnPropertyChanged(nameof(InputPath));
         OnPropertyChanged(nameof(InputFileName));
@@ -772,6 +876,10 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(TimelineMinimum));
         OnPropertyChanged(nameof(TimelineMaximum));
         OnPropertyChanged(nameof(SelectionMaximum));
+        OnPropertyChanged(nameof(SelectionTimeInputFormatHint));
+        OnPropertyChanged(nameof(SelectionTimeInputMaxLength));
+        OnPropertyChanged(nameof(SelectionTimeInputBoxWidth));
+        OnPropertyChanged(nameof(SelectionTimeInputAssistText));
         OnPropertyChanged(nameof(CurrentPositionMilliseconds));
         OnPropertyChanged(nameof(CurrentPositionText));
         OnPropertyChanged(nameof(TimelinePositionText));
@@ -783,6 +891,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(SelectedDuration));
         OnPropertyChanged(nameof(SelectedDurationText));
         OnPropertyChanged(nameof(SelectionSummaryText));
+        RefreshSelectionInputTexts();
         NotifyCommandStates();
     }
 
@@ -876,6 +985,58 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         }
     }
 
+    private void SetSelectionInputText(SelectionInputKind kind, string? value)
+    {
+        var normalized = value ?? string.Empty;
+        var propertyChanged = kind switch
+        {
+            SelectionInputKind.Start => SetProperty(ref _selectionStartInputText, normalized, nameof(SelectionStartInputText)),
+            _ => SetProperty(ref _selectionEndInputText, normalized, nameof(SelectionEndInputText))
+        };
+
+        if (!propertyChanged)
+        {
+            return;
+        }
+
+        TryApplySelectionInput(kind, normalized, normalizeSuccessfulText: false);
+    }
+
+    private void CommitSelectionInput(SelectionInputKind kind)
+    {
+        TryApplySelectionInput(kind, GetSelectionInputText(kind), normalizeSuccessfulText: true);
+        SetSelectionInputEditing(kind, false);
+        RefreshSelectionInputTexts(force: true);
+    }
+
+    private bool TryApplySelectionInput(
+        SelectionInputKind kind,
+        string? text,
+        bool normalizeSuccessfulText)
+    {
+        if (!HasInput || string.IsNullOrWhiteSpace(text) || !TryParseSelectionInput(text, out var parsed))
+        {
+            return false;
+        }
+
+        if (kind == SelectionInputKind.Start)
+        {
+            SetSelectionStart(parsed);
+        }
+        else
+        {
+            SetSelectionEnd(parsed);
+        }
+
+        var effectiveValue = kind == SelectionInputKind.Start ? _selectionStart : _selectionEnd;
+        if (normalizeSuccessfulText || !AreClose(parsed, effectiveValue))
+        {
+            SetSelectionInputTextSilently(kind, FormatSelectionTime(effectiveValue));
+        }
+
+        return true;
+    }
+
     private void SetSelectionStart(TimeSpan position)
     {
         if (_mediaDuration <= TimeSpan.Zero)
@@ -926,6 +1087,292 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 
     private TimeSpan GetMinimumRange() => _mediaDuration < MinimumSelectionLength ? _mediaDuration : MinimumSelectionLength;
 
+    private void RefreshSelectionInputTexts(bool force = false)
+    {
+        var startText = HasInput ? FormatSelectionTime(_selectionStart) : string.Empty;
+        var endText = HasInput ? FormatSelectionTime(_selectionEnd) : string.Empty;
+
+        if (force || !_isSelectionStartInputEditing)
+        {
+            SetSelectionInputTextSilently(SelectionInputKind.Start, startText);
+        }
+
+        if (force || !_isSelectionEndInputEditing)
+        {
+            SetSelectionInputTextSilently(SelectionInputKind.End, endText);
+        }
+    }
+
+    private string GetSelectionInputText(SelectionInputKind kind) =>
+        kind == SelectionInputKind.Start ? _selectionStartInputText : _selectionEndInputText;
+
+    private void SetSelectionInputEditing(SelectionInputKind kind, bool isEditing)
+    {
+        if (kind == SelectionInputKind.Start)
+        {
+            _isSelectionStartInputEditing = isEditing;
+        }
+        else
+        {
+            _isSelectionEndInputEditing = isEditing;
+        }
+    }
+
+    private void SetSelectionInputTextSilently(SelectionInputKind kind, string text)
+    {
+        if (kind == SelectionInputKind.Start)
+        {
+            if (string.Equals(_selectionStartInputText, text, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _selectionStartInputText = text;
+            OnPropertyChanged(nameof(SelectionStartInputText));
+            return;
+        }
+
+        if (string.Equals(_selectionEndInputText, text, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _selectionEndInputText = text;
+        OnPropertyChanged(nameof(SelectionEndInputText));
+    }
+
+    private SelectionInputFormat GetSelectionInputFormat()
+    {
+        if (_mediaDuration >= TimeSpan.FromHours(1))
+        {
+            return SelectionInputFormat.Hours;
+        }
+
+        return _mediaDuration >= TimeSpan.FromMinutes(1)
+            ? SelectionInputFormat.Minutes
+            : SelectionInputFormat.Seconds;
+    }
+
+    private string GetSelectionInputFormatPattern() =>
+        GetSelectionInputFormat() switch
+        {
+            SelectionInputFormat.Hours => "HH:mm:ss.fff",
+            SelectionInputFormat.Minutes => "mm:ss.fff",
+            _ => "ss.fff"
+        };
+
+    private double GetSelectionTimeInputBoxWidth() =>
+        GetSelectionInputFormat() switch
+        {
+            SelectionInputFormat.Hours => 188d,
+            SelectionInputFormat.Minutes => 156d,
+            _ => 136d
+        };
+
+    private bool TryParseSelectionInput(string? text, out TimeSpan value)
+    {
+        value = TimeSpan.Zero;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var candidate = text.Trim();
+        return GetSelectionInputFormat() switch
+        {
+            SelectionInputFormat.Hours => TryParseCompositeTime(candidate, expectedSegmentCount: 3, out value),
+            SelectionInputFormat.Minutes => TryParseCompositeTime(candidate, expectedSegmentCount: 2, out value),
+            _ => TryParseSecondsOnlyTime(candidate, out value)
+        };
+    }
+
+    private static bool TryParseCompositeTime(
+        string text,
+        int expectedSegmentCount,
+        out TimeSpan value)
+    {
+        value = TimeSpan.Zero;
+        if (!TrySplitMilliseconds(text, out var timePart, out var milliseconds))
+        {
+            return false;
+        }
+
+        var segments = timePart.Split(':', StringSplitOptions.None);
+        if (segments.Length != expectedSegmentCount ||
+            segments.Any(segment => segment.Length is < 1 or > 2 || !IsDigitsOnly(segment)))
+        {
+            return false;
+        }
+
+        var numbers = segments
+            .Select(segment => int.Parse(segment, CultureInfo.InvariantCulture))
+            .ToArray();
+        if (numbers.Any(number => number < 0))
+        {
+            return false;
+        }
+
+        if (expectedSegmentCount == 3)
+        {
+            if (numbers[1] > 59 || numbers[2] > 59)
+            {
+                return false;
+            }
+
+            value = TimeSpan.FromHours(numbers[0]) +
+                    TimeSpan.FromMinutes(numbers[1]) +
+                    TimeSpan.FromSeconds(numbers[2]) +
+                    TimeSpan.FromMilliseconds(milliseconds);
+            return true;
+        }
+
+        if (numbers[0] > 59 || numbers[1] > 59)
+        {
+            return false;
+        }
+
+        value = TimeSpan.FromMinutes(numbers[0]) +
+                TimeSpan.FromSeconds(numbers[1]) +
+                TimeSpan.FromMilliseconds(milliseconds);
+        return true;
+    }
+
+    private static bool TryParseSecondsOnlyTime(string text, out TimeSpan value)
+    {
+        value = TimeSpan.Zero;
+        if (!TrySplitMilliseconds(text, out var secondsPart, out var milliseconds) ||
+            secondsPart.Length is < 1 or > 2 ||
+            !IsDigitsOnly(secondsPart))
+        {
+            return false;
+        }
+
+        var seconds = int.Parse(secondsPart, CultureInfo.InvariantCulture);
+        if (seconds > 59)
+        {
+            return false;
+        }
+
+        value = TimeSpan.FromSeconds(seconds) + TimeSpan.FromMilliseconds(milliseconds);
+        return true;
+    }
+
+    private static bool TrySplitMilliseconds(string text, out string timePart, out int milliseconds)
+    {
+        timePart = string.Empty;
+        milliseconds = 0;
+
+        var segments = text.Split('.', StringSplitOptions.None);
+        if (segments.Length > 2)
+        {
+            return false;
+        }
+
+        timePart = segments[0];
+        if (string.IsNullOrWhiteSpace(timePart))
+        {
+            return false;
+        }
+
+        if (segments.Length == 1)
+        {
+            return true;
+        }
+
+        var fraction = segments[1];
+        if (fraction.Length is < 1 or > 3 || !IsDigitsOnly(fraction))
+        {
+            return false;
+        }
+
+        milliseconds = int.Parse(fraction.PadRight(3, '0'), CultureInfo.InvariantCulture);
+        return true;
+    }
+
+    private static bool IsPotentialCompositeTimeInput(string text, int expectedSegmentCount)
+    {
+        var dotIndex = text.IndexOf('.');
+        if (dotIndex == 0 || text.LastIndexOf('.') != dotIndex)
+        {
+            return false;
+        }
+
+        var mainPart = dotIndex >= 0 ? text[..dotIndex] : text;
+        var fraction = dotIndex >= 0 ? text[(dotIndex + 1)..] : string.Empty;
+        if (fraction.Length > 3 || !IsDigitsOnly(fraction))
+        {
+            return false;
+        }
+
+        var segments = mainPart.Split(':', StringSplitOptions.None);
+        if (segments.Length > expectedSegmentCount)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < segments.Length; index++)
+        {
+            var segment = segments[index];
+            var isTail = index == segments.Length - 1;
+            if (segment.Length == 0)
+            {
+                if (!isTail)
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (segment.Length > 2 || !IsDigitsOnly(segment))
+            {
+                return false;
+            }
+
+            var number = int.Parse(segment, CultureInfo.InvariantCulture);
+            var isHourSegment = expectedSegmentCount == 3 && index == 0;
+            if (!isHourSegment && number > 59)
+            {
+                return false;
+            }
+        }
+
+        if (dotIndex < 0)
+        {
+            return true;
+        }
+
+        return segments.Length == expectedSegmentCount && segments[^1].Length > 0;
+    }
+
+    private static bool IsPotentialSecondsOnlyInput(string text)
+    {
+        if (text.Contains(':', StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var dotIndex = text.IndexOf('.');
+        if (dotIndex == 0 || text.LastIndexOf('.') != dotIndex)
+        {
+            return false;
+        }
+
+        var secondsPart = dotIndex >= 0 ? text[..dotIndex] : text;
+        var fraction = dotIndex >= 0 ? text[(dotIndex + 1)..] : string.Empty;
+        if (secondsPart.Length is < 1 or > 2 ||
+            !IsDigitsOnly(secondsPart) ||
+            fraction.Length > 3 ||
+            !IsDigitsOnly(fraction))
+        {
+            return false;
+        }
+
+        return int.Parse(secondsPart, CultureInfo.InvariantCulture) <= 59;
+    }
+
+    private static bool IsDigitsOnly(string value) => value.All(char.IsDigit);
+
     private void ShowExportPreparationProgress()
     {
         ExportProgressVisibility = Visibility.Visible;
@@ -953,7 +1400,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         ExportProgressValue = Math.Round(normalized * 100d, 1);
         ExportProgressPercentText = $"{Math.Round(normalized * 100d):0}%";
         ExportProgressDetailText = progress.ProcessedDuration is { } processed
-            ? $"\u5df2\u5bfc\u51fa {FormatTime(processed)} / {SelectedDurationText}"
+            ? $"\u5df2\u5bfc\u51fa {FormatSelectionTime(processed)} / {SelectedDurationText}"
             : $"\u5f53\u524d\u5bfc\u51fa\u8fdb\u5ea6 {ExportProgressPercentText}";
     }
 
@@ -1069,6 +1516,12 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         return lines.LastOrDefault() ?? "FFmpeg \u672a\u8fd4\u56de\u53ef\u7528\u9519\u8bef\u4fe1\u606f\u3002";
     }
 
+    private static bool SupportsHardwareVideoEncoding(OutputFormatOption outputFormat)
+    {
+        var extension = outputFormat.Extension.ToLowerInvariant();
+        return extension is ".mp4" or ".mkv" or ".mov" or ".m4v" or ".ts" or ".m2ts";
+    }
+
     private static TimeSpan Clamp(TimeSpan value, TimeSpan min, TimeSpan max) =>
         value < min ? min : value > max ? max : value;
 
@@ -1079,29 +1532,46 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
     private static bool AreClose(TimeSpan left, TimeSpan right) =>
         Math.Abs((left - right).TotalMilliseconds) < 1d;
 
-    private static string FormatTime(TimeSpan duration)
+    private string FormatSelectionTime(TimeSpan duration)
     {
         if (duration < TimeSpan.Zero)
         {
             duration = TimeSpan.Zero;
         }
 
-        var totalHours = (int)duration.TotalHours;
-        return totalHours >= 1
-            ? $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}.{duration.Milliseconds:000}"
-            : $"{duration.Minutes:00}:{duration.Seconds:00}.{duration.Milliseconds:000}";
+        return GetSelectionInputFormat() switch
+        {
+            SelectionInputFormat.Hours => $"{(int)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}.{duration.Milliseconds:000}",
+            SelectionInputFormat.Minutes => $"{(int)duration.TotalMinutes:00}:{duration.Seconds:00}.{duration.Milliseconds:000}",
+            _ => $"{(int)duration.TotalSeconds:00}.{duration.Milliseconds:000}"
+        };
     }
 
-    private static string FormatCompactTime(TimeSpan duration)
+    private string FormatCompactSelectionTime(TimeSpan duration)
     {
         if (duration < TimeSpan.Zero)
         {
             duration = TimeSpan.Zero;
         }
 
-        var totalHours = (int)duration.TotalHours;
-        return totalHours >= 1
-            ? $"{totalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}"
-            : $"{duration.Minutes:00}:{duration.Seconds:00}";
+        return GetSelectionInputFormat() switch
+        {
+            SelectionInputFormat.Hours => $"{(int)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}",
+            SelectionInputFormat.Minutes => $"{(int)duration.TotalMinutes:00}:{duration.Seconds:00}",
+            _ => $"{(int)duration.TotalSeconds:00}.{duration.Milliseconds:000}"
+        };
+    }
+
+    private enum SelectionInputFormat
+    {
+        Seconds,
+        Minutes,
+        Hours
+    }
+
+    private enum SelectionInputKind
+    {
+        Start,
+        End
     }
 }

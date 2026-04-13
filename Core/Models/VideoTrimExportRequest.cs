@@ -7,7 +7,9 @@ public sealed record VideoTrimExportRequest(
     string OutputPath,
     TimeSpan StartPosition,
     TimeSpan EndPosition,
-    OutputFormatOption OutputFormat)
+    OutputFormatOption OutputFormat,
+    TranscodingMode TranscodingMode,
+    VideoAccelerationKind VideoAccelerationKind)
 {
     public TimeSpan Duration => EndPosition - StartPosition;
 }

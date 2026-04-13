@@ -115,7 +115,7 @@
                         Grid.Column="1"
                         Margin="0,0,14,0"
                         AutomationProperties.Name="跳转到裁剪入点"
-                        Click="OnResetPreviewClick"
+                        Click="OnJumpToSelectionStartClick"
                         IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
                         Style="{StaticResource TimelineStripButtonStyle}"
                         ToolTipService.ToolTip="跳转到裁剪入点">
@@ -219,7 +219,76 @@
                         <TextBlock FontSize="14" FontWeight="SemiBold" Text="裁剪区间" />
                         <TextBlock Opacity="0.72" Text="{x:Bind ViewModel.SelectionSummaryText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                         <local:DualThumbRangeSelector x:Name="RangeSelector" EndValue="{x:Bind ViewModel.SelectionEndMilliseconds, Mode=TwoWay}" Maximum="{x:Bind ViewModel.SelectionMaximum, Mode=OneWay}" Minimum="0" MinimumRange="1" SelectionChanged="OnRangeSelectorSelectionChanged" StartValue="{x:Bind ViewModel.SelectionStartMilliseconds, Mode=TwoWay}" />
-                        <Grid ColumnSpacing="10">
+                        <Grid ColumnSpacing="18" VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid HorizontalAlignment="Left" ColumnSpacing="10" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Style="{StaticResource CaptionTextStyle}" Text="入点" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectionStartText, Mode=OneWay}" VerticalAlignment="Center" />
+                                <TextBox
+                                    Grid.Column="2"
+                                    x:Name="SelectionStartInputBox"
+                                    Width="{x:Bind ViewModel.SelectionTimeInputBoxWidth, Mode=OneWay}"
+                                    AutomationProperties.Name="裁剪入点时间输入"
+                                    BeforeTextChanging="OnSelectionInputBeforeTextChanging"
+                                    GotFocus="OnSelectionStartInputGotFocus"
+                                    HorizontalAlignment="Left"
+                                    IsEnabled="{x:Bind ViewModel.CanEditSelectionInputs, Mode=OneWay}"
+                                    KeyDown="OnSelectionStartInputKeyDown"
+                                    LostFocus="OnSelectionStartInputLostFocus"
+                                    MaxLength="{x:Bind ViewModel.SelectionTimeInputMaxLength, Mode=OneWay}"
+                                    Padding="10,0,34,0"
+                                    PlaceholderText="{x:Bind ViewModel.SelectionTimeInputFormatHint, Mode=OneWay}"
+                                    Text="{x:Bind ViewModel.SelectionStartInputText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    TextAlignment="Left"
+                                    VerticalAlignment="Center" />
+                            </Grid>
+                            <StackPanel Grid.Column="1" HorizontalAlignment="Center" Spacing="2" VerticalAlignment="Center">
+                                <Grid ColumnSpacing="8" HorizontalAlignment="Center">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{StaticResource CaptionTextStyle}" Text="片段时长" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectedDurationText, Mode=OneWay}" VerticalAlignment="Center" />
+                                </Grid>
+                                <TextBlock HorizontalAlignment="Center" Opacity="0.72" Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.SelectionTimeInputAssistText, Mode=OneWay}" />
+                            </StackPanel>
+                            <Grid Grid.Column="2" HorizontalAlignment="Right" ColumnSpacing="10" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox
+                                    x:Name="SelectionEndInputBox"
+                                    Width="{x:Bind ViewModel.SelectionTimeInputBoxWidth, Mode=OneWay}"
+                                    AutomationProperties.Name="裁剪出点时间输入"
+                                    BeforeTextChanging="OnSelectionInputBeforeTextChanging"
+                                    GotFocus="OnSelectionEndInputGotFocus"
+                                    HorizontalAlignment="Left"
+                                    IsEnabled="{x:Bind ViewModel.CanEditSelectionInputs, Mode=OneWay}"
+                                    KeyDown="OnSelectionEndInputKeyDown"
+                                    LostFocus="OnSelectionEndInputLostFocus"
+                                    MaxLength="{x:Bind ViewModel.SelectionTimeInputMaxLength, Mode=OneWay}"
+                                    Padding="10,0,34,0"
+                                    PlaceholderText="{x:Bind ViewModel.SelectionTimeInputFormatHint, Mode=OneWay}"
+                                    Text="{x:Bind ViewModel.SelectionEndInputText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    TextAlignment="Left"
+                                    VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectionEndText, Mode=OneWay}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Style="{StaticResource CaptionTextStyle}" Text="出点" VerticalAlignment="Center" />
+                            </Grid>
+                        </Grid>
+                        <Grid ColumnSpacing="10" Visibility="Collapsed">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />

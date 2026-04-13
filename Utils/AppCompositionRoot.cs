@@ -46,6 +46,7 @@ public sealed class AppCompositionRoot
             Configuration,
             runtimeService,
             ffmpegService,
+            ffmpegVideoAccelerationService,
             mediaInfoService,
             videoTrimCommandFactory,
             filePickerService,
