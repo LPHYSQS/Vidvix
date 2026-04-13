@@ -260,11 +260,34 @@
                         Style="{StaticResource TimelineStripButtonStyle}">
                         <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="{x:Bind ViewModel.VolumeButtonSymbol, Mode=OneWay}" />
                         <Button.Flyout>
-                            <Flyout Placement="TopEdgeAlignedRight">
-                                <StackPanel Padding="4" HorizontalAlignment="Center" Spacing="10">
+                            <Flyout Placement="BottomEdgeAlignedRight">
+                                <Flyout.FlyoutPresenterStyle>
+                                    <Style TargetType="FlyoutPresenter">
+                                        <Setter Property="Padding" Value="0" />
+                                    </Style>
+                                </Flyout.FlyoutPresenterStyle>
+                                <StackPanel Width="176" Padding="12,10" Spacing="8">
                                     <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="音量" />
-                                    <TextBlock HorizontalAlignment="Center" Opacity="0.72" Text="{x:Bind ViewModel.VolumePercentText, Mode=OneWay}" />
-                                    <Slider Height="150" Minimum="0" Maximum="100" Orientation="Vertical" StepFrequency="1" Value="{x:Bind ViewModel.VolumePercent, Mode=TwoWay}" />
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Slider
+                                            Grid.Column="0"
+                                            Height="32"
+                                            HorizontalAlignment="Stretch"
+                                            Maximum="100"
+                                            Minimum="0"
+                                            Orientation="Horizontal"
+                                            StepFrequency="1"
+                                            Value="{x:Bind ViewModel.VolumePercent, Mode=TwoWay}" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            Opacity="0.72"
+                                            Text="{x:Bind ViewModel.VolumePercentText, Mode=OneWay}" />
+                                    </Grid>
                                 </StackPanel>
                             </Flyout>
                         </Button.Flyout>
