@@ -51,6 +51,9 @@ public sealed partial class VideoTrimWorkspaceViewModel
         _ = _videoPreviewService.SetVolumeAsync(_volume);
     }
 
+    internal Task EnsurePreviewHostReadyAsync(CancellationToken cancellationToken = default) =>
+        _videoPreviewService.InitializeAsync(cancellationToken);
+
     internal async Task ReloadPreviewAsync(CancellationToken cancellationToken = default)
     {
         if (!HasInput || string.IsNullOrWhiteSpace(_inputPath) || !File.Exists(_inputPath))
@@ -63,6 +66,10 @@ public sealed partial class VideoTrimWorkspaceViewModel
         SetPreviewPreparing("正在准备视频预览...");
         try
         {
+            await _videoPreviewService
+                .InitializeAsync(cancellationToken)
+                .ConfigureAwait(false);
+
             await _videoPreviewService
                 .LoadAsync(_inputPath, _volume, cancellationToken)
                 .ConfigureAwait(false);
@@ -80,6 +87,9 @@ public sealed partial class VideoTrimWorkspaceViewModel
 
     internal void UpdatePreviewHostPlacement(VideoPreviewHostPlacement placement) =>
         _videoPreviewService.UpdateHostPlacement(placement);
+
+    internal Task RefreshPreviewRenderingAsync(CancellationToken cancellationToken = default) =>
+        _videoPreviewService.RefreshAsync(cancellationToken);
 
     internal bool HasLoadedPreview => _videoPreviewService.HasLoadedMedia;
 
@@ -105,7 +115,10 @@ public sealed partial class VideoTrimWorkspaceViewModel
                 target = _selectionStart;
             }
 
-            var actual = await SeekPreviewCoreAsync(target);
+            var previewPosition = ClampToSelection(_videoPreviewService.CurrentPosition);
+            var actual = AreClose(previewPosition, target)
+                ? previewPosition
+                : await _videoPreviewService.SetPlaybackPositionAsync(target);
             SyncCurrentPosition(actual);
             await _videoPreviewService.PlayAsync();
             SetPlaying(true);

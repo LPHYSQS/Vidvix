@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.UI.Xaml;
 using Vidvix.Core.Interfaces;
 using WinRT.Interop;

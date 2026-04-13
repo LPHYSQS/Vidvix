@@ -27,6 +27,10 @@ public interface IVideoPreviewService : IDisposable
 
     void UpdateHostPlacement(VideoPreviewHostPlacement placement);
 
+    Task InitializeAsync(CancellationToken cancellationToken = default);
+
+    Task RefreshAsync(CancellationToken cancellationToken = default);
+
     Task LoadAsync(string inputPath, double volume, CancellationToken cancellationToken = default);
 
     Task UnloadAsync(CancellationToken cancellationToken = default);

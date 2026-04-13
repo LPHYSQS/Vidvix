@@ -21,6 +21,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private readonly DispatcherQueueTimer _positionTimer;
     private readonly DispatcherQueueTimer _scrubPreviewTimer;
     private readonly ToolTip _volumeToolTip;
+    private XamlRoot? _previewViewportXamlRoot;
     private bool _hasPendingScrubPreviewPosition;
     private bool _isControlLoaded;
     private bool _isPositionTimerRunning;
@@ -55,6 +56,8 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         _scrubPreviewTimer.Tick += OnScrubPreviewTimerTick;
 
         LayoutUpdated += OnLayoutUpdated;
+        SizeChanged += OnControlSizeChanged;
+        PreviewViewport.SizeChanged += OnPreviewViewportSizeChanged;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -85,8 +88,12 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         }
 
         control.UpdateVolumeToolTip();
-        control.UpdatePreviewHostPlacement(force: true);
-        _ = control.ReloadSourceAsync();
+        if (!control._isControlLoaded)
+        {
+            return;
+        }
+
+        _ = control.ActivatePreviewSurfaceAsync(control.ViewModel?.HasInput == true);
     }
 
     private void RegisterTimelineInteractionHandlers()
@@ -99,14 +106,24 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _isControlLoaded = true;
+        AttachPreviewViewportXamlRootChangedHandler();
         UpdateVolumeToolTip();
-        UpdatePreviewHostPlacement(force: true);
-        _ = ReloadSourceAsync();
+        _dispatcherQueue.TryEnqueue(() =>
+        {
+            if (!_isControlLoaded)
+            {
+                return;
+            }
+
+            _ = ActivatePreviewSurfaceAsync(ViewModel?.HasInput == true);
+        });
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _isControlLoaded = false;
+        DetachPreviewViewportXamlRootChangedHandler();
+        _lastPreviewPlacement = null;
         StopScrubPreviewTimer();
         StopPositionTimer();
         UpdatePreviewHostPlacement(force: true);
@@ -119,7 +136,18 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
+        AttachPreviewViewportXamlRootChangedHandler();
         UpdatePreviewHostPlacement();
+    }
+
+    private void OnControlSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        RefreshPreviewHost(force: true);
+    }
+
+    private void OnPreviewViewportSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        RefreshPreviewHost(force: true);
     }
 
     private async void OnPlayPauseClick(object sender, RoutedEventArgs e)
@@ -139,7 +167,9 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
+        ClearSelectionInputFocus(sender as Control);
         await ViewModel.JumpToSelectionBoundaryAsync(GetSelectionStart());
+        ClearSelectionInputFocus(sender as Control);
     }
 
     private async void OnJumpToSelectionEndClick(object sender, RoutedEventArgs e)
@@ -149,7 +179,9 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
+        ClearSelectionInputFocus(sender as Control);
         await ViewModel.JumpToSelectionBoundaryAsync(GetSelectionEnd());
+        ClearSelectionInputFocus(sender as Control);
     }
 
     private void OnVolumeButtonPointerWheelChanged(object sender, PointerRoutedEventArgs e)
@@ -278,23 +310,29 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
+        if (e.PropertyName == nameof(VideoTrimWorkspaceViewModel.VolumeToolTipText))
+        {
+            UpdateVolumeToolTip();
+            return;
+        }
+
+        if (!_isControlLoaded)
+        {
+            return;
+        }
+
         if (e.PropertyName == nameof(VideoTrimWorkspaceViewModel.InputPath))
         {
-            UpdatePreviewHostPlacement(force: true);
-            _ = ReloadSourceAsync();
+            _ = ActivatePreviewSurfaceAsync(reloadSource: true);
             return;
         }
 
         if (e.PropertyName == nameof(VideoTrimWorkspaceViewModel.IsPreviewReady) ||
             e.PropertyName == nameof(VideoTrimWorkspaceViewModel.EditorVisibility))
         {
+            PreparePreviewViewportLayout();
             UpdatePreviewHostPlacement(force: true);
-            return;
-        }
-
-        if (e.PropertyName == nameof(VideoTrimWorkspaceViewModel.VolumeToolTipText))
-        {
-            UpdateVolumeToolTip();
+            _ = RefreshPreviewRenderingAsync();
             return;
         }
 
@@ -303,6 +341,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             if (ViewModel.IsPlaying)
             {
                 StartPositionTimer();
+                _ = RefreshPreviewRenderingAsync();
                 return;
             }
 
@@ -323,6 +362,9 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
+        PreparePreviewViewportLayout();
+        UpdatePreviewHostPlacement(force: true);
+
         try
         {
             await ViewModel.ReloadPreviewAsync().ConfigureAwait(true);
@@ -339,6 +381,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             if (version == _sourceVersion)
             {
                 UpdatePreviewHostPlacement(force: true);
+                await RefreshPreviewRenderingAsync().ConfigureAwait(true);
             }
         }
     }
@@ -554,5 +597,109 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private void UpdateVolumeToolTip()
     {
         _volumeToolTip.Content = ViewModel?.VolumeToolTipText ?? "音量";
+    }
+
+    private void AttachPreviewViewportXamlRootChangedHandler()
+    {
+        var currentXamlRoot = PreviewViewport.XamlRoot;
+        if (ReferenceEquals(_previewViewportXamlRoot, currentXamlRoot))
+        {
+            return;
+        }
+
+        if (_previewViewportXamlRoot is not null)
+        {
+            _previewViewportXamlRoot.Changed -= OnPreviewViewportXamlRootChanged;
+        }
+
+        _previewViewportXamlRoot = currentXamlRoot;
+        if (_previewViewportXamlRoot is not null)
+        {
+            _previewViewportXamlRoot.Changed += OnPreviewViewportXamlRootChanged;
+        }
+    }
+
+    private void DetachPreviewViewportXamlRootChangedHandler()
+    {
+        if (_previewViewportXamlRoot is null)
+        {
+            return;
+        }
+
+        _previewViewportXamlRoot.Changed -= OnPreviewViewportXamlRootChanged;
+        _previewViewportXamlRoot = null;
+    }
+
+    private void OnPreviewViewportXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
+    {
+        RefreshPreviewHost(force: true);
+    }
+
+    private void ClearSelectionInputFocus(Control? focusTarget)
+    {
+        ViewModel?.CommitSelectionStartInput();
+        ViewModel?.CommitSelectionEndInput();
+        focusTarget?.Focus(FocusState.Programmatic);
+    }
+
+    private async Task ActivatePreviewSurfaceAsync(bool reloadSource)
+    {
+        if (!_isControlLoaded || ViewModel is null)
+        {
+            return;
+        }
+
+        PreparePreviewViewportLayout();
+        UpdatePreviewHostPlacement(force: true);
+
+        if (reloadSource)
+        {
+            await ReloadSourceAsync().ConfigureAwait(true);
+            return;
+        }
+
+        try
+        {
+            await ViewModel.EnsurePreviewHostReadyAsync().ConfigureAwait(true);
+            await RefreshPreviewRenderingAsync().ConfigureAwait(true);
+        }
+        catch
+        {
+        }
+    }
+
+    private void PreparePreviewViewportLayout()
+    {
+        if (!_isControlLoaded)
+        {
+            return;
+        }
+
+        UpdateLayout();
+        PreviewViewport.UpdateLayout();
+    }
+
+    private void RefreshPreviewHost(bool force = false, bool requestRedraw = true)
+    {
+        if (!_isControlLoaded || ViewModel is null)
+        {
+            return;
+        }
+
+        UpdatePreviewHostPlacement(force);
+        if (requestRedraw)
+        {
+            _ = RefreshPreviewRenderingAsync();
+        }
+    }
+
+    private async Task RefreshPreviewRenderingAsync()
+    {
+        if (!_isControlLoaded || ViewModel is null)
+        {
+            return;
+        }
+
+        await ViewModel.RefreshPreviewRenderingAsync().ConfigureAwait(true);
     }
 }

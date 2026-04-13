@@ -17,6 +17,9 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
     private static readonly TimeSpan EndFrameSafetyBackoff = TimeSpan.FromMilliseconds(1);
     private static readonly TimeSpan SeekTimeout = TimeSpan.FromMilliseconds(1200);
     private static readonly TimeSpan CacheWarmupTarget = TimeSpan.FromSeconds(1);
+    private static readonly object HostWindowClassSyncRoot = new();
+    private static readonly NativeMethods.WndProc HostWindowProcedure = HostWindowWindowProc;
+    private static ushort _hostWindowClassAtom;
 
     private readonly ApplicationConfiguration _configuration;
     private readonly IWindowContext _windowContext;
@@ -26,6 +29,7 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
     private MpvNativeLibrary? _nativeLibrary;
     private IntPtr _mpvHandle;
     private IntPtr _hostWindowHandle;
+    private IntPtr _hostParentWindowHandle;
     private CancellationTokenSource? _eventLoopCancellationSource;
     private Task? _eventLoopTask;
     private bool _isDisposed;
@@ -45,6 +49,7 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
     private TaskCompletionSource<bool>? _loadCompletionSource;
     private TaskCompletionSource<TimeSpan>? _seekCompletionSource;
     private TimeSpan _pendingSeekTarget;
+    private VideoPreviewHostPlacement _hostPlacement;
 
     public MpvVideoPreviewService(
         ApplicationConfiguration configuration,
@@ -112,12 +117,80 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
 
     public void UpdateHostPlacement(VideoPreviewHostPlacement placement)
     {
+        var shouldRefresh = false;
+
         lock (_syncRoot)
         {
             ThrowIfDisposed();
+            shouldRefresh = _isInitialized &&
+                            placement.IsVisible &&
+                            placement.Width > 0 &&
+                            placement.Height > 0 &&
+                            _hostPlacement != placement;
+            _hostPlacement = placement;
             EnsureHostWindow();
             ApplyHostPlacement(placement);
         }
+
+        if (shouldRefresh)
+        {
+            _ = RefreshAsync();
+        }
+    }
+
+    public async Task RefreshAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            lock (_syncRoot)
+            {
+                if (_isDisposed || _hostWindowHandle == IntPtr.Zero)
+                {
+                    return;
+                }
+
+                ApplyHostPlacement(_hostPlacement);
+                RefreshHostWindow();
+            }
+
+            await RunCommandAsync(() =>
+            {
+                lock (_syncRoot)
+                {
+                    if (_isDisposed || !_isInitialized || _mpvHandle == IntPtr.Zero)
+                    {
+                        return;
+                    }
+
+                    ApplyHostPlacement(_hostPlacement);
+                    TryRequestRedraw();
+                    RefreshHostWindow();
+                }
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _logger.Log(LogLevel.Warning, "刷新 MPV 预览画面时发生异常。", exception);
+        }
+    }
+
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        await RunCommandAsync(() =>
+        {
+            lock (_syncRoot)
+            {
+                ThrowIfDisposed();
+                EnsureHostWindow();
+                EnsureInitialized();
+                ApplyHostPlacement(_hostPlacement);
+                TryRequestRedraw();
+                RefreshHostWindow();
+            }
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task LoadAsync(string inputPath, double volume, CancellationToken cancellationToken = default)
@@ -168,6 +241,8 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             TrySetPropertyDouble("volume", normalizedVolume * 100d);
             ExecuteCommand("set", "pause", "yes");
             ExecuteCommand("loadfile", fullPath, "replace");
+            TryRequestRedraw();
+            RefreshHostWindow();
         }, cancellationToken).ConfigureAwait(false);
 
         RaisePlaybackStateChanged(isPlaying: false);
@@ -237,7 +312,12 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             return;
         }
 
-        await RunCommandAsync(() => ExecuteCommand("set", "pause", "no"), cancellationToken).ConfigureAwait(false);
+        await RunCommandAsync(() =>
+        {
+            ExecuteCommand("set", "pause", "no");
+            TryRequestRedraw();
+            RefreshHostWindow();
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<TimeSpan> PauseAsync(CancellationToken cancellationToken = default)
@@ -405,6 +485,7 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             {
                 NativeMethods.DestroyWindow(_hostWindowHandle);
                 _hostWindowHandle = IntPtr.Zero;
+                _hostParentWindowHandle = IntPtr.Zero;
             }
 
             eventLoopCancellationSource?.Dispose();
@@ -457,14 +538,16 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
 
     private void EnsureHostWindow()
     {
+        var parentHandle = _windowContext.Handle;
         if (_hostWindowHandle != IntPtr.Zero)
         {
             return;
         }
 
+        EnsureHostWindowClassRegistered();
         _hostWindowHandle = NativeMethods.CreateWindowExW(
             0,
-            "Static",
+            NativeMethods.HostWindowClassName,
             string.Empty,
             NativeMethods.WS_CHILD | NativeMethods.WS_CLIPSIBLINGS | NativeMethods.WS_CLIPCHILDREN,
             0,
@@ -479,6 +562,26 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         {
             throw new InvalidOperationException("无法为 MPV 预览创建宿主窗口。");
         }
+        _hostParentWindowHandle = parentHandle;
+    }
+
+    private void EnsureHostWindowParent(IntPtr parentHandle)
+    {
+        if (_hostWindowHandle == IntPtr.Zero ||
+            parentHandle == IntPtr.Zero ||
+            _hostParentWindowHandle == parentHandle)
+        {
+            return;
+        }
+
+        Marshal.GetLastWin32Error();
+        var previousParentHandle = NativeMethods.SetParent(_hostWindowHandle, parentHandle);
+        if (previousParentHandle == IntPtr.Zero && Marshal.GetLastWin32Error() != 0)
+        {
+            throw new InvalidOperationException("无法将 MPV 预览宿主切换到 WinUI 内容层。");
+        }
+
+        _hostParentWindowHandle = parentHandle;
     }
 
     private void ApplyHostPlacement(VideoPreviewHostPlacement placement)
@@ -494,6 +597,8 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         NativeMethods.ShowWindow(_hostWindowHandle, placement.IsVisible && placement.Width > 0 && placement.Height > 0
             ? NativeMethods.SW_SHOW
             : NativeMethods.SW_HIDE);
+        UpdateHostWindowZOrder(placement);
+        RefreshHostWindow();
     }
 
     private void EnsureInitialized()
@@ -585,6 +690,8 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
                     TaskCreationOptions.LongRunning,
                     TaskScheduler.Default);
                 _isInitialized = true;
+                ApplyHostPlacement(_hostPlacement);
+                RefreshHostWindow();
                 _logger.Log(LogLevel.Info, $"MPV 预览内核已启用：{profile.Name}，客户端 API 版本 0x{_nativeLibrary.ClientApiVersion():X}。");
                 return;
             }
@@ -645,6 +752,7 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         SetOptionString("pause", "yes");
         SetOptionString("osd-level", "0");
         SetOptionString("profile", "fast");
+        SetOptionString("force-window", "yes");
         SetOptionString("background-color", "#000000");
         SetOptionString("cache", "yes");
         SetOptionString("cache-secs", "15");
@@ -951,6 +1059,8 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
                 await SeekAsync(CacheWarmupTarget).ConfigureAwait(false);
                 await SeekAsync(TimeSpan.Zero).ConfigureAwait(false);
             }
+
+            await RefreshAsync().ConfigureAwait(false);
         }
         catch (Exception exception)
         {
@@ -1145,6 +1255,106 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         _pendingSeekTarget = TimeSpan.Zero;
     }
 
+    private void RefreshHostWindow()
+    {
+        if (_hostWindowHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        NativeMethods.RedrawWindow(
+            _hostWindowHandle,
+            IntPtr.Zero,
+            IntPtr.Zero,
+            NativeMethods.RDW_INVALIDATE | NativeMethods.RDW_UPDATENOW | NativeMethods.RDW_ALLCHILDREN);
+        NativeMethods.UpdateWindow(_hostWindowHandle);
+    }
+
+    private void UpdateHostWindowZOrder(VideoPreviewHostPlacement placement)
+    {
+        if (_hostWindowHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        NativeMethods.SetWindowPos(
+            _hostWindowHandle,
+            placement.IsVisible && placement.Width > 0 && placement.Height > 0
+                ? NativeMethods.HWND_TOP
+                : NativeMethods.HWND_BOTTOM,
+            0,
+            0,
+            0,
+            0,
+            NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_NOOWNERZORDER);
+    }
+
+    private void TryRequestRedraw()
+    {
+        if (_nativeLibrary is null || _mpvHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        try
+        {
+            using var commandArguments = new MpvCommandArguments("redraw");
+            _nativeLibrary.Command(_mpvHandle, commandArguments.Pointer);
+        }
+        catch
+        {
+        }
+
+        _nativeLibrary.Wakeup(_mpvHandle);
+    }
+
+    private static void EnsureHostWindowClassRegistered()
+    {
+        if (_hostWindowClassAtom != 0)
+        {
+            return;
+        }
+
+        lock (HostWindowClassSyncRoot)
+        {
+            if (_hostWindowClassAtom != 0)
+            {
+                return;
+            }
+
+            var windowClass = new NativeMethods.WindowClass
+            {
+                Size = (uint)Marshal.SizeOf<NativeMethods.WindowClass>(),
+                Style = NativeMethods.CS_HREDRAW | NativeMethods.CS_VREDRAW,
+                WindowProcedure = HostWindowProcedure,
+                InstanceHandle = NativeMethods.GetModuleHandleW(IntPtr.Zero),
+                CursorHandle = NativeMethods.LoadCursorW(IntPtr.Zero, (IntPtr)NativeMethods.IDC_ARROW),
+                ClassName = NativeMethods.HostWindowClassName
+            };
+
+            _hostWindowClassAtom = NativeMethods.RegisterClassExW(ref windowClass);
+            if (_hostWindowClassAtom == 0)
+            {
+                throw new InvalidOperationException("无法注册 MPV 预览宿主窗口类。");
+            }
+        }
+    }
+
+    private static IntPtr HostWindowWindowProc(IntPtr windowHandle, uint message, IntPtr wParam, IntPtr lParam)
+    {
+        if (message == NativeMethods.WM_SETCURSOR)
+        {
+            var cursor = NativeMethods.LoadCursorW(IntPtr.Zero, (IntPtr)NativeMethods.IDC_ARROW);
+            if (cursor != IntPtr.Zero)
+            {
+                NativeMethods.SetCursor(cursor);
+                return (IntPtr)1;
+            }
+        }
+
+        return NativeMethods.DefWindowProcW(windowHandle, message, wParam, lParam);
+    }
+
     private static bool AreClose(TimeSpan left, TimeSpan right) =>
         Math.Abs((left - right).TotalMilliseconds) < 1d;
 
@@ -1163,11 +1373,47 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
 
     private static class NativeMethods
     {
+        public const string HostWindowClassName = "VidvixMpvPreviewHostWindow";
+        public const int CS_HREDRAW = 0x0002;
+        public const int CS_VREDRAW = 0x0001;
+        public const int IDC_ARROW = 32512;
+        public const int RDW_INVALIDATE = 0x0001;
+        public const int RDW_UPDATENOW = 0x0100;
+        public const int RDW_ALLCHILDREN = 0x0080;
         public const int SW_HIDE = 0;
         public const int SW_SHOW = 5;
+        public const uint SWP_NOSIZE = 0x0001;
+        public const uint SWP_NOMOVE = 0x0002;
+        public const uint SWP_NOACTIVATE = 0x0010;
+        public const uint SWP_NOOWNERZORDER = 0x0200;
+        public const uint WM_SETCURSOR = 0x0020;
         public const uint WS_CHILD = 0x40000000;
         public const uint WS_CLIPSIBLINGS = 0x04000000;
         public const uint WS_CLIPCHILDREN = 0x02000000;
+        public static readonly IntPtr HWND_TOP = IntPtr.Zero;
+        public static readonly IntPtr HWND_BOTTOM = new(1);
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct WindowClass
+        {
+            public uint Size;
+            public uint Style;
+            public WndProc WindowProcedure;
+            public int ClassExtraBytes;
+            public int WindowExtraBytes;
+            public IntPtr InstanceHandle;
+            public IntPtr IconHandle;
+            public IntPtr CursorHandle;
+            public IntPtr BackgroundBrushHandle;
+            public string? MenuName;
+            public string ClassName;
+            public IntPtr SmallIconHandle;
+        }
+
+        public delegate IntPtr WndProc(IntPtr windowHandle, uint message, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern ushort RegisterClassExW(ref WindowClass windowClass);
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         public static extern IntPtr CreateWindowExW(
@@ -1188,11 +1434,45 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool MoveWindow(IntPtr handle, int x, int y, int width, int height, bool repaint);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern IntPtr SetParent(IntPtr childHandle, IntPtr newParentHandle);
+
         [DllImport("user32.dll")]
         public static extern bool ShowWindow(IntPtr handle, int command);
 
         [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetWindowPos(
+            IntPtr handle,
+            IntPtr insertAfterHandle,
+            int x,
+            int y,
+            int width,
+            int height,
+            uint flags);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr DefWindowProcW(IntPtr windowHandle, uint message, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern IntPtr LoadCursorW(IntPtr instanceHandle, IntPtr cursorName);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SetCursor(IntPtr cursorHandle);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool UpdateWindow(IntPtr handle);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool RedrawWindow(IntPtr handle, IntPtr updateRect, IntPtr updateRegion, int flags);
+
+        [DllImport("user32.dll", SetLastError = true)]
         public static extern bool DestroyWindow(IntPtr handle);
+
+        [DllImport("kernel32.dll")]
+        public static extern IntPtr GetModuleHandleW(IntPtr moduleName);
     }
 
     private sealed class UnmanagedValue<T> : IDisposable
