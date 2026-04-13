@@ -20,6 +20,7 @@ namespace Vidvix.ViewModels;
 public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 {
     private static readonly TimeSpan MinimumSelectionLength = TimeSpan.FromMilliseconds(1);
+    private const double DefaultTrimPreviewVolumePercent = 80d;
 
     private readonly ApplicationConfiguration _configuration;
     private readonly IVideoTrimWorkflowService _videoTrimWorkflowService;
@@ -52,7 +53,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private TimeSpan _currentPosition;
     private string _selectionStartInputText = string.Empty;
     private string _selectionEndInputText = string.Empty;
-    private double _volume = 0.8d;
+    private double _volume = DefaultTrimPreviewVolumePercent / 100d;
     private bool _isBusy;
     private bool _isPreviewReady;
     private bool _isPlaying;
@@ -90,6 +91,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         AvailableOutputFormats = _configuration.SupportedTrimOutputFormats;
         _selectedOutputFormat = ResolvePreferredOutputFormat(preferences.PreferredTrimOutputFormatExtension);
         _outputDirectory = NormalizeOutputDirectory(preferences.PreferredTrimOutputDirectory);
+        _volume = ResolvePreferredVolumePercent(preferences.PreferredTrimPreviewVolumePercent) / 100d;
         _statusMessage = "\u8bf7\u5bfc\u5165\u89c6\u9891\u6587\u4ef6\u6216\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002";
         _previewStateMessage = "\u8bf7\u5148\u5bfc\u5165\u4e00\u4e2a\u89c6\u9891\u6587\u4ef6\u3002";
 
@@ -303,6 +305,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
             if (SetProperty(ref _volume, normalized))
             {
                 UpdatePreviewVolume();
+                PersistPreferences();
                 OnPropertyChanged(nameof(VolumeLevel));
                 OnPropertyChanged(nameof(VolumePercentText));
                 OnPropertyChanged(nameof(VolumeToolTipText));
@@ -870,9 +873,15 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         _userPreferencesService.Update(existing => existing with
         {
             PreferredTrimOutputFormatExtension = _selectedOutputFormat?.Extension,
-            PreferredTrimOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null
+            PreferredTrimOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null,
+            PreferredTrimPreviewVolumePercent = VolumePercent
         });
     }
+
+    private static double ResolvePreferredVolumePercent(double volumePercent) =>
+        double.IsNaN(volumePercent) || double.IsInfinity(volumePercent)
+            ? DefaultTrimPreviewVolumePercent
+            : Math.Clamp(volumePercent, 0d, 100d);
 
     private OutputFormatOption ResolvePreferredOutputFormat(string? extension) =>
         AvailableOutputFormats.FirstOrDefault(item => string.Equals(item.Extension, extension, StringComparison.OrdinalIgnoreCase))

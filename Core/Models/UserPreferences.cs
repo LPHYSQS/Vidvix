@@ -22,6 +22,8 @@ public sealed record UserPreferences
 
     public string? PreferredTrimOutputDirectory { get; init; }
 
+    public double PreferredTrimPreviewVolumePercent { get; init; } = 80d;
+
     public ThemePreference ThemePreference { get; init; } = ThemePreference.UseSystem;
 
     public bool RevealOutputFileAfterProcessing { get; init; } = true;
