@@ -15,7 +15,7 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
     private const ulong PausePropertyObserverId = 1;
     private const ulong TimePositionPropertyObserverId = 2;
     private static readonly TimeSpan EndFrameSafetyBackoff = TimeSpan.FromMilliseconds(1);
-    private static readonly TimeSpan SeekTimeout = TimeSpan.FromMilliseconds(1200);
+    private static readonly TimeSpan SeekTimeout = TimeSpan.FromMilliseconds(240);
     private static readonly TimeSpan CacheWarmupTarget = TimeSpan.FromSeconds(1);
     private static readonly object HostWindowClassSyncRoot = new();
     private static readonly NativeMethods.WndProc HostWindowProcedure = HostWindowWindowProc;
@@ -370,6 +370,16 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             return await seekCompletionSource.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
 
+        _logger.Log(
+            LogLevel.Warning,
+            $"MPV fast seek timed out, keeping keyframe seek pending at {normalized.TotalSeconds:0.###}s.");
+
+        CompletePendingSeek(normalized);
+        return normalized;
+    }
+
+#if false
+
         var refreshedPosition = await RunCommandAsync(() =>
         {
             SetPropertyDouble("time-pos", normalized.TotalSeconds);
@@ -384,6 +394,8 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         RaisePositionChanged(refreshedPosition);
         return await seekCompletionSource.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
+
+#endif
 
     public async Task<TimeSpan> SetPlaybackPositionAsync(TimeSpan position, CancellationToken cancellationToken = default)
     {

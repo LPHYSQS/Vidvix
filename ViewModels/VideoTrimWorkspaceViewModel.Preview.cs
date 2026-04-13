@@ -196,18 +196,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
                 return;
             }
 
-            var actual = await SeekPreviewCoreAsync(target);
-            SyncCurrentPosition(actual);
-
-            if (shouldResumePlayback)
-            {
-                await _videoPreviewService.PlayAsync();
-                SetPlaying(true);
-            }
-            else
-            {
-                SetPlaying(false);
-            }
+            await SeekPreviewFastAsync(target, pauseBeforeSeek: false, resumeAfterSeek: shouldResumePlayback);
         }
         finally
         {
@@ -220,14 +209,11 @@ public sealed partial class VideoTrimWorkspaceViewModel
         await _previewInteractionSemaphore.WaitAsync();
         try
         {
-            if (!HasLoadedPreview)
-            {
-                return;
-            }
-
-            var actual = await SeekPreviewCoreAsync(position);
-            SyncCurrentPosition(actual);
-            SetPlaying(false);
+            var shouldResumePlayback = IsPlaying;
+            await SeekPreviewFastAsync(
+                position,
+                pauseBeforeSeek: shouldResumePlayback,
+                resumeAfterSeek: shouldResumePlayback);
         }
         finally
         {
@@ -336,6 +322,45 @@ public sealed partial class VideoTrimWorkspaceViewModel
         {
             IsSeeking = false;
         }
+    }
+
+    private async Task<TimeSpan> SeekPreviewFastAsync(TimeSpan position, bool pauseBeforeSeek, bool resumeAfterSeek)
+    {
+        var target = ClampToSelection(position);
+        SyncCurrentPosition(target);
+
+        if (!HasLoadedPreview)
+        {
+            SetPlaying(false);
+            return target;
+        }
+
+        var actual = target;
+        IsSeeking = true;
+        try
+        {
+            if (pauseBeforeSeek)
+            {
+                await _videoPreviewService.PauseAsync();
+                SetPlaying(false);
+                SyncCurrentPosition(target);
+            }
+
+            actual = await _videoPreviewService.SeekAsync(target);
+            SyncCurrentPosition(actual);
+
+            if (resumeAfterSeek)
+            {
+                await _videoPreviewService.PlayAsync();
+            }
+        }
+        finally
+        {
+            IsSeeking = false;
+        }
+
+        SetPlaying(resumeAfterSeek);
+        return actual;
     }
 
     private void UpdatePreviewVolume() => _ = _videoPreviewService.SetVolumeAsync(_volume);

@@ -16,6 +16,7 @@ namespace Vidvix.Views.Controls;
 public sealed partial class VideoTrimWorkspaceView : UserControl
 {
     private static readonly TimeSpan ScrubPreviewInterval = TimeSpan.FromMilliseconds(90);
+    private const double TimelineScrubActivationThreshold = 4d;
 
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly DispatcherQueueTimer _positionTimer;
@@ -27,10 +28,13 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private bool _isPositionTimerRunning;
     private bool _isScrubPreviewUpdateInProgress;
     private bool _isStopAtSelectionEndInProgress;
+    private bool _isTimelinePointerPressed;
+    private bool _isTimelineScrubPreviewEnabled;
     private bool _isTimelineCommitInProgress;
     private bool _isUpdatingTimeline;
     private int _sourceVersion;
     private TimeSpan _pendingScrubPreviewPosition;
+    private Point _timelinePointerPressedPoint;
     private VideoPreviewHostPlacement? _lastPreviewPlacement;
 
     public VideoTrimWorkspaceView()
@@ -99,6 +103,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private void RegisterTimelineInteractionHandlers()
     {
         TimelineSlider.AddHandler(PointerPressedEvent, new PointerEventHandler(OnTimelineSliderPointerPressed), true);
+        TimelineSlider.AddHandler(PointerMovedEvent, new PointerEventHandler(OnTimelineSliderPointerMoved), true);
         TimelineSlider.AddHandler(PointerReleasedEvent, new PointerEventHandler(OnTimelineSliderPointerReleased), true);
         TimelineSlider.AddHandler(PointerCaptureLostEvent, new PointerEventHandler(OnTimelineSliderPointerCaptureLost), true);
     }
@@ -250,8 +255,11 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private async void OnTimelineSliderPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        StopScrubPreviewTimer();
         _hasPendingScrubPreviewPosition = false;
-        StartScrubPreviewTimer();
+        _isTimelinePointerPressed = true;
+        _isTimelineScrubPreviewEnabled = false;
+        _timelinePointerPressedPoint = e.GetCurrentPoint(TimelineSlider).Position;
 
         if (ViewModel is null)
         {
@@ -262,13 +270,37 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         StopPositionTimer();
     }
 
+    private void OnTimelineSliderPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isTimelinePointerPressed || _isTimelineScrubPreviewEnabled || ViewModel is null || !ViewModel.IsDragging)
+        {
+            return;
+        }
+
+        var currentPoint = e.GetCurrentPoint(TimelineSlider).Position;
+        var deltaX = currentPoint.X - _timelinePointerPressedPoint.X;
+        var deltaY = currentPoint.Y - _timelinePointerPressedPoint.Y;
+        if (Math.Abs(deltaX) < TimelineScrubActivationThreshold &&
+            Math.Abs(deltaY) < TimelineScrubActivationThreshold)
+        {
+            return;
+        }
+
+        _isTimelineScrubPreviewEnabled = true;
+        StartScrubPreviewTimer();
+    }
+
     private void OnTimelineSliderPointerReleased(object sender, PointerRoutedEventArgs e)
     {
+        ResetTimelinePointerInteraction();
+        StopScrubPreviewTimer();
         _ = CommitTimelinePositionAsync();
     }
 
     private void OnTimelineSliderPointerCaptureLost(object sender, PointerRoutedEventArgs e)
     {
+        ResetTimelinePointerInteraction();
+        StopScrubPreviewTimer();
         _ = CommitTimelinePositionAsync();
     }
 
@@ -496,6 +528,12 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         {
             _scrubPreviewTimer.Stop();
         }
+    }
+
+    private void ResetTimelinePointerInteraction()
+    {
+        _isTimelinePointerPressed = false;
+        _isTimelineScrubPreviewEnabled = false;
     }
 
     private void UpdateTimelinePosition(TimeSpan position)

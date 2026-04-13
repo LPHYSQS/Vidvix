@@ -183,7 +183,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public bool CanPlayPreview => HasInput && IsPreviewReady && !IsBusy && !IsSeeking && _mediaDuration > TimeSpan.Zero;
 
-    public bool CanJumpToSelectionBoundary => CanPlayPreview && !IsPlaying && !IsDragging;
+    public bool CanJumpToSelectionBoundary => CanPlayPreview && !IsDragging;
 
     public Visibility PreviewOverlayVisibility => IsPreviewReady ? Visibility.Collapsed : Visibility.Visible;
 
