@@ -3,6 +3,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 
+// 功能：主工作区执行进度状态（统一管理批处理进度条与单文件进度文案）
+// 模块：视频转换模块 / 音频转换模块
+// 说明：可复用，负责进度状态与格式化展示，不直接操作底层执行逻辑。
 namespace Vidvix.ViewModels;
 
 public sealed partial class MainViewModel
@@ -150,16 +153,8 @@ public sealed partial class MainViewModel
         _dispatcherService.TryEnqueue(HideExecutionProgressCore);
     }
 
-    private async Task<TimeSpan?> TryGetMediaDurationAsync(string inputPath, CancellationToken cancellationToken)
-    {
-        if (_mediaInfoService.TryGetCachedDetails(inputPath, out var cachedSnapshot))
-        {
-            return cachedSnapshot.MediaDuration;
-        }
-
-        var result = await _mediaInfoService.GetMediaDetailsAsync(inputPath, cancellationToken);
-        return result.Snapshot?.MediaDuration;
-    }
+    private Task<TimeSpan?> TryGetMediaDurationAsync(string inputPath, CancellationToken cancellationToken) =>
+        _mediaProcessingWorkflowService.GetMediaDurationAsync(inputPath, cancellationToken);
 
     private void HideExecutionProgressCore()
     {

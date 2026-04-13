@@ -1,4 +1,7 @@
-﻿using System;
+// 功能：媒体处理命令工厂（按处理模式与输出格式生成 FFmpeg 命令）
+// 模块：视频转换模块 / 音频转换模块
+// 说明：可复用，仅负责命令拼装策略，不涉及 UI。
+using System;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 
@@ -65,13 +68,8 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
         };
     }
 
-    public bool SupportsHardwareVideoEncoding(OutputFormatOption outputFormat)
-    {
-        ArgumentNullException.ThrowIfNull(outputFormat);
-
-        var extension = outputFormat.Extension.ToLowerInvariant();
-        return extension is ".mp4" or ".mkv" or ".mov" or ".m4v" or ".ts" or ".m2ts";
-    }
+    public bool SupportsHardwareVideoEncoding(OutputFormatOption outputFormat) =>
+        FFmpegVideoEncodingPolicy.SupportsHardwareVideoEncoding(outputFormat);
 
     private FFmpegCommand BuildVideoOutputCommand(
         IFFmpegCommandBuilder builder,
@@ -418,29 +416,5 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
     private static IFFmpegCommandBuilder ApplyVideoEncoding(
         IFFmpegCommandBuilder builder,
         VideoAccelerationKind videoAccelerationKind) =>
-        videoAccelerationKind switch
-        {
-            VideoAccelerationKind.NvidiaNvenc => builder
-                .AddParameter("-c:v", "h264_nvenc")
-                .AddParameter("-preset", "p5")
-                .AddParameter("-cq", "23")
-                .AddParameter("-pix_fmt", "yuv420p"),
-            VideoAccelerationKind.IntelQuickSync => builder
-                .AddParameter("-c:v", "h264_qsv")
-                .AddParameter("-global_quality", "23")
-                .AddParameter("-look_ahead", "0")
-                .AddParameter("-pix_fmt", "nv12"),
-            VideoAccelerationKind.AmdAmf => builder
-                .AddParameter("-c:v", "h264_amf")
-                .AddParameter("-quality", "quality")
-                .AddParameter("-rc", "cqp")
-                .AddParameter("-qp_i", "23")
-                .AddParameter("-qp_p", "23")
-                .AddParameter("-pix_fmt", "nv12"),
-            _ => builder
-                .AddParameter("-c:v", "libx264")
-                .AddParameter("-crf", "23")
-                .AddParameter("-preset", "medium")
-                .AddParameter("-pix_fmt", "yuv420p")
-        };
+        FFmpegVideoEncodingPolicy.ApplyH264Encoding(builder, videoAccelerationKind);
 }

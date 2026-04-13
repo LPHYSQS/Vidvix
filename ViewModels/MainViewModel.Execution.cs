@@ -1,4 +1,8 @@
-﻿using System;
+// 功能：主工作区执行编排（把 ViewModel 状态与媒体处理工作流服务连接起来）
+// 模块：视频转换模块 / 音频转换模块
+// 说明：可复用，负责 UI 状态编排与日志回写，不直接操作底层 FFmpeg。
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -63,7 +67,7 @@ public sealed partial class MainViewModel
                 AddUiLog(
                     executionWorkspaceKind,
                     LogLevel.Info,
-                    $"\u672c\u6b21\u4ec5\u5904\u7406\u5f53\u524d{GetMediaLabel(executionWorkspaceKind)}\u6a21\u5757\u4e2d\u7684 {executionItems.Count} \u4e2a\u6587\u4ef6\uff1b\u53e6\u4e00\u6a21\u5757\u6682\u5b58\u7684 {standbyItemCount} \u4e2a\u6587\u4ef6\u4f1a\u4fdd\u7559\uff0c\u4e0d\u4f1a\u53c2\u4e0e\u672c\u6b21\u5904\u7406\u3002",
+                    $"本次仅处理当前{GetMediaLabel(executionWorkspaceKind)}模块中的 {executionItems.Count} 个文件；另一模块暂存的 {standbyItemCount} 个文件会保留，不会参与本次处理。",
                     clearExisting: false);
             }
 
@@ -87,8 +91,8 @@ public sealed partial class MainViewModel
                 return;
             }
 
-            StatusMessage = $"\u5f00\u59cb\u5904\u7406\u5f53\u524d{GetMediaLabel(executionWorkspaceKind)}\u6a21\u5757\u4e2d\u7684 {executionItems.Count} \u4e2a\u6587\u4ef6...";
-            AddUiLog(executionWorkspaceKind, LogLevel.Info, $"\u5f00\u59cb\u5904\u7406\u5f53\u524d{GetMediaLabel(executionWorkspaceKind)}\u6a21\u5757\u4e2d\u7684 {executionItems.Count} \u4e2a\u6587\u4ef6\u3002", clearExisting: false);
+            StatusMessage = $"开始处理当前{GetMediaLabel(executionWorkspaceKind)}模块中的 {executionItems.Count} 个文件...";
+            AddUiLog(executionWorkspaceKind, LogLevel.Info, $"开始处理当前{GetMediaLabel(executionWorkspaceKind)}模块中的 {executionItems.Count} 个文件。", clearExisting: false);
 
             if (preflightFailedCount > 0)
             {
@@ -134,7 +138,6 @@ public sealed partial class MainViewModel
                         ? "正在处理当前文件，暂时无法估算总进度。"
                         : "等待 FFmpeg 返回实时进度...");
 
-                var command = BuildCommand(item.InputPath, item.PlannedOutputPath, executionContext);
                 var progressReporter = new Progress<FFmpegProgressUpdate>(update =>
                     UpdateExecutionProgress(
                         totalProcessableCount,
@@ -146,59 +149,41 @@ public sealed partial class MainViewModel
                         update.ProgressRatio is null && !update.IsCompleted
                             ? "正在处理当前文件，暂时无法估算总进度。"
                             : null));
-                var executionOptions = new FFmpegExecutionOptions
-                {
-                    Timeout = _configuration.DefaultExecutionTimeout,
-                    InputDuration = inputDuration,
-                    Progress = progressReporter
-                };
 
-                var totalDuration = TimeSpan.Zero;
-                var usedCpuFallback = false;
-                var result = await _ffmpegService.ExecuteAsync(
-                    command,
-                    executionOptions,
-                    _executionCancellationSource.Token);
-                totalDuration += result.Duration;
-
-                if (ShouldRetryWithCpuFallback(executionContext, result))
-                {
-                    usedCpuFallback = true;
-                    AddUiLog(
-                        executionWorkspaceKind,
-                        LogLevel.Warning,
-                        $"{item.InputFileName} 的 GPU 转码未成功，已自动回退为 CPU 重新尝试一次。",
-                        clearExisting: false);
-
-                    var cpuFallbackContext = executionContext with
+                var executionResult = await _mediaProcessingWorkflowService.ExecuteAsync(
+                    new MediaProcessingItemExecutionRequest(
+                        _runtimeExecutablePath!,
+                        item.InputPath,
+                        item.PlannedOutputPath,
+                        executionContext)
                     {
-                        VideoAccelerationKind = VideoAccelerationKind.None
-                    };
+                        InputDuration = inputDuration,
+                        Progress = progressReporter,
+                        OnCpuFallback = () =>
+                        {
+                            AddUiLog(
+                                executionWorkspaceKind,
+                                LogLevel.Warning,
+                                $"{item.InputFileName} 的 GPU 转码未成功，已自动回退为 CPU 重新尝试一次。",
+                                clearExisting: false);
 
-                    item.MarkRunning(
-                        inputDuration.HasValue
-                            ? CreateRunningItemProgressDetail(TimeSpan.Zero, inputDuration.Value, 0d)
-                            : "已回退为 CPU，正在重新尝试...");
-                    UpdateExecutionProgress(
-                        totalProcessableCount,
-                        completedBeforeCurrent,
-                        item,
-                        inputDuration is null ? null : 0d,
-                        TimeSpan.Zero,
-                        inputDuration,
-                        inputDuration is null
-                            ? "已回退为 CPU，正在重新尝试并估算进度。"
-                            : "已回退为 CPU，正在重新尝试...");
+                            UpdateExecutionProgress(
+                                totalProcessableCount,
+                                completedBeforeCurrent,
+                                item,
+                                inputDuration is null ? null : 0d,
+                                TimeSpan.Zero,
+                                inputDuration,
+                                inputDuration is null
+                                    ? "已回退为 CPU，正在重新尝试并估算进度。"
+                                    : "已回退为 CPU，正在重新尝试...");
+                        }
+                    },
+                    _executionCancellationSource.Token);
 
-                    command = BuildCommand(item.InputPath, item.PlannedOutputPath, cpuFallbackContext);
-                    result = await _ffmpegService.ExecuteAsync(
-                        command,
-                        executionOptions,
-                        _executionCancellationSource.Token);
-                    totalDuration += result.Duration;
-                }
-
-                var elapsedText = FormatDuration(totalDuration);
+                var result = executionResult.ExecutionResult;
+                var usedCpuFallback = executionResult.UsedCpuFallback;
+                var elapsedText = FormatDuration(executionResult.TotalDuration);
 
                 if (result.WasSuccessful && File.Exists(item.PlannedOutputPath))
                 {
@@ -300,56 +285,35 @@ public sealed partial class MainViewModel
 
     private async Task<int> ValidateProcessingPreconditionsAsync(
         MediaProcessingContext executionContext,
-        System.Collections.Generic.IReadOnlyList<MediaJobViewModel> executionItems,
+        IReadOnlyList<MediaJobViewModel> executionItems,
         CancellationToken cancellationToken)
     {
-        if (!TryGetRequiredTrackType(executionContext, out var requiredTrackType))
+        var preflightResult = await _mediaProcessingWorkflowService.ValidatePreconditionsAsync(
+            executionContext,
+            executionItems.Select(item => item.InputPath).ToArray(),
+            cancellationToken);
+
+        foreach (var message in preflightResult.Messages)
         {
-            return 0;
+            AddUiLog(executionContext.WorkspaceKind, message.Level, message.Message, clearExisting: false);
         }
 
+        var blockingIssuesByPath = preflightResult.BlockingIssues.ToDictionary(
+            issue => issue.InputPath,
+            issue => issue,
+            StringComparer.OrdinalIgnoreCase);
         var failedCount = 0;
 
         foreach (var item in executionItems)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            MediaDetailsSnapshot? snapshot = null;
-            if (_mediaInfoService.TryGetCachedDetails(item.InputPath, out var cachedSnapshot))
+            if (!blockingIssuesByPath.TryGetValue(item.InputPath, out var issue))
             {
-                snapshot = cachedSnapshot;
-            }
-            else
-            {
-                var result = await _mediaInfoService.GetMediaDetailsAsync(item.InputPath, cancellationToken);
-                if (!result.IsSuccess || result.Snapshot is null)
-                {
-                    var reason = result.ErrorMessage ?? "无法提前检测该文件的媒体轨道。";
-                    _logger.Log(LogLevel.Warning, $"处理前预检失败，将继续尝试处理：{item.InputPath}，原因：{reason}");
-                    AddUiLog(LogLevel.Warning, $"{item.InputFileName} 未能完成轨道预检，将继续尝试处理。原因：{reason}", clearExisting: false);
-                    continue;
-                }
-
-                snapshot = result.Snapshot;
-            }
-
-            if (HasRequiredTrack(snapshot, requiredTrackType))
-            {
-                if (!TryCreateSubtitleCompatibilityFailureMessage(snapshot, executionContext, out var compatibilityFailureMessage))
-                {
-                    continue;
-                }
-
-                item.MarkFailed($"原因：{compatibilityFailureMessage}");
-                failedCount++;
-                AddUiLog(executionContext.WorkspaceKind, LogLevel.Warning, $"{item.InputFileName} {compatibilityFailureMessage}", clearExisting: false);
                 continue;
             }
 
-            var failureMessage = CreateMissingRequiredTrackMessage(requiredTrackType, executionContext);
-            item.MarkFailed($"原因：{failureMessage}");
+            item.MarkFailed($"原因：{issue.FailureMessage}");
             failedCount++;
-            AddUiLog(executionContext.WorkspaceKind, LogLevel.Warning, $"{item.InputFileName} {failureMessage}", clearExisting: false);
+            AddUiLog(executionContext.WorkspaceKind, LogLevel.Warning, $"{item.InputFileName} {issue.FailureMessage}", clearExisting: false);
         }
 
         return failedCount;
@@ -359,161 +323,23 @@ public sealed partial class MainViewModel
         MediaProcessingContext executionContext,
         CancellationToken cancellationToken)
     {
-        if (executionContext.ProcessingMode == ProcessingMode.SubtitleTrackExtract)
+        if (string.IsNullOrWhiteSpace(_runtimeExecutablePath))
         {
-            AddUiLog(
-                executionContext.WorkspaceKind,
-                LogLevel.Info,
-                executionContext.OutputFormat.Extension.Equals(".mks", StringComparison.OrdinalIgnoreCase)
-                    ? "当前为字幕轨道提取：MKS 会优先保留原始字幕编码输出，不使用 GPU。"
-                    : "当前为字幕轨道提取：会按所选字幕格式输出，必要时自动转换字幕编码，不使用 GPU。",
-                clearExisting: false);
-            return executionContext with
-            {
-                VideoAccelerationKind = VideoAccelerationKind.None
-            };
+            throw new InvalidOperationException("运行环境尚未准备完成。");
         }
 
-        if (executionContext.TranscodingMode != TranscodingMode.FullTranscode)
+        var resolutionResult = await _mediaProcessingWorkflowService.ResolveExecutionContextAsync(
+            _runtimeExecutablePath,
+            executionContext,
+            cancellationToken);
+
+        foreach (var message in resolutionResult.Messages)
         {
-            AddUiLog(
-                executionContext.WorkspaceKind,
-                LogLevel.Info,
-                "当前使用快速换封装模式：优先直接复用原始流，并保持现有兼容策略。",
-                clearExisting: false);
-            return executionContext;
+            AddUiLog(executionContext.WorkspaceKind, message.Level, message.Message, clearExisting: false);
         }
 
-        if (!executionContext.IsGpuAccelerationRequested)
-        {
-            AddUiLog(
-                executionContext.WorkspaceKind,
-                LogLevel.Info,
-                "当前使用真正转码模式：本次将通过 CPU 重新编码输出。",
-                clearExisting: false);
-            return executionContext;
-        }
-
-        if (executionContext.WorkspaceKind == ProcessingWorkspaceKind.Audio)
-        {
-            AddUiLog(
-                executionContext.WorkspaceKind,
-                LogLevel.Info,
-                "已开启 GPU 加速，但当前为音频任务；GPU 加速仅对视频重新编码生效，本次将继续使用 CPU 音频转码。",
-                clearExisting: false);
-            return executionContext;
-        }
-
-        if (!CanUseHardwareVideoEncoding(executionContext.OutputFormat))
-        {
-            AddUiLog(
-                executionContext.WorkspaceKind,
-                LogLevel.Info,
-                $"已开启 GPU 加速，但 {executionContext.OutputFormat.DisplayName} 当前仍使用固定兼容编码，本次会自动回退为 CPU 转码。",
-                clearExisting: false);
-            return executionContext;
-        }
-
-        var probeResult = await _ffmpegVideoAccelerationService
-            .ProbeBestEncoderAsync(_runtimeExecutablePath!, cancellationToken)
-            .ConfigureAwait(false);
-
-        AddUiLog(
-            executionContext.WorkspaceKind,
-            probeResult.IsAvailable ? LogLevel.Info : LogLevel.Warning,
-            probeResult.Message,
-            clearExisting: false);
-
-        return executionContext with
-        {
-            VideoAccelerationKind = probeResult.Kind
-        };
+        return resolutionResult.Context;
     }
-
-    private bool TryGetRequiredTrackType(MediaProcessingContext executionContext, out RequiredTrackType requiredTrackType)
-    {
-        if (executionContext.WorkspaceKind == ProcessingWorkspaceKind.Audio)
-        {
-            requiredTrackType = RequiredTrackType.Audio;
-            return true;
-        }
-
-        switch (executionContext.ProcessingMode)
-        {
-            case ProcessingMode.VideoTrackExtract:
-                requiredTrackType = RequiredTrackType.Video;
-                return true;
-            case ProcessingMode.AudioTrackExtract:
-                requiredTrackType = RequiredTrackType.Audio;
-                return true;
-            case ProcessingMode.SubtitleTrackExtract:
-                requiredTrackType = RequiredTrackType.Subtitle;
-                return true;
-            default:
-                requiredTrackType = default;
-                return false;
-        }
-    }
-
-    private static bool HasRequiredTrack(MediaDetailsSnapshot snapshot, RequiredTrackType requiredTrackType) =>
-        requiredTrackType switch
-        {
-            RequiredTrackType.Video => snapshot.HasVideoStream,
-            RequiredTrackType.Audio => snapshot.HasAudioStream,
-            RequiredTrackType.Subtitle => snapshot.HasSubtitleStream,
-            _ => false
-        };
-
-    private static bool TryCreateSubtitleCompatibilityFailureMessage(
-        MediaDetailsSnapshot snapshot,
-        MediaProcessingContext executionContext,
-        out string failureMessage)
-    {
-        failureMessage = string.Empty;
-
-        if (executionContext.WorkspaceKind != ProcessingWorkspaceKind.Video ||
-            executionContext.ProcessingMode != ProcessingMode.SubtitleTrackExtract ||
-            executionContext.OutputFormat.Extension.Equals(".mks", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (!IsBitmapSubtitleCodec(snapshot.PrimarySubtitleCodecName))
-        {
-            return false;
-        }
-
-        failureMessage = $"检测到图形字幕轨道，无法直接转换为 {executionContext.OutputFormat.DisplayName} 文本字幕；请改用 MKS 保留原字幕轨道。";
-        return true;
-    }
-
-    private static bool IsBitmapSubtitleCodec(string? codecName) =>
-        !string.IsNullOrWhiteSpace(codecName) &&
-        codecName.ToLowerInvariant() is "hdmv_pgs_subtitle" or "dvd_subtitle" or "dvb_subtitle" or "xsub";
-
-    private string CreateMissingRequiredTrackMessage(RequiredTrackType requiredTrackType, MediaProcessingContext executionContext)
-    {
-        var outputFormatName = executionContext.OutputFormat.DisplayName;
-
-        if (executionContext.WorkspaceKind == ProcessingWorkspaceKind.Audio)
-        {
-            return $"未检测到音频流，无法转换为 {outputFormatName}。";
-        }
-
-        return requiredTrackType switch
-        {
-            RequiredTrackType.Video => $"未检测到视频轨道，无法提取为 {outputFormatName}。",
-            RequiredTrackType.Audio => $"未检测到音频轨道，无法提取为 {outputFormatName}。",
-            RequiredTrackType.Subtitle => $"未检测到字幕轨道，无法提取为 {outputFormatName}。",
-            _ => "当前文件不满足所选处理模式。"
-        };
-    }
-
-    private static bool ShouldRetryWithCpuFallback(MediaProcessingContext executionContext, FFmpegExecutionResult result) =>
-        executionContext.VideoAccelerationKind != VideoAccelerationKind.None &&
-        !result.WasSuccessful &&
-        !result.WasCancelled &&
-        !result.TimedOut;
 
     private async Task<bool> EnsureRuntimeReadyAsync(CancellationToken cancellationToken = default, bool logUiFailure = false)
     {
@@ -527,7 +353,7 @@ public sealed partial class MainViewModel
             IsBusy = true;
             StatusMessage = RuntimePreparingMessage;
 
-            var resolution = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken);
+            var resolution = await _mediaProcessingWorkflowService.EnsureRuntimeReadyAsync(cancellationToken);
             _runtimeExecutablePath = resolution.ExecutablePath;
 
             SetReadyStatusMessage();
@@ -561,12 +387,5 @@ public sealed partial class MainViewModel
         {
             IsBusy = false;
         }
-    }
-
-    private enum RequiredTrackType
-    {
-        Video,
-        Audio,
-        Subtitle
     }
 }

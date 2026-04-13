@@ -1,4 +1,7 @@
-﻿using System;
+// 功能：主工作区偏好与输出规划（集中管理格式偏好、输出目录和默认导出路径）
+// 模块：视频转换模块 / 音频转换模块
+// 说明：可复用，负责状态规划与持久化，不直接执行业务逻辑。
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -142,7 +145,7 @@ public sealed partial class MainViewModel
 
         foreach (var item in ImportItems)
         {
-            var plannedOutputPath = CreateUniqueOutputPath(CreateOutputPath(item.InputPath), usedOutputPaths);
+            var plannedOutputPath = MediaPathResolver.CreateUniqueOutputPath(CreateOutputPath(item.InputPath), usedOutputPaths);
             item.UpdatePlannedOutputPath(plannedOutputPath);
         }
     }
@@ -164,23 +167,13 @@ public sealed partial class MainViewModel
 
     private string NormalizeOutputDirectory(string? outputDirectory)
     {
-        if (string.IsNullOrWhiteSpace(outputDirectory))
+        if (MediaPathResolver.TryNormalizeOutputDirectory(outputDirectory, out var normalizedDirectory))
         {
-            return string.Empty;
+            return normalizedDirectory;
         }
 
-        try
-        {
-            return Path.GetFullPath(outputDirectory.Trim());
-        }
-        catch (Exception exception) when (
-            exception is ArgumentException or
-            NotSupportedException or
-            PathTooLongException)
-        {
-            _logger.Log(LogLevel.Warning, "检测到无效的输出目录配置，已回退为原文件夹输出。", exception);
-            return string.Empty;
-        }
+        _logger.Log(LogLevel.Warning, "检测到无效的输出目录配置，已回退为原文件夹输出。");
+        return string.Empty;
     }
 
     private void EnsureOutputDirectoryExists()
@@ -191,24 +184,5 @@ public sealed partial class MainViewModel
         }
 
         Directory.CreateDirectory(OutputDirectory);
-    }
-
-    private static string CreateUniqueOutputPath(string outputPath, ISet<string> usedOutputPaths)
-    {
-        var directory = Path.GetDirectoryName(outputPath)
-            ?? throw new InvalidOperationException("输出路径缺少有效目录。");
-        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(outputPath);
-        var extension = Path.GetExtension(outputPath);
-        var candidatePath = outputPath;
-        var suffixIndex = 2;
-
-        while (usedOutputPaths.Contains(candidatePath) || File.Exists(candidatePath) || Directory.Exists(candidatePath))
-        {
-            candidatePath = Path.Combine(directory, $"{fileNameWithoutExtension}_{suffixIndex}{extension}");
-            suffixIndex++;
-        }
-
-        usedOutputPaths.Add(candidatePath);
-        return candidatePath;
     }
 }

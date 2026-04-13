@@ -1,4 +1,7 @@
-﻿using System;
+// 功能：主工作区视图模型（协调视频转换、音频转换与裁剪工作区的界面状态）
+// 模块：视频转换模块 / 音频转换模块 / 裁剪模块
+// 说明：可复用，负责状态与绑定，不直接承载底层 FFmpeg 业务实现。
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -46,12 +49,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         };
 
     private readonly ApplicationConfiguration _configuration;
-    private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
-    private readonly IFFmpegService _ffmpegService;
-    private readonly IFFmpegVideoAccelerationService _ffmpegVideoAccelerationService;
     private readonly IMediaInfoService _mediaInfoService;
     private readonly IVideoThumbnailService _videoThumbnailService;
-    private readonly IMediaProcessingCommandFactory _mediaProcessingCommandFactory;
+    private readonly IMediaProcessingWorkflowService _mediaProcessingWorkflowService;
     private readonly IMediaImportDiscoveryService _mediaImportDiscoveryService;
     private readonly ILogger _logger;
     private readonly IFilePickerService _filePickerService;
@@ -104,12 +104,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public MainViewModel(
         ApplicationConfiguration configuration,
-        IFFmpegRuntimeService ffmpegRuntimeService,
-        IFFmpegService ffmpegService,
-        IFFmpegVideoAccelerationService ffmpegVideoAccelerationService,
         IMediaInfoService mediaInfoService,
         IVideoThumbnailService videoThumbnailService,
-        IMediaProcessingCommandFactory mediaProcessingCommandFactory,
+        IMediaProcessingWorkflowService mediaProcessingWorkflowService,
         IMediaImportDiscoveryService mediaImportDiscoveryService,
         ILogger logger,
         IFilePickerService filePickerService,
@@ -119,12 +116,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         VideoTrimWorkspaceViewModel trimWorkspace)
     {
         _configuration = configuration;
-        _ffmpegRuntimeService = ffmpegRuntimeService;
-        _ffmpegService = ffmpegService;
-        _ffmpegVideoAccelerationService = ffmpegVideoAccelerationService;
         _mediaInfoService = mediaInfoService;
         _videoThumbnailService = videoThumbnailService;
-        _mediaProcessingCommandFactory = mediaProcessingCommandFactory;
+        _mediaProcessingWorkflowService = mediaProcessingWorkflowService;
         _mediaImportDiscoveryService = mediaImportDiscoveryService;
         _logger = logger;
         _filePickerService = filePickerService;
@@ -485,5 +479,4 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             NotifyCommandStates();
         }
     }
-
 }

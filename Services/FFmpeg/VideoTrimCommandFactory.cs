@@ -1,3 +1,6 @@
+// 功能：视频裁剪命令工厂（根据裁剪请求生成 FFmpeg 裁剪命令）
+// 模块：裁剪模块
+// 说明：可复用，仅负责裁剪命令拼装，不涉及 UI。
 using System;
 using System.IO;
 using Vidvix.Core.Interfaces;
@@ -201,31 +204,7 @@ public sealed class VideoTrimCommandFactory : IVideoTrimCommandFactory
     private static IFFmpegCommandBuilder ApplyVideoEncoding(
         IFFmpegCommandBuilder builder,
         VideoAccelerationKind videoAccelerationKind) =>
-        videoAccelerationKind switch
-        {
-            VideoAccelerationKind.NvidiaNvenc => builder
-                .AddParameter("-c:v", "h264_nvenc")
-                .AddParameter("-preset", "p5")
-                .AddParameter("-cq", "23")
-                .AddParameter("-pix_fmt", "yuv420p"),
-            VideoAccelerationKind.IntelQuickSync => builder
-                .AddParameter("-c:v", "h264_qsv")
-                .AddParameter("-global_quality", "23")
-                .AddParameter("-look_ahead", "0")
-                .AddParameter("-pix_fmt", "nv12"),
-            VideoAccelerationKind.AmdAmf => builder
-                .AddParameter("-c:v", "h264_amf")
-                .AddParameter("-quality", "quality")
-                .AddParameter("-rc", "cqp")
-                .AddParameter("-qp_i", "23")
-                .AddParameter("-qp_p", "23")
-                .AddParameter("-pix_fmt", "nv12"),
-            _ => builder
-                .AddParameter("-c:v", "libx264")
-                .AddParameter("-crf", "23")
-                .AddParameter("-preset", "medium")
-                .AddParameter("-pix_fmt", "yuv420p")
-        };
+        FFmpegVideoEncodingPolicy.ApplyH264Encoding(builder, videoAccelerationKind);
 
     private static bool SupportsFastContainerCopy(string inputPath, string outputExtension)
     {

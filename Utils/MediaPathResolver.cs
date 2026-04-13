@@ -1,4 +1,8 @@
-﻿using System;
+// 功能：媒体输出路径工具（统一处理输出目录规范化、默认命名与重名避让）
+// 模块：裁剪模块 / 视频转换模块 / 音频转换模块
+// 说明：可复用，仅负责文件路径规划，不涉及 UI 或业务流程。
+using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Vidvix.Utils;
@@ -8,8 +12,30 @@ public static class MediaPathResolver
     public static string CreateSiblingOutputPath(string inputFilePath, string outputExtension) =>
         CreateSiblingOutputPath(inputFilePath, outputExtension, string.Empty);
 
-    public static string CreateSiblingOutputPath(string inputFilePath, string outputExtension, string suffix)
-        => CreateOutputPath(inputFilePath, outputExtension, outputDirectory: null, suffix);
+    public static string CreateSiblingOutputPath(string inputFilePath, string outputExtension, string suffix) =>
+        CreateOutputPath(inputFilePath, outputExtension, outputDirectory: null, suffix);
+
+    public static bool TryNormalizeOutputDirectory(string? outputDirectory, out string normalizedOutputDirectory)
+    {
+        normalizedOutputDirectory = string.Empty;
+        if (string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            return true;
+        }
+
+        try
+        {
+            normalizedOutputDirectory = Path.GetFullPath(outputDirectory.Trim());
+            return true;
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException or
+            NotSupportedException or
+            PathTooLongException)
+        {
+            return false;
+        }
+    }
 
     public static string CreateOutputPath(
         string inputFilePath,
@@ -49,6 +75,29 @@ public static class MediaPathResolver
         return outputPath;
     }
 
+    public static string CreateUniqueOutputPath(string outputPath, ISet<string>? usedOutputPaths = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+
+        var directory = Path.GetDirectoryName(outputPath)
+            ?? throw new InvalidOperationException("输出路径缺少有效目录。");
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(outputPath);
+        var extension = Path.GetExtension(outputPath);
+        var candidatePath = outputPath;
+        var suffixIndex = 2;
+
+        while ((usedOutputPaths?.Contains(candidatePath) ?? false) ||
+               File.Exists(candidatePath) ||
+               Directory.Exists(candidatePath))
+        {
+            candidatePath = Path.Combine(directory, $"{fileNameWithoutExtension}_{suffixIndex}{extension}");
+            suffixIndex++;
+        }
+
+        usedOutputPaths?.Add(candidatePath);
+        return candidatePath;
+    }
+
     public static string CreateVideoConversionOutputPath(
         string inputFilePath,
         string outputExtension,
@@ -78,4 +127,10 @@ public static class MediaPathResolver
         string outputExtension,
         string? outputDirectory = null) =>
         CreateOutputPath(inputFilePath, outputExtension, outputDirectory, string.Empty);
+
+    public static string CreateTrimOutputPath(
+        string inputFilePath,
+        string outputExtension,
+        string? outputDirectory = null) =>
+        CreateOutputPath(inputFilePath, outputExtension, outputDirectory, "_trim");
 }

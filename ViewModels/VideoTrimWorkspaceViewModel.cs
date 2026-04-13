@@ -12,6 +12,9 @@ using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Utils;
 
+// 功能：视频裁剪工作区视图模型（管理导入状态、裁剪区间与导出进度）
+// 模块：裁剪模块
+// 说明：可复用，负责状态与绑定，不直接承载底层 FFmpeg 业务实现。
 namespace Vidvix.ViewModels;
 
 public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
@@ -19,11 +22,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
     private static readonly TimeSpan MinimumSelectionLength = TimeSpan.FromMilliseconds(1);
 
     private readonly ApplicationConfiguration _configuration;
-    private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
-    private readonly IFFmpegService _ffmpegService;
-    private readonly IFFmpegVideoAccelerationService _ffmpegVideoAccelerationService;
-    private readonly IMediaInfoService _mediaInfoService;
-    private readonly IVideoTrimCommandFactory _videoTrimCommandFactory;
+    private readonly IVideoTrimWorkflowService _videoTrimWorkflowService;
     private readonly IFilePickerService _filePickerService;
     private readonly IUserPreferencesService _userPreferencesService;
     private readonly IFileRevealService _fileRevealService;
@@ -70,22 +69,14 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 
     public VideoTrimWorkspaceViewModel(
         ApplicationConfiguration configuration,
-        IFFmpegRuntimeService ffmpegRuntimeService,
-        IFFmpegService ffmpegService,
-        IFFmpegVideoAccelerationService ffmpegVideoAccelerationService,
-        IMediaInfoService mediaInfoService,
-        IVideoTrimCommandFactory videoTrimCommandFactory,
+        IVideoTrimWorkflowService videoTrimWorkflowService,
         IFilePickerService filePickerService,
         IUserPreferencesService userPreferencesService,
         IFileRevealService fileRevealService,
         ILogger logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        _ffmpegRuntimeService = ffmpegRuntimeService ?? throw new ArgumentNullException(nameof(ffmpegRuntimeService));
-        _ffmpegService = ffmpegService ?? throw new ArgumentNullException(nameof(ffmpegService));
-        _ffmpegVideoAccelerationService = ffmpegVideoAccelerationService ?? throw new ArgumentNullException(nameof(ffmpegVideoAccelerationService));
-        _mediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
-        _videoTrimCommandFactory = videoTrimCommandFactory ?? throw new ArgumentNullException(nameof(videoTrimCommandFactory));
+        _videoTrimWorkflowService = videoTrimWorkflowService ?? throw new ArgumentNullException(nameof(videoTrimWorkflowService));
         _filePickerService = filePickerService ?? throw new ArgumentNullException(nameof(filePickerService));
         _userPreferencesService = userPreferencesService ?? throw new ArgumentNullException(nameof(userPreferencesService));
         _fileRevealService = fileRevealService ?? throw new ArgumentNullException(nameof(fileRevealService));
@@ -424,57 +415,38 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (paths.Length != 1)
-        {
-            StatusMessage = "\u88c1\u526a\u6a21\u5757\u4e00\u6b21\u53ea\u80fd\u5bfc\u5165 1 \u4e2a\u89c6\u9891\u6587\u4ef6\u3002";
-            return;
-        }
-
-        var inputPath = paths[0];
-        if (Directory.Exists(inputPath))
-        {
-            StatusMessage = "\u88c1\u526a\u6a21\u5757\u4ec5\u652f\u6301\u5bfc\u5165\u5355\u4e2a\u89c6\u9891\u6587\u4ef6\uff0c\u4e0d\u652f\u6301\u6587\u4ef6\u5939\u3002";
-            return;
-        }
-
-        if (!File.Exists(inputPath) ||
-            !_configuration.SupportedTrimInputFileTypes.Contains(Path.GetExtension(inputPath), StringComparer.OrdinalIgnoreCase))
-        {
-            StatusMessage = "\u5f53\u524d\u6587\u4ef6\u7c7b\u578b\u4e0d\u5728\u88c1\u526a\u6a21\u5757\u652f\u6301\u8303\u56f4\u5185\u3002";
-            return;
-        }
-
         StatusMessage = "\u6b63\u5728\u89e3\u6790\u89c6\u9891\u4fe1\u606f...";
         LastImportErrorDetails = string.Empty;
         SetPreviewPreparing("\u6b63\u5728\u51c6\u5907\u89c6\u9891\u9884\u89c8...");
 
-        var details = await _mediaInfoService.GetMediaDetailsAsync(inputPath);
-        var duration = details.Snapshot?.MediaDuration;
-        if (!details.IsSuccess ||
-            details.Snapshot is null ||
-            !details.Snapshot.HasVideoStream ||
-            duration is null ||
-            duration <= TimeSpan.Zero)
+        var importResult = await _videoTrimWorkflowService.ImportAsync(paths);
+        if (importResult.Outcome == VideoTrimImportOutcome.Rejected)
         {
-            ApplyImportFailure(
-                ResolveImportFailureMessage(details),
-                details.DiagnosticDetails);
+            StatusMessage = importResult.Message;
             return;
         }
 
-        _inputPath = inputPath;
-        _inputFileName = Path.GetFileName(inputPath);
-        _mediaDetailsSnapshot = details.Snapshot;
-        _mediaDuration = duration.Value;
+        if (importResult.Outcome == VideoTrimImportOutcome.Failed ||
+            importResult.Snapshot is null ||
+            importResult.MediaDuration is not TimeSpan duration)
+        {
+            ApplyImportFailure(importResult.Message, importResult.DiagnosticDetails);
+            return;
+        }
+
+        _inputPath = importResult.InputPath!;
+        _inputFileName = importResult.InputFileName!;
+        _mediaDetailsSnapshot = importResult.Snapshot;
+        _mediaDuration = duration;
         _selectionStart = TimeSpan.Zero;
-        _selectionEnd = duration.Value;
+        _selectionEnd = duration;
         _currentPosition = TimeSpan.Zero;
         IsPlaying = false;
         RefreshMediaInfoFields();
         RaiseTrimStateChanged();
         RefreshPlannedOutputPath();
         LastImportErrorDetails = string.Empty;
-        StatusMessage = $"\u5df2\u5bfc\u5165 {_inputFileName}\uff0c\u8bf7\u62d6\u52a8\u5165\u70b9\u548c\u51fa\u70b9\u786e\u8ba4\u88c1\u526a\u8303\u56f4\u3002";
+        StatusMessage = importResult.Message;
     }
 
     public void ApplyPlayableDuration(TimeSpan duration)
@@ -700,12 +672,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
             ShowExportPreparationProgress();
             StatusMessage = "\u6b63\u5728\u51c6\u5907\u5bfc\u51fa\u88c1\u526a\u7247\u6bb5...";
 
-            var runtime = await _ffmpegRuntimeService.EnsureAvailableAsync(_exportCancellationSource.Token);
             var preferences = _userPreferencesService.Load();
-            var videoAccelerationKind = await ResolveVideoAccelerationKindAsync(
-                runtime.ExecutablePath,
-                preferences,
-                _exportCancellationSource.Token);
             var request = new VideoTrimExportRequest(
                 _inputPath,
                 PlannedOutputPath,
@@ -713,23 +680,20 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
                 _selectionEnd,
                 SelectedOutputFormat,
                 preferences.PreferredTranscodingMode,
-                videoAccelerationKind);
-            var command = _videoTrimCommandFactory.Create(request, runtime.ExecutablePath);
-            var options = new FFmpegExecutionOptions
-            {
-                Timeout = _configuration.DefaultExecutionTimeout,
-                InputDuration = request.Duration,
-                Progress = new Progress<FFmpegProgressUpdate>(UpdateExportProgress)
-            };
-
-            var result = await _ffmpegService.ExecuteAsync(command, options, _exportCancellationSource.Token);
-            if (result.WasSuccessful && File.Exists(request.OutputPath))
+                VideoAccelerationKind.None);
+            var exportResult = await _videoTrimWorkflowService.ExportAsync(
+                request,
+                preferences,
+                new Progress<FFmpegProgressUpdate>(UpdateExportProgress),
+                _exportCancellationSource.Token);
+            var result = exportResult.ExecutionResult;
+            if (result.WasSuccessful && File.Exists(exportResult.Request.OutputPath))
             {
                 ExportProgressValue = 100d;
                 ExportProgressPercentText = "100%";
                 ExportProgressDetailText = "\u5bfc\u51fa\u5b8c\u6210\uff0c\u6b63\u5728\u6574\u7406\u7ed3\u679c...";
-                StatusMessage = $"\u88c1\u526a\u5bfc\u51fa\u5b8c\u6210\uff1a{Path.GetFileName(request.OutputPath)}";
-                TryRevealOutputFile(request.OutputPath);
+                StatusMessage = $"\u88c1\u526a\u5bfc\u51fa\u5b8c\u6210\uff1a{Path.GetFileName(exportResult.Request.OutputPath)}";
+                TryRevealOutputFile(exportResult.Request.OutputPath);
                 return;
             }
 
@@ -762,25 +726,6 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         HasInput &&
         SelectedDuration > TimeSpan.Zero &&
         !string.IsNullOrWhiteSpace(PlannedOutputPath);
-
-    private async Task<VideoAccelerationKind> ResolveVideoAccelerationKindAsync(
-        string runtimeExecutablePath,
-        UserPreferences preferences,
-        CancellationToken cancellationToken)
-    {
-        if (preferences.PreferredTranscodingMode != TranscodingMode.FullTranscode ||
-            !preferences.EnableGpuAccelerationForTranscoding ||
-            !SupportsHardwareVideoEncoding(SelectedOutputFormat))
-        {
-            return VideoAccelerationKind.None;
-        }
-
-        var probeResult = await _ffmpegVideoAccelerationService
-            .ProbeBestEncoderAsync(runtimeExecutablePath, cancellationToken)
-            .ConfigureAwait(false);
-
-        return probeResult.IsAvailable ? probeResult.Kind : VideoAccelerationKind.None;
-    }
 
     private void RefreshMediaInfoFields()
     {
@@ -898,8 +843,8 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
     private void RefreshPlannedOutputPath()
     {
         PlannedOutputPath = HasInput
-            ? CreateUniqueOutputPath(
-                VideoTrimPathResolver.CreateOutputPath(
+            ? MediaPathResolver.CreateUniqueOutputPath(
+                MediaPathResolver.CreateTrimOutputPath(
                     _inputPath,
                     SelectedOutputFormat.Extension,
                     HasCustomOutputDirectory ? OutputDirectory : null))
@@ -952,26 +897,6 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         return string.IsNullOrWhiteSpace(details)
             ? "\u672a\u80fd\u6355\u83b7\u5230\u989d\u5916\u7684\u5f02\u5e38\u8bca\u65ad\u4fe1\u606f\u3002"
             : details;
-    }
-
-    private static string ResolveImportFailureMessage(MediaDetailsLoadResult result)
-    {
-        if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
-        {
-            return result.ErrorMessage;
-        }
-
-        if (result.Snapshot is null)
-        {
-            return "\u65e0\u6cd5\u89e3\u6790\u5f53\u524d\u89c6\u9891\u6587\u4ef6\u3002";
-        }
-
-        if (!result.Snapshot.HasVideoStream)
-        {
-            return "\u5f53\u524d\u6587\u4ef6\u4e0d\u5305\u542b\u53ef\u88c1\u526a\u7684\u89c6\u9891\u6d41\u3002";
-        }
-
-        return "\u5f53\u524d\u89c6\u9891\u65f6\u957f\u65e0\u6548\uff0c\u65e0\u6cd5\u5f00\u59cb\u88c1\u526a\u3002";
     }
 
     private void SetCurrentPosition(TimeSpan position)
@@ -1437,41 +1362,15 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         }
     }
 
-    private string CreateUniqueOutputPath(string outputPath)
-    {
-        var directory = Path.GetDirectoryName(outputPath)
-            ?? throw new InvalidOperationException("\u88c1\u526a\u8f93\u51fa\u8def\u5f84\u7f3a\u5c11\u6709\u6548\u76ee\u5f55\u3002");
-        var fileName = Path.GetFileNameWithoutExtension(outputPath);
-        var extension = Path.GetExtension(outputPath);
-        var candidate = outputPath;
-
-        for (var index = 2; File.Exists(candidate) || Directory.Exists(candidate); index++)
-        {
-            candidate = Path.Combine(directory, $"{fileName}_{index}{extension}");
-        }
-
-        return candidate;
-    }
-
     private string NormalizeOutputDirectory(string? outputDirectory)
     {
-        if (string.IsNullOrWhiteSpace(outputDirectory))
+        if (MediaPathResolver.TryNormalizeOutputDirectory(outputDirectory, out var normalizedDirectory))
         {
-            return string.Empty;
+            return normalizedDirectory;
         }
 
-        try
-        {
-            return Path.GetFullPath(outputDirectory.Trim());
-        }
-        catch (Exception exception) when (
-            exception is ArgumentException or
-            NotSupportedException or
-            PathTooLongException)
-        {
-            _logger.Log(LogLevel.Warning, "\u68c0\u6d4b\u5230\u65e0\u6548\u7684\u88c1\u526a\u8f93\u51fa\u76ee\u5f55\u914d\u7f6e\uff0c\u5df2\u56de\u9000\u4e3a\u539f\u6587\u4ef6\u5939\u8f93\u51fa\u3002", exception);
-            return string.Empty;
-        }
+        _logger.Log(LogLevel.Warning, "\u68c0\u6d4b\u5230\u65e0\u6548\u7684\u88c1\u526a\u8f93\u51fa\u76ee\u5f55\u914d\u7f6e\uff0c\u5df2\u56de\u9000\u4e3a\u539f\u6587\u4ef6\u5939\u8f93\u51fa\u3002");
+        return string.Empty;
     }
 
     private static string FormatFileSize(long sizeBytes)
@@ -1514,12 +1413,6 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
             .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         return lines.LastOrDefault() ?? "FFmpeg \u672a\u8fd4\u56de\u53ef\u7528\u9519\u8bef\u4fe1\u606f\u3002";
-    }
-
-    private static bool SupportsHardwareVideoEncoding(OutputFormatOption outputFormat)
-    {
-        var extension = outputFormat.Extension.ToLowerInvariant();
-        return extension is ".mp4" or ".mkv" or ".mov" or ".m4v" or ".ts" or ".m2ts";
     }
 
     private static TimeSpan Clamp(TimeSpan value, TimeSpan min, TimeSpan max) =>

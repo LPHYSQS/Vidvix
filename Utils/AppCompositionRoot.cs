@@ -1,4 +1,7 @@
-﻿using System;
+// 功能：应用组合根（统一创建 ViewModel、Service 与窗口依赖关系）
+// 模块：应用基础架构
+// 说明：可复用，负责依赖装配，不承载具体业务规则。
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
@@ -40,15 +43,26 @@ public sealed class AppCompositionRoot
         var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
         var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(Configuration, commandBuilder);
         var videoTrimCommandFactory = new VideoTrimCommandFactory(Configuration, commandBuilder);
-        _userPreferencesService = new UserPreferencesService(Configuration, Logger);
-        var fileRevealService = new FileRevealService();
-        var trimWorkspace = new VideoTrimWorkspaceViewModel(
+        var mediaProcessingWorkflowService = new MediaProcessingWorkflowService(
             Configuration,
             runtimeService,
             ffmpegService,
             ffmpegVideoAccelerationService,
             mediaInfoService,
-            videoTrimCommandFactory,
+            mediaProcessingCommandFactory,
+            Logger);
+        var videoTrimWorkflowService = new VideoTrimWorkflowService(
+            Configuration,
+            runtimeService,
+            ffmpegService,
+            ffmpegVideoAccelerationService,
+            mediaInfoService,
+            videoTrimCommandFactory);
+        _userPreferencesService = new UserPreferencesService(Configuration, Logger);
+        var fileRevealService = new FileRevealService();
+        var trimWorkspace = new VideoTrimWorkspaceViewModel(
+            Configuration,
+            videoTrimWorkflowService,
             filePickerService,
             _userPreferencesService,
             fileRevealService,
@@ -56,12 +70,9 @@ public sealed class AppCompositionRoot
 
         _mainViewModel = new MainViewModel(
             Configuration,
-            runtimeService,
-            ffmpegService,
-            ffmpegVideoAccelerationService,
             mediaInfoService,
             videoThumbnailService,
-            mediaProcessingCommandFactory,
+            mediaProcessingWorkflowService,
             mediaImportDiscoveryService,
             Logger,
             filePickerService,
