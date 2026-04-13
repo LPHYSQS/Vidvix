@@ -10,6 +10,7 @@ using Vidvix.Core.Models;
 using Vidvix.Services;
 using Vidvix.Services.FFmpeg;
 using Vidvix.Services.MediaInfo;
+using Vidvix.Services.VideoPreview;
 using Vidvix.ViewModels;
 using Vidvix.Views;
 
@@ -40,6 +41,7 @@ public sealed class AppCompositionRoot
         var ffmpegVideoAccelerationService = new FFmpegVideoAccelerationService(ffmpegService, Logger);
         var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
         var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
+        var videoPreviewService = new MpvVideoPreviewService(Configuration, _windowContext, Logger);
         var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
         var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(Configuration, commandBuilder);
         var videoTrimCommandFactory = new VideoTrimCommandFactory(Configuration, commandBuilder);
@@ -66,6 +68,8 @@ public sealed class AppCompositionRoot
             filePickerService,
             _userPreferencesService,
             fileRevealService,
+            videoPreviewService,
+            dispatcherService,
             Logger);
 
         _mainViewModel = new MainViewModel(

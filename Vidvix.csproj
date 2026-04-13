@@ -64,6 +64,21 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup Condition="Exists('Tools\mpv\mpv-1.dll')">
+    <Content Include="Tools\mpv\mpv-1.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="Tools\mpv\d3dcompiler_43.dll" Condition="Exists('Tools\mpv\d3dcompiler_43.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="Tools\mpv\LICENSE.txt" Condition="Exists('Tools\mpv\LICENSE.txt')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
   <Target Name="EnsureOfflineRuntimeForPublish" BeforeTargets="Publish">
     <Error
       Condition="!Exists('$(MSBuildProjectDirectory)\Tools\ffmpeg\ffmpeg.exe')"
@@ -71,6 +86,9 @@
     <Error
       Condition="!Exists('$(MSBuildProjectDirectory)\Tools\ffmpeg\ffprobe.exe')"
       Text="Offline publish bundle is missing Tools\ffmpeg\ffprobe.exe." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\mpv\mpv-1.dll')"
+      Text="Offline publish bundle is missing Tools\mpv\mpv-1.dll." />
   </Target>
 
   <Target Name="CopyGeneratedPriToPublish" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="Exists('$(TargetDir)$(AssemblyName).pri') and Exists('$(PublishDir)$(AssemblyName).exe')">

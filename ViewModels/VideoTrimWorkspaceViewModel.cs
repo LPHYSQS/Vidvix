@@ -17,7 +17,7 @@ using Vidvix.Utils;
 // 说明：可复用，负责状态与绑定，不直接承载底层 FFmpeg 业务实现。
 namespace Vidvix.ViewModels;
 
-public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
+public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 {
     private static readonly TimeSpan MinimumSelectionLength = TimeSpan.FromMilliseconds(1);
 
@@ -73,6 +73,8 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         IFilePickerService filePickerService,
         IUserPreferencesService userPreferencesService,
         IFileRevealService fileRevealService,
+        IVideoPreviewService videoPreviewService,
+        IDispatcherService dispatcherService,
         ILogger logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -80,6 +82,8 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         _filePickerService = filePickerService ?? throw new ArgumentNullException(nameof(filePickerService));
         _userPreferencesService = userPreferencesService ?? throw new ArgumentNullException(nameof(userPreferencesService));
         _fileRevealService = fileRevealService ?? throw new ArgumentNullException(nameof(fileRevealService));
+        _videoPreviewService = videoPreviewService ?? throw new ArgumentNullException(nameof(videoPreviewService));
+        _dispatcherService = dispatcherService ?? throw new ArgumentNullException(nameof(dispatcherService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         var preferences = _userPreferencesService.Load();
@@ -95,6 +99,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         _clearOutputDirectoryCommand = new RelayCommand(ClearOutputDirectory, () => HasCustomOutputDirectory && !IsBusy);
         _exportTrimCommand = new AsyncRelayCommand(ExportTrimAsync, CanExportTrim);
         _cancelExportCommand = new RelayCommand(CancelExport, () => IsBusy);
+        InitializePreview();
     }
 
     public IReadOnlyList<OutputFormatOption> AvailableOutputFormats { get; }
@@ -297,6 +302,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
             var normalized = Math.Clamp(value, 0d, 100d) / 100d;
             if (SetProperty(ref _volume, normalized))
             {
+                UpdatePreviewVolume();
                 OnPropertyChanged(nameof(VolumeLevel));
                 OnPropertyChanged(nameof(VolumePercentText));
                 OnPropertyChanged(nameof(VolumeToolTipText));
@@ -566,6 +572,7 @@ public sealed class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
         _exportCancellationSource?.Cancel();
         _exportCancellationSource?.Dispose();
         _exportCancellationSource = null;
+        DisposePreview();
     }
 
     private async Task SelectVideoAsync()

@@ -31,6 +31,13 @@ public sealed class ApplicationConfiguration
 
     public string BundledRuntimeDirectoryName { get; init; } = "ffmpeg";
 
+    public string MpvBundledRuntimeDirectoryName { get; init; } = "mpv";
+
+    public string MpvLibraryFileName { get; init; } = "mpv-1.dll";
+
+    public IReadOnlyList<string> MpvSupportDllFileNames { get; init; } =
+        new[] { "d3dcompiler_43.dll" };
+
     public string ThumbnailCacheDirectoryName { get; init; } = "ThumbnailCache";
 
     public string RuntimeVendorDirectoryName { get; init; } = "MediaEngine";

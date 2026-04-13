@@ -45,8 +45,20 @@ AppData/
 *.msix
 *.msixbundle
 
-# Bundled FFmpeg runtime payloads
+# OS-generated files
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Third-party media runtime payloads kept local
 Tools/ffmpeg/
+Tools/mpv/
+Tools/MediaEngine/**/bin/
+Tools/MediaEngine/**/doc/
+Tools/MediaEngine/**/presets/
 Tools/**/ffmpeg.exe
 Tools/**/ffprobe.exe
 Tools/**/ffplay.exe
+Tools/**/mpv-*.dll
+Tools/**/d3dcompiler_*.dll
