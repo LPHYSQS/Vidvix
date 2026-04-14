@@ -135,7 +135,7 @@
                     IsDynamicOverflowEnabled="True"
                     VerticalAlignment="Center"
                     Visibility="{x:Bind ViewModel.TrimWorkspaceVisibility, Mode=OneWay}">
-                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.SelectVideoCommand}" Label="导入视频">
+                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.SelectVideoCommand}" Label="导入文件">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="OpenFile" />
                         </AppBarButton.Icon>

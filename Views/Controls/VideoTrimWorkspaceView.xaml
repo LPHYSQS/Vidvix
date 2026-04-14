@@ -107,12 +107,12 @@
             <Grid Grid.RowSpan="2" MinHeight="420" Visibility="{x:Bind ViewModel.PlaceholderVisibility, Mode=OneWay}">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="760" Spacing="16">
                     <SymbolIcon HorizontalAlignment="Center" Symbol="Video" />
-                    <TextBlock FontSize="28" FontWeight="SemiBold" MaxWidth="720" Text="请导入视频文件或拖拽到此处开始裁剪" TextAlignment="Center" TextWrapping="Wrap" />
+                    <TextBlock FontSize="28" FontWeight="SemiBold" MaxWidth="720" Text="请导入文件或拖拽到此处开始裁剪" TextAlignment="Center" TextWrapping="Wrap" />
                     <TextBlock MaxWidth="760" Opacity="0.72" Text="导入后会在同一张主卡片中显示视频预览、播放控制、时间轴、双滑块裁剪和输出格式选择。" TextAlignment="Center" TextWrapping="Wrap" />
                     <Button HorizontalAlignment="Center" Command="{x:Bind ViewModel.SelectVideoCommand, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <SymbolIcon Symbol="OpenFile" />
-                            <TextBlock Text="导入视频" />
+                            <TextBlock Text="导入文件" />
                         </StackPanel>
                     </Button>
                     <TextBlock MaxWidth="760" Opacity="0.72" Text="{x:Bind ViewModel.SupportedInputFormatsHint, Mode=OneWay}" TextAlignment="Center" TextWrapping="Wrap" />
