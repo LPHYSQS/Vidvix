@@ -140,7 +140,7 @@
                             <SymbolIcon Symbol="OpenFile" />
                         </AppBarButton.Icon>
                     </AppBarButton>
-                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.RemoveVideoCommand}" Label="移除视频">
+                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.RemoveVideoCommand}" Label="{x:Bind ViewModel.TrimWorkspace.RemoveInputCommandText, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Delete" />
                         </AppBarButton.Icon>

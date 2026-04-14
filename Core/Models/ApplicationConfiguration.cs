@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Vidvix.Core.Models;
 
@@ -13,7 +14,10 @@ public sealed class ApplicationConfiguration
         new[] { ".mp3", ".m4a", ".aac", ".wav", ".flac", ".wma", ".ogg", ".opus", ".aiff", ".aif", ".mka" };
 
     private static readonly IReadOnlyList<string> DefaultSupportedTrimInputFileTypes =
-        new[] { ".mp4", ".mkv", ".mov", ".avi", ".wmv", ".m4v", ".flv", ".webm", ".ts", ".m2ts", ".mpeg", ".mpg" };
+        DefaultSupportedVideoInputFileTypes
+            .Concat(DefaultSupportedAudioInputFileTypes)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
     public string ApplicationTitle { get; init; } = "Vidvix";
 
@@ -39,6 +43,8 @@ public sealed class ApplicationConfiguration
         new[] { "d3dcompiler_43.dll" };
 
     public string ThumbnailCacheDirectoryName { get; init; } = "ThumbnailCache";
+
+    public string AudioWaveformCacheDirectoryName { get; init; } = "AudioWaveformCache";
 
     public string RuntimeVendorDirectoryName { get; init; } = "MediaEngine";
 
@@ -84,10 +90,10 @@ public sealed class ApplicationConfiguration
             [ProcessingWorkspaceKind.Trim] = new(
                 ProcessingWorkspaceKind.Trim,
                 "裁剪",
-                "视频文件",
+                "音频或视频文件",
                 DefaultSupportedTrimInputFileTypes,
-                fixedProcessingModeDisplayName: "视频裁剪",
-                fixedProcessingModeDescription: "导入单个视频文件后，按所选起止时间精确导出对应片段。")
+                fixedProcessingModeDisplayName: "媒体裁剪",
+                fixedProcessingModeDescription: "导入单个音频或视频文件后，按所选起止时间精确导出对应片段。")
         };
 
     public IReadOnlyList<ProcessingModeOption> SupportedProcessingModes { get; init; } =

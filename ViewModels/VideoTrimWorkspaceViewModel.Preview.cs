@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 
@@ -13,7 +14,9 @@ public sealed partial class VideoTrimWorkspaceViewModel
     private readonly IDispatcherService _dispatcherService;
     private readonly IVideoPreviewService _videoPreviewService;
     private readonly SemaphoreSlim _previewInteractionSemaphore = new(1, 1);
+    private CancellationTokenSource? _audioWaveformLoadCancellationSource;
     private CancellationTokenSource? _selectionBoundaryWarmupCancellationSource;
+    private int _audioWaveformLoadVersion;
     private bool _isBoundaryWarmupInProgress;
     private bool _isTimelineInteractionPending;
     private bool _isSeeking;
@@ -63,11 +66,21 @@ public sealed partial class VideoTrimWorkspaceViewModel
         if (!HasInput || string.IsNullOrWhiteSpace(_inputPath) || !File.Exists(_inputPath))
         {
             ResetPreviewInteractionState();
+            ResetAudioWaveformState();
             await _videoPreviewService.UnloadAsync(cancellationToken).ConfigureAwait(false);
             return;
         }
 
-        SetPreviewPreparing("正在准备视频预览...");
+        if (IsAudioTrim)
+        {
+            BeginAudioWaveformLoad(_inputPath);
+        }
+        else
+        {
+            ResetAudioWaveformState();
+        }
+
+        SetPreviewPreparing(GetDefaultPreviewPreparingMessage());
         try
         {
             await _videoPreviewService
@@ -85,15 +98,26 @@ public sealed partial class VideoTrimWorkspaceViewModel
         {
             _logger.Log(LogLevel.Error, "MPV 预览加载失败。", exception);
             RunPreviewOnUiThread(() =>
-                SetPreviewFailed("当前视频无法预览，但仍可尝试直接导出。"));
+                SetPreviewFailed(IsAudioTrim
+                    ? "当前音频无法预览，但仍可尝试直接导出。"
+                    : "当前视频无法预览，但仍可尝试直接导出。"));
         }
     }
 
-    internal void UpdatePreviewHostPlacement(VideoPreviewHostPlacement placement) =>
+    internal void UpdatePreviewHostPlacement(VideoPreviewHostPlacement placement)
+    {
+        if (IsAudioTrim)
+        {
+            placement = placement with { IsVisible = false };
+        }
+
         _videoPreviewService.UpdateHostPlacement(placement);
+    }
 
     internal Task RefreshPreviewRenderingAsync(CancellationToken cancellationToken = default) =>
-        _videoPreviewService.RefreshAsync(cancellationToken);
+        IsAudioTrim
+            ? Task.CompletedTask
+            : _videoPreviewService.RefreshAsync(cancellationToken);
 
     internal bool HasLoadedPreview => _videoPreviewService.HasLoadedMedia;
 
@@ -405,6 +429,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
     private void QueueSelectionBoundaryWarmup()
     {
         if (!HasLoadedPreview ||
+            IsAudioTrim ||
             !IsPreviewReady ||
             IsPlaying ||
             IsSeeking ||
@@ -530,6 +555,9 @@ public sealed partial class VideoTrimWorkspaceViewModel
 
     private void DisposePreview()
     {
+        CancelAudioWaveformLoad();
+        _audioWaveformLoadCancellationSource?.Dispose();
+        _audioWaveformLoadCancellationSource = null;
         CancelSelectionBoundaryWarmup();
         _selectionBoundaryWarmupCancellationSource?.Dispose();
         _selectionBoundaryWarmupCancellationSource = null;
@@ -569,7 +597,9 @@ public sealed partial class VideoTrimWorkspaceViewModel
             }
 
             SetPreviewFailed(string.IsNullOrWhiteSpace(e.Message)
-                ? "当前视频无法预览，但仍可尝试直接导出。"
+                ? IsAudioTrim
+                    ? "当前音频无法预览，但仍可尝试直接导出。"
+                    : "当前视频无法预览，但仍可尝试直接导出。"
                 : e.Message);
         });
     }
@@ -643,6 +673,110 @@ public sealed partial class VideoTrimWorkspaceViewModel
     private bool IsCurrentPreviewSource(string sourcePath) =>
         !string.IsNullOrWhiteSpace(sourcePath) &&
         string.Equals(_inputPath, sourcePath, StringComparison.OrdinalIgnoreCase);
+
+    private void BeginAudioWaveformLoad(string inputPath)
+    {
+        if (!IsAudioTrim || string.IsNullOrWhiteSpace(inputPath) || !File.Exists(inputPath))
+        {
+            ResetAudioWaveformState();
+            return;
+        }
+
+        CancelAudioWaveformLoad();
+        SetAudioWaveformPresentation(imageSource: null, overlayMessage: "正在生成音频波形...");
+
+        _audioWaveformLoadCancellationSource = new CancellationTokenSource();
+        var cancellationToken = _audioWaveformLoadCancellationSource.Token;
+        var sourcePath = inputPath;
+        var requestVersion = ++_audioWaveformLoadVersion;
+
+        _ = Task.Run(
+            async () =>
+            {
+                try
+                {
+                    var waveformUri = await _audioWaveformService
+                        .GetWaveformImageUriAsync(sourcePath, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    RunPreviewOnUiThread(() =>
+                    {
+                        if (!IsCurrentPreviewSource(sourcePath) || requestVersion != _audioWaveformLoadVersion)
+                        {
+                            return;
+                        }
+
+                        if (waveformUri is null)
+                        {
+                            SetAudioWaveformPresentation(imageSource: null, overlayMessage: "音频已加载，但波形暂未生成。");
+                            return;
+                        }
+
+                        SetAudioWaveformPresentation(new BitmapImage(waveformUri), string.Empty);
+                    });
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                }
+                catch (Exception exception)
+                {
+                    _logger.Log(LogLevel.Warning, "加载音频波形时发生异常。", exception);
+                    RunPreviewOnUiThread(() =>
+                    {
+                        if (!IsCurrentPreviewSource(sourcePath) || requestVersion != _audioWaveformLoadVersion)
+                        {
+                            return;
+                        }
+
+                        SetAudioWaveformPresentation(imageSource: null, overlayMessage: "音频已加载，但波形暂未生成。");
+                    });
+                }
+            },
+            cancellationToken);
+    }
+
+    private void ResetAudioWaveformState()
+    {
+        CancelAudioWaveformLoad();
+        SetAudioWaveformPresentation(imageSource: null, overlayMessage: string.Empty);
+    }
+
+    private void CancelAudioWaveformLoad()
+    {
+        if (_audioWaveformLoadCancellationSource is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _audioWaveformLoadCancellationSource.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        finally
+        {
+            _audioWaveformLoadCancellationSource.Dispose();
+            _audioWaveformLoadCancellationSource = null;
+        }
+    }
+
+    private void SetAudioWaveformPresentation(Microsoft.UI.Xaml.Media.ImageSource? imageSource, string overlayMessage)
+    {
+        var imageChanged = SetProperty(ref _audioWaveformImageSource, imageSource, nameof(AudioWaveformImageSource));
+        var overlayChanged = SetProperty(ref _audioWaveformOverlayMessage, overlayMessage, nameof(PreviewOverlayMessage));
+
+        if (imageChanged)
+        {
+            OnPropertyChanged(nameof(AudioWaveformVisibility));
+        }
+
+        if (imageChanged || overlayChanged)
+        {
+            OnPropertyChanged(nameof(PreviewOverlayVisibility));
+        }
+    }
 
     private void RunPreviewOnUiThread(Action action)
     {

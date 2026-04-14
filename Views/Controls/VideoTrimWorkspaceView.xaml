@@ -95,20 +95,20 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Spacing="4">
-                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="视频裁剪" />
-                    <TextBlock Opacity="0.72" Text="导入后会在同一张主卡片中显示预览、时间轴、裁剪范围与导出设置。" TextWrapping="WrapWholeWords" />
+                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="{x:Bind ViewModel.EditorTitle, Mode=OneWay}" />
+                    <TextBlock Opacity="0.72" Text="{x:Bind ViewModel.EditorDescription, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" HorizontalAlignment="Right" Spacing="2" Visibility="{x:Bind ViewModel.EditorVisibility, Mode=OneWay}">
-                    <TextBlock HorizontalAlignment="Right" Style="{StaticResource CaptionTextStyle}" Text="当前文件" />
+                    <TextBlock HorizontalAlignment="Right" Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.CurrentFileCaptionText, Mode=OneWay}" />
                     <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.InputFileName, Mode=OneWay}" TextAlignment="Right" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Grid>
 
             <Grid Grid.RowSpan="2" MinHeight="420" Visibility="{x:Bind ViewModel.PlaceholderVisibility, Mode=OneWay}">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="760" Spacing="16">
-                    <SymbolIcon HorizontalAlignment="Center" Symbol="Video" />
-                    <TextBlock FontSize="28" FontWeight="SemiBold" MaxWidth="720" Text="请导入文件或拖拽到此处开始裁剪" TextAlignment="Center" TextWrapping="Wrap" />
-                    <TextBlock MaxWidth="760" Opacity="0.72" Text="导入后会在同一张主卡片中显示视频预览、播放控制、时间轴、双滑块裁剪和输出格式选择。" TextAlignment="Center" TextWrapping="Wrap" />
+                    <SymbolIcon HorizontalAlignment="Center" Symbol="{x:Bind ViewModel.PlaceholderIconSymbol, Mode=OneWay}" />
+                    <TextBlock FontSize="28" FontWeight="SemiBold" MaxWidth="720" Text="{x:Bind ViewModel.PlaceholderTitleText, Mode=OneWay}" TextAlignment="Center" TextWrapping="Wrap" />
+                    <TextBlock MaxWidth="760" Opacity="0.72" Text="{x:Bind ViewModel.PlaceholderDescriptionText, Mode=OneWay}" TextAlignment="Center" TextWrapping="Wrap" />
                     <Button HorizontalAlignment="Center" Command="{x:Bind ViewModel.SelectVideoCommand, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <SymbolIcon Symbol="OpenFile" />
@@ -118,7 +118,7 @@
                     <TextBlock MaxWidth="760" Opacity="0.72" Text="{x:Bind ViewModel.SupportedInputFormatsHint, Mode=OneWay}" TextAlignment="Center" TextWrapping="Wrap" />
                     <Border HorizontalAlignment="Center" MaxWidth="760" Padding="14" Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="14" Visibility="{x:Bind ViewModel.ImportErrorVisibility, Mode=OneWay}">
                         <StackPanel Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="导入失败详情" TextAlignment="Center" />
+                            <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.ImportErrorDetailsTitle, Mode=OneWay}" TextAlignment="Center" />
                             <TextBlock Opacity="0.82" Text="{x:Bind ViewModel.LastImportErrorDetails, Mode=OneWay}" TextAlignment="Center" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
@@ -138,11 +138,12 @@
 
                 <Border Grid.Column="0" Grid.Row="0" MinHeight="190" Background="Black" CornerRadius="18">
                     <Grid x:Name="PreviewViewport" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <Image HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsHitTestVisible="False" Source="{x:Bind ViewModel.AudioWaveformImageSource, Mode=OneWay}" Stretch="UniformToFill" Visibility="{x:Bind ViewModel.AudioWaveformVisibility, Mode=OneWay}" />
                         <MediaPlayerElement x:Name="PreviewPlayer" AreTransportControlsEnabled="False" AutoPlay="False" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Stretch="Uniform" />
                         <Border Background="#66000000" CornerRadius="18" Visibility="{x:Bind ViewModel.PreviewOverlayVisibility, Mode=OneWay}">
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="320" Spacing="10">
-                                <SymbolIcon HorizontalAlignment="Center" Foreground="White" Symbol="Video" />
-                                <TextBlock Foreground="White" Text="{x:Bind ViewModel.PreviewStateMessage, Mode=OneWay}" TextAlignment="Center" TextWrapping="WrapWholeWords" />
+                                <SymbolIcon HorizontalAlignment="Center" Foreground="White" Symbol="{x:Bind ViewModel.PreviewOverlaySymbol, Mode=OneWay}" />
+                                <TextBlock Foreground="White" Text="{x:Bind ViewModel.PreviewOverlayMessage, Mode=OneWay}" TextAlignment="Center" TextWrapping="WrapWholeWords" />
                             </StackPanel>
                         </Border>
                     </Grid>
@@ -404,7 +405,7 @@
                                         <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectionEndText, Mode=OneWay}" />
                                     </StackPanel>
                                 </Grid>
-                                <TextBlock Opacity="0.72" Text="导出时会严格按照入点和出点截取视频片段。" TextWrapping="WrapWholeWords" />
+                                <TextBlock Opacity="0.72" Text="{x:Bind ViewModel.SelectionRuleDescription, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                             </StackPanel>
                         </Border>
 
@@ -425,7 +426,7 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock VerticalAlignment="Center" Opacity="0.72" Text="留空时默认导出到原视频所在文件夹" TextWrapping="WrapWholeWords" />
+                                        <TextBlock VerticalAlignment="Center" Opacity="0.72" Text="{x:Bind ViewModel.OutputDirectoryHintText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                                         <Button Grid.Column="1" Command="{x:Bind ViewModel.SelectOutputDirectoryCommand, Mode=OneWay}" Content="选择目录" />
                                         <Button Grid.Column="2" Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}" Content="清空" />
                                     </Grid>
@@ -439,7 +440,7 @@
 
                         <Border Padding="12" Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="16">
                             <StackPanel Spacing="8">
-                                <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="视频信息" />
+                                <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="{x:Bind ViewModel.MediaInfoPanelTitle, Mode=OneWay}" />
                                 <TextBlock MaxLines="2" FontWeight="SemiBold" Text="{x:Bind ViewModel.InputFileName, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Style="{StaticResource CaptionTextStyle}" Opacity="0.72" Text="{x:Bind ViewModel.InputPath, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                                 <StackPanel Spacing="6" Visibility="{x:Bind ViewModel.BasicInfoVisibility, Mode=OneWay}">

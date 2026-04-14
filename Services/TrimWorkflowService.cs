@@ -1,6 +1,3 @@
-// 功能：视频裁剪工作流服务（处理导入校验、媒体信息解析与裁剪导出执行）
-// 模块：裁剪模块
-// 说明：可复用，仅负责裁剪业务逻辑，不涉及 UI。
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,33 +6,32 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
-using Vidvix.Services.FFmpeg;
 
 namespace Vidvix.Services;
 
-public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
+public sealed class TrimWorkflowService : ITrimWorkflowService
 {
     private readonly ApplicationConfiguration _configuration;
+    private readonly IMediaInfoService _mediaInfoService;
     private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
     private readonly IFFmpegService _ffmpegService;
-    private readonly IFFmpegVideoAccelerationService _ffmpegVideoAccelerationService;
-    private readonly IMediaInfoService _mediaInfoService;
-    private readonly IVideoTrimCommandFactory _videoTrimCommandFactory;
+    private readonly IVideoTrimWorkflowService _videoTrimWorkflowService;
+    private readonly IAudioTrimCommandFactory _audioTrimCommandFactory;
 
-    public VideoTrimWorkflowService(
+    public TrimWorkflowService(
         ApplicationConfiguration configuration,
+        IMediaInfoService mediaInfoService,
         IFFmpegRuntimeService ffmpegRuntimeService,
         IFFmpegService ffmpegService,
-        IFFmpegVideoAccelerationService ffmpegVideoAccelerationService,
-        IMediaInfoService mediaInfoService,
-        IVideoTrimCommandFactory videoTrimCommandFactory)
+        IVideoTrimWorkflowService videoTrimWorkflowService,
+        IAudioTrimCommandFactory audioTrimCommandFactory)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _mediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
         _ffmpegRuntimeService = ffmpegRuntimeService ?? throw new ArgumentNullException(nameof(ffmpegRuntimeService));
         _ffmpegService = ffmpegService ?? throw new ArgumentNullException(nameof(ffmpegService));
-        _ffmpegVideoAccelerationService = ffmpegVideoAccelerationService ?? throw new ArgumentNullException(nameof(ffmpegVideoAccelerationService));
-        _mediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
-        _videoTrimCommandFactory = videoTrimCommandFactory ?? throw new ArgumentNullException(nameof(videoTrimCommandFactory));
+        _videoTrimWorkflowService = videoTrimWorkflowService ?? throw new ArgumentNullException(nameof(videoTrimWorkflowService));
+        _audioTrimCommandFactory = audioTrimCommandFactory ?? throw new ArgumentNullException(nameof(audioTrimCommandFactory));
     }
 
     public async Task<VideoTrimImportResult> ImportAsync(
@@ -57,13 +53,13 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
 
         if (paths.Length != 1)
         {
-            return VideoTrimImportResult.Rejected("裁剪模块一次只能导入 1 个视频文件。");
+            return VideoTrimImportResult.Rejected("裁剪模块一次只能导入 1 个文件。");
         }
 
         var inputPath = paths[0];
         if (Directory.Exists(inputPath))
         {
-            return VideoTrimImportResult.Rejected("裁剪模块仅支持导入单个视频文件，不支持文件夹。");
+            return VideoTrimImportResult.Rejected("裁剪模块仅支持导入单个音频或视频文件，不支持文件夹。");
         }
 
         if (!File.Exists(inputPath) ||
@@ -76,9 +72,15 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
         var duration = details.Snapshot?.MediaDuration;
         if (!details.IsSuccess ||
             details.Snapshot is null ||
-            !details.Snapshot.HasVideoStream ||
             duration is null ||
             duration <= TimeSpan.Zero)
+        {
+            return VideoTrimImportResult.Failed(
+                ResolveImportFailureMessage(details),
+                details.DiagnosticDetails);
+        }
+
+        if (!TryResolveMediaKind(details.Snapshot, out var mediaKind))
         {
             return VideoTrimImportResult.Failed(
                 ResolveImportFailureMessage(details),
@@ -89,7 +91,7 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
         return VideoTrimImportResult.Success(
             inputPath,
             inputFileName,
-            TrimMediaKind.Video,
+            mediaKind,
             details.Snapshot,
             duration.Value,
             $"已导入 {inputFileName}，请拖动入点和出点确认裁剪范围。");
@@ -104,23 +106,19 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(preferences);
 
-        var runtime = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
-        var videoAccelerationKind = await ResolveVideoAccelerationKindAsync(
-            runtime.ExecutablePath,
-            request.OutputFormat,
-            preferences,
-            cancellationToken).ConfigureAwait(false);
-
-        var resolvedRequest = request with
+        if (request.MediaKind == TrimMediaKind.Video)
         {
-            VideoAccelerationKind = videoAccelerationKind
-        };
+            return await _videoTrimWorkflowService
+                .ExportAsync(request, preferences, progress, cancellationToken)
+                .ConfigureAwait(false);
+        }
 
-        var command = _videoTrimCommandFactory.Create(resolvedRequest, runtime.ExecutablePath);
+        var runtime = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
+        var command = _audioTrimCommandFactory.Create(request, runtime.ExecutablePath);
         var options = new FFmpegExecutionOptions
         {
             Timeout = _configuration.DefaultExecutionTimeout,
-            InputDuration = resolvedRequest.Duration,
+            InputDuration = request.Duration,
             Progress = progress
         };
 
@@ -128,27 +126,25 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
             .ExecuteAsync(command, options, cancellationToken)
             .ConfigureAwait(false);
 
-        return new VideoTrimExportResult(resolvedRequest, executionResult);
+        return new VideoTrimExportResult(request, executionResult);
     }
 
-    private async Task<VideoAccelerationKind> ResolveVideoAccelerationKindAsync(
-        string runtimeExecutablePath,
-        OutputFormatOption outputFormat,
-        UserPreferences preferences,
-        CancellationToken cancellationToken)
+    private static bool TryResolveMediaKind(MediaDetailsSnapshot snapshot, out TrimMediaKind mediaKind)
     {
-        if (preferences.PreferredTranscodingMode != TranscodingMode.FullTranscode ||
-            !preferences.EnableGpuAccelerationForTranscoding ||
-            !FFmpegVideoEncodingPolicy.SupportsHardwareVideoEncoding(outputFormat))
+        if (snapshot.HasVideoStream)
         {
-            return VideoAccelerationKind.None;
+            mediaKind = TrimMediaKind.Video;
+            return true;
         }
 
-        var probeResult = await _ffmpegVideoAccelerationService
-            .ProbeBestEncoderAsync(runtimeExecutablePath, cancellationToken)
-            .ConfigureAwait(false);
+        if (snapshot.HasAudioStream)
+        {
+            mediaKind = TrimMediaKind.Audio;
+            return true;
+        }
 
-        return probeResult.IsAvailable ? probeResult.Kind : VideoAccelerationKind.None;
+        mediaKind = default;
+        return false;
     }
 
     private static string ResolveImportFailureMessage(MediaDetailsLoadResult result)
@@ -160,14 +156,14 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
 
         if (result.Snapshot is null)
         {
-            return "无法解析当前视频文件。";
+            return "无法解析当前文件。";
         }
 
-        if (!result.Snapshot.HasVideoStream)
+        if (!result.Snapshot.HasVideoStream && !result.Snapshot.HasAudioStream)
         {
-            return "当前文件不包含可裁剪的视频流。";
+            return "当前文件不包含可裁剪的音频或视频流。";
         }
 
-        return "当前视频时长无效，无法开始裁剪。";
+        return "当前文件时长无效，无法开始裁剪。";
     }
 }

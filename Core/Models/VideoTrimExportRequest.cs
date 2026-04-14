@@ -7,6 +7,7 @@ public sealed record VideoTrimExportRequest(
     string OutputPath,
     TimeSpan StartPosition,
     TimeSpan EndPosition,
+    TrimMediaKind MediaKind,
     OutputFormatOption OutputFormat,
     TranscodingMode TranscodingMode,
     VideoAccelerationKind VideoAccelerationKind)

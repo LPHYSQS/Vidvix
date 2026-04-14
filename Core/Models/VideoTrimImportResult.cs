@@ -21,6 +21,8 @@ public sealed class VideoTrimImportResult
 
     public string? InputFileName { get; private init; }
 
+    public TrimMediaKind? MediaKind { get; private init; }
+
     public MediaDetailsSnapshot? Snapshot { get; private init; }
 
     public TimeSpan? MediaDuration { get; private init; }
@@ -30,6 +32,7 @@ public sealed class VideoTrimImportResult
     public static VideoTrimImportResult Success(
         string inputPath,
         string inputFileName,
+        TrimMediaKind mediaKind,
         MediaDetailsSnapshot snapshot,
         TimeSpan mediaDuration,
         string message)
@@ -45,6 +48,7 @@ public sealed class VideoTrimImportResult
             Message = message,
             InputPath = inputPath,
             InputFileName = inputFileName,
+            MediaKind = mediaKind,
             Snapshot = snapshot,
             MediaDuration = mediaDuration
         };

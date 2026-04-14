@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Utils;
@@ -23,10 +24,11 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private const double DefaultTrimPreviewVolumePercent = 80d;
 
     private readonly ApplicationConfiguration _configuration;
-    private readonly IVideoTrimWorkflowService _videoTrimWorkflowService;
+    private readonly ITrimWorkflowService _trimWorkflowService;
     private readonly IFilePickerService _filePickerService;
     private readonly IUserPreferencesService _userPreferencesService;
     private readonly IFileRevealService _fileRevealService;
+    private readonly IAudioWaveformService _audioWaveformService;
     private readonly ILogger _logger;
     private readonly AsyncRelayCommand _selectVideoCommand;
     private readonly RelayCommand _removeVideoCommand;
@@ -37,6 +39,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     private string _statusMessage;
     private string _previewStateMessage;
+    private IReadOnlyList<OutputFormatOption> _availableOutputFormats = Array.Empty<OutputFormatOption>();
     private OutputFormatOption? _selectedOutputFormat;
     private string _inputPath = string.Empty;
     private string _inputFileName = string.Empty;
@@ -47,12 +50,15 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private string _outputDirectory = string.Empty;
     private string _plannedOutputPath = string.Empty;
     private string _lastImportErrorDetails = string.Empty;
+    private string _audioWaveformOverlayMessage = string.Empty;
     private TimeSpan _mediaDuration;
     private TimeSpan _selectionStart;
     private TimeSpan _selectionEnd;
     private TimeSpan _currentPosition;
     private string _selectionStartInputText = string.Empty;
     private string _selectionEndInputText = string.Empty;
+    private TrimMediaKind _currentMediaKind = TrimMediaKind.Video;
+    private ImageSource? _audioWaveformImageSource;
     private double _volume = DefaultTrimPreviewVolumePercent / 100d;
     private bool _isBusy;
     private bool _isPreviewReady;
@@ -70,30 +76,32 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public VideoTrimWorkspaceViewModel(
         ApplicationConfiguration configuration,
-        IVideoTrimWorkflowService videoTrimWorkflowService,
+        ITrimWorkflowService trimWorkflowService,
         IFilePickerService filePickerService,
         IUserPreferencesService userPreferencesService,
         IFileRevealService fileRevealService,
+        IAudioWaveformService audioWaveformService,
         IVideoPreviewService videoPreviewService,
         IDispatcherService dispatcherService,
         ILogger logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        _videoTrimWorkflowService = videoTrimWorkflowService ?? throw new ArgumentNullException(nameof(videoTrimWorkflowService));
+        _trimWorkflowService = trimWorkflowService ?? throw new ArgumentNullException(nameof(trimWorkflowService));
         _filePickerService = filePickerService ?? throw new ArgumentNullException(nameof(filePickerService));
         _userPreferencesService = userPreferencesService ?? throw new ArgumentNullException(nameof(userPreferencesService));
         _fileRevealService = fileRevealService ?? throw new ArgumentNullException(nameof(fileRevealService));
+        _audioWaveformService = audioWaveformService ?? throw new ArgumentNullException(nameof(audioWaveformService));
         _videoPreviewService = videoPreviewService ?? throw new ArgumentNullException(nameof(videoPreviewService));
         _dispatcherService = dispatcherService ?? throw new ArgumentNullException(nameof(dispatcherService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         var preferences = _userPreferencesService.Load();
-        AvailableOutputFormats = _configuration.SupportedTrimOutputFormats;
+        _availableOutputFormats = ResolveOutputFormats(_currentMediaKind);
         _selectedOutputFormat = ResolvePreferredOutputFormat(preferences.PreferredTrimOutputFormatExtension);
         _outputDirectory = NormalizeOutputDirectory(preferences.PreferredTrimOutputDirectory);
         _volume = ResolvePreferredVolumePercent(preferences.PreferredTrimPreviewVolumePercent) / 100d;
-        _statusMessage = "\u8bf7\u5bfc\u5165\u89c6\u9891\u6587\u4ef6\u6216\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002";
-        _previewStateMessage = "\u8bf7\u5148\u5bfc\u5165\u4e00\u4e2a\u89c6\u9891\u6587\u4ef6\u3002";
+        _statusMessage = "\u8bf7\u5bfc\u5165\u97f3\u9891\u6216\u89c6\u9891\u6587\u4ef6\uff0c\u4e5f\u53ef\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002";
+        _previewStateMessage = "\u8bf7\u5148\u5bfc\u5165\u4e00\u4e2a\u6587\u4ef6\u3002";
 
         _selectVideoCommand = new AsyncRelayCommand(SelectVideoAsync, () => !HasInput && !IsBusy);
         _removeVideoCommand = new RelayCommand(RemoveVideo, () => HasInput && !IsBusy);
@@ -104,7 +112,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         InitializePreview();
     }
 
-    public IReadOnlyList<OutputFormatOption> AvailableOutputFormats { get; }
+    public IReadOnlyList<OutputFormatOption> AvailableOutputFormats => _availableOutputFormats;
 
     public ICommand SelectVideoCommand => _selectVideoCommand;
 
@@ -117,6 +125,38 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     public ICommand ExportTrimCommand => _exportTrimCommand;
 
     public ICommand CancelExportCommand => _cancelExportCommand;
+
+    public bool IsAudioTrim => HasInput && _currentMediaKind == TrimMediaKind.Audio;
+
+    public bool IsVideoTrim => HasInput && _currentMediaKind == TrimMediaKind.Video;
+
+    public string EditorTitle => IsAudioTrim ? "\u97f3\u9891\u88c1\u526a" : "\u89c6\u9891\u88c1\u526a";
+
+    public string EditorDescription => "\u5bfc\u5165\u540e\u4f1a\u5728\u540c\u4e00\u5f20\u4e3b\u5361\u7247\u4e2d\u663e\u793a\u9884\u89c8\u3001\u65f6\u95f4\u8f74\u3001\u88c1\u526a\u8303\u56f4\u4e0e\u5bfc\u51fa\u8bbe\u7f6e\u3002";
+
+    public string CurrentFileCaptionText => "\u5f53\u524d\u6587\u4ef6";
+
+    public Symbol PlaceholderIconSymbol => Symbol.OpenFile;
+
+    public string PlaceholderTitleText => "\u8bf7\u5bfc\u5165\u6587\u4ef6\u6216\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a";
+
+    public string PlaceholderDescriptionText => "\u5bfc\u5165\u540e\u4f1a\u5728\u540c\u4e00\u5f20\u4e3b\u5361\u7247\u4e2d\u663e\u793a\u6587\u4ef6\u9884\u89c8\u3001\u64ad\u653e\u63a7\u5236\u3001\u65f6\u95f4\u8f74\u3001\u53cc\u6ed1\u5757\u88c1\u526a\u548c\u8f93\u51fa\u683c\u5f0f\u9009\u62e9\u3002";
+
+    public string ImportErrorDetailsTitle => "\u5bfc\u5165\u5931\u8d25\u8be6\u60c5";
+
+    public string RemoveInputCommandText => "\u79fb\u9664\u6587\u4ef6";
+
+    public string SelectionRuleDescription => "\u5bfc\u51fa\u65f6\u4f1a\u4e25\u683c\u6309\u7167\u5165\u70b9\u548c\u51fa\u70b9\u622a\u53d6\u6240\u9009\u7247\u6bb5\u3002";
+
+    public string OutputDirectoryHintText => "\u7559\u7a7a\u65f6\u9ed8\u8ba4\u5bfc\u51fa\u5230\u539f\u6587\u4ef6\u6240\u5728\u6587\u4ef6\u5939";
+
+    public string MediaInfoPanelTitle => IsAudioTrim ? "\u97f3\u9891\u4fe1\u606f" : "\u89c6\u9891\u4fe1\u606f";
+
+    public ImageSource? AudioWaveformImageSource => _audioWaveformImageSource;
+
+    public Visibility AudioWaveformVisibility => HasInput && IsAudioTrim && _audioWaveformImageSource is not null
+        ? Visibility.Visible
+        : Visibility.Collapsed;
 
     public string StatusMessage
     {
@@ -185,7 +225,12 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public bool CanJumpToSelectionBoundary => CanPlayPreview && !IsDragging;
 
-    public Visibility PreviewOverlayVisibility => IsPreviewReady ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility PreviewOverlayVisibility =>
+        !IsPreviewReady || ShouldShowAudioWaveformOverlay ? Visibility.Visible : Visibility.Collapsed;
+
+    public string PreviewOverlayMessage => IsPreviewReady ? _audioWaveformOverlayMessage : PreviewStateMessage;
+
+    public Symbol PreviewOverlaySymbol => IsAudioTrim ? Symbol.Volume : Symbol.Video;
 
     public string PlayPauseButtonText => IsPlaying ? "\u6682\u505c" : "\u64ad\u653e";
 
@@ -212,7 +257,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         string.Join("\u3001", _configuration.SupportedTrimInputFileTypes.Select(item => item.TrimStart('.').ToUpperInvariant())) +
         "\uff09";
 
-    public string DragDropCaptionText => "\u5bfc\u5165\u89c6\u9891\u6587\u4ef6";
+    public string DragDropCaptionText => "\u5bfc\u5165\u97f3\u9891\u6216\u89c6\u9891\u6587\u4ef6";
 
     public string LastImportErrorDetails
     {
@@ -231,7 +276,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public OutputFormatOption SelectedOutputFormat
     {
-        get => _selectedOutputFormat ?? AvailableOutputFormats.First();
+        get => _selectedOutputFormat ?? _availableOutputFormats.First();
         set
         {
             if (value is not null && SetProperty(ref _selectedOutputFormat, value))
@@ -364,7 +409,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public string SelectionSummaryText => HasInput
         ? $"\u88c1\u526a\u533a\u95f4\uff1a{SelectionStartText} - {SelectionEndText}\uff08\u5171 {SelectedDurationText}\uff09"
-        : "\u5bfc\u5165\u89c6\u9891\u540e\u5373\u53ef\u8bbe\u7f6e\u88c1\u526a\u533a\u95f4\u3002";
+        : "\u5bfc\u5165\u6587\u4ef6\u540e\u5373\u53ef\u8bbe\u7f6e\u88c1\u526a\u533a\u95f4\u3002";
 
     public Visibility ExportProgressVisibility
     {
@@ -414,7 +459,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
         if (HasInput)
         {
-            StatusMessage = "\u5f53\u524d\u5df2\u6709\u89c6\u9891\uff0c\u8bf7\u5148\u79fb\u9664\u540e\u518d\u5bfc\u5165\u65b0\u7684\u6587\u4ef6\u3002";
+            StatusMessage = "\u5f53\u524d\u5df2\u6709\u6587\u4ef6\uff0c\u8bf7\u5148\u79fb\u9664\u540e\u518d\u5bfc\u5165\u65b0\u7684\u6587\u4ef6\u3002";
             return;
         }
 
@@ -429,11 +474,11 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
             return;
         }
 
-        StatusMessage = "\u6b63\u5728\u89e3\u6790\u89c6\u9891\u4fe1\u606f...";
+        StatusMessage = "\u6b63\u5728\u89e3\u6790\u5a92\u4f53\u4fe1\u606f...";
         LastImportErrorDetails = string.Empty;
-        SetPreviewPreparing("\u6b63\u5728\u51c6\u5907\u89c6\u9891\u9884\u89c8...");
+        SetPreviewPreparing("\u6b63\u5728\u51c6\u5907\u9884\u89c8...");
 
-        var importResult = await _videoTrimWorkflowService.ImportAsync(paths);
+        var importResult = await _trimWorkflowService.ImportAsync(paths);
         if (importResult.Outcome == VideoTrimImportOutcome.Rejected)
         {
             StatusMessage = importResult.Message;
@@ -441,6 +486,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         }
 
         if (importResult.Outcome == VideoTrimImportOutcome.Failed ||
+            importResult.MediaKind is not TrimMediaKind mediaKind ||
             importResult.Snapshot is null ||
             importResult.MediaDuration is not TimeSpan duration)
         {
@@ -448,6 +494,8 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
             return;
         }
 
+        SetCurrentMediaKind(mediaKind);
+        ResetAudioWaveformState();
         _inputPath = importResult.InputPath!;
         _inputFileName = importResult.InputFileName!;
         _mediaDetailsSnapshot = importResult.Snapshot;
@@ -495,14 +543,16 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         ResetPreviewInteractionState();
         IsPreviewReady = false;
         PreviewStateMessage = string.IsNullOrWhiteSpace(message)
-            ? "\u6b63\u5728\u51c6\u5907\u89c6\u9891\u9884\u89c8..."
+            ? GetDefaultPreviewPreparingMessage()
             : message;
+        OnPropertyChanged(nameof(PreviewOverlayMessage));
     }
 
     public void SetPreviewReady()
     {
         IsPreviewReady = true;
         PreviewStateMessage = string.Empty;
+        OnPropertyChanged(nameof(PreviewOverlayMessage));
     }
 
     public void SetPreviewFailed(string message)
@@ -512,6 +562,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         PreviewStateMessage = string.IsNullOrWhiteSpace(message)
             ? "\u5f53\u524d\u6587\u4ef6\u6682\u65f6\u65e0\u6cd5\u9884\u89c8\u3002"
             : message;
+        OnPropertyChanged(nameof(PreviewOverlayMessage));
     }
 
     public void SetPlaying(bool isPlaying) => IsPlaying = isPlaying && CanPlayPreview;
@@ -584,11 +635,11 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         try
         {
             var file = await _filePickerService.PickSingleFileAsync(
-                new FilePickerRequest(_configuration.SupportedTrimInputFileTypes, "\u5bfc\u5165\u89c6\u9891"));
+                new FilePickerRequest(_configuration.SupportedTrimInputFileTypes, "\u5bfc\u5165\u6587\u4ef6"));
 
             if (string.IsNullOrWhiteSpace(file))
             {
-                StatusMessage = "\u5df2\u53d6\u6d88\u5bfc\u5165\u89c6\u9891\u3002";
+                StatusMessage = "\u5df2\u53d6\u6d88\u5bfc\u5165\u6587\u4ef6\u3002";
                 return;
             }
 
@@ -596,14 +647,14 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = "\u5df2\u53d6\u6d88\u5bfc\u5165\u89c6\u9891\u3002";
+            StatusMessage = "\u5df2\u53d6\u6d88\u5bfc\u5165\u6587\u4ef6\u3002";
         }
         catch (Exception exception)
         {
             ApplyImportFailure(
                 ExtractFriendlyExceptionMessage(exception),
                 BuildExceptionDiagnosticDetails(exception));
-            _logger.Log(LogLevel.Error, "\u88c1\u526a\u6a21\u5757\u9009\u62e9\u89c6\u9891\u65f6\u53d1\u751f\u5f02\u5e38\u3002", exception);
+            _logger.Log(LogLevel.Error, "\u88c1\u526a\u6a21\u5757\u9009\u62e9\u6587\u4ef6\u65f6\u53d1\u751f\u5f02\u5e38\u3002", exception);
         }
     }
 
@@ -623,11 +674,12 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         _selectionEnd = TimeSpan.Zero;
         _currentPosition = TimeSpan.Zero;
         ResetPreviewInteractionState();
+        ResetAudioWaveformState();
         LastImportErrorDetails = string.Empty;
-        SetPreviewFailed("\u8bf7\u5148\u5bfc\u5165\u89c6\u9891\u6587\u4ef6\u6216\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002");
+        SetPreviewFailed("\u8bf7\u5148\u5bfc\u5165\u97f3\u9891\u6216\u89c6\u9891\u6587\u4ef6\uff0c\u4e5f\u53ef\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002");
         RefreshMediaInfoFields();
         RaiseTrimStateChanged();
-        StatusMessage = "\u5df2\u79fb\u9664\u5f53\u524d\u89c6\u9891\u3002";
+        StatusMessage = "\u5df2\u79fb\u9664\u5f53\u524d\u6587\u4ef6\u3002";
     }
 
     private async Task SelectOutputDirectoryAsync()
@@ -663,7 +715,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         }
 
         OutputDirectory = string.Empty;
-        StatusMessage = "\u5df2\u6e05\u7a7a\u88c1\u526a\u8f93\u51fa\u76ee\u5f55\uff0c\u5bfc\u51fa\u65f6\u5c06\u4f7f\u7528\u539f\u89c6\u9891\u6240\u5728\u6587\u4ef6\u5939\u3002";
+        StatusMessage = "\u5df2\u6e05\u7a7a\u88c1\u526a\u8f93\u51fa\u76ee\u5f55\uff0c\u5bfc\u51fa\u65f6\u5c06\u4f7f\u7528\u539f\u6587\u4ef6\u6240\u5728\u6587\u4ef6\u5939\u3002";
     }
 
     private async Task ExportTrimAsync()
@@ -672,7 +724,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         {
             StatusMessage = HasInput
                 ? "\u5f53\u524d\u88c1\u526a\u533a\u95f4\u65e0\u6548\uff0c\u8bf7\u91cd\u65b0\u8c03\u6574\u5165\u70b9\u548c\u51fa\u70b9\u3002"
-                : "\u8bf7\u5148\u5bfc\u5165\u4e00\u4e2a\u89c6\u9891\u6587\u4ef6\u3002";
+                : "\u8bf7\u5148\u5bfc\u5165\u4e00\u4e2a\u6587\u4ef6\u3002";
             return;
         }
 
@@ -694,10 +746,11 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
                 PlannedOutputPath,
                 _selectionStart,
                 _selectionEnd,
+                _currentMediaKind,
                 SelectedOutputFormat,
                 preferences.PreferredTranscodingMode,
                 VideoAccelerationKind.None);
-            var exportResult = await _videoTrimWorkflowService.ExportAsync(
+            var exportResult = await _trimWorkflowService.ExportAsync(
                 request,
                 preferences,
                 new Progress<FFmpegProgressUpdate>(UpdateExportProgress),
@@ -822,6 +875,8 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private void RaiseTrimStateChanged()
     {
         OnPropertyChanged(nameof(HasInput));
+        OnPropertyChanged(nameof(IsAudioTrim));
+        OnPropertyChanged(nameof(IsVideoTrim));
         OnPropertyChanged(nameof(PlaceholderVisibility));
         OnPropertyChanged(nameof(EditorVisibility));
         OnPropertyChanged(nameof(CanEditSelectionInputs));
@@ -829,6 +884,22 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         OnPropertyChanged(nameof(CanJumpToSelectionBoundary));
         OnPropertyChanged(nameof(InputPath));
         OnPropertyChanged(nameof(InputFileName));
+        OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(EditorDescription));
+        OnPropertyChanged(nameof(CurrentFileCaptionText));
+        OnPropertyChanged(nameof(PlaceholderIconSymbol));
+        OnPropertyChanged(nameof(PlaceholderTitleText));
+        OnPropertyChanged(nameof(PlaceholderDescriptionText));
+        OnPropertyChanged(nameof(ImportErrorDetailsTitle));
+        OnPropertyChanged(nameof(SelectionRuleDescription));
+        OnPropertyChanged(nameof(OutputDirectoryHintText));
+        OnPropertyChanged(nameof(MediaInfoPanelTitle));
+        OnPropertyChanged(nameof(RemoveInputCommandText));
+        OnPropertyChanged(nameof(PreviewOverlayVisibility));
+        OnPropertyChanged(nameof(PreviewOverlayMessage));
+        OnPropertyChanged(nameof(PreviewOverlaySymbol));
+        OnPropertyChanged(nameof(AudioWaveformImageSource));
+        OnPropertyChanged(nameof(AudioWaveformVisibility));
         RaiseTimelineChanged();
         NotifyCommandStates();
     }
@@ -884,34 +955,34 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
             : Math.Clamp(volumePercent, 0d, 100d);
 
     private OutputFormatOption ResolvePreferredOutputFormat(string? extension) =>
-        AvailableOutputFormats.FirstOrDefault(item => string.Equals(item.Extension, extension, StringComparison.OrdinalIgnoreCase))
-        ?? AvailableOutputFormats.First();
+        _availableOutputFormats.FirstOrDefault(item => string.Equals(item.Extension, extension, StringComparison.OrdinalIgnoreCase))
+        ?? _availableOutputFormats.First();
 
     private void ApplyImportFailure(string message, string? diagnosticDetails)
     {
         var friendlyMessage = string.IsNullOrWhiteSpace(message)
-            ? "\u65e0\u6cd5\u89e3\u6790\u5f53\u524d\u89c6\u9891\u6587\u4ef6\u3002"
+            ? "\u65e0\u6cd5\u89e3\u6790\u5f53\u524d\u6587\u4ef6\u3002"
             : message.Trim();
         var diagnosticText = string.IsNullOrWhiteSpace(diagnosticDetails)
             ? string.Empty
             : diagnosticDetails.Trim();
 
-        StatusMessage = $"\u5bfc\u5165\u89c6\u9891\u5931\u8d25\uff1a{friendlyMessage}";
+        StatusMessage = $"\u5bfc\u5165\u6587\u4ef6\u5931\u8d25\uff1a{friendlyMessage}";
         LastImportErrorDetails = diagnosticText;
         SetPreviewFailed(
             string.IsNullOrWhiteSpace(diagnosticText)
-                ? "\u5f53\u524d\u89c6\u9891\u65e0\u6cd5\u9884\u89c8\uff0c\u8bf7\u68c0\u67e5\u6587\u4ef6\u540e\u91cd\u8bd5\u3002"
-                : "\u5f53\u524d\u89c6\u9891\u5bfc\u5165\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u4e0b\u65b9\u8be6\u7ec6\u9519\u8bef\u4fe1\u606f\u3002");
+                ? "\u5f53\u524d\u6587\u4ef6\u65e0\u6cd5\u9884\u89c8\uff0c\u8bf7\u68c0\u67e5\u6587\u4ef6\u540e\u91cd\u8bd5\u3002"
+                : "\u5f53\u524d\u6587\u4ef6\u5bfc\u5165\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u4e0b\u65b9\u8be6\u7ec6\u9519\u8bef\u4fe1\u606f\u3002");
 
         if (!string.IsNullOrWhiteSpace(diagnosticText))
         {
-            _logger.Log(LogLevel.Warning, $"\u88c1\u526a\u6a21\u5757\u5bfc\u5165\u89c6\u9891\u5931\u8d25\u8be6\u60c5\uff1a{Environment.NewLine}{diagnosticText}");
+            _logger.Log(LogLevel.Warning, $"\u88c1\u526a\u6a21\u5757\u5bfc\u5165\u6587\u4ef6\u5931\u8d25\u8be6\u60c5\uff1a{Environment.NewLine}{diagnosticText}");
         }
     }
 
     private static string ExtractFriendlyExceptionMessage(Exception exception) =>
         string.IsNullOrWhiteSpace(exception.Message)
-            ? "\u5bfc\u5165\u89c6\u9891\u8fc7\u7a0b\u4e2d\u53d1\u751f\u672a\u77e5\u5f02\u5e38\u3002"
+            ? "\u5bfc\u5165\u6587\u4ef6\u8fc7\u7a0b\u4e2d\u53d1\u751f\u672a\u77e5\u5f02\u5e38\u3002"
             : exception.Message.Trim();
 
     private static string BuildExceptionDiagnosticDetails(Exception exception)
@@ -1326,7 +1397,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private void ShowExportPreparationProgress()
     {
         ExportProgressVisibility = Visibility.Visible;
-        ExportProgressSummaryText = "\u88c1\u526a\u5bfc\u51fa";
+        ExportProgressSummaryText = "\u7247\u6bb5\u5bfc\u51fa";
         ExportProgressDetailText = "\u6b63\u5728\u6821\u9a8c\u533a\u95f4\u5e76\u51c6\u5907 FFmpeg \u5bfc\u51fa\u53c2\u6570...";
         ExportProgressPercentText = "\u51c6\u5907\u4e2d";
         ExportProgressValue = 0d;
@@ -1397,6 +1468,31 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         _logger.Log(LogLevel.Warning, "\u68c0\u6d4b\u5230\u65e0\u6548\u7684\u88c1\u526a\u8f93\u51fa\u76ee\u5f55\u914d\u7f6e\uff0c\u5df2\u56de\u9000\u4e3a\u539f\u6587\u4ef6\u5939\u8f93\u51fa\u3002");
         return string.Empty;
     }
+
+    private bool ShouldShowAudioWaveformOverlay =>
+        HasInput &&
+        IsAudioTrim &&
+        !string.IsNullOrWhiteSpace(_audioWaveformOverlayMessage);
+
+    private void SetCurrentMediaKind(TrimMediaKind mediaKind)
+    {
+        _currentMediaKind = mediaKind;
+        _availableOutputFormats = ResolveOutputFormats(mediaKind);
+        _selectedOutputFormat = ResolvePreferredOutputFormat(_userPreferencesService.Load().PreferredTrimOutputFormatExtension);
+        OnPropertyChanged(nameof(AvailableOutputFormats));
+        OnPropertyChanged(nameof(SelectedOutputFormat));
+        OnPropertyChanged(nameof(SelectedOutputFormatDescription));
+    }
+
+    private IReadOnlyList<OutputFormatOption> ResolveOutputFormats(TrimMediaKind mediaKind) =>
+        mediaKind == TrimMediaKind.Audio
+            ? _configuration.SupportedAudioOutputFormats
+            : _configuration.SupportedTrimOutputFormats;
+
+    private string GetDefaultPreviewPreparingMessage() =>
+        IsAudioTrim
+            ? "\u6b63\u5728\u51c6\u5907\u97f3\u9891\u9884\u89c8..."
+            : "\u6b63\u5728\u51c6\u5907\u89c6\u9891\u9884\u89c8...";
 
     private static string FormatFileSize(long sizeBytes)
     {

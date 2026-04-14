@@ -41,10 +41,12 @@ public sealed class AppCompositionRoot
         var ffmpegVideoAccelerationService = new FFmpegVideoAccelerationService(ffmpegService, Logger);
         var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
         var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
+        var audioWaveformService = new AudioWaveformService(runtimeService, ffmpegService, Configuration, Logger);
         var videoPreviewService = new MpvVideoPreviewService(Configuration, _windowContext, Logger);
         var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
         var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(Configuration, commandBuilder);
         var videoTrimCommandFactory = new VideoTrimCommandFactory(Configuration, commandBuilder);
+        var audioTrimCommandFactory = new AudioTrimCommandFactory(Configuration, commandBuilder);
         var mediaProcessingWorkflowService = new MediaProcessingWorkflowService(
             Configuration,
             runtimeService,
@@ -60,14 +62,22 @@ public sealed class AppCompositionRoot
             ffmpegVideoAccelerationService,
             mediaInfoService,
             videoTrimCommandFactory);
+        var trimWorkflowService = new TrimWorkflowService(
+            Configuration,
+            mediaInfoService,
+            runtimeService,
+            ffmpegService,
+            videoTrimWorkflowService,
+            audioTrimCommandFactory);
         _userPreferencesService = new UserPreferencesService(Configuration, Logger);
         var fileRevealService = new FileRevealService();
         var trimWorkspace = new VideoTrimWorkspaceViewModel(
             Configuration,
-            videoTrimWorkflowService,
+            trimWorkflowService,
             filePickerService,
             _userPreferencesService,
             fileRevealService,
+            audioWaveformService,
             videoPreviewService,
             dispatcherService,
             Logger);
