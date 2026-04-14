@@ -767,6 +767,9 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         SetOptionString("profile", "fast");
         SetOptionString("force-window", "yes");
         SetOptionString("background-color", "#000000");
+        // Keep UTF-8 intact while adding a reliable fallback for common legacy Chinese lyric/subtitle encodings.
+        SetOptionString("sub-codepage", "gb18030");
+        SetOptionString("metadata-codepage", "gb18030");
         SetOptionString("cache", "yes");
         SetOptionString("cache-secs", "45");
         SetOptionString("demuxer-max-bytes", "536870912");

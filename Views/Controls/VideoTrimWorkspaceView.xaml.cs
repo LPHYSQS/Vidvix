@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Vidvix.Views.Converters;
 using Vidvix.Core.Models;
 using Vidvix.ViewModels;
 using Windows.Foundation;
@@ -44,6 +45,13 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     public VideoTrimWorkspaceView()
     {
         InitializeComponent();
+        if (Resources.TryGetValue("TimelineMillisecondsToTimeConverter", out var converterResource) &&
+            converterResource is TimelineMillisecondsToTimeConverter timelineConverter)
+        {
+            timelineConverter.Formatter = position => ViewModel?.FormatTimelineThumbToolTip(position) ??
+                                                    TimelineMillisecondsToTimeConverter.FormatFullTime(position);
+        }
+
         PreviewPlayer.Visibility = Visibility.Collapsed;
         PreviewPlayer.IsHitTestVisible = false;
         RegisterTimelineInteractionHandlers();

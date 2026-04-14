@@ -1565,6 +1565,8 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private static bool AreClose(TimeSpan left, TimeSpan right) =>
         Math.Abs((left - right).TotalMilliseconds) < 1d;
 
+    internal string FormatTimelineThumbToolTip(TimeSpan duration) => FormatSelectionTime(duration);
+
     private string FormatSelectionTime(TimeSpan duration)
     {
         if (duration < TimeSpan.Zero)
