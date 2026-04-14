@@ -14,6 +14,19 @@
   这些模型把“业务上下文”和“命令构建输入”区分开，后续新增 AI 流程、批处理策略或更多导出模式时更容易复用。
 - 新增 `Core/Models/ProcessingWorkspaceProfile`。
   音频/视频工作区的中文文案、拖拽提示、导入按钮文案、支持输入格式等规则统一收口，减少散落在 ViewModel 中的条件分支。
+- 把 `Services/MediaInfo/MediaInfoService` 拆为 `MediaInfoService.cs / Probe.cs / Snapshot.cs / Formatting.cs / Models.cs`。
+  当前服务主文件只保留缓存与入口协调，后续调整 ffprobe 参数、诊断输出或详情面板字段时，不必再在同一文件里来回跳转。
+- 把 `Views/MainWindow.xaml.cs` 拆为 `MainWindow.xaml.cs / Chrome.cs / Overlays.cs / DragDrop.cs / WindowPlacement.cs`。
+  这样标题栏配色、浮层动画、拖拽导入、窗口位置恢复和 Win32 互操作各自收口，后续修改窗口行为时更不容易误碰别的路径。
+- 把 `Utils/AppCompositionRoot` 的对象装配改为服务分组。
+  入口继续保持手动组合根，不引入额外 DI 依赖，但已经把基础设施、媒体运行时和业务工作流分层整理，降低新增服务时的接线成本。
+- 新增标准 `Vidvix.sln` 与三套离线发布 `pubxml`。
+  这两部分主要解决 IDE 兼容性和自包含发布的可重复性，不涉及功能行为变更。
+
+## 本轮额外识别出的发布风险
+
+- 仓库当前随附的 `Tools/ffmpeg/ffmpeg.exe`、`ffprobe.exe`、`Tools/mpv/mpv-1.dll` 与 `d3dcompiler_43.dll` 全部是 `x64` 二进制。
+  这意味着目前已经被完整验证并可直接对外宣称的离线路径应是 `win-x64`。`win-x86` 与 `win-arm64` 的自包含发布现在可以产生产物，但若要保证这些原生架构下的媒体预览和离线运行时也完全无缺口，后续还需要补充匹配架构的第三方离线库。
 
 ## 目前仍然存在但这轮没有强拆的风险点
 

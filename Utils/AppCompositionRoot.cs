@@ -29,69 +29,15 @@ public sealed class AppCompositionRoot
 
         Configuration = new ApplicationConfiguration();
         Logger = new SimpleLogger(Configuration.MirrorLogsToConsole);
+        var infrastructure = CreateInfrastructureServices(dispatcherQueue);
+        _windowContext = infrastructure.WindowContext;
+        _windowIconService = infrastructure.WindowIconService;
+        _userPreferencesService = infrastructure.UserPreferencesService;
 
-        _windowContext = new WindowContext();
-        _windowIconService = new WindowIconService(Configuration, Logger);
-        var dispatcherService = new DispatcherService(dispatcherQueue);
-        var filePickerService = new FilePickerService(_windowContext);
-        var mediaImportDiscoveryService = new MediaImportDiscoveryService();
-        var packageSource = new FFmpegPackageSource(Configuration, Logger);
-        var runtimeService = new FFmpegRuntimeService(Configuration, packageSource, Logger);
-        var ffmpegService = new FFmpegService(Logger);
-        var ffmpegVideoAccelerationService = new FFmpegVideoAccelerationService(ffmpegService, Logger);
-        var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
-        var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
-        var videoPreviewService = new MpvVideoPreviewService(Configuration, _windowContext, Logger);
-        var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
-        var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(Configuration, commandBuilder);
-        var videoTrimCommandFactory = new VideoTrimCommandFactory(Configuration, commandBuilder);
-        var audioTrimCommandFactory = new AudioTrimCommandFactory(Configuration, commandBuilder);
-        var mediaProcessingWorkflowService = new MediaProcessingWorkflowService(
-            Configuration,
-            runtimeService,
-            ffmpegService,
-            ffmpegVideoAccelerationService,
-            mediaInfoService,
-            mediaProcessingCommandFactory,
-            Logger);
-        var videoTrimWorkflowService = new VideoTrimWorkflowService(
-            Configuration,
-            runtimeService,
-            ffmpegService,
-            ffmpegVideoAccelerationService,
-            mediaInfoService,
-            videoTrimCommandFactory);
-        var trimWorkflowService = new TrimWorkflowService(
-            Configuration,
-            mediaInfoService,
-            runtimeService,
-            ffmpegService,
-            videoTrimWorkflowService,
-            audioTrimCommandFactory);
-        _userPreferencesService = new UserPreferencesService(Configuration, Logger);
-        var fileRevealService = new FileRevealService();
-        var trimWorkspace = new VideoTrimWorkspaceViewModel(
-            Configuration,
-            trimWorkflowService,
-            filePickerService,
-            _userPreferencesService,
-            fileRevealService,
-            videoPreviewService,
-            dispatcherService,
-            Logger);
-
-        _mainViewModel = new MainViewModel(
-            Configuration,
-            mediaInfoService,
-            videoThumbnailService,
-            mediaProcessingWorkflowService,
-            mediaImportDiscoveryService,
-            Logger,
-            filePickerService,
-            dispatcherService,
-            _userPreferencesService,
-            fileRevealService,
-            trimWorkspace);
+        var mediaRuntime = CreateMediaRuntimeServices(infrastructure.WindowContext);
+        var workflows = CreateWorkflowServices(mediaRuntime);
+        var trimWorkspace = CreateTrimWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
+        _mainViewModel = CreateMainViewModel(infrastructure, mediaRuntime, workflows, trimWorkspace);
     }
 
     public ApplicationConfiguration Configuration { get; }
@@ -112,4 +58,109 @@ public sealed class AppCompositionRoot
 
     public Task InitializeAsync(CancellationToken cancellationToken = default) =>
         _mainViewModel.InitializeAsync(cancellationToken);
+
+    private AppInfrastructureServices CreateInfrastructureServices(DispatcherQueue dispatcherQueue)
+    {
+        var windowContext = new WindowContext();
+        var dispatcherService = new DispatcherService(dispatcherQueue);
+        var userPreferencesService = new UserPreferencesService(Configuration, Logger);
+
+        return new AppInfrastructureServices(
+            windowContext,
+            new WindowIconService(Configuration, Logger),
+            dispatcherService,
+            new FilePickerService(windowContext),
+            userPreferencesService,
+            new FileRevealService());
+    }
+
+    private AppMediaRuntimeServices CreateMediaRuntimeServices(IWindowContext windowContext)
+    {
+        var packageSource = new FFmpegPackageSource(Configuration, Logger);
+        var runtimeService = new FFmpegRuntimeService(Configuration, packageSource, Logger);
+        var ffmpegService = new FFmpegService(Logger);
+        var ffmpegVideoAccelerationService = new FFmpegVideoAccelerationService(ffmpegService, Logger);
+        var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
+        var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
+        var videoPreviewService = new MpvVideoPreviewService(Configuration, windowContext, Logger);
+
+        return new AppMediaRuntimeServices(
+            runtimeService,
+            ffmpegService,
+            ffmpegVideoAccelerationService,
+            mediaInfoService,
+            videoThumbnailService,
+            videoPreviewService);
+    }
+
+    private AppWorkflowServices CreateWorkflowServices(AppMediaRuntimeServices mediaRuntime)
+    {
+        var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
+        var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(Configuration, commandBuilder);
+        var videoTrimCommandFactory = new VideoTrimCommandFactory(Configuration, commandBuilder);
+        var audioTrimCommandFactory = new AudioTrimCommandFactory(Configuration, commandBuilder);
+        var mediaProcessingWorkflowService = new MediaProcessingWorkflowService(
+            Configuration,
+            mediaRuntime.RuntimeService,
+            mediaRuntime.FFmpegService,
+            mediaRuntime.VideoAccelerationService,
+            mediaRuntime.MediaInfoService,
+            mediaProcessingCommandFactory,
+            Logger);
+        var videoTrimWorkflowService = new VideoTrimWorkflowService(
+            Configuration,
+            mediaRuntime.RuntimeService,
+            mediaRuntime.FFmpegService,
+            mediaRuntime.VideoAccelerationService,
+            mediaRuntime.MediaInfoService,
+            videoTrimCommandFactory);
+        var trimWorkflowService = new TrimWorkflowService(
+            Configuration,
+            mediaRuntime.MediaInfoService,
+            mediaRuntime.RuntimeService,
+            mediaRuntime.FFmpegService,
+            videoTrimWorkflowService,
+            audioTrimCommandFactory);
+
+        return new AppWorkflowServices(
+            new MediaImportDiscoveryService(),
+            mediaProcessingWorkflowService,
+            trimWorkflowService);
+    }
+
+    private VideoTrimWorkspaceViewModel CreateTrimWorkspaceViewModel(
+        AppInfrastructureServices infrastructure,
+        AppMediaRuntimeServices mediaRuntime,
+        AppWorkflowServices workflows)
+    {
+        return new VideoTrimWorkspaceViewModel(
+            Configuration,
+            workflows.TrimWorkflowService,
+            infrastructure.FilePickerService,
+            infrastructure.UserPreferencesService,
+            infrastructure.FileRevealService,
+            mediaRuntime.VideoPreviewService,
+            infrastructure.DispatcherService,
+            Logger);
+    }
+
+    private MainViewModel CreateMainViewModel(
+        AppInfrastructureServices infrastructure,
+        AppMediaRuntimeServices mediaRuntime,
+        AppWorkflowServices workflows,
+        VideoTrimWorkspaceViewModel trimWorkspace)
+    {
+        return new MainViewModel(
+            Configuration,
+            mediaRuntime.MediaInfoService,
+            mediaRuntime.VideoThumbnailService,
+            workflows.MediaProcessingWorkflowService,
+            workflows.MediaImportDiscoveryService,
+            Logger,
+            infrastructure.FilePickerService,
+            infrastructure.DispatcherService,
+            infrastructure.UserPreferencesService,
+            infrastructure.FileRevealService,
+            trimWorkspace);
+    }
 }

@@ -28,6 +28,10 @@
 - 用户偏好改为“基于现有对象更新”的持久化方式，避免每次新增设置项时在多个调用点手动复制所有字段。
 - 新增 `.editorconfig` 统一中文源码采用 `UTF-8 BOM`，降低 Windows 默认工具、脚本和 AI Agent 误判乱码的概率。
 - 新增全局“转码方式”偏好：默认保持现有快速换封装行为，可切换到真正转码，并在视频可适用时接入 GPU 可用性检测与自动回退。
+- `MediaInfoService` 已拆成多文件 partial 结构，分别承载主协调、探测诊断、快照构建、字段格式化和 ffprobe 模型，降低媒体探测逻辑继续膨胀时的维护成本。
+- `MainWindow` 代码后置已按窗口外观、浮层反馈、拖拽导入、窗口位置持久化拆开，避免 Win32 互操作、动画和页面事件长期混在一个文件中。
+- `AppCompositionRoot` 改为按“基础设施 / 运行时 / 工作流”分组装配，入口类不再承载一整条线性 `new` 链。
+- 新增标准 `Vidvix.sln`，并保留原有 `Vidvix.slnx`，提升不同 IDE / 工具链下的解决方案兼容性。
 
 ## 仍需长期坚持的约束
 
@@ -54,5 +58,8 @@
   - `WindowsPackageType=None`
   - `WindowsAppSDKSelfContained=true`
 - 发布时会把离线运行目录复制到 `artifacts/publish-offline/`。
+- 新增 `Properties/PublishProfiles/Offline-win-x64.pubxml`、`Offline-win-x86.pubxml`、`Offline-win-arm64.pubxml`，用于在 IDE 和 CLI 下统一执行自包含离线发布。
 - 若应用目录不可写，FFmpeg 运行时会回退到 `%LOCALAPPDATA%\\Vidvix\\Tools\\MediaEngine` 下准备运行环境。
 - 若要保证“离线电脑也可直接运行”，发布前应确保 `Tools\\ffmpeg\\ffmpeg.exe` 与 `ffprobe.exe` 已随产物一起输出。
+- 当前仓库内置的 `Tools\\ffmpeg` 与 `Tools\\mpv` 二进制经核验均为 `x64` PE。
+  这意味着 `Offline-win-x64` 是已实际验证的官方离线路径；若要保证“原生 x86 / 原生 ARM64 设备上的媒体处理与预览也完全可用”，还需要补充对应架构的 FFmpeg / mpv 供应商二进制，再继续做原生架构级验证。
