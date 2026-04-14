@@ -25,6 +25,8 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private XamlRoot? _previewViewportXamlRoot;
     private bool _hasPendingScrubPreviewPosition;
     private bool _isControlLoaded;
+    private bool _isTimelineDragActivationInProgress;
+    private bool _isTimelineDragActivated;
     private bool _isPositionTimerRunning;
     private bool _isScrubPreviewUpdateInProgress;
     private bool _isStopAtSelectionEndInProgress;
@@ -34,6 +36,8 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private bool _isUpdatingTimeline;
     private int _sourceVersion;
     private TimeSpan _pendingScrubPreviewPosition;
+    private TimeSpan _timelineInteractionTarget;
+    private Task? _timelineDragActivationTask;
     private Point _timelinePointerPressedPoint;
     private VideoPreviewHostPlacement? _lastPreviewPlacement;
 
@@ -127,6 +131,8 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _isControlLoaded = false;
+        ViewModel?.EndTimelineInteractionPriority();
+        ResetTimelinePointerInteraction();
         DetachPreviewViewportXamlRootChangedHandler();
         _lastPreviewPlacement = null;
         StopScrubPreviewTimer();
@@ -253,26 +259,23 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         e.Handled = true;
     }
 
-    private async void OnTimelineSliderPointerPressed(object sender, PointerRoutedEventArgs e)
+    private void OnTimelineSliderPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        StopPositionTimer();
         StopScrubPreviewTimer();
         _hasPendingScrubPreviewPosition = false;
         _isTimelinePointerPressed = true;
+        _isTimelineDragActivated = false;
         _isTimelineScrubPreviewEnabled = false;
+        _timelineDragActivationTask = null;
         _timelinePointerPressedPoint = e.GetCurrentPoint(TimelineSlider).Position;
-
-        if (ViewModel is null)
-        {
-            return;
-        }
-
-        await ViewModel.BeginTimelineDragAsync();
-        StopPositionTimer();
+        _timelineInteractionTarget = GetTimelineInteractionTarget();
+        ViewModel?.BeginTimelineInteractionPriority();
     }
 
-    private void OnTimelineSliderPointerMoved(object sender, PointerRoutedEventArgs e)
+    private async void OnTimelineSliderPointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (!_isTimelinePointerPressed || _isTimelineScrubPreviewEnabled || ViewModel is null || !ViewModel.IsDragging)
+        if (!_isTimelinePointerPressed || _isTimelineScrubPreviewEnabled || ViewModel is null)
         {
             return;
         }
@@ -286,27 +289,30 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
             return;
         }
 
+        _timelineDragActivationTask ??= EnsureTimelineDragActivatedAsync();
+        await _timelineDragActivationTask;
+        if (!_isTimelineDragActivated || !ViewModel.IsDragging)
+        {
+            return;
+        }
+
         _isTimelineScrubPreviewEnabled = true;
         StartScrubPreviewTimer();
     }
 
     private void OnTimelineSliderPointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        ResetTimelinePointerInteraction();
-        StopScrubPreviewTimer();
-        _ = CommitTimelinePositionAsync();
+        _ = FinalizeTimelineInteractionAsync();
     }
 
     private void OnTimelineSliderPointerCaptureLost(object sender, PointerRoutedEventArgs e)
     {
-        ResetTimelinePointerInteraction();
-        StopScrubPreviewTimer();
-        _ = CommitTimelinePositionAsync();
+        _ = FinalizeTimelineInteractionAsync();
     }
 
     private void OnTimelineSliderValueChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
-        if (ViewModel is null || _isUpdatingTimeline || !ViewModel.IsDragging)
+        if (ViewModel is null || _isUpdatingTimeline || !_isTimelinePointerPressed)
         {
             return;
         }
@@ -315,8 +321,15 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         try
         {
             var target = TimeSpan.FromMilliseconds(e.NewValue);
+            _timelineInteractionTarget = Clamp(target, GetSelectionStart(), GetSelectionEnd());
+
+            if (!_isTimelineDragActivated || !ViewModel.IsDragging)
+            {
+                return;
+            }
+
             ViewModel.UpdateDraggingPosition(target);
-            _pendingScrubPreviewPosition = Clamp(target, GetSelectionStart(), GetSelectionEnd());
+            _pendingScrubPreviewPosition = _timelineInteractionTarget;
             _hasPendingScrubPreviewPosition = true;
         }
         finally
@@ -469,7 +482,75 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         }
     }
 
-    private async Task CommitTimelinePositionAsync()
+    private async Task EnsureTimelineDragActivatedAsync()
+    {
+        if (ViewModel is null || _isTimelineDragActivated || _isTimelineDragActivationInProgress)
+        {
+            return;
+        }
+
+        _isTimelineDragActivationInProgress = true;
+        try
+        {
+            _timelineInteractionTarget = GetTimelineInteractionTarget();
+            await ViewModel.BeginTimelineDragAsync();
+            _isTimelineDragActivated = ViewModel.IsDragging;
+            if (!_isTimelineDragActivated)
+            {
+                RestorePositionTimerIfNeeded();
+                return;
+            }
+
+            ViewModel.UpdateDraggingPosition(_timelineInteractionTarget);
+            _pendingScrubPreviewPosition = _timelineInteractionTarget;
+            _hasPendingScrubPreviewPosition = true;
+        }
+        finally
+        {
+            _isTimelineDragActivationInProgress = false;
+        }
+    }
+
+    private async Task FinalizeTimelineInteractionAsync()
+    {
+        if (!_isTimelinePointerPressed)
+        {
+            return;
+        }
+
+        var target = _timelineInteractionTarget;
+        if (_timelineDragActivationTask is not null)
+        {
+            await _timelineDragActivationTask;
+        }
+
+        var shouldCommitDrag = _isTimelineDragActivated;
+        ResetTimelinePointerInteraction();
+        StopScrubPreviewTimer();
+
+        try
+        {
+            if (ViewModel is null)
+            {
+                return;
+            }
+
+            if (shouldCommitDrag)
+            {
+                await CommitTimelinePositionAsync(target);
+                return;
+            }
+
+            await ViewModel.JumpTimelinePositionAsync(target);
+        }
+        finally
+        {
+            ViewModel?.EndTimelineInteractionPriority();
+            RestorePositionTimerIfNeeded();
+        }
+    }
+
+    private async Task CommitTimelinePositionAsync(TimeSpan target)
     {
         StopScrubPreviewTimer();
         if (ViewModel is null || _isTimelineCommitInProgress)
@@ -478,7 +559,6 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         }
 
         _isTimelineCommitInProgress = true;
-        var target = Clamp(TimeSpan.FromMilliseconds(ViewModel.CurrentPositionMilliseconds), GetSelectionStart(), GetSelectionEnd());
         try
         {
             await ViewModel.CompleteTimelineDragAsync(target);
@@ -533,12 +613,13 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private void ResetTimelinePointerInteraction()
     {
         _isTimelinePointerPressed = false;
+        _isTimelineDragActivated = false;
         _isTimelineScrubPreviewEnabled = false;
     }
 
     private void UpdateTimelinePosition(TimeSpan position)
     {
-        if (ViewModel is null || ViewModel.IsDragging)
+        if (ViewModel is null || ViewModel.IsDragging || _isTimelinePointerPressed)
         {
             return;
         }
@@ -602,6 +683,17 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private static bool AreClose(TimeSpan left, TimeSpan right) =>
         Math.Abs((left - right).TotalMilliseconds) < 1d;
+
+    private TimeSpan GetTimelineInteractionTarget() =>
+        Clamp(TimeSpan.FromMilliseconds(TimelineSlider.Value), GetSelectionStart(), GetSelectionEnd());
+
+    private void RestorePositionTimerIfNeeded()
+    {
+        if (ViewModel?.IsPlaying == true)
+        {
+            StartPositionTimer();
+        }
+    }
 
     private void AdjustVolume(double deltaPercent)
     {

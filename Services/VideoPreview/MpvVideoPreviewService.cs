@@ -409,6 +409,7 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         {
             SetPropertyDouble("time-pos", normalized.TotalSeconds);
             UpdateCurrentPosition(normalized);
+            TryRequestRedraw();
         }, cancellationToken).ConfigureAwait(false);
 
         RaisePositionChanged(normalized);

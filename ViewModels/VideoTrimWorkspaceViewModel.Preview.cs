@@ -12,6 +12,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
     private readonly IDispatcherService _dispatcherService;
     private readonly IVideoPreviewService _videoPreviewService;
     private readonly SemaphoreSlim _previewInteractionSemaphore = new(1, 1);
+    private bool _isTimelineInteractionPending;
     private bool _isSeeking;
     private bool _isDragging;
     private bool _resumePlaybackAfterDragging;
@@ -92,6 +93,10 @@ public sealed partial class VideoTrimWorkspaceViewModel
         _videoPreviewService.RefreshAsync(cancellationToken);
 
     internal bool HasLoadedPreview => _videoPreviewService.HasLoadedMedia;
+
+    internal void BeginTimelineInteractionPriority() => _isTimelineInteractionPending = true;
+
+    internal void EndTimelineInteractionPriority() => _isTimelineInteractionPending = false;
 
     internal async Task TogglePreviewPlaybackAsync()
     {
@@ -196,7 +201,20 @@ public sealed partial class VideoTrimWorkspaceViewModel
                 return;
             }
 
-            await SeekPreviewFastAsync(target, pauseBeforeSeek: false, resumeAfterSeek: shouldResumePlayback);
+            await SetPreviewPositionAsync(target, shouldResumePlayback);
+        }
+        finally
+        {
+            _previewInteractionSemaphore.Release();
+        }
+    }
+
+    internal async Task JumpTimelinePositionAsync(TimeSpan position)
+    {
+        await _previewInteractionSemaphore.WaitAsync();
+        try
+        {
+            await SetPreviewPositionAsync(position, IsPlaying);
         }
         finally
         {
@@ -209,11 +227,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
         await _previewInteractionSemaphore.WaitAsync();
         try
         {
-            var shouldResumePlayback = IsPlaying;
-            await SeekPreviewFastAsync(
-                position,
-                pauseBeforeSeek: shouldResumePlayback,
-                resumeAfterSeek: shouldResumePlayback);
+            await SetPreviewPositionAsync(position, IsPlaying);
         }
         finally
         {
@@ -324,7 +338,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
         }
     }
 
-    private async Task<TimeSpan> SeekPreviewFastAsync(TimeSpan position, bool pauseBeforeSeek, bool resumeAfterSeek)
+    private async Task<TimeSpan> SetPreviewPositionAsync(TimeSpan position, bool shouldBePlayingAfterPositioning)
     {
         var target = ClampToSelection(position);
         SyncCurrentPosition(target);
@@ -339,17 +353,10 @@ public sealed partial class VideoTrimWorkspaceViewModel
         IsSeeking = true;
         try
         {
-            if (pauseBeforeSeek)
-            {
-                await _videoPreviewService.PauseAsync();
-                SetPlaying(false);
-                SyncCurrentPosition(target);
-            }
-
-            actual = await _videoPreviewService.SeekAsync(target);
+            actual = await _videoPreviewService.SetPlaybackPositionAsync(target);
             SyncCurrentPosition(actual);
 
-            if (resumeAfterSeek)
+            if (shouldBePlayingAfterPositioning && !_videoPreviewService.IsPlaying)
             {
                 await _videoPreviewService.PlayAsync();
             }
@@ -359,7 +366,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
             IsSeeking = false;
         }
 
-        SetPlaying(resumeAfterSeek);
+        SetPlaying(shouldBePlayingAfterPositioning);
         return actual;
     }
 
@@ -411,7 +418,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
     {
         RunPreviewOnUiThread(() =>
         {
-            if (!HasInput || !IsPreviewReady || IsDragging || IsSeeking)
+            if (!HasInput || !IsPreviewReady || IsDragging || IsSeeking || _isTimelineInteractionPending)
             {
                 return;
             }
@@ -430,7 +437,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
             }
 
             SetPlaying(e.IsPlaying);
-            if (!e.IsPlaying && !IsDragging && !IsSeeking)
+            if (!e.IsPlaying && !IsDragging && !IsSeeking && !_isTimelineInteractionPending)
             {
                 SyncCurrentPosition(ClampToSelection(_videoPreviewService.CurrentPosition));
             }
@@ -454,6 +461,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
     private void ResetPreviewInteractionState()
     {
         _resumePlaybackAfterDragging = false;
+        _isTimelineInteractionPending = false;
         IsDragging = false;
         IsSeeking = false;
         SetPlaying(false);
