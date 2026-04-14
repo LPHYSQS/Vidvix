@@ -17,7 +17,7 @@ namespace Vidvix.Services.MediaInfo;
 public sealed class MediaInfoService : IMediaInfoService
 {
     private const string UnknownValue = "\u672a\u77e5";
-    private const string ParseFailedMessage = "\u65e0\u6cd5\u89e3\u6790\u8be5\u89c6\u9891\u6587\u4ef6\u3002";
+    private const string ParseFailedMessage = "\u65e0\u6cd5\u89e3\u6790\u5f53\u524d\u5a92\u4f53\u6587\u4ef6\u3002";
     private const string MissingVideoStreamValue = "\u672a\u68c0\u6d4b\u5230\u89c6\u9891\u6d41";
     private const string MissingAudioStreamValue = "\u672a\u68c0\u6d4b\u5230\u97f3\u9891\u6d41";
     private const string LightweightProbeEntries =
@@ -25,7 +25,7 @@ public sealed class MediaInfoService : IMediaInfoService
         "stream=codec_type,codec_name,profile,level,width,height,avg_frame_rate,r_frame_rate,duration,bit_rate," +
         "bits_per_raw_sample,bits_per_sample,pix_fmt,color_space,color_primaries,color_transfer,channels,channel_layout," +
         "sample_rate,codec_tag_string:stream_tags=encoder,DURATION,DURATION-eng,BPS,BPS-eng,variant_bitrate,BANDWIDTH," +
-        "NUMBER_OF_BYTES,NUMBER_OF_BYTES-eng";
+        "NUMBER_OF_BYTES,NUMBER_OF_BYTES-eng:stream_disposition=attached_pic";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -226,10 +226,12 @@ public sealed class MediaInfoService : IMediaInfoService
     {
         var format = probeResult.format;
         var streams = probeResult.streams ?? Array.Empty<FfprobeStream>();
-        var videoStream = streams.FirstOrDefault(stream => string.Equals(stream.codec_type, "video", StringComparison.OrdinalIgnoreCase));
-        var audioStream = streams.FirstOrDefault(stream => string.Equals(stream.codec_type, "audio", StringComparison.OrdinalIgnoreCase));
+        var videoStreams = streams.Where(IsVideoStream).ToArray();
+        var videoStream = videoStreams.FirstOrDefault(stream => !IsAttachedPictureStream(stream));
+        var artworkStream = videoStreams.FirstOrDefault(IsAttachedPictureStream);
+        var audioStream = streams.FirstOrDefault(IsAudioStream);
         var subtitleStreams = streams
-            .Where(stream => string.Equals(stream.codec_type, "subtitle", StringComparison.OrdinalIgnoreCase))
+            .Where(IsSubtitleStream)
             .ToArray();
         var subtitleStream = subtitleStreams.FirstOrDefault();
         var mediaDurationSeconds = FirstPositive(
@@ -244,6 +246,7 @@ public sealed class MediaInfoService : IMediaInfoService
         var encoderTag = ResolveEncoderTag(format, videoStream, audioStream);
         var videoMissing = videoStream is null;
         var audioMissing = audioStream is null;
+        var hasEmbeddedArtwork = artworkStream is not null;
         var subtitleCount = subtitleStreams.Length;
         var videoBitrateText = videoMissing ? MissingVideoStreamValue : FormatBitrate(resolvedBitrates.VideoBitrateText);
         var audioBitrateText = audioMissing ? MissingAudioStreamValue : FormatBitrate(resolvedBitrates.AudioBitrateText);
@@ -306,6 +309,7 @@ public sealed class MediaInfoService : IMediaInfoService
                 : null,
             HasVideoStream = !videoMissing,
             HasAudioStream = !audioMissing,
+            HasEmbeddedArtwork = hasEmbeddedArtwork,
             HasSubtitleStream = subtitleCount > 0,
             SubtitleStreamCount = subtitleCount,
             PrimarySubtitleCodecName = subtitleStream?.codec_name,
@@ -347,7 +351,7 @@ public sealed class MediaInfoService : IMediaInfoService
             var fullPath = Path.GetFullPath(inputPath);
             if (!File.Exists(fullPath))
             {
-                validationError = "\u6587\u4ef6\u4e0d\u5b58\u5728\uff0c\u65e0\u6cd5\u89e3\u6790\u8be5\u89c6\u9891\u6587\u4ef6\u3002";
+                validationError = "\u6587\u4ef6\u4e0d\u5b58\u5728\uff0c\u65e0\u6cd5\u89e3\u6790\u5f53\u524d\u5a92\u4f53\u6587\u4ef6\u3002";
                 return false;
             }
 
@@ -378,6 +382,19 @@ public sealed class MediaInfoService : IMediaInfoService
         var lines = standardError.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         return lines.LastOrDefault() ?? ParseFailedMessage;
     }
+
+    private static bool IsVideoStream(FfprobeStream stream) =>
+        string.Equals(stream.codec_type, "video", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAudioStream(FfprobeStream stream) =>
+        string.Equals(stream.codec_type, "audio", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSubtitleStream(FfprobeStream stream) =>
+        string.Equals(stream.codec_type, "subtitle", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAttachedPictureStream(FfprobeStream stream) =>
+        IsVideoStream(stream) &&
+        stream.disposition?.attached_pic == 1;
 
     private static string CreateFfprobeDiagnosticDetails(
         string? ffprobePath,
@@ -458,8 +475,8 @@ public sealed class MediaInfoService : IMediaInfoService
     {
         var streams = probeResult.streams ?? Array.Empty<FfprobeStream>();
         var format = probeResult.format;
-        var videoStream = streams.FirstOrDefault(stream => string.Equals(stream.codec_type, "video", StringComparison.OrdinalIgnoreCase));
-        var audioStream = streams.FirstOrDefault(stream => string.Equals(stream.codec_type, "audio", StringComparison.OrdinalIgnoreCase));
+        var videoStream = streams.FirstOrDefault(stream => IsVideoStream(stream) && !IsAttachedPictureStream(stream));
+        var audioStream = streams.FirstOrDefault(IsAudioStream);
 
         var videoBitrateText = ResolveStreamBitrateText(videoStream, format, audioStream is null, isAudioStream: false);
         var audioBitrateText = ResolveStreamBitrateText(audioStream, format, videoStream is null, isAudioStream: true);
@@ -1132,5 +1149,12 @@ public sealed class MediaInfoService : IMediaInfoService
         public string? codec_tag_string { get; init; }
 
         public Dictionary<string, string>? tags { get; init; }
+
+        public FfprobeDisposition? disposition { get; init; }
+    }
+
+    private sealed class FfprobeDisposition
+    {
+        public int? attached_pic { get; init; }
     }
 }

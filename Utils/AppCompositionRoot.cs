@@ -41,7 +41,6 @@ public sealed class AppCompositionRoot
         var ffmpegVideoAccelerationService = new FFmpegVideoAccelerationService(ffmpegService, Logger);
         var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
         var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
-        var audioWaveformService = new AudioWaveformService(runtimeService, ffmpegService, Configuration, Logger);
         var videoPreviewService = new MpvVideoPreviewService(Configuration, _windowContext, Logger);
         var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
         var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(Configuration, commandBuilder);
@@ -77,7 +76,6 @@ public sealed class AppCompositionRoot
             filePickerService,
             _userPreferencesService,
             fileRevealService,
-            audioWaveformService,
             videoPreviewService,
             dispatcherService,
             Logger);

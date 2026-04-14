@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Utils;
@@ -28,7 +27,6 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private readonly IFilePickerService _filePickerService;
     private readonly IUserPreferencesService _userPreferencesService;
     private readonly IFileRevealService _fileRevealService;
-    private readonly IAudioWaveformService _audioWaveformService;
     private readonly ILogger _logger;
     private readonly AsyncRelayCommand _selectVideoCommand;
     private readonly RelayCommand _removeVideoCommand;
@@ -50,7 +48,6 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private string _outputDirectory = string.Empty;
     private string _plannedOutputPath = string.Empty;
     private string _lastImportErrorDetails = string.Empty;
-    private string _audioWaveformOverlayMessage = string.Empty;
     private TimeSpan _mediaDuration;
     private TimeSpan _selectionStart;
     private TimeSpan _selectionEnd;
@@ -58,7 +55,6 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private string _selectionStartInputText = string.Empty;
     private string _selectionEndInputText = string.Empty;
     private TrimMediaKind _currentMediaKind = TrimMediaKind.Video;
-    private ImageSource? _audioWaveformImageSource;
     private double _volume = DefaultTrimPreviewVolumePercent / 100d;
     private bool _isBusy;
     private bool _isPreviewReady;
@@ -80,7 +76,6 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         IFilePickerService filePickerService,
         IUserPreferencesService userPreferencesService,
         IFileRevealService fileRevealService,
-        IAudioWaveformService audioWaveformService,
         IVideoPreviewService videoPreviewService,
         IDispatcherService dispatcherService,
         ILogger logger)
@@ -90,7 +85,6 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         _filePickerService = filePickerService ?? throw new ArgumentNullException(nameof(filePickerService));
         _userPreferencesService = userPreferencesService ?? throw new ArgumentNullException(nameof(userPreferencesService));
         _fileRevealService = fileRevealService ?? throw new ArgumentNullException(nameof(fileRevealService));
-        _audioWaveformService = audioWaveformService ?? throw new ArgumentNullException(nameof(audioWaveformService));
         _videoPreviewService = videoPreviewService ?? throw new ArgumentNullException(nameof(videoPreviewService));
         _dispatcherService = dispatcherService ?? throw new ArgumentNullException(nameof(dispatcherService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -152,11 +146,42 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public string MediaInfoPanelTitle => IsAudioTrim ? "\u97f3\u9891\u4fe1\u606f" : "\u89c6\u9891\u4fe1\u606f";
 
-    public ImageSource? AudioWaveformImageSource => _audioWaveformImageSource;
-
-    public Visibility AudioWaveformVisibility => HasInput && IsAudioTrim && _audioWaveformImageSource is not null
+    public Visibility AudioPreviewSurfaceVisibility => HasInput &&
+        IsAudioTrim &&
+        _mediaDetailsSnapshot?.HasEmbeddedArtwork != true
         ? Visibility.Visible
         : Visibility.Collapsed;
+
+    public string AudioPreviewTitleText
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_inputFileName))
+            {
+                return "\u672a\u547d\u540d\u97f3\u9891";
+            }
+
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(_inputFileName);
+            return string.IsNullOrWhiteSpace(fileNameWithoutExtension)
+                ? _inputFileName
+                : fileNameWithoutExtension;
+        }
+    }
+
+    public string AudioPreviewSubtitleText => string.IsNullOrWhiteSpace(_inputFileName)
+        ? "\u97f3\u9891\u6587\u4ef6"
+        : _inputFileName;
+
+    public string AudioPreviewFormatBadgeText
+    {
+        get
+        {
+            var extension = Path.GetExtension(_inputFileName);
+            return string.IsNullOrWhiteSpace(extension)
+                ? "AUDIO"
+                : extension.TrimStart('.').ToUpperInvariant();
+        }
+    }
 
     public string StatusMessage
     {
@@ -225,12 +250,11 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public bool CanJumpToSelectionBoundary => CanPlayPreview && !IsDragging;
 
-    public Visibility PreviewOverlayVisibility =>
-        !IsPreviewReady || ShouldShowAudioWaveformOverlay ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility PreviewOverlayVisibility => !IsPreviewReady ? Visibility.Visible : Visibility.Collapsed;
 
-    public string PreviewOverlayMessage => IsPreviewReady ? _audioWaveformOverlayMessage : PreviewStateMessage;
+    public string PreviewOverlayMessage => PreviewStateMessage;
 
-    public Symbol PreviewOverlaySymbol => IsAudioTrim ? Symbol.Volume : Symbol.Video;
+    public Symbol PreviewOverlaySymbol => IsAudioTrim ? Symbol.Audio : Symbol.Video;
 
     public string PlayPauseButtonText => IsPlaying ? "\u6682\u505c" : "\u64ad\u653e";
 
@@ -495,7 +519,6 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         }
 
         SetCurrentMediaKind(mediaKind);
-        ResetAudioWaveformState();
         _inputPath = importResult.InputPath!;
         _inputFileName = importResult.InputFileName!;
         _mediaDetailsSnapshot = importResult.Snapshot;
@@ -674,7 +697,6 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         _selectionEnd = TimeSpan.Zero;
         _currentPosition = TimeSpan.Zero;
         ResetPreviewInteractionState();
-        ResetAudioWaveformState();
         LastImportErrorDetails = string.Empty;
         SetPreviewFailed("\u8bf7\u5148\u5bfc\u5165\u97f3\u9891\u6216\u89c6\u9891\u6587\u4ef6\uff0c\u4e5f\u53ef\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002");
         RefreshMediaInfoFields();
@@ -898,8 +920,10 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         OnPropertyChanged(nameof(PreviewOverlayVisibility));
         OnPropertyChanged(nameof(PreviewOverlayMessage));
         OnPropertyChanged(nameof(PreviewOverlaySymbol));
-        OnPropertyChanged(nameof(AudioWaveformImageSource));
-        OnPropertyChanged(nameof(AudioWaveformVisibility));
+        OnPropertyChanged(nameof(AudioPreviewSurfaceVisibility));
+        OnPropertyChanged(nameof(AudioPreviewTitleText));
+        OnPropertyChanged(nameof(AudioPreviewSubtitleText));
+        OnPropertyChanged(nameof(AudioPreviewFormatBadgeText));
         RaiseTimelineChanged();
         NotifyCommandStates();
     }
@@ -1468,11 +1492,6 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         _logger.Log(LogLevel.Warning, "\u68c0\u6d4b\u5230\u65e0\u6548\u7684\u88c1\u526a\u8f93\u51fa\u76ee\u5f55\u914d\u7f6e\uff0c\u5df2\u56de\u9000\u4e3a\u539f\u6587\u4ef6\u5939\u8f93\u51fa\u3002");
         return string.Empty;
     }
-
-    private bool ShouldShowAudioWaveformOverlay =>
-        HasInput &&
-        IsAudioTrim &&
-        !string.IsNullOrWhiteSpace(_audioWaveformOverlayMessage);
 
     private void SetCurrentMediaKind(TrimMediaKind mediaKind)
     {

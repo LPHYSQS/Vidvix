@@ -418,7 +418,10 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         {
             if (ViewModel is not null && version == _sourceVersion)
             {
-                ViewModel.SetPreviewFailed("当前视频无法预览，但仍可尝试直接导出。");
+                ViewModel.SetPreviewFailed(
+                    ViewModel.IsAudioTrim
+                        ? "当前音频无法预览，但仍可尝试直接导出。"
+                        : "当前视频无法预览，但仍可尝试直接导出。");
             }
         }
         finally

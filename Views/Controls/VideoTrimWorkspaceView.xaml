@@ -138,7 +138,25 @@
 
                 <Border Grid.Column="0" Grid.Row="0" MinHeight="190" Background="Black" CornerRadius="18">
                     <Grid x:Name="PreviewViewport" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                        <Image HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsHitTestVisible="False" Source="{x:Bind ViewModel.AudioWaveformImageSource, Mode=OneWay}" Stretch="UniformToFill" Visibility="{x:Bind ViewModel.AudioWaveformVisibility, Mode=OneWay}" />
+                        <Grid Visibility="{x:Bind ViewModel.AudioPreviewSurfaceVisibility, Mode=OneWay}">
+                            <Border CornerRadius="18">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#FF0F172A" Offset="0" />
+                                        <GradientStop Color="#FF111827" Offset="0.58" />
+                                        <GradientStop Color="#FF1E293B" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460" Spacing="16">
+                                <StackPanel HorizontalAlignment="Center" Orientation="Horizontal" Spacing="10">
+                                    <SymbolIcon Foreground="White" Symbol="Audio" />
+                                    <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="White" Text="{x:Bind ViewModel.AudioPreviewFormatBadgeText, Mode=OneWay}" />
+                                </StackPanel>
+                                <TextBlock FontSize="30" FontWeight="SemiBold" Foreground="White" MaxLines="2" Text="{x:Bind ViewModel.AudioPreviewTitleText, Mode=OneWay}" TextAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="WrapWholeWords" />
+                                <TextBlock Foreground="#CCFFFFFF" MaxLines="2" Opacity="0.92" Text="{x:Bind ViewModel.AudioPreviewSubtitleText, Mode=OneWay}" TextAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+                        </Grid>
                         <MediaPlayerElement x:Name="PreviewPlayer" AreTransportControlsEnabled="False" AutoPlay="False" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Stretch="Uniform" />
                         <Border Background="#66000000" CornerRadius="18" Visibility="{x:Bind ViewModel.PreviewOverlayVisibility, Mode=OneWay}">
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="320" Spacing="10">
