@@ -1003,6 +1003,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
             _currentPosition = ClampToSelection(_currentPosition);
             RaiseTimelineChanged();
+            QueueSelectionBoundaryWarmup();
         }
     }
 
@@ -1018,6 +1019,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         {
             _currentPosition = ClampToSelection(_currentPosition);
             RaiseTimelineChanged();
+            QueueSelectionBoundaryWarmup();
         }
     }
 

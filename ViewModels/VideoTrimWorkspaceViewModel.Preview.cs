@@ -9,9 +9,12 @@ namespace Vidvix.ViewModels;
 
 public sealed partial class VideoTrimWorkspaceViewModel
 {
+    private static readonly TimeSpan SelectionBoundaryWarmupDebounce = TimeSpan.FromMilliseconds(180);
     private readonly IDispatcherService _dispatcherService;
     private readonly IVideoPreviewService _videoPreviewService;
     private readonly SemaphoreSlim _previewInteractionSemaphore = new(1, 1);
+    private CancellationTokenSource? _selectionBoundaryWarmupCancellationSource;
+    private bool _isBoundaryWarmupInProgress;
     private bool _isTimelineInteractionPending;
     private bool _isSeeking;
     private bool _isDragging;
@@ -100,6 +103,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
 
     internal async Task TogglePreviewPlaybackAsync()
     {
+        CancelSelectionBoundaryWarmup();
         await _previewInteractionSemaphore.WaitAsync();
         try
         {
@@ -136,6 +140,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
 
     internal async Task BeginTimelineDragAsync()
     {
+        CancelSelectionBoundaryWarmup();
         await _previewInteractionSemaphore.WaitAsync();
         try
         {
@@ -181,6 +186,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
 
     internal async Task CompleteTimelineDragAsync(TimeSpan position)
     {
+        CancelSelectionBoundaryWarmup();
         await _previewInteractionSemaphore.WaitAsync();
         try
         {
@@ -207,10 +213,13 @@ public sealed partial class VideoTrimWorkspaceViewModel
         {
             _previewInteractionSemaphore.Release();
         }
+
+        QueueSelectionBoundaryWarmup();
     }
 
     internal async Task JumpTimelinePositionAsync(TimeSpan position)
     {
+        CancelSelectionBoundaryWarmup();
         await _previewInteractionSemaphore.WaitAsync();
         try
         {
@@ -224,6 +233,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
 
     internal async Task JumpToSelectionBoundaryAsync(TimeSpan position)
     {
+        CancelSelectionBoundaryWarmup();
         await _previewInteractionSemaphore.WaitAsync();
         try
         {
@@ -237,6 +247,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
 
     internal async Task HandleSelectionRangeChangedAsync()
     {
+        CancelSelectionBoundaryWarmup();
         await _previewInteractionSemaphore.WaitAsync();
         try
         {
@@ -278,10 +289,13 @@ public sealed partial class VideoTrimWorkspaceViewModel
         {
             _previewInteractionSemaphore.Release();
         }
+
+        QueueSelectionBoundaryWarmup();
     }
 
     internal async Task StopPlaybackAtSelectionEndAsync()
     {
+        CancelSelectionBoundaryWarmup();
         await _previewInteractionSemaphore.WaitAsync();
         try
         {
@@ -372,8 +386,153 @@ public sealed partial class VideoTrimWorkspaceViewModel
 
     private void UpdatePreviewVolume() => _ = _videoPreviewService.SetVolumeAsync(_volume);
 
+    private void CancelSelectionBoundaryWarmup()
+    {
+        if (_selectionBoundaryWarmupCancellationSource is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _selectionBoundaryWarmupCancellationSource.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private void QueueSelectionBoundaryWarmup()
+    {
+        if (!HasLoadedPreview ||
+            !IsPreviewReady ||
+            IsPlaying ||
+            IsSeeking ||
+            IsDragging ||
+            _mediaDuration <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        var previousCancellationSource = _selectionBoundaryWarmupCancellationSource;
+        _selectionBoundaryWarmupCancellationSource = new CancellationTokenSource();
+        previousCancellationSource?.Cancel();
+        previousCancellationSource?.Dispose();
+
+        var cancellationToken = _selectionBoundaryWarmupCancellationSource.Token;
+        _ = Task.Run(() => WarmSelectionBoundaryFramesAsync(cancellationToken), cancellationToken);
+    }
+
+    private async Task WarmSelectionBoundaryFramesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(SelectionBoundaryWarmupDebounce, cancellationToken).ConfigureAwait(false);
+
+            if (!HasLoadedPreview ||
+                !IsPreviewReady ||
+                IsPlaying ||
+                IsSeeking ||
+                IsDragging ||
+                _mediaDuration <= TimeSpan.Zero)
+            {
+                return;
+            }
+
+            var restorePosition = ClampToSelection(_currentPosition);
+            var priorityTargets = BuildBoundaryWarmupTargets(restorePosition);
+            if (priorityTargets.Length == 0)
+            {
+                return;
+            }
+
+            _isBoundaryWarmupInProgress = true;
+            try
+            {
+                foreach (var target in priorityTargets)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (IsPlaying || IsSeeking || IsDragging)
+                    {
+                        return;
+                    }
+
+                    await _videoPreviewService.SetPlaybackPositionAsync(target, cancellationToken).ConfigureAwait(false);
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (IsPlaying || IsSeeking || IsDragging)
+                {
+                    return;
+                }
+
+                var restored = await _videoPreviewService
+                    .SetPlaybackPositionAsync(restorePosition, cancellationToken)
+                    .ConfigureAwait(false);
+                SyncCurrentPosition(restored);
+            }
+            finally
+            {
+                _isBoundaryWarmupInProgress = false;
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _logger.Log(LogLevel.Warning, "裁剪边界预热失败，已保留当前预览状态。", exception);
+        }
+    }
+
+    private TimeSpan[] BuildBoundaryWarmupTargets(TimeSpan restorePosition)
+    {
+        Span<TimeSpan> candidates =
+        [
+            ClampToSelection(_selectionStart),
+            ClampToSelection(_selectionEnd),
+            ClampToSelection(_selectionStart + TimeSpan.FromMilliseconds(1)),
+            ClampToSelection(_selectionEnd - TimeSpan.FromMilliseconds(1))
+        ];
+
+        var result = new TimeSpan[candidates.Length];
+        var count = 0;
+
+        foreach (var candidate in candidates)
+        {
+            if (AreClose(candidate, restorePosition))
+            {
+                continue;
+            }
+
+            var isDuplicate = false;
+            for (var index = 0; index < count; index++)
+            {
+                if (AreClose(result[index], candidate))
+                {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+
+            if (isDuplicate)
+            {
+                continue;
+            }
+
+            result[count++] = candidate;
+        }
+
+        return result[..count];
+    }
+
     private void DisposePreview()
     {
+        CancelSelectionBoundaryWarmup();
+        _selectionBoundaryWarmupCancellationSource?.Dispose();
+        _selectionBoundaryWarmupCancellationSource = null;
         _videoPreviewService.MediaOpened -= OnPreviewMediaOpened;
         _videoPreviewService.MediaFailed -= OnPreviewMediaFailed;
         _videoPreviewService.PositionChanged -= OnPreviewPositionChanged;
@@ -396,6 +555,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
             ResetPreviewInteractionState();
             SyncCurrentPosition(ClampToSelection(_videoPreviewService.CurrentPosition));
             SetPreviewReady();
+            QueueSelectionBoundaryWarmup();
         });
     }
 
@@ -418,7 +578,12 @@ public sealed partial class VideoTrimWorkspaceViewModel
     {
         RunPreviewOnUiThread(() =>
         {
-            if (!HasInput || !IsPreviewReady || IsDragging || IsSeeking || _isTimelineInteractionPending)
+            if (!HasInput ||
+                !IsPreviewReady ||
+                IsDragging ||
+                IsSeeking ||
+                _isTimelineInteractionPending ||
+                _isBoundaryWarmupInProgress)
             {
                 return;
             }
@@ -437,7 +602,11 @@ public sealed partial class VideoTrimWorkspaceViewModel
             }
 
             SetPlaying(e.IsPlaying);
-            if (!e.IsPlaying && !IsDragging && !IsSeeking && !_isTimelineInteractionPending)
+            if (!e.IsPlaying &&
+                !IsDragging &&
+                !IsSeeking &&
+                !_isTimelineInteractionPending &&
+                !_isBoundaryWarmupInProgress)
             {
                 SyncCurrentPosition(ClampToSelection(_videoPreviewService.CurrentPosition));
             }
@@ -461,6 +630,10 @@ public sealed partial class VideoTrimWorkspaceViewModel
     private void ResetPreviewInteractionState()
     {
         _resumePlaybackAfterDragging = false;
+        CancelSelectionBoundaryWarmup();
+        _selectionBoundaryWarmupCancellationSource?.Dispose();
+        _selectionBoundaryWarmupCancellationSource = null;
+        _isBoundaryWarmupInProgress = false;
         _isTimelineInteractionPending = false;
         IsDragging = false;
         IsSeeking = false;

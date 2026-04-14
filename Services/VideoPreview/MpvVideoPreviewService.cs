@@ -768,9 +768,10 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         SetOptionString("force-window", "yes");
         SetOptionString("background-color", "#000000");
         SetOptionString("cache", "yes");
-        SetOptionString("cache-secs", "15");
-        SetOptionString("demuxer-max-bytes", "134217728");
-        SetOptionString("demuxer-readahead-secs", "5");
+        SetOptionString("cache-secs", "45");
+        SetOptionString("demuxer-max-bytes", "536870912");
+        SetOptionString("demuxer-max-back-bytes", "268435456");
+        SetOptionString("demuxer-readahead-secs", "15");
     }
 
     private void ObserveTimePositionProperty()
@@ -896,6 +897,26 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
 
             return requestedPosition < TimeSpan.Zero ? TimeSpan.Zero : requestedPosition;
         }
+    }
+
+    private static TimeSpan[] BuildInitialWarmupTargets(TimeSpan duration)
+    {
+        var nearEnd = duration > EndFrameSafetyBackoff
+            ? duration - EndFrameSafetyBackoff
+            : TimeSpan.Zero;
+        var warmHead = duration > CacheWarmupTarget ? CacheWarmupTarget : nearEnd;
+        var warmTail = duration > CacheWarmupTarget + EndFrameSafetyBackoff
+            ? duration - CacheWarmupTarget
+            : nearEnd;
+
+        return
+        [
+            TimeSpan.Zero,
+            nearEnd,
+            warmHead,
+            warmTail,
+            TimeSpan.Zero
+        ];
     }
 
     private TaskCompletionSource<TimeSpan> BeginPendingSeek(TimeSpan target)
@@ -1065,12 +1086,9 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
     {
         try
         {
-            await SeekAsync(TimeSpan.Zero).ConfigureAwait(false);
-
-            if (duration > CacheWarmupTarget + EndFrameSafetyBackoff)
+            foreach (var target in BuildInitialWarmupTargets(duration))
             {
-                await SeekAsync(CacheWarmupTarget).ConfigureAwait(false);
-                await SeekAsync(TimeSpan.Zero).ConfigureAwait(false);
+                await SetPlaybackPositionAsync(target).ConfigureAwait(false);
             }
 
             await RefreshAsync().ConfigureAwait(false);
