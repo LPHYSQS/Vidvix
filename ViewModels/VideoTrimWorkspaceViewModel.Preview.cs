@@ -75,7 +75,11 @@ public sealed partial class VideoTrimWorkspaceViewModel
                 .ConfigureAwait(false);
 
             await _videoPreviewService
-                .LoadAsync(_inputPath, _volume, cancellationToken)
+                .LoadAsync(
+                    _inputPath,
+                    _volume,
+                    enableExternalSubtitleAutoLoad: !IsAudioTrim,
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

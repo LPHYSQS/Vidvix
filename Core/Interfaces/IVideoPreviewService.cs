@@ -31,7 +31,11 @@ public interface IVideoPreviewService : IDisposable
 
     Task RefreshAsync(CancellationToken cancellationToken = default);
 
-    Task LoadAsync(string inputPath, double volume, CancellationToken cancellationToken = default);
+    Task LoadAsync(
+        string inputPath,
+        double volume,
+        bool enableExternalSubtitleAutoLoad = true,
+        CancellationToken cancellationToken = default);
 
     Task UnloadAsync(CancellationToken cancellationToken = default);
 

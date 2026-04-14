@@ -193,7 +193,11 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         }, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task LoadAsync(string inputPath, double volume, CancellationToken cancellationToken = default)
+    public async Task LoadAsync(
+        string inputPath,
+        double volume,
+        bool enableExternalSubtitleAutoLoad = true,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
         cancellationToken.ThrowIfCancellationRequested();
@@ -240,6 +244,7 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
 
             TrySetPropertyDouble("volume", normalizedVolume * 100d);
             ExecuteCommand("set", "pause", "yes");
+            ExecuteCommand("set", "sub-auto", enableExternalSubtitleAutoLoad ? "exact" : "no");
             ExecuteCommand("loadfile", fullPath, "replace");
             TryRequestRedraw();
             RefreshHostWindow();
@@ -767,7 +772,6 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         SetOptionString("profile", "fast");
         SetOptionString("force-window", "yes");
         SetOptionString("background-color", "#000000");
-        // Keep UTF-8 intact while adding a reliable fallback for common legacy Chinese lyric/subtitle encodings.
         SetOptionString("sub-codepage", "gb18030");
         SetOptionString("metadata-codepage", "gb18030");
         SetOptionString("cache", "yes");
