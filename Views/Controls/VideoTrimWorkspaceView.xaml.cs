@@ -23,6 +23,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private readonly DispatcherQueueTimer _positionTimer;
     private readonly DispatcherQueueTimer _scrubPreviewTimer;
     private readonly ToolTip _volumeToolTip;
+    private readonly long _visibilityPropertyChangedCallbackToken;
     private XamlRoot? _previewViewportXamlRoot;
     private bool _hasPendingScrubPreviewPosition;
     private bool _isControlLoaded;
@@ -76,6 +77,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         PreviewViewport.SizeChanged += OnPreviewViewportSizeChanged;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+        _visibilityPropertyChangedCallbackToken = RegisterPropertyChangedCallback(VisibilityProperty, OnVisibilityPropertyChanged);
     }
 
     public VideoTrimWorkspaceViewModel? ViewModel
@@ -166,6 +168,16 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private void OnPreviewViewportSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        RefreshPreviewHost(force: true);
+    }
+
+    private void OnVisibilityPropertyChanged(DependencyObject sender, DependencyProperty dp)
+    {
+        if (!_isControlLoaded || ViewModel is null)
+        {
+            return;
+        }
+
         RefreshPreviewHost(force: true);
     }
 
@@ -665,7 +677,11 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private VideoPreviewHostPlacement GetPreviewHostPlacement()
     {
-        if (!_isControlLoaded || ViewModel is null || PreviewViewport.XamlRoot is null)
+        if (!_isControlLoaded ||
+            ViewModel is null ||
+            PreviewViewport.XamlRoot is null ||
+            Visibility != Visibility.Visible ||
+            PreviewViewport.Visibility != Visibility.Visible)
         {
             return new VideoPreviewHostPlacement(0, 0, 0, 0, false);
         }

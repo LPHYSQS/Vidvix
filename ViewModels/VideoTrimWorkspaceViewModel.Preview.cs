@@ -153,6 +153,37 @@ public sealed partial class VideoTrimWorkspaceViewModel
         }
     }
 
+    internal async Task PausePreviewForDeactivationAsync()
+    {
+        CancelSelectionBoundaryWarmup();
+        await _previewInteractionSemaphore.WaitAsync();
+        try
+        {
+            _resumePlaybackAfterDragging = false;
+            _isTimelineInteractionPending = false;
+            IsDragging = false;
+
+            if (!HasLoadedPreview)
+            {
+                SetPlaying(false);
+                return;
+            }
+
+            if (IsPlaying || _videoPreviewService.IsPlaying)
+            {
+                await PausePreviewAsync();
+                return;
+            }
+
+            SyncCurrentPosition(ClampToSelection(_videoPreviewService.CurrentPosition));
+            SetPlaying(false);
+        }
+        finally
+        {
+            _previewInteractionSemaphore.Release();
+        }
+    }
+
     internal async Task BeginTimelineDragAsync()
     {
         CancelSelectionBoundaryWarmup();

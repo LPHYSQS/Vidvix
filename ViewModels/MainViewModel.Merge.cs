@@ -5,7 +5,7 @@ namespace Vidvix.ViewModels;
 
 public sealed partial class MainViewModel
 {
-    private readonly RelayCommand _switchToMergeWorkspaceCommand;
+    private readonly AsyncRelayCommand _switchToMergeWorkspaceCommand;
 
     public MergeViewModel MergeWorkspace { get; }
 

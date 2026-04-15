@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Vidvix.Core.Models;
 
@@ -120,15 +121,15 @@ public sealed partial class MainViewModel
             ? preferredWorkspaceKind
             : ProcessingWorkspaceKind.Video;
 
-    private void SwitchToVideoWorkspace() => SetWorkspace(ProcessingWorkspaceKind.Video);
+    private Task SwitchToVideoWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.Video);
 
-    private void SwitchToAudioWorkspace() => SetWorkspace(ProcessingWorkspaceKind.Audio);
+    private Task SwitchToAudioWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.Audio);
 
-    private void SwitchToTrimWorkspace() => SetWorkspace(ProcessingWorkspaceKind.Trim);
+    private Task SwitchToTrimWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.Trim);
 
-    private void SwitchToMergeWorkspace() => SetWorkspace(ProcessingWorkspaceKind.Merge);
+    private Task SwitchToMergeWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.Merge);
 
-    private void SetWorkspace(ProcessingWorkspaceKind workspaceKind)
+    private async Task SetWorkspaceAsync(ProcessingWorkspaceKind workspaceKind)
     {
         if (_selectedWorkspaceKind == workspaceKind)
         {
@@ -139,6 +140,19 @@ public sealed partial class MainViewModel
         {
             StatusMessage = "当前任务处理中，暂不支持切换模块。";
             return;
+        }
+
+        if (_selectedWorkspaceKind == ProcessingWorkspaceKind.Trim &&
+            workspaceKind != ProcessingWorkspaceKind.Trim)
+        {
+            try
+            {
+                await TrimWorkspace.PausePreviewForDeactivationAsync();
+            }
+            catch (Exception exception)
+            {
+                _logger.Log(LogLevel.Warning, "离开裁剪模块时暂停预览失败，继续切换模块。", exception);
+            }
         }
 
         _selectedWorkspaceKind = workspaceKind;

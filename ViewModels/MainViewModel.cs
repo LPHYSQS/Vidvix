@@ -80,9 +80,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly RelayCommand _closeMediaDetailsCommand;
     private readonly RelayCommand _copyAllMediaDetailsCommand;
     private readonly RelayCommand _copyMediaDetailSectionCommand;
-    private readonly RelayCommand _switchToVideoWorkspaceCommand;
-    private readonly RelayCommand _switchToAudioWorkspaceCommand;
-    private readonly RelayCommand _switchToTrimWorkspaceCommand;
+    private readonly AsyncRelayCommand _switchToVideoWorkspaceCommand;
+    private readonly AsyncRelayCommand _switchToAudioWorkspaceCommand;
+    private readonly AsyncRelayCommand _switchToTrimWorkspaceCommand;
     private readonly Dictionary<ProcessingMode, string> _preferredOutputFormatExtensionsByMode = new();
 
     private string? _runtimeExecutablePath;
@@ -171,10 +171,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _closeMediaDetailsCommand = new RelayCommand(CloseMediaDetails, CanCloseMediaDetails);
         _copyAllMediaDetailsCommand = new RelayCommand(CopyAllMediaDetails, CanCopyAllMediaDetails);
         _copyMediaDetailSectionCommand = new RelayCommand(CopyMediaDetailSection, CanCopyMediaDetailSection);
-        _switchToVideoWorkspaceCommand = new RelayCommand(SwitchToVideoWorkspace, () => CanModifyInputs);
-        _switchToAudioWorkspaceCommand = new RelayCommand(SwitchToAudioWorkspace, () => CanModifyInputs);
-        _switchToTrimWorkspaceCommand = new RelayCommand(SwitchToTrimWorkspace, () => CanModifyInputs);
-        _switchToMergeWorkspaceCommand = new RelayCommand(SwitchToMergeWorkspace, () => CanModifyInputs);
+        _switchToVideoWorkspaceCommand = new AsyncRelayCommand(SwitchToVideoWorkspaceAsync, () => CanModifyInputs);
+        _switchToAudioWorkspaceCommand = new AsyncRelayCommand(SwitchToAudioWorkspaceAsync, () => CanModifyInputs);
+        _switchToTrimWorkspaceCommand = new AsyncRelayCommand(SwitchToTrimWorkspaceAsync, () => CanModifyInputs);
+        _switchToMergeWorkspaceCommand = new AsyncRelayCommand(SwitchToMergeWorkspaceAsync, () => CanModifyInputs);
 
         DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
         TrimWorkspace.PropertyChanged += OnTrimWorkspacePropertyChanged;
