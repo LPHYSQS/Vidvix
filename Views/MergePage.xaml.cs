@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Vidvix.Core.Models;
@@ -41,6 +42,28 @@ public sealed partial class MergePage : Page
         }
     }
 
+    private void OnRemoveVideoTrackItemClick(object sender, RoutedEventArgs e)
+    {
+        if (TryResolveTrackItem(sender, out var trackItem))
+        {
+            ViewModel.RemoveVideoTrackItem(trackItem);
+        }
+    }
+
+    private void OnSetVideoResolutionPresetClick(object sender, RoutedEventArgs e)
+    {
+        if (TryResolveTrackItem(sender, out var trackItem))
+        {
+            ViewModel.SetVideoResolutionPreset(trackItem);
+        }
+    }
+
+    private void OnVideoTrackItemsDragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs e)
+    {
+        var orderedTrackItems = sender.Items.Cast<TrackItem>().ToArray();
+        ViewModel.ApplyVideoTrackOrdering(orderedTrackItems);
+    }
+
     private void OnExportButtonClick(object sender, RoutedEventArgs e)
     {
         ViewModel.ExportCommand.Execute(null);
@@ -55,5 +78,23 @@ public sealed partial class MergePage : Page
         };
 
         _ = dialog.ShowAsync();
+    }
+
+    private static bool TryResolveTrackItem(object sender, out TrackItem trackItem)
+    {
+        if (sender is FrameworkElement { Tag: TrackItem taggedTrackItem })
+        {
+            trackItem = taggedTrackItem;
+            return true;
+        }
+
+        if (sender is FrameworkElement { DataContext: TrackItem dataContextTrackItem })
+        {
+            trackItem = dataContextTrackItem;
+            return true;
+        }
+
+        trackItem = null!;
+        return false;
     }
 }

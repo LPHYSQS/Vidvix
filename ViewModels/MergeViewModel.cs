@@ -36,6 +36,7 @@ public sealed class MergeViewModel : ObservableObject
     private MergeWorkspaceMode _selectedMergeMode;
     private ResolutionStrategy _selectedResolutionStrategy;
     private DurationStrategy _selectedDurationStrategy;
+    private TrackItem? _manualVideoResolutionPresetItem;
 
     public MergeViewModel(
         IFilePickerService? filePickerService = null,
@@ -243,6 +244,29 @@ public sealed class MergeViewModel : ObservableObject
 
     public Visibility AudioTrackEmptyVisibility => _audioTrackItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
+    public Visibility VideoJoinTimelineVisibility =>
+        _selectedMergeMode == MergeWorkspaceMode.VideoJoin ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility StandardTimelineVisibility =>
+        _selectedMergeMode == MergeWorkspaceMode.VideoJoin ? Visibility.Collapsed : Visibility.Visible;
+
+    public string VideoResolutionPresetSummaryText
+    {
+        get
+        {
+            var presetTrackItem = GetEffectiveVideoResolutionPresetItem();
+            if (presetTrackItem is null)
+            {
+                return "添加视频片段后，将默认以首段视频作为分辨率基准。";
+            }
+
+            return _manualVideoResolutionPresetItem is not null &&
+                   ReferenceEquals(_manualVideoResolutionPresetItem, presetTrackItem)
+                ? $"当前分辨率预设：{presetTrackItem.SequenceNumberText} · {presetTrackItem.SourceName}"
+                : $"当前默认以首段视频为分辨率基准：{presetTrackItem.SequenceNumberText} · {presetTrackItem.SourceName}";
+        }
+    }
+
     public string VideoTrackEmptyText => _selectedMergeMode switch
     {
         MergeWorkspaceMode.AudioJoin => "当前模式聚焦音频拼接，视频轨道暂不参与编排。",
@@ -287,6 +311,63 @@ public sealed class MergeViewModel : ObservableObject
         }
 
         StatusMessage = $"已从素材列表移除 {mediaItem.FileName}。";
+    }
+
+    public void RemoveVideoTrackItem(TrackItem trackItem)
+    {
+        ArgumentNullException.ThrowIfNull(trackItem);
+
+        if (!_videoTrackItems.Contains(trackItem))
+        {
+            return;
+        }
+
+        var removedClipName = trackItem.SourceName;
+        var removedPresetClip = trackItem.IsResolutionPreset;
+        _videoTrackItems.Remove(trackItem);
+
+        var fallbackPresetTrackItem = GetEffectiveVideoResolutionPresetItem();
+        StatusMessage = removedPresetClip && fallbackPresetTrackItem is not null
+            ? $"{removedClipName} 已从视频轨道移除，分辨率基准已切换为 {fallbackPresetTrackItem.SequenceNumberText} 号片段。"
+            : $"{removedClipName} 已从视频轨道移除。";
+    }
+
+    public void SetVideoResolutionPreset(TrackItem trackItem)
+    {
+        ArgumentNullException.ThrowIfNull(trackItem);
+
+        if (!_videoTrackItems.Contains(trackItem))
+        {
+            return;
+        }
+
+        _manualVideoResolutionPresetItem = trackItem;
+        RefreshVideoTrackPresentation();
+        StatusMessage = $"{trackItem.SequenceNumberText} 号片段已设为分辨率预设。";
+    }
+
+    public void ApplyVideoTrackOrdering(IReadOnlyList<TrackItem> orderedTrackItems)
+    {
+        ArgumentNullException.ThrowIfNull(orderedTrackItems);
+
+        if (orderedTrackItems.Count != _videoTrackItems.Count ||
+            orderedTrackItems.Any(trackItem => !_videoTrackItems.Contains(trackItem)))
+        {
+            RefreshVideoTrackPresentation();
+            return;
+        }
+
+        for (var targetIndex = 0; targetIndex < orderedTrackItems.Count; targetIndex++)
+        {
+            var trackItem = orderedTrackItems[targetIndex];
+            var currentIndex = _videoTrackItems.IndexOf(trackItem);
+            if (currentIndex >= 0 && currentIndex != targetIndex)
+            {
+                _videoTrackItems.Move(currentIndex, targetIndex);
+            }
+        }
+
+        RefreshVideoTrackPresentation();
     }
 
     public string BuildExportPreviewMessage()
@@ -488,10 +569,11 @@ public sealed class MergeViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(mediaItem);
         var visualWidth = Math.Clamp(96d + (mediaItem.DurationSeconds * 4d), 120d, 280d);
         return new TrackItem(
-            $"{index:00} · {mediaItem.FileName}",
+            mediaItem.FileName,
             mediaItem.DurationText,
             visualWidth,
-            mediaItem.IsVideo);
+            mediaItem.IsVideo,
+            index);
     }
 
     private void SetMergeMode(MergeWorkspaceMode mergeMode)
@@ -508,6 +590,9 @@ public sealed class MergeViewModel : ObservableObject
         OnPropertyChanged(nameof(TimelineHintText));
         OnPropertyChanged(nameof(VideoTrackEmptyText));
         OnPropertyChanged(nameof(AudioTrackEmptyText));
+        OnPropertyChanged(nameof(VideoJoinTimelineVisibility));
+        OnPropertyChanged(nameof(StandardTimelineVisibility));
+        OnPropertyChanged(nameof(VideoResolutionPresetSummaryText));
 
         StatusMessage = mergeMode switch
         {
@@ -570,10 +655,46 @@ public sealed class MergeViewModel : ObservableObject
 
     private void OnTrackItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        OnPropertyChanged(nameof(VideoTrackSummaryText));
+        RefreshVideoTrackPresentation();
         OnPropertyChanged(nameof(AudioTrackSummaryText));
-        OnPropertyChanged(nameof(VideoTrackEmptyVisibility));
         OnPropertyChanged(nameof(AudioTrackEmptyVisibility));
+    }
+
+    private TrackItem? GetEffectiveVideoResolutionPresetItem()
+    {
+        if (_manualVideoResolutionPresetItem is not null &&
+            _videoTrackItems.Contains(_manualVideoResolutionPresetItem))
+        {
+            return _manualVideoResolutionPresetItem;
+        }
+
+        return _videoTrackItems.FirstOrDefault();
+    }
+
+    private void RefreshVideoTrackPresentation()
+    {
+        if (_manualVideoResolutionPresetItem is not null &&
+            !_videoTrackItems.Contains(_manualVideoResolutionPresetItem))
+        {
+            _manualVideoResolutionPresetItem = null;
+        }
+
+        for (var index = 0; index < _videoTrackItems.Count; index++)
+        {
+            var trackItem = _videoTrackItems[index];
+            trackItem.SequenceNumber = index + 1;
+            trackItem.IsResolutionPreset = false;
+        }
+
+        var presetTrackItem = GetEffectiveVideoResolutionPresetItem();
+        if (presetTrackItem is not null)
+        {
+            presetTrackItem.IsResolutionPreset = true;
+        }
+
+        OnPropertyChanged(nameof(VideoTrackSummaryText));
+        OnPropertyChanged(nameof(VideoTrackEmptyVisibility));
+        OnPropertyChanged(nameof(VideoResolutionPresetSummaryText));
     }
 
     private enum ResolutionStrategy

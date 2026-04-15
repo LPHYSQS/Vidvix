@@ -57,6 +57,31 @@
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+
+        <Style
+            x:Key="MergeTrackListViewItemStyle"
+            TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="UseSystemFocusVisuals" Value="False" />
+        </Style>
+
+        <Style
+            x:Key="MergeTrackActionButtonStyle"
+            TargetType="Button">
+            <Setter Property="MinWidth" Value="44" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
     </Page.Resources>
 
     <Grid ColumnSpacing="12">
@@ -300,13 +325,186 @@
                     Text="{x:Bind ViewModel.TimelineHintText, Mode=OneWay}"
                     TextWrapping="WrapWholeWords" />
 
-                <Grid
-                    Grid.Row="3"
-                    RowSpacing="14">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+                <Grid Grid.Row="3">
+                    <Border
+                        Padding="14"
+                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                        CornerRadius="16"
+                        Visibility="{x:Bind ViewModel.VideoJoinTimelineVisibility, Mode=OneWay}">
+                        <Grid RowSpacing="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="视频轨道" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.VideoTrackSummaryText, Mode=OneWay}" />
+                            </Grid>
+
+                            <StackPanel
+                                Grid.Row="1"
+                                Spacing="4">
+                                <TextBlock
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.VideoResolutionPresetSummaryText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="可左键长按拖拽片段调整顺序，也可使用片段顶部按钮快速移除或设为分辨率预设。"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+
+                            <Grid
+                                Grid.Row="2"
+                                MinHeight="164">
+                                <ListView
+                                    AllowDrop="True"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    CanDragItems="True"
+                                    CanReorderItems="True"
+                                    DragItemsCompleted="OnVideoTrackItemsDragItemsCompleted"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    IsSwipeEnabled="False"
+                                    ItemContainerStyle="{StaticResource MergeTrackListViewItemStyle}"
+                                    ItemsSource="{x:Bind ViewModel.VideoTrackItems, Mode=OneWay}"
+                                    Padding="0"
+                                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                    ScrollViewer.HorizontalScrollMode="Enabled"
+                                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                    ScrollViewer.VerticalScrollMode="Disabled"
+                                    SelectionMode="None">
+                                    <ListView.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <ItemsStackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ListView.ItemsPanel>
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="models:TrackItem">
+                                            <Border
+                                                Width="{x:Bind VisualWidth}"
+                                                MinWidth="216"
+                                                Height="148"
+                                                Padding="12"
+                                                Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="14"
+                                                ToolTipService.ToolTip="{x:Bind SourceName}">
+                                                <Grid RowSpacing="12">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="*" />
+                                                    </Grid.RowDefinitions>
+
+                                                    <Grid ColumnSpacing="8">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <Border
+                                                            Padding="10,4"
+                                                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                                            CornerRadius="10">
+                                                            <TextBlock
+                                                                FontWeight="SemiBold"
+                                                                Text="{x:Bind SequenceNumberText}" />
+                                                        </Border>
+
+                                                        <Border
+                                                            Grid.Column="1"
+                                                            Padding="10,4"
+                                                            Background="{ThemeResource AccentFillColorSecondaryBrush}"
+                                                            CornerRadius="10"
+                                                            Visibility="{x:Bind ResolutionPresetBadgeVisibility, Mode=OneWay}">
+                                                            <TextBlock
+                                                                FontSize="12"
+                                                                FontWeight="SemiBold"
+                                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                                Text="{x:Bind ResolutionPresetLabelText, Mode=OneWay}" />
+                                                        </Border>
+
+                                                        <StackPanel
+                                                            Grid.Column="2"
+                                                            Orientation="Horizontal"
+                                                            Spacing="6">
+                                                            <Button
+                                                                Click="OnSetVideoResolutionPresetClick"
+                                                                Style="{StaticResource MergeTrackActionButtonStyle}"
+                                                                Tag="{x:Bind}"
+                                                                ToolTipService.ToolTip="设为分辨率预设">
+                                                                <TextBlock Text="预设" />
+                                                            </Button>
+                                                            <Button
+                                                                Click="OnRemoveVideoTrackItemClick"
+                                                                Style="{StaticResource MergeTrackActionButtonStyle}"
+                                                                Tag="{x:Bind}"
+                                                                ToolTipService.ToolTip="移除视频片段">
+                                                                <TextBlock Text="移除" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+
+                                                    <TextBlock
+                                                        Grid.Row="1"
+                                                        FontSize="15"
+                                                        FontWeight="SemiBold"
+                                                        MaxLines="2"
+                                                        Text="{x:Bind SourceName}"
+                                                        TextTrimming="CharacterEllipsis"
+                                                        TextWrapping="WrapWholeWords" />
+
+                                                    <StackPanel
+                                                        Grid.Row="2"
+                                                        VerticalAlignment="Bottom"
+                                                        Spacing="4">
+                                                        <TextBlock
+                                                            Style="{StaticResource CaptionTextStyle}"
+                                                            Text="{x:Bind TypeDisplayText}" />
+                                                        <TextBlock
+                                                            Style="{StaticResource CaptionTextStyle}"
+                                                            Text="{x:Bind DurationText}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    MaxWidth="280"
+                                    Opacity="0.72"
+                                    Text="{x:Bind ViewModel.VideoTrackEmptyText, Mode=OneWay}"
+                                    TextAlignment="Center"
+                                    TextWrapping="WrapWholeWords"
+                                    Visibility="{x:Bind ViewModel.VideoTrackEmptyVisibility, Mode=OneWay}" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <Grid
+                        RowSpacing="14"
+                        Visibility="{x:Bind ViewModel.StandardTimelineVisibility, Mode=OneWay}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
 
                     <Border
                         Padding="14"
@@ -432,6 +630,7 @@
                             </Grid>
                         </Grid>
                     </Border>
+                </Grid>
                 </Grid>
             </Grid>
         </Border>
