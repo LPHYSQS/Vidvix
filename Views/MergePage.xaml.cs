@@ -1,4 +1,4 @@
-using System.Linq;
+using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Vidvix.Core.Models;
@@ -8,16 +8,20 @@ namespace Vidvix.Views;
 
 public sealed partial class MergePage : Page
 {
+    private MergeViewModel? _subscribedViewModel;
+
     public static readonly DependencyProperty ViewModelProperty =
         DependencyProperty.Register(
             nameof(ViewModel),
             typeof(MergeViewModel),
             typeof(MergePage),
-            new PropertyMetadata(new MergeViewModel()));
+            new PropertyMetadata(new MergeViewModel(), OnViewModelPropertyChanged));
 
     public MergePage()
     {
         InitializeComponent();
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
     }
 
     public MergeViewModel ViewModel
@@ -58,12 +62,6 @@ public sealed partial class MergePage : Page
         }
     }
 
-    private void OnVideoTrackItemsDragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs e)
-    {
-        var orderedTrackItems = sender.Items.Cast<TrackItem>().ToArray();
-        ViewModel.ApplyVideoTrackOrdering(orderedTrackItems);
-    }
-
     private void OnExportButtonClick(object sender, RoutedEventArgs e)
     {
         ViewModel.ExportCommand.Execute(null);
@@ -96,5 +94,61 @@ public sealed partial class MergePage : Page
 
         trackItem = null!;
         return false;
+    }
+
+    private static void OnViewModelPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is MergePage page)
+        {
+            page.AttachViewModelNotifications(
+                e.OldValue as MergeViewModel,
+                e.NewValue as MergeViewModel);
+        }
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        AttachViewModelNotifications(_subscribedViewModel, ViewModel);
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        AttachViewModelNotifications(_subscribedViewModel, null);
+    }
+
+    private void AttachViewModelNotifications(MergeViewModel? oldViewModel, MergeViewModel? newViewModel)
+    {
+        if (oldViewModel is not null && ReferenceEquals(_subscribedViewModel, oldViewModel))
+        {
+            oldViewModel.InvalidTrackItemsDetected -= OnInvalidTrackItemsDetected;
+            _subscribedViewModel = null;
+        }
+
+        if (!IsLoaded || newViewModel is null || ReferenceEquals(_subscribedViewModel, newViewModel))
+        {
+            return;
+        }
+
+        newViewModel.InvalidTrackItemsDetected += OnInvalidTrackItemsDetected;
+        _subscribedViewModel = newViewModel;
+    }
+
+    private async void OnInvalidTrackItemsDetected(string title, string message)
+    {
+        if (XamlRoot is null)
+        {
+            return;
+        }
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = title,
+            Content = message,
+            CloseButtonText = "知道了",
+            DefaultButton = ContentDialogButton.Close
+        };
+
+        await dialog.ShowAsync();
     }
 }

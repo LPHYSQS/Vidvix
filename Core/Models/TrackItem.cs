@@ -7,20 +7,35 @@ namespace Vidvix.Core.Models;
 public sealed class TrackItem : ObservableObject
 {
     private string _sourceName;
+    private string _sourcePath;
     private string _durationText;
+    private string _resolutionText;
     private double _visualWidth;
     private bool _isVideo;
     private int _sequenceNumber;
     private bool _isResolutionPreset;
+    private bool _isSourceAvailable;
 
-    public TrackItem(string sourceName, string durationText, double visualWidth, bool isVideo, int sequenceNumber)
+    public TrackItem(
+        string sourceName,
+        string sourcePath,
+        string durationText,
+        string resolutionText,
+        double visualWidth,
+        bool isVideo,
+        int sequenceNumber,
+        bool isSourceAvailable = true)
     {
         _sourceName = string.IsNullOrWhiteSpace(sourceName)
             ? throw new ArgumentException("轨道片段名称不能为空。", nameof(sourceName))
             : sourceName;
+        _sourcePath = sourcePath ?? string.Empty;
         _durationText = string.IsNullOrWhiteSpace(durationText)
             ? throw new ArgumentException("轨道片段时长文本不能为空。", nameof(durationText))
             : durationText;
+        _resolutionText = string.IsNullOrWhiteSpace(resolutionText)
+            ? "未知分辨率"
+            : resolutionText;
         _visualWidth = visualWidth > 0
             ? visualWidth
             : throw new ArgumentOutOfRangeException(nameof(visualWidth));
@@ -28,6 +43,7 @@ public sealed class TrackItem : ObservableObject
         _sequenceNumber = sequenceNumber > 0
             ? sequenceNumber
             : throw new ArgumentOutOfRangeException(nameof(sequenceNumber));
+        _isSourceAvailable = isSourceAvailable;
     }
 
     public string SourceName
@@ -56,6 +72,25 @@ public sealed class TrackItem : ObservableObject
         }
     }
 
+    public string SourcePath
+    {
+        get => _sourcePath;
+        set => SetProperty(ref _sourcePath, value ?? string.Empty);
+    }
+
+    public string ResolutionText
+    {
+        get => _resolutionText;
+        set
+        {
+            var normalizedValue = string.IsNullOrWhiteSpace(value) ? "未知分辨率" : value;
+            if (SetProperty(ref _resolutionText, normalizedValue))
+            {
+                OnPropertyChanged(nameof(ResolutionDisplayText));
+            }
+        }
+    }
+
     public double VisualWidth
     {
         get => _visualWidth;
@@ -71,6 +106,21 @@ public sealed class TrackItem : ObservableObject
             {
                 OnPropertyChanged(nameof(TypeDisplayText));
                 OnPropertyChanged(nameof(SummaryText));
+            }
+        }
+    }
+
+    public bool IsSourceAvailable
+    {
+        get => _isSourceAvailable;
+        set
+        {
+            if (SetProperty(ref _isSourceAvailable, value))
+            {
+                OnPropertyChanged(nameof(CanSetAsResolutionPreset));
+                OnPropertyChanged(nameof(InvalidStateVisibility));
+                OnPropertyChanged(nameof(NormalOutlineOpacity));
+                OnPropertyChanged(nameof(SourceAvailabilityStatusText));
             }
         }
     }
@@ -112,8 +162,19 @@ public sealed class TrackItem : ObservableObject
 
     public string SummaryText => $"{TypeDisplayText} · {DurationText}";
 
+    public string ResolutionDisplayText => $"原始分辨率 · {ResolutionText}";
+
     public string ResolutionPresetLabelText => "分辨率预设";
 
     public Visibility ResolutionPresetBadgeVisibility =>
         IsResolutionPreset ? Visibility.Visible : Visibility.Collapsed;
+
+    public bool CanSetAsResolutionPreset => IsVideo && IsSourceAvailable;
+
+    public Visibility InvalidStateVisibility =>
+        IsSourceAvailable ? Visibility.Collapsed : Visibility.Visible;
+
+    public double NormalOutlineOpacity => IsSourceAvailable ? 1d : 0d;
+
+    public string SourceAvailabilityStatusText => "素材已从列表移除，不参与当前合并";
 }

@@ -62,7 +62,7 @@
             x:Key="MergeTrackListViewItemStyle"
             TargetType="ListViewItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0,0,10,0" />
             <Setter Property="MinHeight" Value="0" />
@@ -128,7 +128,7 @@
                         ItemContainerStyle="{StaticResource MergeMediaListViewItemStyle}"
                         ItemClick="OnMediaItemClick"
                         ItemsSource="{x:Bind ViewModel.MediaItems, Mode=OneWay}"
-                        Padding="0"
+                        Padding="0,0,12,0"
                         ScrollViewer.VerticalScrollBarVisibility="Auto"
                         SelectionMode="None">
                         <ListView.ItemTemplate>
@@ -330,12 +330,14 @@
                         Padding="14"
                         Background="{ThemeResource ControlFillColorSecondaryBrush}"
                         CornerRadius="16"
+                        VerticalAlignment="Top"
                         Visibility="{x:Bind ViewModel.VideoJoinTimelineVisibility, Mode=OneWay}">
                         <Grid RowSpacing="12">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
                             <Grid ColumnSpacing="12">
@@ -366,24 +368,24 @@
 
                             <Grid
                                 Grid.Row="2"
-                                MinHeight="164">
+                                MinHeight="176">
                                 <ListView
                                     AllowDrop="True"
                                     Background="Transparent"
                                     BorderThickness="0"
                                     CanDragItems="True"
                                     CanReorderItems="True"
-                                    DragItemsCompleted="OnVideoTrackItemsDragItemsCompleted"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Stretch"
                                     IsSwipeEnabled="False"
                                     ItemContainerStyle="{StaticResource MergeTrackListViewItemStyle}"
                                     ItemsSource="{x:Bind ViewModel.VideoTrackItems, Mode=OneWay}"
-                                    Padding="0"
+                                    Padding="0,0,0,18"
                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                     ScrollViewer.HorizontalScrollMode="Enabled"
                                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                     ScrollViewer.VerticalScrollMode="Disabled"
+                                    VerticalAlignment="Top"
                                     SelectionMode="None">
                                     <ListView.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -392,21 +394,34 @@
                                     </ListView.ItemsPanel>
                                     <ListView.ItemTemplate>
                                         <DataTemplate x:DataType="models:TrackItem">
-                                            <Border
+                                            <Grid
                                                 Width="{x:Bind VisualWidth}"
-                                                MinWidth="216"
-                                                Height="148"
-                                                Padding="12"
-                                                Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                                                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
-                                                BorderThickness="1"
-                                                CornerRadius="14"
+                                                MinWidth="264"
+                                                Height="176"
                                                 ToolTipService.ToolTip="{x:Bind SourceName}">
-                                                <Grid RowSpacing="12">
+                                                <Border
+                                                    Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                                    BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="16" />
+                                                <Border
+                                                    BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                                    BorderThickness="1.4"
+                                                    CornerRadius="16"
+                                                    Opacity="{x:Bind NormalOutlineOpacity, Mode=OneWay}" />
+                                                <Border
+                                                    BorderBrush="#FFE25555"
+                                                    BorderThickness="2"
+                                                    CornerRadius="16"
+                                                    Visibility="{x:Bind InvalidStateVisibility, Mode=OneWay}" />
+                                                <Grid
+                                                    Padding="14,12"
+                                                    RowSpacing="10">
                                                     <Grid.RowDefinitions>
                                                         <RowDefinition Height="Auto" />
                                                         <RowDefinition Height="Auto" />
                                                         <RowDefinition Height="*" />
+                                                        <RowDefinition Height="Auto" />
                                                     </Grid.RowDefinitions>
 
                                                     <Grid ColumnSpacing="8">
@@ -422,21 +437,36 @@
                                                             CornerRadius="10">
                                                             <TextBlock
                                                                 FontWeight="SemiBold"
-                                                                Text="{x:Bind SequenceNumberText}" />
+                                                                Text="{x:Bind SequenceNumberText, Mode=OneWay}" />
                                                         </Border>
 
-                                                        <Border
+                                                        <StackPanel
                                                             Grid.Column="1"
-                                                            Padding="10,4"
-                                                            Background="{ThemeResource AccentFillColorSecondaryBrush}"
-                                                            CornerRadius="10"
-                                                            Visibility="{x:Bind ResolutionPresetBadgeVisibility, Mode=OneWay}">
-                                                            <TextBlock
-                                                                FontSize="12"
-                                                                FontWeight="SemiBold"
-                                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                                                Text="{x:Bind ResolutionPresetLabelText, Mode=OneWay}" />
-                                                        </Border>
+                                                            Orientation="Horizontal"
+                                                            Spacing="6">
+                                                            <Border
+                                                                Padding="10,4"
+                                                                Background="{ThemeResource AccentFillColorSecondaryBrush}"
+                                                                CornerRadius="10"
+                                                                Visibility="{x:Bind ResolutionPresetBadgeVisibility, Mode=OneWay}">
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    FontWeight="SemiBold"
+                                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                                    Text="{x:Bind ResolutionPresetLabelText, Mode=OneWay}" />
+                                                            </Border>
+                                                            <Border
+                                                                Padding="10,4"
+                                                                Background="#24C42B1C"
+                                                                CornerRadius="10"
+                                                                Visibility="{x:Bind InvalidStateVisibility, Mode=OneWay}">
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    FontWeight="SemiBold"
+                                                                    Foreground="#FFC42B1C"
+                                                                    Text="已失效" />
+                                                            </Border>
+                                                        </StackPanel>
 
                                                         <StackPanel
                                                             Grid.Column="2"
@@ -445,6 +475,7 @@
                                                             <Button
                                                                 Click="OnSetVideoResolutionPresetClick"
                                                                 Style="{StaticResource MergeTrackActionButtonStyle}"
+                                                                IsEnabled="{x:Bind CanSetAsResolutionPreset, Mode=OneWay}"
                                                                 Tag="{x:Bind}"
                                                                 ToolTipService.ToolTip="设为分辨率预设">
                                                                 <TextBlock Text="预设" />
@@ -470,17 +501,39 @@
 
                                                     <StackPanel
                                                         Grid.Row="2"
-                                                        VerticalAlignment="Bottom"
-                                                        Spacing="4">
+                                                        VerticalAlignment="Top"
+                                                        Spacing="6">
                                                         <TextBlock
                                                             Style="{StaticResource CaptionTextStyle}"
                                                             Text="{x:Bind TypeDisplayText}" />
                                                         <TextBlock
                                                             Style="{StaticResource CaptionTextStyle}"
-                                                            Text="{x:Bind DurationText}" />
+                                                            Text="{x:Bind ResolutionDisplayText, Mode=OneWay}" />
                                                     </StackPanel>
+
+                                                    <Grid
+                                                        Grid.Row="3"
+                                                        ColumnSpacing="8">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock
+                                                            Style="{StaticResource CaptionTextStyle}"
+                                                            Text="{x:Bind DurationText}" />
+                                                        <TextBlock
+                                                            Grid.Column="1"
+                                                            HorizontalAlignment="Right"
+                                                            MaxWidth="140"
+                                                            FontSize="12"
+                                                            Foreground="#FFC42B1C"
+                                                            Text="{x:Bind SourceAvailabilityStatusText, Mode=OneWay}"
+                                                            TextAlignment="Right"
+                                                            TextWrapping="WrapWholeWords"
+                                                            Visibility="{x:Bind InvalidStateVisibility, Mode=OneWay}" />
+                                                    </Grid>
                                                 </Grid>
-                                            </Border>
+                                            </Grid>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
                                 </ListView>
@@ -495,6 +548,42 @@
                                     TextWrapping="WrapWholeWords"
                                     Visibility="{x:Bind ViewModel.VideoTrackEmptyVisibility, Mode=OneWay}" />
                             </Grid>
+                            <Border
+                                Grid.Row="3"
+                                Margin="0,4,0,0"
+                                Padding="10,8"
+                                Background="#24D13438"
+                                BorderBrush="#66D13438"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Visibility="{x:Bind ViewModel.ModeMismatchWarningVisibility, Mode=OneWay}">
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border
+                                        Width="20"
+                                        Height="20"
+                                        VerticalAlignment="Top"
+                                        Background="#FFD13438"
+                                        CornerRadius="10">
+                                        <TextBlock
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            FontSize="13"
+                                            FontWeight="Bold"
+                                            Foreground="White"
+                                            Text="!" />
+                                    </Border>
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Foreground="#FFF1B7B9"
+                                        Text="{x:Bind ViewModel.ModeMismatchWarningMessage, Mode=OneWay}"
+                                        TextWrapping="WrapWholeWords" />
+                                </Grid>
+                            </Border>
                         </Grid>
                     </Border>
 

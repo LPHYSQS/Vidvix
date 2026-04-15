@@ -10,8 +10,15 @@ public sealed class MediaItem : ObservableObject
     private string _durationText;
     private int _durationSeconds;
     private bool _isVideo;
+    private string _resolutionText;
 
-    public MediaItem(string fileName, string durationText, int durationSeconds, bool isVideo, string? sourcePath = null)
+    public MediaItem(
+        string fileName,
+        string durationText,
+        int durationSeconds,
+        bool isVideo,
+        string? sourcePath = null,
+        string? resolutionText = null)
     {
         _fileName = string.IsNullOrWhiteSpace(fileName)
             ? throw new ArgumentException("素材文件名不能为空。", nameof(fileName))
@@ -24,6 +31,9 @@ public sealed class MediaItem : ObservableObject
             ? durationSeconds
             : throw new ArgumentOutOfRangeException(nameof(durationSeconds));
         _isVideo = isVideo;
+        _resolutionText = string.IsNullOrWhiteSpace(resolutionText)
+            ? "未知分辨率"
+            : resolutionText;
     }
 
     public string FileName
@@ -67,6 +77,16 @@ public sealed class MediaItem : ObservableObject
                 OnPropertyChanged(nameof(TypeDisplayText));
                 OnPropertyChanged(nameof(SummaryText));
             }
+        }
+    }
+
+    public string ResolutionText
+    {
+        get => _resolutionText;
+        set
+        {
+            var normalizedValue = string.IsNullOrWhiteSpace(value) ? "未知分辨率" : value;
+            SetProperty(ref _resolutionText, normalizedValue);
         }
     }
 

@@ -16,8 +16,11 @@ namespace Vidvix.ViewModels;
 public sealed class MergeViewModel : ObservableObject
 {
     private readonly ObservableCollection<MediaItem> _mediaItems;
-    private readonly ObservableCollection<TrackItem> _videoTrackItems;
-    private readonly ObservableCollection<TrackItem> _audioTrackItems;
+    private readonly ObservableCollection<TrackItem> _videoJoinVideoTrackItems;
+    private readonly ObservableCollection<TrackItem> _audioJoinAudioTrackItems;
+    private readonly ObservableCollection<TrackItem> _audioVideoComposeVideoTrackItems;
+    private readonly ObservableCollection<TrackItem> _audioVideoComposeAudioTrackItems;
+    private readonly ObservableCollection<TrackItem> _emptyTrackItems;
     private readonly ObservableCollection<string> _outputFormats;
     private readonly AsyncRelayCommand _importFilesCommand;
     private readonly AsyncRelayCommand _browseOutputPathCommand;
@@ -33,6 +36,8 @@ public sealed class MergeViewModel : ObservableObject
     private string _selectedOutputFormat;
     private string _outputPath;
     private string _statusMessage;
+    private string _modeMismatchWarningMessage;
+    private bool _isModeMismatchWarningVisible;
     private MergeWorkspaceMode _selectedMergeMode;
     private ResolutionStrategy _selectedResolutionStrategy;
     private DurationStrategy _selectedDurationStrategy;
@@ -56,13 +61,19 @@ public sealed class MergeViewModel : ObservableObject
         _supportedImportFileTypes = effectiveConfiguration.SupportedTrimInputFileTypes
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+
         _mediaItems = new ObservableCollection<MediaItem>();
-        _videoTrackItems = new ObservableCollection<TrackItem>();
-        _audioTrackItems = new ObservableCollection<TrackItem>();
+        _videoJoinVideoTrackItems = new ObservableCollection<TrackItem>();
+        _audioJoinAudioTrackItems = new ObservableCollection<TrackItem>();
+        _audioVideoComposeVideoTrackItems = new ObservableCollection<TrackItem>();
+        _audioVideoComposeAudioTrackItems = new ObservableCollection<TrackItem>();
+        _emptyTrackItems = new ObservableCollection<TrackItem>();
         _outputFormats = new ObservableCollection<string> { "MP4", "MKV" };
+
         _selectedOutputFormat = _outputFormats[0];
         _outputPath = string.Empty;
         _statusMessage = "请先导入视频或音频文件，再添加到对应轨道。";
+        _modeMismatchWarningMessage = string.Empty;
         _selectedMergeMode = ResolvePreferredMergeMode(
             _userPreferencesService?.Load().PreferredMergeWorkspaceMode
             ?? MergeWorkspaceMode.AudioVideoCompose);
@@ -73,15 +84,23 @@ public sealed class MergeViewModel : ObservableObject
         _exportCommand = new RelayCommand(PrepareExportPreview);
 
         _mediaItems.CollectionChanged += OnMediaItemsChanged;
-        _videoTrackItems.CollectionChanged += OnTrackItemsChanged;
-        _audioTrackItems.CollectionChanged += OnTrackItemsChanged;
+        _videoJoinVideoTrackItems.CollectionChanged += OnTrackItemsChanged;
+        _audioJoinAudioTrackItems.CollectionChanged += OnTrackItemsChanged;
+        _audioVideoComposeVideoTrackItems.CollectionChanged += OnTrackItemsChanged;
+        _audioVideoComposeAudioTrackItems.CollectionChanged += OnTrackItemsChanged;
     }
+
+    public event Action<string, string>? InvalidTrackItemsDetected;
+
+    private ObservableCollection<TrackItem> ActiveVideoTrackItems => GetVideoTrackItems(_selectedMergeMode);
+
+    private ObservableCollection<TrackItem> ActiveAudioTrackItems => GetAudioTrackItems(_selectedMergeMode);
 
     public ObservableCollection<MediaItem> MediaItems => _mediaItems;
 
-    public ObservableCollection<TrackItem> VideoTrackItems => _videoTrackItems;
+    public ObservableCollection<TrackItem> VideoTrackItems => ActiveVideoTrackItems;
 
-    public ObservableCollection<TrackItem> AudioTrackItems => _audioTrackItems;
+    public ObservableCollection<TrackItem> AudioTrackItems => ActiveAudioTrackItems;
 
     public ObservableCollection<string> OutputFormats => _outputFormats;
 
@@ -114,6 +133,11 @@ public sealed class MergeViewModel : ObservableObject
         get => _statusMessage;
         private set => SetProperty(ref _statusMessage, value);
     }
+
+    public Visibility ModeMismatchWarningVisibility =>
+        _isModeMismatchWarningVisible ? Visibility.Visible : Visibility.Collapsed;
+
+    public string ModeMismatchWarningMessage => _modeMismatchWarningMessage;
 
     public bool IsVideoJoinModeSelected
     {
@@ -230,19 +254,19 @@ public sealed class MergeViewModel : ObservableObject
         _ => "当前为音视频合成模式，素材会自动加入对应轨道。"
     };
 
-    public string VideoTrackSummaryText => _videoTrackItems.Count == 0
+    public string VideoTrackSummaryText => ActiveVideoTrackItems.Count == 0
         ? "未添加片段"
-        : $"{_videoTrackItems.Count} 个片段";
+        : $"{ActiveVideoTrackItems.Count} 个片段";
 
-    public string AudioTrackSummaryText => _audioTrackItems.Count == 0
+    public string AudioTrackSummaryText => ActiveAudioTrackItems.Count == 0
         ? "未添加片段"
-        : $"{_audioTrackItems.Count} 个片段";
+        : $"{ActiveAudioTrackItems.Count} 个片段";
 
     public Visibility MediaItemsEmptyVisibility => _mediaItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
-    public Visibility VideoTrackEmptyVisibility => _videoTrackItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility VideoTrackEmptyVisibility => ActiveVideoTrackItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
-    public Visibility AudioTrackEmptyVisibility => _audioTrackItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility AudioTrackEmptyVisibility => ActiveAudioTrackItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility VideoJoinTimelineVisibility =>
         _selectedMergeMode == MergeWorkspaceMode.VideoJoin ? Visibility.Visible : Visibility.Collapsed;
@@ -254,16 +278,21 @@ public sealed class MergeViewModel : ObservableObject
     {
         get
         {
+            if (_videoJoinVideoTrackItems.Count == 0)
+            {
+                return "添加视频片段后，将默认以首段可用视频作为分辨率基准。";
+            }
+
             var presetTrackItem = GetEffectiveVideoResolutionPresetItem();
             if (presetTrackItem is null)
             {
-                return "添加视频片段后，将默认以首段视频作为分辨率基准。";
+                return "当前暂无可用的视频片段作为分辨率基准。";
             }
 
             return _manualVideoResolutionPresetItem is not null &&
                    ReferenceEquals(_manualVideoResolutionPresetItem, presetTrackItem)
                 ? $"当前分辨率预设：{presetTrackItem.SequenceNumberText} · {presetTrackItem.SourceName}"
-                : $"当前默认以首段视频为分辨率基准：{presetTrackItem.SequenceNumberText} · {presetTrackItem.SourceName}";
+                : $"当前默认以首段可用视频为分辨率基准：{presetTrackItem.SequenceNumberText} · {presetTrackItem.SourceName}";
         }
     }
 
@@ -283,19 +312,15 @@ public sealed class MergeViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(mediaItem);
 
-        switch (_selectedMergeMode)
+        if (!TryResolveTrackCollectionForAddition(mediaItem, out var trackItems, out var rejectionMessage))
         {
-            case MergeWorkspaceMode.VideoJoin when mediaItem.IsAudio:
-                StatusMessage = "当前是视频拼接模式，请选择视频素材加入视频轨道。";
-                return;
-            case MergeWorkspaceMode.AudioJoin when mediaItem.IsVideo:
-                StatusMessage = "当前是音频拼接模式，请选择音频素材加入音频轨道。";
-                return;
+            SetModeMismatchWarningVisibility(true, rejectionMessage);
+            StatusMessage = rejectionMessage;
+            return;
         }
 
-        var trackItems = mediaItem.IsVideo ? _videoTrackItems : _audioTrackItems;
-        trackItems.Add(CreateTrackItem(mediaItem, trackItems.Count + 1));
-
+        SetModeMismatchWarningVisibility(false, string.Empty);
+        trackItems.Add(CreateTrackItem(mediaItem, trackItems.Count + 1, IsSourcePathAvailable(mediaItem.SourcePath)));
         StatusMessage = mediaItem.IsVideo
             ? $"{mediaItem.FileName} 已加入视频轨道。"
             : $"{mediaItem.FileName} 已加入音频轨道。";
@@ -305,26 +330,42 @@ public sealed class MergeViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(mediaItem);
 
+        var normalizedSourcePath = NormalizeSourcePath(mediaItem.SourcePath);
+        var invalidatedTrackItems = string.IsNullOrWhiteSpace(normalizedSourcePath)
+            ? Array.Empty<TrackItem>()
+            : GetAllTrackCollections()
+                .SelectMany(collection => collection)
+                .Where(trackItem => trackItem.IsSourceAvailable && IsSameSource(trackItem.SourcePath, normalizedSourcePath))
+                .ToArray();
+
         if (!_mediaItems.Remove(mediaItem))
         {
             return;
         }
 
-        StatusMessage = $"已从素材列表移除 {mediaItem.FileName}。";
+        if (invalidatedTrackItems.Length == 0)
+        {
+            StatusMessage = $"已从素材列表移除 {mediaItem.FileName}。";
+            return;
+        }
+
+        var notificationMessage = BuildInvalidTrackItemsMessage(invalidatedTrackItems.Length);
+        StatusMessage = notificationMessage;
+        InvalidTrackItemsDetected?.Invoke("轨道片段已标记为失效", notificationMessage);
     }
 
     public void RemoveVideoTrackItem(TrackItem trackItem)
     {
         ArgumentNullException.ThrowIfNull(trackItem);
 
-        if (!_videoTrackItems.Contains(trackItem))
+        if (!_videoJoinVideoTrackItems.Contains(trackItem))
         {
             return;
         }
 
         var removedClipName = trackItem.SourceName;
-        var removedPresetClip = trackItem.IsResolutionPreset;
-        _videoTrackItems.Remove(trackItem);
+        var removedPresetClip = ReferenceEquals(GetEffectiveVideoResolutionPresetItem(), trackItem);
+        _videoJoinVideoTrackItems.Remove(trackItem);
 
         var fallbackPresetTrackItem = GetEffectiveVideoResolutionPresetItem();
         StatusMessage = removedPresetClip && fallbackPresetTrackItem is not null
@@ -336,50 +377,46 @@ public sealed class MergeViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(trackItem);
 
-        if (!_videoTrackItems.Contains(trackItem))
+        if (!_videoJoinVideoTrackItems.Contains(trackItem))
         {
+            return;
+        }
+
+        if (!trackItem.CanSetAsResolutionPreset)
+        {
+            StatusMessage = "当前片段引用的源素材已失效，无法设为分辨率预设。";
             return;
         }
 
         _manualVideoResolutionPresetItem = trackItem;
-        RefreshVideoTrackPresentation();
+        RefreshTrackCollection(_videoJoinVideoTrackItems, supportsVideoPreset: true);
+        RaiseTrackStatePropertiesChanged();
         StatusMessage = $"{trackItem.SequenceNumberText} 号片段已设为分辨率预设。";
-    }
-
-    public void ApplyVideoTrackOrdering(IReadOnlyList<TrackItem> orderedTrackItems)
-    {
-        ArgumentNullException.ThrowIfNull(orderedTrackItems);
-
-        if (orderedTrackItems.Count != _videoTrackItems.Count ||
-            orderedTrackItems.Any(trackItem => !_videoTrackItems.Contains(trackItem)))
-        {
-            RefreshVideoTrackPresentation();
-            return;
-        }
-
-        for (var targetIndex = 0; targetIndex < orderedTrackItems.Count; targetIndex++)
-        {
-            var trackItem = orderedTrackItems[targetIndex];
-            var currentIndex = _videoTrackItems.IndexOf(trackItem);
-            if (currentIndex >= 0 && currentIndex != targetIndex)
-            {
-                _videoTrackItems.Move(currentIndex, targetIndex);
-            }
-        }
-
-        RefreshVideoTrackPresentation();
     }
 
     public string BuildExportPreviewMessage()
     {
-        var totalTrackItems = _videoTrackItems.Count + _audioTrackItems.Count;
+        var activeVideoTrackCount = ActiveVideoTrackItems.Count(trackItem => trackItem.IsSourceAvailable);
+        var activeAudioTrackCount = ActiveAudioTrackItems.Count(trackItem => trackItem.IsSourceAvailable);
+        var invalidTrackCount = ActiveVideoTrackItems.Count(trackItem => !trackItem.IsSourceAvailable) +
+                                ActiveAudioTrackItems.Count(trackItem => !trackItem.IsSourceAvailable);
 
-        if (totalTrackItems == 0)
+        if (activeVideoTrackCount + activeAudioTrackCount == 0)
         {
-            return "当前还未向轨道添加任何片段。\n\n导出入口已准备就绪，实际合并能力将在后续阶段接入。";
+            return invalidTrackCount > 0
+                ? "当前轨道中的片段均已标记为失效。\n\n请重新添加对应素材，或先移除失效片段后再进行导出。"
+                : "当前还未向轨道添加任何片段。\n\n导出入口已准备就绪，实际合并能力将在后续阶段接入。";
         }
 
-        return $"当前轨道中包含 {_videoTrackItems.Count} 个视频片段、{_audioTrackItems.Count} 个音频片段。\n\n界面已保留输出格式、输出路径、分辨率策略和时长策略等入口，实际导出能力将在后续阶段接入。";
+        return _selectedMergeMode switch
+        {
+            MergeWorkspaceMode.VideoJoin =>
+                $"当前视频拼接工作区包含 {activeVideoTrackCount} 个可用视频片段，另有 {invalidTrackCount} 个失效片段。\n\n界面已保留输出格式、输出路径、分辨率策略和时长策略等入口，实际导出能力将在后续阶段接入。",
+            MergeWorkspaceMode.AudioJoin =>
+                $"当前音频拼接工作区包含 {activeAudioTrackCount} 个可用音频片段，另有 {invalidTrackCount} 个失效片段。\n\n界面已保留输出格式、输出路径、分辨率策略和时长策略等入口，实际导出能力将在后续阶段接入。",
+            _ =>
+                $"当前音视频合成工作区包含 {activeVideoTrackCount} 个可用视频片段、{activeAudioTrackCount} 个可用音频片段，另有 {invalidTrackCount} 个失效片段。\n\n界面已保留输出格式、输出路径、分辨率策略和时长策略等入口，实际导出能力将在后续阶段接入。"
+        };
     }
 
     private async Task ImportFilesAsync()
@@ -405,7 +442,7 @@ public sealed class MergeViewModel : ObservableObject
                 _mediaItems
                     .Select(item => item.SourcePath)
                     .Where(path => !string.IsNullOrWhiteSpace(path))
-                    .Select(Path.GetFullPath),
+                    .Select(NormalizeSourcePath),
                 StringComparer.OrdinalIgnoreCase);
 
             var addedCount = 0;
@@ -418,7 +455,7 @@ public sealed class MergeViewModel : ObservableObject
                     continue;
                 }
 
-                var filePath = Path.GetFullPath(selectedFile);
+                var filePath = NormalizeSourcePath(selectedFile);
                 if (!existingPaths.Add(filePath))
                 {
                     duplicateCount++;
@@ -495,10 +532,11 @@ public sealed class MergeViewModel : ObservableObject
         var isVideo = IsVideoByExtension(filePath);
         var durationText = "未知时长";
         var durationSeconds = 0;
+        var resolutionText = isVideo ? "未知分辨率" : "音频素材";
 
         if (_mediaInfoService is null)
         {
-            return new MediaItem(fileName, durationText, durationSeconds, isVideo, filePath);
+            return new MediaItem(fileName, durationText, durationSeconds, isVideo, filePath, resolutionText);
         }
 
         try
@@ -512,6 +550,7 @@ public sealed class MergeViewModel : ObservableObject
                 var snapshot = loadResult.Snapshot;
                 fileName = string.IsNullOrWhiteSpace(snapshot.FileName) ? fileName : snapshot.FileName;
                 isVideo = ResolveIsVideo(snapshot, filePath);
+                resolutionText = isVideo ? ResolveResolutionText(snapshot) : "音频素材";
 
                 if (snapshot.MediaDuration is { } mediaDuration && mediaDuration > TimeSpan.Zero)
                 {
@@ -533,7 +572,7 @@ public sealed class MergeViewModel : ObservableObject
             _logger?.Log(LogLevel.Warning, $"读取素材信息失败：{fileName}，已按基础信息导入。", exception);
         }
 
-        return new MediaItem(fileName, durationText, durationSeconds, isVideo, filePath);
+        return new MediaItem(fileName, durationText, durationSeconds, isVideo, filePath, resolutionText);
     }
 
     private bool IsVideoByExtension(string filePath)
@@ -564,16 +603,43 @@ public sealed class MergeViewModel : ObservableObject
 
     private static string FormatDuration(TimeSpan duration) => duration.ToString(@"hh\:mm\:ss");
 
-    private static TrackItem CreateTrackItem(MediaItem mediaItem, int index)
+    private static string ResolveResolutionText(MediaDetailsSnapshot snapshot)
+    {
+        var resolutionText = TryGetDetailFieldValue(snapshot.VideoFields, "分辨率") ??
+                             TryGetDetailFieldValue(snapshot.OverviewFields, "分辨率");
+        return string.IsNullOrWhiteSpace(resolutionText) ? "未知分辨率" : resolutionText;
+    }
+
+    private static string? TryGetDetailFieldValue(IReadOnlyList<MediaDetailField> fields, string label)
+    {
+        foreach (var field in fields)
+        {
+            if (string.Equals(field.Label, label, StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(field.Value))
+            {
+                return field.Value;
+            }
+        }
+
+        return null;
+    }
+
+    private static TrackItem CreateTrackItem(MediaItem mediaItem, int index, bool isSourceAvailable)
     {
         ArgumentNullException.ThrowIfNull(mediaItem);
-        var visualWidth = Math.Clamp(96d + (mediaItem.DurationSeconds * 4d), 120d, 280d);
+        var visualWidth = mediaItem.IsVideo
+            ? Math.Clamp(164d + (mediaItem.DurationSeconds * 2.2d), 248d, 360d)
+            : Math.Clamp(148d + (mediaItem.DurationSeconds * 1.8d), 220d, 320d);
+
         return new TrackItem(
             mediaItem.FileName,
+            mediaItem.SourcePath,
             mediaItem.DurationText,
+            mediaItem.ResolutionText,
             visualWidth,
             mediaItem.IsVideo,
-            index);
+            index,
+            isSourceAvailable);
     }
 
     private void SetMergeMode(MergeWorkspaceMode mergeMode)
@@ -588,11 +654,14 @@ public sealed class MergeViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAudioJoinModeSelected));
         OnPropertyChanged(nameof(IsAudioVideoComposeModeSelected));
         OnPropertyChanged(nameof(TimelineHintText));
+        OnPropertyChanged(nameof(VideoTrackItems));
+        OnPropertyChanged(nameof(AudioTrackItems));
         OnPropertyChanged(nameof(VideoTrackEmptyText));
         OnPropertyChanged(nameof(AudioTrackEmptyText));
         OnPropertyChanged(nameof(VideoJoinTimelineVisibility));
         OnPropertyChanged(nameof(StandardTimelineVisibility));
-        OnPropertyChanged(nameof(VideoResolutionPresetSummaryText));
+        RaiseTrackStatePropertiesChanged();
+        SetModeMismatchWarningVisibility(false, string.Empty);
 
         StatusMessage = mergeMode switch
         {
@@ -650,51 +719,197 @@ public sealed class MergeViewModel : ObservableObject
 
     private void OnMediaItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        SynchronizeTrackCollectionsWithMediaSources();
         OnPropertyChanged(nameof(MediaItemsEmptyVisibility));
     }
 
     private void OnTrackItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        RefreshVideoTrackPresentation();
-        OnPropertyChanged(nameof(AudioTrackSummaryText));
-        OnPropertyChanged(nameof(AudioTrackEmptyVisibility));
+        if (sender is ObservableCollection<TrackItem> trackItems)
+        {
+            RefreshTrackCollection(
+                trackItems,
+                supportsVideoPreset: ReferenceEquals(trackItems, _videoJoinVideoTrackItems));
+        }
+
+        RaiseTrackStatePropertiesChanged();
+    }
+
+    private void SynchronizeTrackCollectionsWithMediaSources()
+    {
+        var availableSourcePaths = new HashSet<string>(
+            _mediaItems
+                .Select(item => item.SourcePath)
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Select(NormalizeSourcePath),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var trackItem in GetAllTrackCollections().SelectMany(collection => collection))
+        {
+            trackItem.IsSourceAvailable = string.IsNullOrWhiteSpace(trackItem.SourcePath) ||
+                                          availableSourcePaths.Contains(NormalizeSourcePath(trackItem.SourcePath));
+        }
+
+        RefreshTrackCollection(_videoJoinVideoTrackItems, supportsVideoPreset: true);
+        RefreshTrackCollection(_audioJoinAudioTrackItems, supportsVideoPreset: false);
+        RefreshTrackCollection(_audioVideoComposeVideoTrackItems, supportsVideoPreset: false);
+        RefreshTrackCollection(_audioVideoComposeAudioTrackItems, supportsVideoPreset: false);
+        RaiseTrackStatePropertiesChanged();
+    }
+
+    private void RefreshTrackCollection(
+        ObservableCollection<TrackItem> trackItems,
+        bool supportsVideoPreset)
+    {
+        if (supportsVideoPreset &&
+            _manualVideoResolutionPresetItem is not null &&
+            (!_videoJoinVideoTrackItems.Contains(_manualVideoResolutionPresetItem) ||
+             !_manualVideoResolutionPresetItem.IsSourceAvailable))
+        {
+            _manualVideoResolutionPresetItem = null;
+        }
+
+        var presetTrackItem = supportsVideoPreset ? GetEffectiveVideoResolutionPresetItem() : null;
+        for (var index = 0; index < trackItems.Count; index++)
+        {
+            var trackItem = trackItems[index];
+            trackItem.SequenceNumber = index + 1;
+            trackItem.IsResolutionPreset = supportsVideoPreset && ReferenceEquals(trackItem, presetTrackItem);
+        }
     }
 
     private TrackItem? GetEffectiveVideoResolutionPresetItem()
     {
         if (_manualVideoResolutionPresetItem is not null &&
-            _videoTrackItems.Contains(_manualVideoResolutionPresetItem))
+            _videoJoinVideoTrackItems.Contains(_manualVideoResolutionPresetItem) &&
+            _manualVideoResolutionPresetItem.IsSourceAvailable)
         {
             return _manualVideoResolutionPresetItem;
         }
 
-        return _videoTrackItems.FirstOrDefault();
+        return _videoJoinVideoTrackItems.FirstOrDefault(trackItem => trackItem.IsSourceAvailable);
     }
 
-    private void RefreshVideoTrackPresentation()
+    private void RaiseTrackStatePropertiesChanged()
     {
-        if (_manualVideoResolutionPresetItem is not null &&
-            !_videoTrackItems.Contains(_manualVideoResolutionPresetItem))
-        {
-            _manualVideoResolutionPresetItem = null;
-        }
-
-        for (var index = 0; index < _videoTrackItems.Count; index++)
-        {
-            var trackItem = _videoTrackItems[index];
-            trackItem.SequenceNumber = index + 1;
-            trackItem.IsResolutionPreset = false;
-        }
-
-        var presetTrackItem = GetEffectiveVideoResolutionPresetItem();
-        if (presetTrackItem is not null)
-        {
-            presetTrackItem.IsResolutionPreset = true;
-        }
-
         OnPropertyChanged(nameof(VideoTrackSummaryText));
+        OnPropertyChanged(nameof(AudioTrackSummaryText));
         OnPropertyChanged(nameof(VideoTrackEmptyVisibility));
+        OnPropertyChanged(nameof(AudioTrackEmptyVisibility));
         OnPropertyChanged(nameof(VideoResolutionPresetSummaryText));
+    }
+
+    private void SetModeMismatchWarningVisibility(bool isVisible, string? message = null)
+    {
+        if (message is not null && _modeMismatchWarningMessage != message)
+        {
+            _modeMismatchWarningMessage = message;
+            OnPropertyChanged(nameof(ModeMismatchWarningMessage));
+        }
+
+        if (_isModeMismatchWarningVisible != isVisible)
+        {
+            _isModeMismatchWarningVisible = isVisible;
+            OnPropertyChanged(nameof(ModeMismatchWarningVisibility));
+        }
+    }
+
+    private bool TryResolveTrackCollectionForAddition(
+        MediaItem mediaItem,
+        out ObservableCollection<TrackItem> trackItems,
+        out string rejectionMessage)
+    {
+        rejectionMessage = string.Empty;
+
+        switch (_selectedMergeMode)
+        {
+            case MergeWorkspaceMode.VideoJoin:
+                if (mediaItem.IsAudio)
+                {
+                    trackItems = _emptyTrackItems;
+                    rejectionMessage = "当前是视频拼接模式，请选择视频素材加入视频轨道。";
+                    return false;
+                }
+
+                trackItems = _videoJoinVideoTrackItems;
+                return true;
+
+            case MergeWorkspaceMode.AudioJoin:
+                if (mediaItem.IsVideo)
+                {
+                    trackItems = _emptyTrackItems;
+                    rejectionMessage = "当前是音频拼接模式，请选择音频素材加入音频轨道。";
+                    return false;
+                }
+
+                trackItems = _audioJoinAudioTrackItems;
+                return true;
+
+            default:
+                trackItems = mediaItem.IsVideo
+                    ? _audioVideoComposeVideoTrackItems
+                    : _audioVideoComposeAudioTrackItems;
+                return true;
+        }
+    }
+
+    private ObservableCollection<TrackItem> GetVideoTrackItems(MergeWorkspaceMode mergeMode) =>
+        mergeMode switch
+        {
+            MergeWorkspaceMode.VideoJoin => _videoJoinVideoTrackItems,
+            MergeWorkspaceMode.AudioVideoCompose => _audioVideoComposeVideoTrackItems,
+            _ => _emptyTrackItems
+        };
+
+    private ObservableCollection<TrackItem> GetAudioTrackItems(MergeWorkspaceMode mergeMode) =>
+        mergeMode switch
+        {
+            MergeWorkspaceMode.AudioJoin => _audioJoinAudioTrackItems,
+            MergeWorkspaceMode.AudioVideoCompose => _audioVideoComposeAudioTrackItems,
+            _ => _emptyTrackItems
+        };
+
+    private IEnumerable<ObservableCollection<TrackItem>> GetAllTrackCollections()
+    {
+        yield return _videoJoinVideoTrackItems;
+        yield return _audioJoinAudioTrackItems;
+        yield return _audioVideoComposeVideoTrackItems;
+        yield return _audioVideoComposeAudioTrackItems;
+    }
+
+    private bool IsSourcePathAvailable(string sourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath))
+        {
+            return true;
+        }
+
+        var normalizedSourcePath = NormalizeSourcePath(sourcePath);
+        return _mediaItems.Any(item => IsSameSource(item.SourcePath, normalizedSourcePath));
+    }
+
+    private static string NormalizeSourcePath(string sourcePath) =>
+        string.IsNullOrWhiteSpace(sourcePath)
+            ? string.Empty
+            : Path.GetFullPath(sourcePath);
+
+    private static bool IsSameSource(string sourcePath, string normalizedSourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(normalizedSourcePath))
+        {
+            return false;
+        }
+
+        return string.Equals(
+            NormalizeSourcePath(sourcePath),
+            normalizedSourcePath,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildInvalidTrackItemsMessage(int invalidatedCount)
+    {
+        var countText = invalidatedCount == 1 ? "1 个轨道片段" : $"{invalidatedCount} 个轨道片段";
+        return $"检测到 {countText} 引用的源素材已从素材列表中移除。相关片段已标记为失效，将不会参与当前合并输出。请重新添加源素材，或直接从轨道中移除这些失效片段。";
     }
 
     private enum ResolutionStrategy
