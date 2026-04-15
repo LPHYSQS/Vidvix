@@ -24,6 +24,8 @@ public sealed record UserPreferences
 
     public double PreferredTrimPreviewVolumePercent { get; init; } = 80d;
 
+    public MergeWorkspaceMode PreferredMergeWorkspaceMode { get; init; } = MergeWorkspaceMode.AudioVideoCompose;
+
     public ThemePreference ThemePreference { get; init; } = ThemePreference.UseSystem;
 
     public bool RevealOutputFileAfterProcessing { get; init; } = true;

@@ -152,6 +152,7 @@ public sealed class AppCompositionRoot
         return new MergeViewModel(
             infrastructure.FilePickerService,
             mediaRuntime.MediaInfoService,
+            infrastructure.UserPreferencesService,
             Configuration,
             Logger);
     }

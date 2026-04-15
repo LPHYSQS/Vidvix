@@ -24,6 +24,7 @@ public sealed class MergeViewModel : ObservableObject
     private readonly RelayCommand _exportCommand;
     private readonly IFilePickerService? _filePickerService;
     private readonly IMediaInfoService? _mediaInfoService;
+    private readonly IUserPreferencesService? _userPreferencesService;
     private readonly ILogger? _logger;
     private readonly HashSet<string> _supportedVideoInputFileTypes;
     private readonly HashSet<string> _supportedAudioInputFileTypes;
@@ -32,13 +33,14 @@ public sealed class MergeViewModel : ObservableObject
     private string _selectedOutputFormat;
     private string _outputPath;
     private string _statusMessage;
-    private MergeMode _selectedMergeMode;
+    private MergeWorkspaceMode _selectedMergeMode;
     private ResolutionStrategy _selectedResolutionStrategy;
     private DurationStrategy _selectedDurationStrategy;
 
     public MergeViewModel(
         IFilePickerService? filePickerService = null,
         IMediaInfoService? mediaInfoService = null,
+        IUserPreferencesService? userPreferencesService = null,
         ApplicationConfiguration? configuration = null,
         ILogger? logger = null)
     {
@@ -46,6 +48,7 @@ public sealed class MergeViewModel : ObservableObject
 
         _filePickerService = filePickerService;
         _mediaInfoService = mediaInfoService;
+        _userPreferencesService = userPreferencesService;
         _logger = logger;
         _supportedVideoInputFileTypes = effectiveConfiguration.SupportedVideoInputFileTypes.ToHashSet(StringComparer.OrdinalIgnoreCase);
         _supportedAudioInputFileTypes = effectiveConfiguration.SupportedAudioInputFileTypes.ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -59,7 +62,9 @@ public sealed class MergeViewModel : ObservableObject
         _selectedOutputFormat = _outputFormats[0];
         _outputPath = string.Empty;
         _statusMessage = "请先导入视频或音频文件，再添加到对应轨道。";
-        _selectedMergeMode = MergeMode.AudioVideoCompose;
+        _selectedMergeMode = ResolvePreferredMergeMode(
+            _userPreferencesService?.Load().PreferredMergeWorkspaceMode
+            ?? MergeWorkspaceMode.AudioVideoCompose);
         _selectedResolutionStrategy = ResolutionStrategy.MatchFirstVideo;
         _selectedDurationStrategy = DurationStrategy.VideoPriority;
         _importFilesCommand = new AsyncRelayCommand(ImportFilesAsync);
@@ -111,36 +116,36 @@ public sealed class MergeViewModel : ObservableObject
 
     public bool IsVideoJoinModeSelected
     {
-        get => _selectedMergeMode == MergeMode.VideoJoin;
+        get => _selectedMergeMode == MergeWorkspaceMode.VideoJoin;
         set
         {
             if (value)
             {
-                SetMergeMode(MergeMode.VideoJoin);
+                SetMergeMode(MergeWorkspaceMode.VideoJoin);
             }
         }
     }
 
     public bool IsAudioJoinModeSelected
     {
-        get => _selectedMergeMode == MergeMode.AudioJoin;
+        get => _selectedMergeMode == MergeWorkspaceMode.AudioJoin;
         set
         {
             if (value)
             {
-                SetMergeMode(MergeMode.AudioJoin);
+                SetMergeMode(MergeWorkspaceMode.AudioJoin);
             }
         }
     }
 
     public bool IsAudioVideoComposeModeSelected
     {
-        get => _selectedMergeMode == MergeMode.AudioVideoCompose;
+        get => _selectedMergeMode == MergeWorkspaceMode.AudioVideoCompose;
         set
         {
             if (value)
             {
-                SetMergeMode(MergeMode.AudioVideoCompose);
+                SetMergeMode(MergeWorkspaceMode.AudioVideoCompose);
             }
         }
     }
@@ -219,8 +224,8 @@ public sealed class MergeViewModel : ObservableObject
 
     public string TimelineHintText => _selectedMergeMode switch
     {
-        MergeMode.VideoJoin => "当前为视频拼接模式，仅可将视频素材添加到视频轨道。",
-        MergeMode.AudioJoin => "当前为音频拼接模式，仅可将音频素材添加到音频轨道。",
+        MergeWorkspaceMode.VideoJoin => "当前为视频拼接模式，仅可将视频素材添加到视频轨道。",
+        MergeWorkspaceMode.AudioJoin => "当前为音频拼接模式，仅可将音频素材添加到音频轨道。",
         _ => "当前为音视频合成模式，素材会自动加入对应轨道。"
     };
 
@@ -240,13 +245,13 @@ public sealed class MergeViewModel : ObservableObject
 
     public string VideoTrackEmptyText => _selectedMergeMode switch
     {
-        MergeMode.AudioJoin => "当前模式聚焦音频拼接，视频轨道暂不参与编排。",
+        MergeWorkspaceMode.AudioJoin => "当前模式聚焦音频拼接，视频轨道暂不参与编排。",
         _ => "从素材列表单击视频文件，可将其添加到视频轨道。"
     };
 
     public string AudioTrackEmptyText => _selectedMergeMode switch
     {
-        MergeMode.VideoJoin => "当前模式聚焦视频拼接，音频轨道暂不参与编排。",
+        MergeWorkspaceMode.VideoJoin => "当前模式聚焦视频拼接，音频轨道暂不参与编排。",
         _ => "从素材列表单击音频文件，可将其添加到音频轨道。"
     };
 
@@ -256,10 +261,10 @@ public sealed class MergeViewModel : ObservableObject
 
         switch (_selectedMergeMode)
         {
-            case MergeMode.VideoJoin when mediaItem.IsAudio:
+            case MergeWorkspaceMode.VideoJoin when mediaItem.IsAudio:
                 StatusMessage = "当前是视频拼接模式，请选择视频素材加入视频轨道。";
                 return;
-            case MergeMode.AudioJoin when mediaItem.IsVideo:
+            case MergeWorkspaceMode.AudioJoin when mediaItem.IsVideo:
                 StatusMessage = "当前是音频拼接模式，请选择音频素材加入音频轨道。";
                 return;
         }
@@ -489,7 +494,7 @@ public sealed class MergeViewModel : ObservableObject
             mediaItem.IsVideo);
     }
 
-    private void SetMergeMode(MergeMode mergeMode)
+    private void SetMergeMode(MergeWorkspaceMode mergeMode)
     {
         if (_selectedMergeMode == mergeMode)
         {
@@ -506,10 +511,30 @@ public sealed class MergeViewModel : ObservableObject
 
         StatusMessage = mergeMode switch
         {
-            MergeMode.VideoJoin => "已切换到视频拼接模式。",
-            MergeMode.AudioJoin => "已切换到音频拼接模式。",
+            MergeWorkspaceMode.VideoJoin => "已切换到视频拼接模式。",
+            MergeWorkspaceMode.AudioJoin => "已切换到音频拼接模式。",
             _ => "已切换到音视频合成模式。"
         };
+
+        PersistMergeWorkspaceMode();
+    }
+
+    private MergeWorkspaceMode ResolvePreferredMergeMode(MergeWorkspaceMode preferredMode) =>
+        Enum.IsDefined(typeof(MergeWorkspaceMode), preferredMode)
+            ? preferredMode
+            : MergeWorkspaceMode.AudioVideoCompose;
+
+    private void PersistMergeWorkspaceMode()
+    {
+        if (_userPreferencesService is null)
+        {
+            return;
+        }
+
+        _userPreferencesService.Update(existingPreferences => existingPreferences with
+        {
+            PreferredMergeWorkspaceMode = _selectedMergeMode
+        });
     }
 
     private void SetResolutionStrategy(ResolutionStrategy resolutionStrategy)
@@ -549,13 +574,6 @@ public sealed class MergeViewModel : ObservableObject
         OnPropertyChanged(nameof(AudioTrackSummaryText));
         OnPropertyChanged(nameof(VideoTrackEmptyVisibility));
         OnPropertyChanged(nameof(AudioTrackEmptyVisibility));
-    }
-
-    private enum MergeMode
-    {
-        VideoJoin,
-        AudioJoin,
-        AudioVideoCompose
     }
 
     private enum ResolutionStrategy
