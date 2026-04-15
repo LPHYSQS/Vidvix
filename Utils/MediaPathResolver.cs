@@ -133,4 +133,10 @@ public static class MediaPathResolver
         string outputExtension,
         string? outputDirectory = null) =>
         CreateOutputPath(inputFilePath, outputExtension, outputDirectory, "_trim");
+
+    public static string CreateMergeOutputPath(
+        string inputFilePath,
+        string outputExtension,
+        string? outputDirectory = null) =>
+        CreateOutputPath(inputFilePath, outputExtension, outputDirectory, "_merged");
 }

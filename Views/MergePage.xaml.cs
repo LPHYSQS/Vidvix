@@ -62,22 +62,6 @@ public sealed partial class MergePage : Page
         }
     }
 
-    private void OnExportButtonClick(object sender, RoutedEventArgs e)
-    {
-        ViewModel.ExportCommand.Execute(null);
-
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = "导出功能预览",
-            Content = ViewModel.BuildExportPreviewMessage(),
-            CloseButtonText = "知道了",
-            DefaultButton = ContentDialogButton.Close
-        };
-
-        _ = dialog.ShowAsync();
-    }
-
     private static bool TryResolveTrackItem(object sender, out TrackItem trackItem)
     {
         if (sender is FrameworkElement { Tag: TrackItem taggedTrackItem })

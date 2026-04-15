@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.UI.Xaml;
@@ -21,10 +22,12 @@ public sealed class MergeViewModel : ObservableObject
     private readonly ObservableCollection<TrackItem> _audioVideoComposeVideoTrackItems;
     private readonly ObservableCollection<TrackItem> _audioVideoComposeAudioTrackItems;
     private readonly ObservableCollection<TrackItem> _emptyTrackItems;
-    private readonly ObservableCollection<string> _outputFormats;
+    private readonly IReadOnlyList<OutputFormatOption> _videoJoinOutputFormats;
     private readonly AsyncRelayCommand _importFilesCommand;
-    private readonly AsyncRelayCommand _browseOutputPathCommand;
-    private readonly RelayCommand _exportCommand;
+    private readonly AsyncRelayCommand _browseOutputDirectoryCommand;
+    private readonly RelayCommand _clearOutputDirectoryCommand;
+    private readonly AsyncRelayCommand _startVideoJoinProcessingCommand;
+    private readonly RelayCommand _cancelVideoJoinProcessingCommand;
     private readonly IFilePickerService? _filePickerService;
     private readonly IMediaInfoService? _mediaInfoService;
     private readonly IUserPreferencesService? _userPreferencesService;
@@ -32,15 +35,17 @@ public sealed class MergeViewModel : ObservableObject
     private readonly HashSet<string> _supportedVideoInputFileTypes;
     private readonly HashSet<string> _supportedAudioInputFileTypes;
     private readonly IReadOnlyList<string> _supportedImportFileTypes;
+    private CancellationTokenSource? _videoJoinProcessingCancellationSource;
 
-    private string _selectedOutputFormat;
-    private string _outputPath;
+    private OutputFormatOption? _selectedOutputFormat;
+    private string _outputDirectory;
     private string _statusMessage;
     private string _modeMismatchWarningMessage;
     private bool _isModeMismatchWarningVisible;
+    private bool _isVideoJoinProcessing;
     private MergeWorkspaceMode _selectedMergeMode;
-    private ResolutionStrategy _selectedResolutionStrategy;
-    private DurationStrategy _selectedDurationStrategy;
+    private MergeSmallerResolutionStrategy _selectedSmallerResolutionStrategy;
+    private MergeLargerResolutionStrategy _selectedLargerResolutionStrategy;
     private TrackItem? _manualVideoResolutionPresetItem;
 
     public MergeViewModel(
@@ -51,6 +56,7 @@ public sealed class MergeViewModel : ObservableObject
         ILogger? logger = null)
     {
         var effectiveConfiguration = configuration ?? new ApplicationConfiguration();
+        var preferences = userPreferencesService?.Load() ?? new UserPreferences();
 
         _filePickerService = filePickerService;
         _mediaInfoService = mediaInfoService;
@@ -68,20 +74,21 @@ public sealed class MergeViewModel : ObservableObject
         _audioVideoComposeVideoTrackItems = new ObservableCollection<TrackItem>();
         _audioVideoComposeAudioTrackItems = new ObservableCollection<TrackItem>();
         _emptyTrackItems = new ObservableCollection<TrackItem>();
-        _outputFormats = new ObservableCollection<string> { "MP4", "MKV" };
+        _videoJoinOutputFormats = effectiveConfiguration.SupportedVideoOutputFormats;
 
-        _selectedOutputFormat = _outputFormats[0];
-        _outputPath = string.Empty;
-        _statusMessage = "请先导入视频或音频文件，再添加到对应轨道。";
+        _selectedOutputFormat = ResolvePreferredVideoJoinOutputFormat(preferences.PreferredMergeVideoJoinOutputFormatExtension);
+        _outputDirectory = NormalizeOutputDirectory(preferences.PreferredMergeVideoJoinOutputDirectory);
+        _statusMessage = "请先导入视频或音频素材，再将它们添加到对应轨道。";
         _modeMismatchWarningMessage = string.Empty;
-        _selectedMergeMode = ResolvePreferredMergeMode(
-            _userPreferencesService?.Load().PreferredMergeWorkspaceMode
-            ?? MergeWorkspaceMode.AudioVideoCompose);
-        _selectedResolutionStrategy = ResolutionStrategy.MatchFirstVideo;
-        _selectedDurationStrategy = DurationStrategy.VideoPriority;
-        _importFilesCommand = new AsyncRelayCommand(ImportFilesAsync);
-        _browseOutputPathCommand = new AsyncRelayCommand(BrowseOutputPathAsync);
-        _exportCommand = new RelayCommand(PrepareExportPreview);
+        _selectedMergeMode = ResolvePreferredMergeMode(preferences.PreferredMergeWorkspaceMode);
+        _selectedSmallerResolutionStrategy = ResolvePreferredMergeSmallerResolutionStrategy(preferences.PreferredMergeSmallerResolutionStrategy);
+        _selectedLargerResolutionStrategy = ResolvePreferredMergeLargerResolutionStrategy(preferences.PreferredMergeLargerResolutionStrategy);
+
+        _importFilesCommand = new AsyncRelayCommand(ImportFilesAsync, () => !IsVideoJoinProcessing);
+        _browseOutputDirectoryCommand = new AsyncRelayCommand(BrowseOutputDirectoryAsync, CanEditVideoJoinOutputSettings);
+        _clearOutputDirectoryCommand = new RelayCommand(ClearOutputDirectory, CanClearOutputDirectory);
+        _startVideoJoinProcessingCommand = new AsyncRelayCommand(StartVideoJoinProcessingAsync, CanStartVideoJoinProcessing);
+        _cancelVideoJoinProcessingCommand = new RelayCommand(CancelVideoJoinProcessing, () => IsVideoJoinProcessing);
 
         _mediaItems.CollectionChanged += OnMediaItemsChanged;
         _videoJoinVideoTrackItems.CollectionChanged += OnTrackItemsChanged;
@@ -102,37 +109,81 @@ public sealed class MergeViewModel : ObservableObject
 
     public ObservableCollection<TrackItem> AudioTrackItems => ActiveAudioTrackItems;
 
-    public ObservableCollection<string> OutputFormats => _outputFormats;
+    public IReadOnlyList<OutputFormatOption> VideoJoinOutputFormats => _videoJoinOutputFormats;
 
     public ICommand ImportFilesCommand => _importFilesCommand;
 
-    public ICommand BrowseOutputPathCommand => _browseOutputPathCommand;
+    public ICommand BrowseOutputDirectoryCommand => _browseOutputDirectoryCommand;
 
-    public ICommand ExportCommand => _exportCommand;
+    public ICommand ClearOutputDirectoryCommand => _clearOutputDirectoryCommand;
 
-    public string SelectedOutputFormat
+    public ICommand StartVideoJoinProcessingCommand => _startVideoJoinProcessingCommand;
+
+    public ICommand CancelVideoJoinProcessingCommand => _cancelVideoJoinProcessingCommand;
+
+    public OutputFormatOption SelectedOutputFormat
     {
-        get => _selectedOutputFormat;
+        get => _selectedOutputFormat ?? _videoJoinOutputFormats.First();
         set
         {
-            if (!string.IsNullOrWhiteSpace(value) && SetProperty(ref _selectedOutputFormat, value))
+            if (value is null)
             {
-                StatusMessage = $"输出格式已切换为 {value}。";
+                return;
+            }
+
+            if (SetProperty(ref _selectedOutputFormat, value))
+            {
+                OnPropertyChanged(nameof(SelectedOutputFormatDescription));
+                PersistVideoJoinPreferences();
+                StatusMessage = $"视频拼接输出格式已切换为 {value.DisplayName}。";
             }
         }
     }
 
-    public string OutputPath
+    public string SelectedOutputFormatDescription => SelectedOutputFormat.Description;
+
+    public string OutputDirectory
     {
-        get => _outputPath;
-        set => SetProperty(ref _outputPath, value);
+        get => _outputDirectory;
+        set
+        {
+            var normalizedDirectory = NormalizeOutputDirectory(value);
+            if (SetProperty(ref _outputDirectory, normalizedDirectory))
+            {
+                OnPropertyChanged(nameof(HasCustomOutputDirectory));
+                PersistVideoJoinPreferences();
+                NotifyCommandStates();
+            }
+        }
     }
+
+    public bool HasCustomOutputDirectory => !string.IsNullOrWhiteSpace(OutputDirectory);
+
+    public string OutputDirectoryHintText => "留空时使用预设视频所在文件夹输出；设置后，处理结果会统一输出到所选文件夹。";
 
     public string StatusMessage
     {
         get => _statusMessage;
         private set => SetProperty(ref _statusMessage, value);
     }
+
+    public bool IsVideoJoinProcessing
+    {
+        get => _isVideoJoinProcessing;
+        private set
+        {
+            if (SetProperty(ref _isVideoJoinProcessing, value))
+            {
+                NotifyCommandStates();
+            }
+        }
+    }
+
+    public Visibility VideoJoinOutputSettingsVisibility =>
+        IsVideoJoinModeSelected ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility NonVideoJoinOutputSettingsVisibility =>
+        IsVideoJoinModeSelected ? Visibility.Collapsed : Visibility.Visible;
 
     public Visibility ModeMismatchWarningVisibility =>
         _isModeMismatchWarningVisible ? Visibility.Visible : Visibility.Collapsed;
@@ -175,74 +226,50 @@ public sealed class MergeViewModel : ObservableObject
         }
     }
 
-    public bool IsMatchFirstVideoResolutionSelected
+    public bool IsPadSmallerVideoWithBlackBarsSelected
     {
-        get => _selectedResolutionStrategy == ResolutionStrategy.MatchFirstVideo;
+        get => _selectedSmallerResolutionStrategy == MergeSmallerResolutionStrategy.PadWithBlackBars;
         set
         {
             if (value)
             {
-                SetResolutionStrategy(ResolutionStrategy.MatchFirstVideo);
+                SetSmallerResolutionStrategy(MergeSmallerResolutionStrategy.PadWithBlackBars);
             }
         }
     }
 
-    public bool IsPadWithBlackBarsSelected
+    public bool IsStretchSmallerVideoToFillSelected
     {
-        get => _selectedResolutionStrategy == ResolutionStrategy.PadWithBlackBars;
+        get => _selectedSmallerResolutionStrategy == MergeSmallerResolutionStrategy.StretchToFill;
         set
         {
             if (value)
             {
-                SetResolutionStrategy(ResolutionStrategy.PadWithBlackBars);
+                SetSmallerResolutionStrategy(MergeSmallerResolutionStrategy.StretchToFill);
             }
         }
     }
 
-    public bool IsStretchToFillSelected
+    public bool IsSqueezeLargerVideoToFitSelected
     {
-        get => _selectedResolutionStrategy == ResolutionStrategy.StretchToFill;
+        get => _selectedLargerResolutionStrategy == MergeLargerResolutionStrategy.SqueezeToFit;
         set
         {
             if (value)
             {
-                SetResolutionStrategy(ResolutionStrategy.StretchToFill);
+                SetLargerResolutionStrategy(MergeLargerResolutionStrategy.SqueezeToFit);
             }
         }
     }
 
-    public bool IsVideoPrioritySelected
+    public bool IsCropLargerVideoToFillSelected
     {
-        get => _selectedDurationStrategy == DurationStrategy.VideoPriority;
+        get => _selectedLargerResolutionStrategy == MergeLargerResolutionStrategy.CropToFill;
         set
         {
             if (value)
             {
-                SetDurationStrategy(DurationStrategy.VideoPriority);
-            }
-        }
-    }
-
-    public bool IsAudioPrioritySelected
-    {
-        get => _selectedDurationStrategy == DurationStrategy.AudioPriority;
-        set
-        {
-            if (value)
-            {
-                SetDurationStrategy(DurationStrategy.AudioPriority);
-            }
-        }
-    }
-
-    public bool IsAutoLoopSelected
-    {
-        get => _selectedDurationStrategy == DurationStrategy.AutoLoop;
-        set
-        {
-            if (value)
-            {
-                SetDurationStrategy(DurationStrategy.AutoLoop);
+                SetLargerResolutionStrategy(MergeLargerResolutionStrategy.CropToFill);
             }
         }
     }
@@ -251,7 +278,7 @@ public sealed class MergeViewModel : ObservableObject
     {
         MergeWorkspaceMode.VideoJoin => "当前为视频拼接模式，仅可将视频素材添加到视频轨道。",
         MergeWorkspaceMode.AudioJoin => "当前为音频拼接模式，仅可将音频素材添加到音频轨道。",
-        _ => "当前为音视频合成模式，素材会自动加入对应轨道。"
+        _ => "当前为音视频合成模式，素材会自动进入对应轨道。"
     };
 
     public string VideoTrackSummaryText => ActiveVideoTrackItems.Count == 0
@@ -280,19 +307,19 @@ public sealed class MergeViewModel : ObservableObject
         {
             if (_videoJoinVideoTrackItems.Count == 0)
             {
-                return "添加视频片段后，将默认以首段可用视频作为分辨率基准。";
+                return "添加视频片段后，将默认以首个可用视频作为分辨率预设。";
             }
 
             var presetTrackItem = GetEffectiveVideoResolutionPresetItem();
             if (presetTrackItem is null)
             {
-                return "当前暂无可用的视频片段作为分辨率基准。";
+                return "当前暂无可用的视频片段可作为分辨率预设。";
             }
 
             return _manualVideoResolutionPresetItem is not null &&
                    ReferenceEquals(_manualVideoResolutionPresetItem, presetTrackItem)
                 ? $"当前分辨率预设：{presetTrackItem.SequenceNumberText} · {presetTrackItem.SourceName}"
-                : $"当前默认以首段可用视频为分辨率基准：{presetTrackItem.SequenceNumberText} · {presetTrackItem.SourceName}";
+                : $"当前默认以首个可用视频作为分辨率预设：{presetTrackItem.SequenceNumberText} · {presetTrackItem.SourceName}";
         }
     }
 
@@ -312,6 +339,12 @@ public sealed class MergeViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(mediaItem);
 
+        if (IsVideoJoinProcessing)
+        {
+            StatusMessage = "视频拼接任务处理中，若需调整轨道，请先取消当前任务。";
+            return;
+        }
+
         if (!TryResolveTrackCollectionForAddition(mediaItem, out var trackItems, out var rejectionMessage))
         {
             SetModeMismatchWarningVisibility(true, rejectionMessage);
@@ -329,6 +362,12 @@ public sealed class MergeViewModel : ObservableObject
     public void RemoveMediaItem(MediaItem mediaItem)
     {
         ArgumentNullException.ThrowIfNull(mediaItem);
+
+        if (IsVideoJoinProcessing)
+        {
+            StatusMessage = "视频拼接任务处理中，若需调整素材，请先取消当前任务。";
+            return;
+        }
 
         var normalizedSourcePath = NormalizeSourcePath(mediaItem.SourcePath);
         var invalidatedTrackItems = string.IsNullOrWhiteSpace(normalizedSourcePath)
@@ -358,6 +397,12 @@ public sealed class MergeViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(trackItem);
 
+        if (IsVideoJoinProcessing)
+        {
+            StatusMessage = "视频拼接任务处理中，若需调整轨道，请先取消当前任务。";
+            return;
+        }
+
         if (!_videoJoinVideoTrackItems.Contains(trackItem))
         {
             return;
@@ -369,13 +414,19 @@ public sealed class MergeViewModel : ObservableObject
 
         var fallbackPresetTrackItem = GetEffectiveVideoResolutionPresetItem();
         StatusMessage = removedPresetClip && fallbackPresetTrackItem is not null
-            ? $"{removedClipName} 已从视频轨道移除，分辨率基准已切换为 {fallbackPresetTrackItem.SequenceNumberText} 号片段。"
+            ? $"{removedClipName} 已从视频轨道移除，分辨率预设已切换为 {fallbackPresetTrackItem.SequenceNumberText} 号片段。"
             : $"{removedClipName} 已从视频轨道移除。";
     }
 
     public void SetVideoResolutionPreset(TrackItem trackItem)
     {
         ArgumentNullException.ThrowIfNull(trackItem);
+
+        if (IsVideoJoinProcessing)
+        {
+            StatusMessage = "视频拼接任务处理中，若需调整分辨率预设，请先取消当前任务。";
+            return;
+        }
 
         if (!_videoJoinVideoTrackItems.Contains(trackItem))
         {
@@ -392,31 +443,6 @@ public sealed class MergeViewModel : ObservableObject
         RefreshTrackCollection(_videoJoinVideoTrackItems, supportsVideoPreset: true);
         RaiseTrackStatePropertiesChanged();
         StatusMessage = $"{trackItem.SequenceNumberText} 号片段已设为分辨率预设。";
-    }
-
-    public string BuildExportPreviewMessage()
-    {
-        var activeVideoTrackCount = ActiveVideoTrackItems.Count(trackItem => trackItem.IsSourceAvailable);
-        var activeAudioTrackCount = ActiveAudioTrackItems.Count(trackItem => trackItem.IsSourceAvailable);
-        var invalidTrackCount = ActiveVideoTrackItems.Count(trackItem => !trackItem.IsSourceAvailable) +
-                                ActiveAudioTrackItems.Count(trackItem => !trackItem.IsSourceAvailable);
-
-        if (activeVideoTrackCount + activeAudioTrackCount == 0)
-        {
-            return invalidTrackCount > 0
-                ? "当前轨道中的片段均已标记为失效。\n\n请重新添加对应素材，或先移除失效片段后再进行导出。"
-                : "当前还未向轨道添加任何片段。\n\n导出入口已准备就绪，实际合并能力将在后续阶段接入。";
-        }
-
-        return _selectedMergeMode switch
-        {
-            MergeWorkspaceMode.VideoJoin =>
-                $"当前视频拼接工作区包含 {activeVideoTrackCount} 个可用视频片段，另有 {invalidTrackCount} 个失效片段。\n\n界面已保留输出格式、输出路径、分辨率策略和时长策略等入口，实际导出能力将在后续阶段接入。",
-            MergeWorkspaceMode.AudioJoin =>
-                $"当前音频拼接工作区包含 {activeAudioTrackCount} 个可用音频片段，另有 {invalidTrackCount} 个失效片段。\n\n界面已保留输出格式、输出路径、分辨率策略和时长策略等入口，实际导出能力将在后续阶段接入。",
-            _ =>
-                $"当前音视频合成工作区包含 {activeVideoTrackCount} 个可用视频片段、{activeAudioTrackCount} 个可用音频片段，另有 {invalidTrackCount} 个失效片段。\n\n界面已保留输出格式、输出路径、分辨率策略和时长策略等入口，实际导出能力将在后续阶段接入。"
-        };
     }
 
     private async Task ImportFilesAsync()
@@ -489,7 +515,7 @@ public sealed class MergeViewModel : ObservableObject
         }
     }
 
-    private async Task BrowseOutputPathAsync()
+    private async Task BrowseOutputDirectoryAsync()
     {
         if (_filePickerService is null)
         {
@@ -500,15 +526,14 @@ public sealed class MergeViewModel : ObservableObject
         try
         {
             var selectedFolder = await _filePickerService.PickFolderAsync("选择输出目录");
-
             if (string.IsNullOrWhiteSpace(selectedFolder))
             {
                 StatusMessage = "已取消选择输出目录。";
                 return;
             }
 
-            OutputPath = selectedFolder;
-            StatusMessage = $"已将输出目录设置为：{selectedFolder}";
+            OutputDirectory = selectedFolder;
+            StatusMessage = $"已将视频拼接输出目录设置为：{OutputDirectory}";
         }
         catch (OperationCanceledException)
         {
@@ -521,10 +546,258 @@ public sealed class MergeViewModel : ObservableObject
         }
     }
 
-    private void PrepareExportPreview()
+    private void ClearOutputDirectory()
     {
-        StatusMessage = "已生成导出预览提示，实际合并导出能力将在后续阶段接入。";
+        if (!CanClearOutputDirectory())
+        {
+            return;
+        }
+
+        OutputDirectory = string.Empty;
+        StatusMessage = "已清空视频拼接输出目录，处理时将使用预设视频所在文件夹输出。";
     }
+
+    private async Task StartVideoJoinProcessingAsync()
+    {
+        if (!CanStartVideoJoinProcessing())
+        {
+            StatusMessage = GetVideoJoinCannotStartMessage();
+            return;
+        }
+
+        _videoJoinProcessingCancellationSource?.Dispose();
+        _videoJoinProcessingCancellationSource = new CancellationTokenSource();
+        var cancellationToken = _videoJoinProcessingCancellationSource.Token;
+
+        try
+        {
+            IsVideoJoinProcessing = true;
+            StatusMessage = "正在检查视频拼接素材并整理输出规划...";
+
+            EnsureOutputDirectoryExists();
+
+            var activeTrackItems = _videoJoinVideoTrackItems
+                .Where(trackItem => trackItem.IsSourceAvailable)
+                .ToArray();
+            var presetTrackItem = GetEffectiveVideoResolutionPresetItem() ?? activeTrackItems[0];
+            var totalDuration = TimeSpan.Zero;
+
+            foreach (var trackItem in activeTrackItems)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var duration = await ResolveTrackDurationAsync(trackItem.SourcePath, trackItem.DurationText, cancellationToken);
+                totalDuration += duration;
+            }
+
+            var plannedOutputPath = CreatePlannedVideoJoinOutputPath(presetTrackItem.SourcePath);
+            var totalDurationText = totalDuration > TimeSpan.Zero
+                ? totalDuration.ToString(@"hh\:mm\:ss")
+                : "未知";
+
+            StatusMessage =
+                $"已完成 {activeTrackItems.Length} 段视频的拼接校验与输出规划。预设分辨率来源：{presetTrackItem.SequenceNumberText} · {presetTrackItem.ResolutionText}；输出格式：{SelectedOutputFormat.DisplayName}；较小分辨率视频：{GetSmallerResolutionStrategyLabel()}；较大分辨率视频：{GetLargerResolutionStrategyLabel()}；预计输出文件：{Path.GetFileName(plannedOutputPath)}；总时长约：{totalDurationText}。";
+        }
+        catch (OperationCanceledException) when (_videoJoinProcessingCancellationSource?.IsCancellationRequested == true)
+        {
+            StatusMessage = "已取消视频拼接任务。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = "视频拼接任务准备失败，请稍后重试。";
+            _logger?.Log(LogLevel.Error, "准备视频拼接任务时发生异常。", exception);
+        }
+        finally
+        {
+            IsVideoJoinProcessing = false;
+            _videoJoinProcessingCancellationSource?.Dispose();
+            _videoJoinProcessingCancellationSource = null;
+        }
+    }
+
+    private void CancelVideoJoinProcessing() => _videoJoinProcessingCancellationSource?.Cancel();
+
+    private bool CanStartVideoJoinProcessing() =>
+        !IsVideoJoinProcessing &&
+        _selectedMergeMode == MergeWorkspaceMode.VideoJoin &&
+        _videoJoinVideoTrackItems.Any(trackItem => trackItem.IsSourceAvailable);
+
+    private bool CanEditVideoJoinOutputSettings() =>
+        !IsVideoJoinProcessing &&
+        _selectedMergeMode == MergeWorkspaceMode.VideoJoin;
+
+    private bool CanClearOutputDirectory() =>
+        CanEditVideoJoinOutputSettings() &&
+        HasCustomOutputDirectory;
+
+    private string GetVideoJoinCannotStartMessage()
+    {
+        if (_selectedMergeMode != MergeWorkspaceMode.VideoJoin)
+        {
+            return "当前开始处理仅适用于视频拼接模式。";
+        }
+
+        if (IsVideoJoinProcessing)
+        {
+            return "视频拼接任务正在进行中。";
+        }
+
+        return "请先向视频轨道添加至少一个有效视频片段。";
+    }
+
+    private async Task<TimeSpan> ResolveTrackDurationAsync(
+        string sourcePath,
+        string fallbackDurationText,
+        CancellationToken cancellationToken)
+    {
+        if (_mediaInfoService is not null && !string.IsNullOrWhiteSpace(sourcePath))
+        {
+            try
+            {
+                var loadResult = _mediaInfoService.TryGetCachedDetails(sourcePath, out var cachedSnapshot)
+                    ? MediaDetailsLoadResult.Success(cachedSnapshot)
+                    : await _mediaInfoService.GetMediaDetailsAsync(sourcePath, cancellationToken);
+
+                if (loadResult.IsSuccess &&
+                    loadResult.Snapshot?.MediaDuration is { } mediaDuration &&
+                    mediaDuration > TimeSpan.Zero)
+                {
+                    return mediaDuration;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger?.Log(LogLevel.Warning, $"读取视频拼接素材时长失败：{sourcePath}", exception);
+            }
+        }
+
+        return TimeSpan.TryParse(fallbackDurationText, out var parsedDuration)
+            ? parsedDuration
+            : TimeSpan.Zero;
+    }
+
+    private string CreatePlannedVideoJoinOutputPath(string presetSourcePath) =>
+        MediaPathResolver.CreateUniqueOutputPath(
+            MediaPathResolver.CreateMergeOutputPath(
+                presetSourcePath,
+                SelectedOutputFormat.Extension,
+                HasCustomOutputDirectory ? OutputDirectory : null));
+
+    private void EnsureOutputDirectoryExists()
+    {
+        if (HasCustomOutputDirectory)
+        {
+            Directory.CreateDirectory(OutputDirectory);
+        }
+    }
+
+    private void NotifyCommandStates()
+    {
+        _importFilesCommand.NotifyCanExecuteChanged();
+        _browseOutputDirectoryCommand.NotifyCanExecuteChanged();
+        _clearOutputDirectoryCommand.NotifyCanExecuteChanged();
+        _startVideoJoinProcessingCommand.NotifyCanExecuteChanged();
+        _cancelVideoJoinProcessingCommand.NotifyCanExecuteChanged();
+    }
+
+    private void SetSmallerResolutionStrategy(MergeSmallerResolutionStrategy strategy)
+    {
+        if (_selectedSmallerResolutionStrategy == strategy)
+        {
+            return;
+        }
+
+        _selectedSmallerResolutionStrategy = strategy;
+        OnPropertyChanged(nameof(IsPadSmallerVideoWithBlackBarsSelected));
+        OnPropertyChanged(nameof(IsStretchSmallerVideoToFillSelected));
+        PersistVideoJoinPreferences();
+        StatusMessage = strategy == MergeSmallerResolutionStrategy.PadWithBlackBars
+            ? "较小分辨率视频将默认填充黑边。"
+            : "较小分辨率视频将默认拉伸填充。";
+    }
+
+    private void SetLargerResolutionStrategy(MergeLargerResolutionStrategy strategy)
+    {
+        if (_selectedLargerResolutionStrategy == strategy)
+        {
+            return;
+        }
+
+        _selectedLargerResolutionStrategy = strategy;
+        OnPropertyChanged(nameof(IsSqueezeLargerVideoToFitSelected));
+        OnPropertyChanged(nameof(IsCropLargerVideoToFillSelected));
+        PersistVideoJoinPreferences();
+        StatusMessage = strategy == MergeLargerResolutionStrategy.SqueezeToFit
+            ? "较大分辨率视频将默认挤压到预设分辨率。"
+            : "较大分辨率视频将默认裁剪到预设分辨率。";
+    }
+
+    private OutputFormatOption ResolvePreferredVideoJoinOutputFormat(string? extension)
+    {
+        var normalizedExtension = string.IsNullOrWhiteSpace(extension)
+            ? null
+            : (extension.StartsWith(".", StringComparison.Ordinal) ? extension : $".{extension}");
+
+        var preferredFormat = normalizedExtension is null
+            ? null
+            : _videoJoinOutputFormats.FirstOrDefault(
+                format => string.Equals(format.Extension, normalizedExtension, StringComparison.OrdinalIgnoreCase));
+
+        return preferredFormat ?? _videoJoinOutputFormats.First();
+    }
+
+    private void PersistVideoJoinPreferences()
+    {
+        if (_userPreferencesService is null)
+        {
+            return;
+        }
+
+        _userPreferencesService.Update(existingPreferences => existingPreferences with
+        {
+            PreferredMergeVideoJoinOutputFormatExtension = _selectedOutputFormat?.Extension,
+            PreferredMergeVideoJoinOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null,
+            PreferredMergeSmallerResolutionStrategy = _selectedSmallerResolutionStrategy,
+            PreferredMergeLargerResolutionStrategy = _selectedLargerResolutionStrategy
+        });
+    }
+
+    private static MergeSmallerResolutionStrategy ResolvePreferredMergeSmallerResolutionStrategy(
+        MergeSmallerResolutionStrategy preferredStrategy) =>
+        Enum.IsDefined(typeof(MergeSmallerResolutionStrategy), preferredStrategy)
+            ? preferredStrategy
+            : MergeSmallerResolutionStrategy.PadWithBlackBars;
+
+    private static MergeLargerResolutionStrategy ResolvePreferredMergeLargerResolutionStrategy(
+        MergeLargerResolutionStrategy preferredStrategy) =>
+        Enum.IsDefined(typeof(MergeLargerResolutionStrategy), preferredStrategy)
+            ? preferredStrategy
+            : MergeLargerResolutionStrategy.SqueezeToFit;
+
+    private string NormalizeOutputDirectory(string? outputDirectory)
+    {
+        if (MediaPathResolver.TryNormalizeOutputDirectory(outputDirectory, out var normalizedDirectory))
+        {
+            return normalizedDirectory;
+        }
+
+        _logger?.Log(LogLevel.Warning, "检测到无效的合并输出目录配置，已回退为预设视频原文件夹输出。");
+        return string.Empty;
+    }
+
+    private string GetSmallerResolutionStrategyLabel() =>
+        _selectedSmallerResolutionStrategy == MergeSmallerResolutionStrategy.PadWithBlackBars
+            ? "填充黑边"
+            : "拉伸填充";
+
+    private string GetLargerResolutionStrategyLabel() =>
+        _selectedLargerResolutionStrategy == MergeLargerResolutionStrategy.SqueezeToFit
+            ? "挤压"
+            : "裁剪";
 
     private async Task<MediaItem> CreateMediaItemAsync(string filePath)
     {
@@ -649,10 +922,21 @@ public sealed class MergeViewModel : ObservableObject
             return;
         }
 
+        if (IsVideoJoinProcessing)
+        {
+            StatusMessage = "视频拼接任务处理中，若需切换模式，请先取消当前任务。";
+            OnPropertyChanged(nameof(IsVideoJoinModeSelected));
+            OnPropertyChanged(nameof(IsAudioJoinModeSelected));
+            OnPropertyChanged(nameof(IsAudioVideoComposeModeSelected));
+            return;
+        }
+
         _selectedMergeMode = mergeMode;
         OnPropertyChanged(nameof(IsVideoJoinModeSelected));
         OnPropertyChanged(nameof(IsAudioJoinModeSelected));
         OnPropertyChanged(nameof(IsAudioVideoComposeModeSelected));
+        OnPropertyChanged(nameof(VideoJoinOutputSettingsVisibility));
+        OnPropertyChanged(nameof(NonVideoJoinOutputSettingsVisibility));
         OnPropertyChanged(nameof(TimelineHintText));
         OnPropertyChanged(nameof(VideoTrackItems));
         OnPropertyChanged(nameof(AudioTrackItems));
@@ -662,6 +946,7 @@ public sealed class MergeViewModel : ObservableObject
         OnPropertyChanged(nameof(StandardTimelineVisibility));
         RaiseTrackStatePropertiesChanged();
         SetModeMismatchWarningVisibility(false, string.Empty);
+        NotifyCommandStates();
 
         StatusMessage = mergeMode switch
         {
@@ -691,36 +976,11 @@ public sealed class MergeViewModel : ObservableObject
         });
     }
 
-    private void SetResolutionStrategy(ResolutionStrategy resolutionStrategy)
-    {
-        if (_selectedResolutionStrategy == resolutionStrategy)
-        {
-            return;
-        }
-
-        _selectedResolutionStrategy = resolutionStrategy;
-        OnPropertyChanged(nameof(IsMatchFirstVideoResolutionSelected));
-        OnPropertyChanged(nameof(IsPadWithBlackBarsSelected));
-        OnPropertyChanged(nameof(IsStretchToFillSelected));
-    }
-
-    private void SetDurationStrategy(DurationStrategy durationStrategy)
-    {
-        if (_selectedDurationStrategy == durationStrategy)
-        {
-            return;
-        }
-
-        _selectedDurationStrategy = durationStrategy;
-        OnPropertyChanged(nameof(IsVideoPrioritySelected));
-        OnPropertyChanged(nameof(IsAudioPrioritySelected));
-        OnPropertyChanged(nameof(IsAutoLoopSelected));
-    }
-
     private void OnMediaItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         SynchronizeTrackCollectionsWithMediaSources();
         OnPropertyChanged(nameof(MediaItemsEmptyVisibility));
+        NotifyCommandStates();
     }
 
     private void OnTrackItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -733,6 +993,7 @@ public sealed class MergeViewModel : ObservableObject
         }
 
         RaiseTrackStatePropertiesChanged();
+        NotifyCommandStates();
     }
 
     private void SynchronizeTrackCollectionsWithMediaSources()
@@ -910,19 +1171,5 @@ public sealed class MergeViewModel : ObservableObject
     {
         var countText = invalidatedCount == 1 ? "1 个轨道片段" : $"{invalidatedCount} 个轨道片段";
         return $"检测到 {countText} 引用的源素材已从素材列表中移除。相关片段已标记为失效，将不会参与当前合并输出。请重新添加源素材，或直接从轨道中移除这些失效片段。";
-    }
-
-    private enum ResolutionStrategy
-    {
-        MatchFirstVideo,
-        PadWithBlackBars,
-        StretchToFill
-    }
-
-    private enum DurationStrategy
-    {
-        VideoPriority,
-        AudioPriority,
-        AutoLoop
     }
 }

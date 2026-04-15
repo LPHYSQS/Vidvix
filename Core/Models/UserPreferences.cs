@@ -26,6 +26,16 @@ public sealed record UserPreferences
 
     public MergeWorkspaceMode PreferredMergeWorkspaceMode { get; init; } = MergeWorkspaceMode.AudioVideoCompose;
 
+    public string? PreferredMergeVideoJoinOutputFormatExtension { get; init; }
+
+    public string? PreferredMergeVideoJoinOutputDirectory { get; init; }
+
+    public MergeSmallerResolutionStrategy PreferredMergeSmallerResolutionStrategy { get; init; } =
+        MergeSmallerResolutionStrategy.PadWithBlackBars;
+
+    public MergeLargerResolutionStrategy PreferredMergeLargerResolutionStrategy { get; init; } =
+        MergeLargerResolutionStrategy.SqueezeToFit;
+
     public ThemePreference ThemePreference { get; init; } = ThemePreference.UseSystem;
 
     public bool RevealOutputFileAfterProcessing { get; init; } = true;

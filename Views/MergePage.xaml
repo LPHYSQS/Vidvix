@@ -206,6 +206,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
@@ -217,8 +218,27 @@
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
 
-                <Border
+                <CommandBar
                     Grid.Row="1"
+                    Background="Transparent"
+                    DefaultLabelPosition="Right"
+                    IsDynamicOverflowEnabled="False"
+                    OverflowButtonVisibility="Collapsed"
+                    Padding="0">
+                    <AppBarButton Command="{x:Bind ViewModel.StartVideoJoinProcessingCommand, Mode=OneWay}" Label="开始处理">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Play" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton Command="{x:Bind ViewModel.CancelVideoJoinProcessingCommand, Mode=OneWay}" Label="取消任务">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Cancel" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                </CommandBar>
+
+                <Border
+                    Grid.Row="2"
                     HorizontalAlignment="Left"
                     Padding="4"
                     Background="{ThemeResource ControlFillColorSecondaryBrush}"
@@ -320,12 +340,12 @@
                 </Border>
 
                 <TextBlock
-                    Grid.Row="2"
+                    Grid.Row="3"
                     Opacity="0.72"
                     Text="{x:Bind ViewModel.TimelineHintText, Mode=OneWay}"
                     TextWrapping="WrapWholeWords" />
 
-                <Grid Grid.Row="3">
+                <Grid Grid.Row="4">
                     <Border
                         Padding="14"
                         Background="{ThemeResource ControlFillColorSecondaryBrush}"
@@ -738,71 +758,101 @@
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
-                    <StackPanel Spacing="8">
+                    <StackPanel
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.VideoJoinOutputSettingsVisibility, Mode=OneWay}">
                         <TextBlock FontWeight="SemiBold" Text="输出格式" />
                         <ComboBox
-                            ItemsSource="{x:Bind ViewModel.OutputFormats, Mode=OneWay}"
+                            DisplayMemberPath="DisplayName"
+                            ItemsSource="{x:Bind ViewModel.VideoJoinOutputFormats, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.SelectedOutputFormat, Mode=TwoWay}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.SelectedOutputFormatDescription, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
-                    <StackPanel Spacing="8">
-                        <TextBlock FontWeight="SemiBold" Text="输出路径" />
+                    <StackPanel
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.VideoJoinOutputSettingsVisibility, Mode=OneWay}">
+                        <TextBlock FontWeight="SemiBold" Text="输出目录" />
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
                             <TextBox
-                                Text="{x:Bind ViewModel.OutputPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="可选择导出目录，当前阶段暂不执行真实导出。" />
+                                IsReadOnly="True"
+                                Text="{x:Bind ViewModel.OutputDirectory, Mode=OneWay}"
+                                PlaceholderText="留空时使用预设视频所在文件夹输出" />
                             <Button
                                 Grid.Column="1"
-                                Command="{x:Bind ViewModel.BrowseOutputPathCommand, Mode=OneWay}"
-                                Content="浏览" />
+                                Command="{x:Bind ViewModel.BrowseOutputDirectoryCommand, Mode=OneWay}"
+                                Content="选择目录" />
+                            <Button
+                                Grid.Column="2"
+                                Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
+                                Content="清空" />
                         </Grid>
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.OutputDirectoryHintText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
-                    <StackPanel Spacing="8">
+                    <StackPanel
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.VideoJoinOutputSettingsVisibility, Mode=OneWay}">
                         <TextBlock FontWeight="SemiBold" Text="分辨率处理" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="{x:Bind ViewModel.VideoResolutionPresetSummaryText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                        <TextBlock FontWeight="SemiBold" Text="较小分辨率视频" />
                         <RadioButton
                             Content="统一为第一段视频"
                             GroupName="ResolutionStrategy"
-                            IsChecked="{x:Bind ViewModel.IsMatchFirstVideoResolutionSelected, Mode=TwoWay}" />
+                            Visibility="Collapsed" />
                         <RadioButton
                             Content="填充黑边"
                             GroupName="ResolutionStrategy"
-                            IsChecked="{x:Bind ViewModel.IsPadWithBlackBarsSelected, Mode=TwoWay}" />
+                            IsChecked="{x:Bind ViewModel.IsPadSmallerVideoWithBlackBarsSelected, Mode=TwoWay}" />
                         <RadioButton
                             Content="拉伸填充"
                             GroupName="ResolutionStrategy"
-                            IsChecked="{x:Bind ViewModel.IsStretchToFillSelected, Mode=TwoWay}" />
+                            IsChecked="{x:Bind ViewModel.IsStretchSmallerVideoToFillSelected, Mode=TwoWay}" />
                     </StackPanel>
 
-                    <StackPanel Spacing="8">
-                        <TextBlock FontWeight="SemiBold" Text="时长策略" />
+                    <StackPanel
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.VideoJoinOutputSettingsVisibility, Mode=OneWay}">
+                        <TextBlock FontWeight="SemiBold" Text="较大分辨率视频" />
                         <RadioButton
-                            Content="以视频为准"
-                            GroupName="DurationStrategy"
-                            IsChecked="{x:Bind ViewModel.IsVideoPrioritySelected, Mode=TwoWay}" />
+                            Content="挤压"
+                            GroupName="LargerResolutionStrategy"
+                            IsChecked="{x:Bind ViewModel.IsSqueezeLargerVideoToFitSelected, Mode=TwoWay}" />
                         <RadioButton
-                            Content="以音频为准"
-                            GroupName="DurationStrategy"
-                            IsChecked="{x:Bind ViewModel.IsAudioPrioritySelected, Mode=TwoWay}" />
-                        <RadioButton
-                            Content="自动循环"
-                            GroupName="DurationStrategy"
-                            IsChecked="{x:Bind ViewModel.IsAutoLoopSelected, Mode=TwoWay}" />
+                            Content="裁剪"
+                            GroupName="LargerResolutionStrategy"
+                            IsChecked="{x:Bind ViewModel.IsCropLargerVideoToFillSelected, Mode=TwoWay}" />
                     </StackPanel>
 
-                    <Button
-                        Click="OnExportButtonClick"
-                        HorizontalAlignment="Stretch">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <SymbolIcon Symbol="Save" />
-                            <TextBlock Text="导出" />
+                    <Border
+                        Padding="14"
+                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                        CornerRadius="14"
+                        Visibility="{x:Bind ViewModel.NonVideoJoinOutputSettingsVisibility, Mode=OneWay}">
+                        <StackPanel Spacing="6">
+                            <TextBlock FontWeight="SemiBold" Text="当前模式暂无独立输出设置" />
+                            <TextBlock
+                                Opacity="0.72"
+                                Text="右侧这组输出设置仅服务于视频拼接。音频拼接与音视频合成会在各自模式下提供独立配置，不再和视频拼接共用。"
+                                TextWrapping="WrapWholeWords" />
                         </StackPanel>
-                    </Button>
+                    </Border>
                 </StackPanel>
             </ScrollViewer>
         </Border>
