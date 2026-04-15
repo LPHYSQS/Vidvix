@@ -130,6 +130,103 @@
             </Style>
 
             <Style
+                x:Key="MergeModeSegmentRadioButtonStyle"
+                TargetType="RadioButton">
+                <Setter Property="MinWidth" Value="144" />
+                <Setter Property="MinHeight" Value="58" />
+                <Setter Property="Padding" Value="14,10" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+                <Setter Property="UseSystemFocusVisuals" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Grid
+                                x:Name="LayoutRoot"
+                                MinHeight="{TemplateBinding MinHeight}">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="InteractionSurface.Opacity" Value="0.96" />
+                                                <Setter Target="InteractionSurface.Background" Value="{ThemeResource ControlFillColorTertiaryBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="InteractionSurface.Opacity" Value="0.9" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="LayoutRoot.Opacity" Value="0.45" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+
+                                    <VisualStateGroup x:Name="CheckStates">
+                                        <VisualState x:Name="Unchecked">
+                                            <VisualState.Setters>
+                                                <Setter Target="InteractionSurface.Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+                                                <Setter Target="InteractionSurface.BorderBrush" Value="Transparent" />
+                                                <Setter Target="SelectionIndicator.Opacity" Value="0" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Checked">
+                                            <VisualState.Setters>
+                                                <Setter Target="InteractionSurface.Background" Value="{ThemeResource ControlFillColorTertiaryBrush}" />
+                                                <Setter Target="InteractionSurface.BorderBrush" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                                                <Setter Target="SelectionIndicator.Opacity" Value="1" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Indeterminate">
+                                            <VisualState.Setters>
+                                                <Setter Target="InteractionSurface.Background" Value="{ThemeResource ControlFillColorTertiaryBrush}" />
+                                                <Setter Target="InteractionSurface.BorderBrush" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                                                <Setter Target="SelectionIndicator.Opacity" Value="1" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+
+                                <Border
+                                    x:Name="InteractionSurface"
+                                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                    BorderBrush="Transparent"
+                                    BorderThickness="1"
+                                    CornerRadius="16"
+                                    Opacity="1"
+                                    Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter
+                                        x:Name="ContentHost"
+                                        HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                        VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                        Content="{TemplateBinding Content}"
+                                        ContentTemplate="{TemplateBinding ContentTemplate}"
+                                        ContentTransitions="{TemplateBinding ContentTransitions}" />
+                                </Border>
+                                <Border
+                                    x:Name="SelectionIndicator"
+                                    Height="3"
+                                    Width="34"
+                                    Margin="0,0,0,5"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    CornerRadius="999"
+                                    Opacity="0" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style
                 x:Key="SectionTitleTextStyle"
                 TargetType="TextBlock">
                 <Setter Property="FontSize" Value="18" />

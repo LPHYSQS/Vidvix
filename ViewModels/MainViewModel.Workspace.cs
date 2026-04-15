@@ -19,13 +19,24 @@ public sealed partial class MainViewModel
 
     public bool IsTrimWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.Trim;
 
-    public Visibility ProcessingWorkspaceVisibility => IsTrimWorkspaceSelected ? Visibility.Collapsed : Visibility.Visible;
+    public bool IsMergeWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.Merge;
+
+    public Visibility ProcessingWorkspaceVisibility =>
+        !IsTrimWorkspaceSelected && !IsMergeWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility TrimWorkspaceVisibility => IsTrimWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility MergeWorkspaceVisibility => IsMergeWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility VideoProcessingModeVisibility => IsVideoWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility AudioProcessingModeVisibility => IsAudioWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
+
+    public string WorkspaceHeaderCaption => "当前模块";
+
+    public string WorkspaceHeaderTitle => GetCurrentWorkspaceProfile().HeaderTitle;
+
+    public string WorkspaceHeaderDescription => GetCurrentWorkspaceProfile().HeaderDescription;
 
     public string QueueDragDropHintText => GetCurrentWorkspaceProfile().QueueDragDropHintText;
 
@@ -55,6 +66,7 @@ public sealed partial class MainViewModel
         {
             ProcessingWorkspaceKind.Audio => _audioImportItems,
             ProcessingWorkspaceKind.Trim => _trimImportItems,
+            ProcessingWorkspaceKind.Merge => _mergeImportItems,
             _ => _videoImportItems
         };
 
@@ -66,6 +78,7 @@ public sealed partial class MainViewModel
         {
             ProcessingWorkspaceKind.Audio => _audioLogEntries,
             ProcessingWorkspaceKind.Trim => _trimLogEntries,
+            ProcessingWorkspaceKind.Merge => _mergeLogEntries,
             _ => _videoLogEntries
         };
 
@@ -113,6 +126,8 @@ public sealed partial class MainViewModel
 
     private void SwitchToTrimWorkspace() => SetWorkspace(ProcessingWorkspaceKind.Trim);
 
+    private void SwitchToMergeWorkspace() => SetWorkspace(ProcessingWorkspaceKind.Merge);
+
     private void SetWorkspace(ProcessingWorkspaceKind workspaceKind)
     {
         if (_selectedWorkspaceKind == workspaceKind)
@@ -135,10 +150,14 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(IsVideoWorkspaceSelected));
         OnPropertyChanged(nameof(IsAudioWorkspaceSelected));
         OnPropertyChanged(nameof(IsTrimWorkspaceSelected));
+        OnPropertyChanged(nameof(IsMergeWorkspaceSelected));
         OnPropertyChanged(nameof(ProcessingWorkspaceVisibility));
         OnPropertyChanged(nameof(TrimWorkspaceVisibility));
+        OnPropertyChanged(nameof(MergeWorkspaceVisibility));
         OnPropertyChanged(nameof(VideoProcessingModeVisibility));
         OnPropertyChanged(nameof(AudioProcessingModeVisibility));
+        OnPropertyChanged(nameof(WorkspaceHeaderTitle));
+        OnPropertyChanged(nameof(WorkspaceHeaderDescription));
         OnPropertyChanged(nameof(QueueSummaryText));
         OnPropertyChanged(nameof(SupportedInputFormatsHint));
         OnPropertyChanged(nameof(QueueDragDropHintText));
@@ -146,7 +165,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(FixedProcessingModeDisplayName));
         OnPropertyChanged(nameof(FixedProcessingModeDescription));
 
-        if (!IsTrimWorkspaceSelected)
+        if (!IsTrimWorkspaceSelected && !IsMergeWorkspaceSelected)
         {
             ReloadOutputFormats();
             RecalculatePlannedOutputs();

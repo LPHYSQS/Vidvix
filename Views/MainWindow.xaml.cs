@@ -127,13 +127,14 @@ public sealed partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(MainViewModel.RequestedTheme))
         {
-            UpdateTitleBarColors();
+            UpdateWindowChrome();
             return;
         }
 
         if (e.PropertyName == nameof(MainViewModel.IsVideoWorkspaceSelected) ||
             e.PropertyName == nameof(MainViewModel.IsAudioWorkspaceSelected) ||
-            e.PropertyName == nameof(MainViewModel.IsTrimWorkspaceSelected))
+            e.PropertyName == nameof(MainViewModel.IsTrimWorkspaceSelected) ||
+            e.PropertyName == nameof(MainViewModel.IsMergeWorkspaceSelected))
         {
             UpdateWorkspaceToggleVisuals();
         }

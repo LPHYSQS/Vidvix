@@ -15,7 +15,9 @@ public sealed class ProcessingWorkspaceProfile
         string mediaFileLabel,
         IReadOnlyList<string> supportedInputFileTypes,
         string? fixedProcessingModeDisplayName = null,
-        string? fixedProcessingModeDescription = null)
+        string? fixedProcessingModeDescription = null,
+        string? headerTitle = null,
+        string? headerDescription = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(mediaLabel);
         ArgumentException.ThrowIfNullOrWhiteSpace(mediaFileLabel);
@@ -27,6 +29,8 @@ public sealed class ProcessingWorkspaceProfile
         SupportedInputFileTypes = supportedInputFileTypes;
         FixedProcessingModeDisplayName = fixedProcessingModeDisplayName ?? string.Empty;
         FixedProcessingModeDescription = fixedProcessingModeDescription ?? string.Empty;
+        HeaderTitle = string.IsNullOrWhiteSpace(headerTitle) ? $"{mediaLabel}处理" : headerTitle;
+        HeaderDescription = string.IsNullOrWhiteSpace(headerDescription) ? $"管理{mediaFileLabel}导入与处理任务。" : headerDescription;
     }
 
     public ProcessingWorkspaceKind Kind { get; }
@@ -40,6 +44,10 @@ public sealed class ProcessingWorkspaceProfile
     public string FixedProcessingModeDisplayName { get; }
 
     public string FixedProcessingModeDescription { get; }
+
+    public string HeaderTitle { get; }
+
+    public string HeaderDescription { get; }
 
     public string QueueDragDropHintText => $"支持拖拽{MediaFileLabel}或文件夹到窗口任意位置";
 

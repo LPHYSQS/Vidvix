@@ -37,7 +37,8 @@ public sealed class AppCompositionRoot
         var mediaRuntime = CreateMediaRuntimeServices(infrastructure.WindowContext);
         var workflows = CreateWorkflowServices(mediaRuntime);
         var trimWorkspace = CreateTrimWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
-        _mainViewModel = CreateMainViewModel(infrastructure, mediaRuntime, workflows, trimWorkspace);
+        var mergeWorkspace = CreateMergeWorkspaceViewModel(infrastructure, mediaRuntime);
+        _mainViewModel = CreateMainViewModel(infrastructure, mediaRuntime, workflows, trimWorkspace, mergeWorkspace);
     }
 
     public ApplicationConfiguration Configuration { get; }
@@ -144,11 +145,23 @@ public sealed class AppCompositionRoot
             Logger);
     }
 
+    private MergeViewModel CreateMergeWorkspaceViewModel(
+        AppInfrastructureServices infrastructure,
+        AppMediaRuntimeServices mediaRuntime)
+    {
+        return new MergeViewModel(
+            infrastructure.FilePickerService,
+            mediaRuntime.MediaInfoService,
+            Configuration,
+            Logger);
+    }
+
     private MainViewModel CreateMainViewModel(
         AppInfrastructureServices infrastructure,
         AppMediaRuntimeServices mediaRuntime,
         AppWorkflowServices workflows,
-        VideoTrimWorkspaceViewModel trimWorkspace)
+        VideoTrimWorkspaceViewModel trimWorkspace,
+        MergeViewModel mergeWorkspace)
     {
         return new MainViewModel(
             Configuration,
@@ -161,6 +174,7 @@ public sealed class AppCompositionRoot
             infrastructure.DispatcherService,
             infrastructure.UserPreferencesService,
             infrastructure.FileRevealService,
-            trimWorkspace);
+            trimWorkspace,
+            mergeWorkspace);
     }
 }

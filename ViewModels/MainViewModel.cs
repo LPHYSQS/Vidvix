@@ -61,9 +61,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly ObservableCollection<LogEntry> _videoLogEntries;
     private readonly ObservableCollection<LogEntry> _audioLogEntries;
     private readonly ObservableCollection<LogEntry> _trimLogEntries;
+    private readonly ObservableCollection<LogEntry> _mergeLogEntries;
     private readonly ObservableCollection<MediaJobViewModel> _videoImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _audioImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _trimImportItems;
+    private readonly ObservableCollection<MediaJobViewModel> _mergeImportItems;
     private readonly AsyncRelayCommand _selectFilesCommand;
     private readonly AsyncRelayCommand _selectFolderCommand;
     private readonly AsyncRelayCommand _selectOutputDirectoryCommand;
@@ -113,7 +115,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         IDispatcherService dispatcherService,
         IUserPreferencesService userPreferencesService,
         IFileRevealService fileRevealService,
-        VideoTrimWorkspaceViewModel trimWorkspace)
+        VideoTrimWorkspaceViewModel trimWorkspace,
+        MergeViewModel mergeWorkspace)
     {
         _configuration = configuration;
         _mediaInfoService = mediaInfoService;
@@ -126,6 +129,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _userPreferencesService = userPreferencesService;
         _fileRevealService = fileRevealService;
         TrimWorkspace = trimWorkspace ?? throw new ArgumentNullException(nameof(trimWorkspace));
+        MergeWorkspace = mergeWorkspace ?? throw new ArgumentNullException(nameof(mergeWorkspace));
         _statusMessage = RuntimePreparingMessage;
 
         ThemeOptions = ThemePreferenceOptions;
@@ -133,9 +137,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _videoLogEntries = new ObservableCollection<LogEntry>();
         _audioLogEntries = new ObservableCollection<LogEntry>();
         _trimLogEntries = new ObservableCollection<LogEntry>();
+        _mergeLogEntries = new ObservableCollection<LogEntry>();
         _videoImportItems = new ObservableCollection<MediaJobViewModel>();
         _audioImportItems = new ObservableCollection<MediaJobViewModel>();
         _trimImportItems = new ObservableCollection<MediaJobViewModel>();
+        _mergeImportItems = new ObservableCollection<MediaJobViewModel>();
         DetailPanel = new MediaDetailPanelViewModel();
         ProcessingModes = _configuration.SupportedProcessingModes;
 
@@ -168,6 +174,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _switchToVideoWorkspaceCommand = new RelayCommand(SwitchToVideoWorkspace, () => CanModifyInputs);
         _switchToAudioWorkspaceCommand = new RelayCommand(SwitchToAudioWorkspace, () => CanModifyInputs);
         _switchToTrimWorkspaceCommand = new RelayCommand(SwitchToTrimWorkspace, () => CanModifyInputs);
+        _switchToMergeWorkspaceCommand = new RelayCommand(SwitchToMergeWorkspace, () => CanModifyInputs);
 
         DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
         TrimWorkspace.PropertyChanged += OnTrimWorkspacePropertyChanged;

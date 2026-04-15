@@ -1,12 +1,17 @@
 using System;
+using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
+using Windows.UI;
 
 namespace Vidvix.Views;
 
 public sealed partial class MainWindow
 {
+    private static readonly Color LightWorkspaceToggleForegroundColor = ColorHelper.FromArgb(255, 42, 42, 42);
+    private static readonly Color DarkWorkspaceToggleForegroundColor = ColorHelper.FromArgb(255, 242, 242, 242);
+
     private void UpdateTitleBarColors()
     {
         if (!AppWindowTitleBar.IsCustomizationSupported())
@@ -49,7 +54,9 @@ public sealed partial class MainWindow
     private void UpdateWorkspaceToggleVisuals()
     {
         var accentBrush = ResolveBrushResource("AccentFillColorDefaultBrush");
-        var defaultBrush = ResolveBrushResource("TextFillColorPrimaryBrush");
+        var defaultBrush = new SolidColorBrush(ResolveIsDarkTheme()
+            ? DarkWorkspaceToggleForegroundColor
+            : LightWorkspaceToggleForegroundColor);
 
         VideoWorkspaceIcon.Foreground = ViewModel.IsVideoWorkspaceSelected ? accentBrush : defaultBrush;
         VideoWorkspaceText.Foreground = ViewModel.IsVideoWorkspaceSelected ? accentBrush : defaultBrush;
@@ -57,6 +64,8 @@ public sealed partial class MainWindow
         AudioWorkspaceText.Foreground = ViewModel.IsAudioWorkspaceSelected ? accentBrush : defaultBrush;
         TrimWorkspaceIcon.Foreground = ViewModel.IsTrimWorkspaceSelected ? accentBrush : defaultBrush;
         TrimWorkspaceText.Foreground = ViewModel.IsTrimWorkspaceSelected ? accentBrush : defaultBrush;
+        MergeWorkspaceIcon.Stroke = ViewModel.IsMergeWorkspaceSelected ? accentBrush : defaultBrush;
+        MergeWorkspaceText.Foreground = ViewModel.IsMergeWorkspaceSelected ? accentBrush : defaultBrush;
     }
 
     private static Brush ResolveBrushResource(string resourceKey) =>

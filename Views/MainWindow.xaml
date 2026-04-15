@@ -8,6 +8,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:Vidvix.Core.Models"
+    xmlns:views="using:Vidvix.Views"
     xmlns:viewModels="using:Vidvix.ViewModels"
     mc:Ignorable="d"
     Title="Vidvix">
@@ -32,6 +33,7 @@
         </Grid.RowDefinitions>
 
         <Border
+            MinHeight="96"
             Padding="14,12"
             Style="{StaticResource SurfaceCardBorderStyle}">
             <Grid ColumnSpacing="16">
@@ -57,33 +59,20 @@
                         Spacing="2">
                         <TextBlock
                             Style="{StaticResource CaptionTextStyle}"
-                            Text="快速开始" />
+                            Text="{x:Bind ViewModel.WorkspaceHeaderCaption, Mode=OneWay}" />
                         <TextBlock
                             FontSize="16"
                             FontWeight="SemiBold"
-                            MaxLines="2"
-                            Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                            MaxLines="1"
+                            Text="{x:Bind ViewModel.WorkspaceHeaderTitle, Mode=OneWay}"
                             TextTrimming="CharacterEllipsis"
-                            TextWrapping="WrapWholeWords"
-                            Visibility="{x:Bind ViewModel.ProcessingWorkspaceVisibility, Mode=OneWay}" />
+                            TextWrapping="NoWrap" />
                         <TextBlock
-                            FontSize="16"
-                            FontWeight="SemiBold"
-                            MaxLines="2"
-                            Text="{x:Bind ViewModel.TrimWorkspace.StatusMessage, Mode=OneWay}"
+                            MaxLines="1"
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.WorkspaceHeaderDescription, Mode=OneWay}"
                             TextTrimming="CharacterEllipsis"
-                            TextWrapping="WrapWholeWords"
-                            Visibility="{x:Bind ViewModel.TrimWorkspaceVisibility, Mode=OneWay}" />
-                        <TextBlock
-                            Opacity="0.72"
-                            Text="支持导入文件、文件夹，也支持直接拖拽到窗口"
-                            TextWrapping="WrapWholeWords"
-                            Visibility="{x:Bind ViewModel.ProcessingWorkspaceVisibility, Mode=OneWay}" />
-                        <TextBlock
-                            Opacity="0.72"
-                            Text="裁剪模块仅支持单个视频文件，可通过按钮或拖拽方式导入"
-                            TextWrapping="WrapWholeWords"
-                            Visibility="{x:Bind ViewModel.TrimWorkspaceVisibility, Mode=OneWay}" />
+                            TextWrapping="NoWrap" />
                     </StackPanel>
                 </StackPanel>
 
@@ -157,6 +146,20 @@
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarSeparator />
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Setting" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                </CommandBar>
+
+                <CommandBar
+                    Grid.Column="1"
+                    Background="Transparent"
+                    DefaultLabelPosition="Right"
+                    IsDynamicOverflowEnabled="True"
+                    VerticalAlignment="Center"
+                    Visibility="{x:Bind ViewModel.MergeWorkspaceVisibility, Mode=OneWay}">
                     <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />
@@ -393,6 +396,36 @@
                                         FontSize="12"
                                         FontWeight="SemiBold"
                                         Text="裁剪" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <ToggleButton
+                                x:Name="MergeWorkspaceToggle"
+                                Command="{x:Bind ViewModel.SwitchToMergeWorkspaceCommand, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.IsMergeWorkspaceSelected, Mode=OneWay}"
+                                IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                <StackPanel
+                                    HorizontalAlignment="Center"
+                                    Spacing="5">
+                                    <Path
+                                        x:Name="MergeWorkspaceIcon"
+                                        HorizontalAlignment="Center"
+                                        Width="18"
+                                        Height="18"
+                                        Stretch="Uniform"
+                                        Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                                        StrokeThickness="1.9"
+                                        StrokeStartLineCap="Round"
+                                        StrokeEndLineCap="Round"
+                                        StrokeLineJoin="Round"
+                                        Data="M4 7H10L14 12 M4 17H10L14 12 M14 12H20 M17 9L20 12L17 15" />
+                                    <TextBlock
+                                        x:Name="MergeWorkspaceText"
+                                        HorizontalAlignment="Center"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Text="合并" />
                                 </StackPanel>
                             </ToggleButton>
                         </StackPanel>
@@ -879,6 +912,13 @@
                         VerticalAlignment="Stretch"
                         ViewModel="{x:Bind ViewModel.TrimWorkspace, Mode=OneWay}"
                         Visibility="{x:Bind ViewModel.TrimWorkspaceVisibility, Mode=OneWay}" />
+
+                    <views:MergePage
+                        Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        ViewModel="{x:Bind ViewModel.MergeWorkspace, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.MergeWorkspaceVisibility, Mode=OneWay}" />
                 </Grid>
             </SplitView.Content>
         </SplitView>

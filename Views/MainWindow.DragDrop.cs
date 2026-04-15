@@ -21,6 +21,12 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (ViewModel.IsMergeWorkspaceSelected)
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            return;
+        }
+
         e.AcceptedOperation = DataPackageOperation.Copy;
         e.DragUIOverride.Caption = ViewModel.IsTrimWorkspaceSelected
             ? ViewModel.TrimWorkspace.DragDropCaptionText
@@ -44,6 +50,11 @@ public sealed partial class MainWindow
             .ToArray();
 
         if (paths.Length == 0)
+        {
+            return;
+        }
+
+        if (ViewModel.IsMergeWorkspaceSelected)
         {
             return;
         }

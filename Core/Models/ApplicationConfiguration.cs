@@ -79,21 +79,36 @@ public sealed class ApplicationConfiguration
                 ProcessingWorkspaceKind.Video,
                 "视频",
                 "视频文件",
-                DefaultSupportedVideoInputFileTypes),
+                DefaultSupportedVideoInputFileTypes,
+                headerTitle: "视频处理",
+                headerDescription: "批量转换视频文件，并提取视频、音频或字幕轨道。"),
             [ProcessingWorkspaceKind.Audio] = new(
                 ProcessingWorkspaceKind.Audio,
                 "音频",
                 "音频文件",
                 DefaultSupportedAudioInputFileTypes,
                 fixedProcessingModeDisplayName: "音频格式转换",
-                fixedProcessingModeDescription: "将音频文件转换为目标格式，支持多种音频格式之间互相转换。"),
+                fixedProcessingModeDescription: "将音频文件转换为目标格式，支持多种音频格式之间互相转换。",
+                headerTitle: "音频处理",
+                headerDescription: "批量转换音频文件，适配常见音频格式输出。"),
             [ProcessingWorkspaceKind.Trim] = new(
                 ProcessingWorkspaceKind.Trim,
                 "裁剪",
                 "音频或视频文件",
                 DefaultSupportedTrimInputFileTypes,
                 fixedProcessingModeDisplayName: "媒体裁剪",
-                fixedProcessingModeDescription: "导入单个音频或视频文件后，按所选起止时间精确导出对应片段。")
+                fixedProcessingModeDescription: "导入单个音频或视频文件后，按所选起止时间精确导出对应片段。",
+                headerTitle: "媒体裁剪",
+                headerDescription: "导入单个音频或视频文件，按时间范围精确导出片段。"),
+            [ProcessingWorkspaceKind.Merge] = new(
+                ProcessingWorkspaceKind.Merge,
+                "合并",
+                "音频或视频文件",
+                DefaultSupportedTrimInputFileTypes,
+                fixedProcessingModeDisplayName: "素材合并",
+                fixedProcessingModeDescription: "统一编排多段音视频素材，完成拼接、混音与音视频合成。",
+                headerTitle: "媒体合并",
+                headerDescription: "统一编排音视频素材，完成拼接与音视频合成。")
         };
 
     public IReadOnlyList<ProcessingModeOption> SupportedProcessingModes { get; init; } =
