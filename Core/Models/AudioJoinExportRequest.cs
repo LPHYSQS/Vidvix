@@ -8,8 +8,9 @@ public sealed record AudioJoinExportRequest(
     IReadOnlyList<AudioJoinSegment> Segments,
     string OutputPath,
     OutputFormatOption OutputFormat,
-    int PresetSampleRate,
-    int? PresetBitrate)
+    AudioJoinParameterMode ParameterMode,
+    int TargetSampleRate,
+    int? TargetBitrate)
 {
     public TimeSpan TotalDuration => Segments.Aggregate(TimeSpan.Zero, static (current, segment) => current + segment.Duration);
 }

@@ -643,7 +643,7 @@
                                 <TextBlock
                                     Opacity="0.72"
                                     Style="{StaticResource CaptionTextStyle}"
-                                    Text="可左键长按拖拽片段调整顺序，也可使用片段顶部按钮快速移除或设为参数预设。"
+                                    Text="{x:Bind ViewModel.AudioTrackOperationHintText, Mode=OneWay}"
                                     TextWrapping="WrapWholeWords" />
                             </StackPanel>
 
@@ -758,6 +758,7 @@
                                                                 Style="{StaticResource MergeTrackActionButtonStyle}"
                                                                 IsEnabled="{x:Bind CanSetAsResolutionPreset, Mode=OneWay}"
                                                                 Tag="{x:Bind}"
+                                                                Visibility="{Binding ViewModel.AudioJoinPresetSelectionVisibility, ElementName=RootPage}"
                                                                 ToolTipService.ToolTip="设为参数预设">
                                                                 <TextBlock Text="预设" />
                                                             </Button>
@@ -1131,6 +1132,30 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioJoinOutputSettingsVisibility, Mode=OneWay}">
+                        <TextBlock FontWeight="SemiBold" Text="参数模式" />
+                        <RadioButton
+                            Content="均衡模式"
+                            GroupName="AudioJoinParameterMode"
+                            IsChecked="{x:Bind ViewModel.IsBalancedAudioJoinParameterModeSelected, Mode=TwoWay}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="不锁定单个预设音频，按全部有效音轨的整体情况统一采样率与码率，更偏向稳定听感和输出兼容性。"
+                            TextWrapping="WrapWholeWords" />
+                        <RadioButton
+                            Content="指定预设模式"
+                            GroupName="AudioJoinParameterMode"
+                            IsChecked="{x:Bind ViewModel.IsPresetAudioJoinParameterModeSelected, Mode=TwoWay}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="以音频轨道中选中的参数预设为目标，低于目标的补齐到目标，高于目标的压到目标，匹配的保持不动。"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
+                    <StackPanel
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.AudioJoinOutputSettingsVisibility, Mode=OneWay}">
                         <TextBlock FontWeight="SemiBold" Text="输出目录" />
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
@@ -1186,7 +1211,7 @@
                         </Border>
                         <TextBlock
                             Opacity="0.72"
-                            Text="音频拼接会以当前预设片段的采样率为基准，并在可用时参考其码率生成输出。"
+                            Text="{x:Bind ViewModel.AudioJoinParameterModeHintText, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 

@@ -85,7 +85,7 @@ public sealed class AudioJoinWorkflowService : IAudioJoinWorkflowService
         arguments.Add("-ar");
         arguments.Add(GetEffectiveSampleRate(request).ToString(CultureInfo.InvariantCulture));
 
-        ApplyOutputEncoding(arguments, request.OutputFormat, request.PresetBitrate);
+        ApplyOutputEncoding(arguments, request.OutputFormat, request.ParameterMode, request.TargetBitrate);
         arguments.Add(request.OutputPath);
         return new FFmpegCommand(runtimeExecutablePath, arguments);
     }
@@ -110,20 +110,35 @@ public sealed class AudioJoinWorkflowService : IAudioJoinWorkflowService
     }
 
     private static int GetEffectiveSampleRate(AudioJoinExportRequest request) =>
-        request.PresetSampleRate > 0 ? request.PresetSampleRate : DefaultSampleRate;
+        request.TargetSampleRate > 0 ? request.TargetSampleRate : DefaultSampleRate;
 
-    private static void ApplyOutputEncoding(List<string> arguments, OutputFormatOption outputFormat, int? presetBitrate)
+    private static void ApplyOutputEncoding(
+        List<string> arguments,
+        OutputFormatOption outputFormat,
+        AudioJoinParameterMode parameterMode,
+        int? targetBitrate)
     {
         switch (outputFormat.Extension.ToLowerInvariant())
         {
             case ".mp3":
-                ApplyLossyAudioOutput(arguments, "libmp3lame", ResolveBitrateKbps(presetBitrate, fallbackKbps: 192, minKbps: 96, maxKbps: 320));
+                ApplyLossyAudioOutput(
+                    arguments,
+                    "libmp3lame",
+                    ResolveBitrateKbps(targetBitrate, parameterMode, fallbackKbps: 192, minKbps: 96, maxKbps: 320));
                 break;
             case ".m4a":
-                ApplyLossyAudioOutput(arguments, "aac", ResolveBitrateKbps(presetBitrate, fallbackKbps: 192, minKbps: 96, maxKbps: 320), addFastStart: true);
+                ApplyLossyAudioOutput(
+                    arguments,
+                    "aac",
+                    ResolveBitrateKbps(targetBitrate, parameterMode, fallbackKbps: 192, minKbps: 96, maxKbps: 320),
+                    addFastStart: true);
                 break;
             case ".aac":
-                ApplyLossyAudioOutput(arguments, "aac", ResolveBitrateKbps(presetBitrate, fallbackKbps: 192, minKbps: 96, maxKbps: 320), formatOverride: "adts");
+                ApplyLossyAudioOutput(
+                    arguments,
+                    "aac",
+                    ResolveBitrateKbps(targetBitrate, parameterMode, fallbackKbps: 192, minKbps: 96, maxKbps: 320),
+                    formatOverride: "adts");
                 break;
             case ".wav":
                 arguments.AddRange(new[] { "-c:a", "pcm_s16le" });
@@ -132,13 +147,23 @@ public sealed class AudioJoinWorkflowService : IAudioJoinWorkflowService
                 arguments.AddRange(new[] { "-c:a", "flac" });
                 break;
             case ".wma":
-                ApplyLossyAudioOutput(arguments, "wmav2", ResolveBitrateKbps(presetBitrate, fallbackKbps: 192, minKbps: 96, maxKbps: 320));
+                ApplyLossyAudioOutput(
+                    arguments,
+                    "wmav2",
+                    ResolveBitrateKbps(targetBitrate, parameterMode, fallbackKbps: 192, minKbps: 96, maxKbps: 320));
                 break;
             case ".ogg":
-                ApplyLossyAudioOutput(arguments, "libvorbis", ResolveBitrateKbps(presetBitrate, fallbackKbps: 192, minKbps: 96, maxKbps: 320));
+                ApplyLossyAudioOutput(
+                    arguments,
+                    "libvorbis",
+                    ResolveBitrateKbps(targetBitrate, parameterMode, fallbackKbps: 192, minKbps: 96, maxKbps: 320));
                 break;
             case ".opus":
-                ApplyLossyAudioOutput(arguments, "libopus", ResolveBitrateKbps(presetBitrate, fallbackKbps: 160, minKbps: 48, maxKbps: 256));
+                ApplyLossyAudioOutput(
+                    arguments,
+                    "libopus",
+                    ResolveBitrateKbps(targetBitrate, parameterMode, fallbackKbps: 160, minKbps: 48, maxKbps: 256),
+                    disableVariableBitrate: parameterMode == AudioJoinParameterMode.Preset);
                 break;
             case ".aiff":
             case ".aif":
@@ -157,9 +182,15 @@ public sealed class AudioJoinWorkflowService : IAudioJoinWorkflowService
         string codecName,
         int bitrateKbps,
         string? formatOverride = null,
-        bool addFastStart = false)
+        bool addFastStart = false,
+        bool disableVariableBitrate = false)
     {
         arguments.AddRange(new[] { "-c:a", codecName, "-b:a", $"{bitrateKbps}k" });
+
+        if (disableVariableBitrate)
+        {
+            arguments.AddRange(new[] { "-vbr", "off" });
+        }
 
         if (!string.IsNullOrWhiteSpace(formatOverride))
         {
@@ -172,15 +203,22 @@ public sealed class AudioJoinWorkflowService : IAudioJoinWorkflowService
         }
     }
 
-    private static int ResolveBitrateKbps(int? presetBitrate, int fallbackKbps, int minKbps, int maxKbps)
+    private static int ResolveBitrateKbps(
+        int? targetBitrate,
+        AudioJoinParameterMode parameterMode,
+        int fallbackKbps,
+        int minKbps,
+        int maxKbps)
     {
-        if (presetBitrate is not > 0)
+        if (targetBitrate is not > 0)
         {
             return fallbackKbps;
         }
 
-        var rawKbps = (int)Math.Round(presetBitrate.Value / 1_000d, MidpointRounding.AwayFromZero);
+        var rawKbps = (int)Math.Round(targetBitrate.Value / 1_000d, MidpointRounding.AwayFromZero);
         var clampedKbps = Math.Clamp(rawKbps, minKbps, maxKbps);
-        return Math.Max(32, (int)(Math.Round(clampedKbps / 16d, MidpointRounding.AwayFromZero) * 16d));
+        return parameterMode == AudioJoinParameterMode.Preset
+            ? clampedKbps
+            : Math.Max(32, (int)(Math.Round(clampedKbps / 16d, MidpointRounding.AwayFromZero) * 16d));
     }
 }

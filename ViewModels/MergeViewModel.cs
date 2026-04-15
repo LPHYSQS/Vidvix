@@ -57,6 +57,7 @@ public sealed class MergeViewModel : ObservableObject
     private MergeLargerResolutionStrategy _selectedLargerResolutionStrategy;
     private Guid? _manualVideoResolutionPresetTrackId;
     private Guid? _manualAudioParameterPresetTrackId;
+    private AudioJoinParameterMode _selectedAudioJoinParameterMode;
 
     public MergeViewModel(
         IFilePickerService? filePickerService = null,
@@ -104,6 +105,7 @@ public sealed class MergeViewModel : ObservableObject
         _selectedMergeMode = ResolvePreferredMergeMode(preferences.PreferredMergeWorkspaceMode);
         _selectedSmallerResolutionStrategy = ResolvePreferredMergeSmallerResolutionStrategy(preferences.PreferredMergeSmallerResolutionStrategy);
         _selectedLargerResolutionStrategy = ResolvePreferredMergeLargerResolutionStrategy(preferences.PreferredMergeLargerResolutionStrategy);
+        _selectedAudioJoinParameterMode = ResolvePreferredAudioJoinParameterMode(preferences.PreferredMergeAudioJoinParameterMode);
 
         _importFilesCommand = new AsyncRelayCommand(ImportFilesAsync, () => !IsVideoJoinProcessing);
         _browseOutputDirectoryCommand = new AsyncRelayCommand(BrowseOutputDirectoryAsync, CanEditActiveOutputSettings);
@@ -194,7 +196,7 @@ public sealed class MergeViewModel : ObservableObject
             ? OutputDirectory
             : GetDefaultVideoJoinOutputDirectory() ?? string.Empty;
 
-    public string OutputDirectoryHintText => "默认使用当前预设素材所在文件夹；设置后，处理结果会统一输出到所选文件夹。";
+    public string OutputDirectoryHintText => "默认使用当前模式下基准素材所在文件夹；设置后，处理结果会统一输出到所选文件夹。";
 
     public string VideoJoinOutputFileName
     {
@@ -230,6 +232,8 @@ public sealed class MergeViewModel : ObservableObject
                 OnPropertyChanged(nameof(SelectedAudioJoinOutputFormatDescription));
                 OnPropertyChanged(nameof(AudioJoinResolvedOutputFileName));
                 OnPropertyChanged(nameof(AudioJoinOutputNameHintText));
+                OnPropertyChanged(nameof(AudioParameterPresetSummaryText));
+                OnPropertyChanged(nameof(AudioJoinParameterModeHintText));
                 PersistAudioJoinPreferences();
                 StatusMessage = $"音频拼接输出格式已切换为 {value.DisplayName}。";
             }
@@ -347,6 +351,45 @@ public sealed class MergeViewModel : ObservableObject
             }
         }
     }
+
+    public bool IsBalancedAudioJoinParameterModeSelected
+    {
+        get => _selectedAudioJoinParameterMode == AudioJoinParameterMode.Balanced;
+        set
+        {
+            if (value)
+            {
+                SetAudioJoinParameterMode(AudioJoinParameterMode.Balanced);
+            }
+        }
+    }
+
+    public bool IsPresetAudioJoinParameterModeSelected
+    {
+        get => _selectedAudioJoinParameterMode == AudioJoinParameterMode.Preset;
+        set
+        {
+            if (value)
+            {
+                SetAudioJoinParameterMode(AudioJoinParameterMode.Preset);
+            }
+        }
+    }
+
+    public Visibility AudioJoinPresetSelectionVisibility =>
+        _selectedAudioJoinParameterMode == AudioJoinParameterMode.Preset
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    public string AudioTrackOperationHintText =>
+        _selectedAudioJoinParameterMode == AudioJoinParameterMode.Preset
+            ? "可左键长按拖拽片段调整顺序，也可使用片段顶部按钮快速移除或设为参数预设。"
+            : "可左键长按拖拽片段调整顺序，也可使用片段顶部按钮快速移除。均衡模式不支持手动参数预设。";
+
+    public string AudioJoinParameterModeHintText =>
+        _selectedAudioJoinParameterMode == AudioJoinParameterMode.Preset
+            ? $"指定预设模式会锁定当前参数预设片段的采样率与目标码率：低于目标的音频会补齐到目标，高于目标的会压到目标，匹配的保持不动。若 {SelectedAudioJoinOutputFormat.DisplayName} 本身不支持固定码率，系统会优先锁定采样率并尽可能贴近目标码率。"
+            : $"均衡模式不会锁定某一个预设片段。系统会按全部有效音轨中最常见的采样率与码率统一处理，再根据 {SelectedAudioJoinOutputFormat.DisplayName} 的编码规则做兼容性量化，因此重新导入后看到的 kHz / kbps 可能不会与某条原始音频完全一致。";
 
     public bool IsPadSmallerVideoWithBlackBarsSelected
     {
@@ -513,6 +556,17 @@ public sealed class MergeViewModel : ObservableObject
     {
         get
         {
+            if (_selectedAudioJoinParameterMode == AudioJoinParameterMode.Balanced)
+            {
+                if (_audioJoinAudioTrackItems.Count == 0)
+                {
+                    return "当前为均衡模式，添加音频片段后会按全部有效音轨自动统一参数。";
+                }
+
+                var (targetSampleRate, targetBitrate) = ResolveBalancedAudioJoinTargets(_audioJoinAudioTrackItems);
+                return $"当前为均衡模式：不使用手动参数预设，预计输出 {BuildAudioJoinOutputSummaryText(targetSampleRate, targetBitrate, SelectedAudioJoinOutputFormat, AudioJoinParameterMode.Balanced)}。";
+            }
+
             if (_audioJoinAudioTrackItems.Count == 0)
             {
                 return "添加音频片段后，将默认以首个可用音频作为参数预设。";
@@ -524,9 +578,16 @@ public sealed class MergeViewModel : ObservableObject
                 return "当前暂无可用的音频片段可作为参数预设。";
             }
 
+            var sampleRate = TryResolveAudioJoinSampleRate(null, presetTrackItem, out var resolvedSampleRate)
+                ? resolvedSampleRate
+                : 0;
+            int? bitrate = TryResolveAudioJoinBitrate(null, presetTrackItem, out var resolvedBitrate)
+                ? resolvedBitrate
+                : null;
+
             return HasManualAudioParameterPresetSelection()
-                ? $"当前音频参数预设：{presetTrackItem.SourceName} · {presetTrackItem.ResolutionText}"
-                : $"当前默认以首个可用音频作为参数预设：{presetTrackItem.SourceName} · {presetTrackItem.ResolutionText}";
+                ? $"当前音频参数预设：{presetTrackItem.SourceName} · 目标输出 {BuildAudioJoinOutputSummaryText(sampleRate, bitrate, SelectedAudioJoinOutputFormat, AudioJoinParameterMode.Preset)}。"
+                : $"当前默认以首个可用音频作为参数预设：{presetTrackItem.SourceName} · 目标输出 {BuildAudioJoinOutputSummaryText(sampleRate, bitrate, SelectedAudioJoinOutputFormat, AudioJoinParameterMode.Preset)}。";
         }
     }
 
@@ -668,8 +729,15 @@ public sealed class MergeViewModel : ObservableObject
         }
 
         var removedClipName = trackItem.SourceName;
-        var removedPresetClip = ReferenceEquals(GetEffectiveAudioParameterPresetItem(), trackItem);
+        var removedPresetClip = _selectedAudioJoinParameterMode == AudioJoinParameterMode.Preset &&
+                                ReferenceEquals(GetEffectiveAudioParameterPresetItem(), trackItem);
         _audioJoinAudioTrackItems.Remove(trackItem);
+
+        if (_selectedAudioJoinParameterMode != AudioJoinParameterMode.Preset)
+        {
+            StatusMessage = $"{removedClipName} 已从音频轨道移除。";
+            return;
+        }
 
         var fallbackPresetTrackItem = GetEffectiveAudioParameterPresetItem();
         StatusMessage = removedPresetClip && fallbackPresetTrackItem is not null
@@ -684,6 +752,12 @@ public sealed class MergeViewModel : ObservableObject
         if (IsVideoJoinProcessing)
         {
             StatusMessage = "音频拼接任务处理中，若需调整参数预设，请先取消当前任务。";
+            return;
+        }
+
+        if (_selectedAudioJoinParameterMode != AudioJoinParameterMode.Preset)
+        {
+            StatusMessage = "当前为均衡模式，不支持手动参数预设。";
             return;
         }
 
@@ -824,7 +898,7 @@ public sealed class MergeViewModel : ObservableObject
         if (_selectedMergeMode == MergeWorkspaceMode.AudioJoin)
         {
             AudioJoinOutputDirectory = string.Empty;
-            StatusMessage = "已清空音频拼接输出目录，处理时将恢复为当前音频预设素材所在文件夹。";
+            StatusMessage = "已清空音频拼接输出目录，处理时将恢复为当前音频基准素材所在文件夹。";
             return;
         }
 
@@ -971,22 +1045,39 @@ public sealed class MergeViewModel : ObservableObject
             var activeTrackItems = _audioJoinAudioTrackItems
                 .Where(trackItem => trackItem.IsSourceAvailable)
                 .ToArray();
-            var presetTrackItem = GetEffectiveAudioParameterPresetItem() ?? activeTrackItems[0];
-            var presetTrackIndex = Array.FindIndex(activeTrackItems, trackItem => trackItem.TrackId == presetTrackItem.TrackId);
-            if (presetTrackIndex < 0)
+            var segments = await BuildAudioJoinSegmentsAsync(activeTrackItems, cancellationToken);
+            var outputAnchorTrackItem = activeTrackItems[0];
+            TrackItem? presetTrackItem = null;
+            var targetSampleRate = 0;
+            int? targetBitrate = null;
+
+            if (_selectedAudioJoinParameterMode == AudioJoinParameterMode.Preset)
             {
-                throw new InvalidOperationException("无法定位当前音频参数预设片段。");
+                presetTrackItem = GetEffectiveAudioParameterPresetItem() ?? activeTrackItems[0];
+                var presetTrackIndex = Array.FindIndex(activeTrackItems, trackItem => trackItem.TrackId == presetTrackItem.TrackId);
+                if (presetTrackIndex < 0)
+                {
+                    throw new InvalidOperationException("无法定位当前音频参数预设片段。");
+                }
+
+                var presetSegment = segments[presetTrackIndex];
+                outputAnchorTrackItem = presetTrackItem;
+                targetSampleRate = presetSegment.SampleRate;
+                targetBitrate = presetSegment.Bitrate;
+            }
+            else
+            {
+                (targetSampleRate, targetBitrate) = ResolveBalancedAudioJoinTargets(segments);
             }
 
-            var segments = await BuildAudioJoinSegmentsAsync(activeTrackItems, cancellationToken);
-            var presetSegment = segments[presetTrackIndex];
-            var plannedOutputPath = CreatePlannedAudioJoinOutputPath(presetTrackItem.SourcePath);
+            var plannedOutputPath = CreatePlannedAudioJoinOutputPath(outputAnchorTrackItem.SourcePath);
             var request = new AudioJoinExportRequest(
                 segments,
                 plannedOutputPath,
                 SelectedAudioJoinOutputFormat,
-                presetSegment.SampleRate,
-                presetSegment.Bitrate);
+                _selectedAudioJoinParameterMode,
+                targetSampleRate,
+                targetBitrate);
 
             StatusMessage = "正在准备 FFmpeg 运行时...";
             await _audioJoinWorkflowService.EnsureRuntimeReadyAsync(cancellationToken);
@@ -998,8 +1089,7 @@ public sealed class MergeViewModel : ObservableObject
 
             if (result.WasSuccessful && File.Exists(exportResult.Request.OutputPath))
             {
-                StatusMessage =
-                    $"音频拼接完成：{Path.GetFileName(exportResult.Request.OutputPath)}。参数基准来源：{presetTrackItem.SourceName} · {BuildAudioJoinPresetSummaryText(presetSegment)}。";
+                StatusMessage = BuildAudioJoinCompletionMessage(exportResult.Request, presetTrackItem);
                 TryRevealVideoJoinOutputFile(exportResult.Request.OutputPath);
                 return;
             }
@@ -1210,6 +1300,61 @@ public sealed class MergeViewModel : ObservableObject
         return segments;
     }
 
+    private static (int TargetSampleRate, int? TargetBitrate) ResolveBalancedAudioJoinTargets(
+        IEnumerable<AudioJoinSegment> segments)
+    {
+        var targetSampleRate = ResolveDominantPositiveValue(
+            segments.Select(segment => segment.SampleRate),
+            fallbackValue: 48_000);
+        var targetBitrate = ResolveDominantPositiveNullableValue(
+            segments.Select(segment => segment.Bitrate));
+        return (targetSampleRate, targetBitrate);
+    }
+
+    private static (int TargetSampleRate, int? TargetBitrate) ResolveBalancedAudioJoinTargets(
+        IEnumerable<TrackItem> trackItems)
+    {
+        var availableTrackItems = trackItems
+            .Where(trackItem => trackItem.IsSourceAvailable)
+            .ToArray();
+
+        var targetSampleRate = ResolveDominantPositiveValue(
+            availableTrackItems
+                .Select(trackItem => TryResolveAudioJoinSampleRate(null, trackItem, out var sampleRate) ? sampleRate : 0),
+            fallbackValue: 48_000);
+        var targetBitrate = ResolveDominantPositiveNullableValue(
+            availableTrackItems
+                .Select(trackItem => TryResolveAudioJoinBitrate(null, trackItem, out var bitrate) ? (int?)bitrate : null));
+        return (targetSampleRate, targetBitrate);
+    }
+
+    private static int ResolveDominantPositiveValue(IEnumerable<int> values, int fallbackValue)
+    {
+        var dominantValue = values
+            .Where(value => value > 0)
+            .GroupBy(value => value)
+            .OrderByDescending(group => group.Count())
+            .ThenByDescending(group => group.Key)
+            .Select(group => group.Key)
+            .FirstOrDefault();
+
+        return dominantValue > 0 ? dominantValue : fallbackValue;
+    }
+
+    private static int? ResolveDominantPositiveNullableValue(IEnumerable<int?> values)
+    {
+        var dominantValue = values
+            .Where(value => value is > 0)
+            .Select(value => value!.Value)
+            .GroupBy(value => value)
+            .OrderByDescending(group => group.Count())
+            .ThenByDescending(group => group.Key)
+            .Select(group => group.Key)
+            .FirstOrDefault();
+
+        return dominantValue > 0 ? dominantValue : null;
+    }
+
     private async Task<MediaDetailsSnapshot?> LoadMediaDetailsSnapshotAsync(string sourcePath, CancellationToken cancellationToken)
     {
         if (_mediaInfoService is null || string.IsNullOrWhiteSpace(sourcePath))
@@ -1404,13 +1549,17 @@ public sealed class MergeViewModel : ObservableObject
             : $"正在拼接 {segmentCount} 段音频：{percentText}";
     }
 
-    private static string BuildAudioJoinPresetSummaryText(AudioJoinSegment presetSegment)
+    private string BuildAudioJoinCompletionMessage(AudioJoinExportRequest request, TrackItem? presetTrackItem)
     {
-        var sampleRateText = FormatAudioJoinSampleRateText(presetSegment.SampleRate);
-        var bitrateText = presetSegment.Bitrate is > 0
-            ? FormatAudioJoinBitrateText(presetSegment.Bitrate.Value)
-            : "自动码率";
-        return $"{sampleRateText} · {bitrateText}";
+        var outputSummary = BuildAudioJoinOutputSummaryText(
+            request.TargetSampleRate,
+            request.TargetBitrate,
+            request.OutputFormat,
+            request.ParameterMode);
+
+        return request.ParameterMode == AudioJoinParameterMode.Preset && presetTrackItem is not null
+            ? $"音频拼接完成：{Path.GetFileName(request.OutputPath)}。参数预设来源：{presetTrackItem.SourceName} · {outputSummary}。"
+            : $"音频拼接完成：{Path.GetFileName(request.OutputPath)}。当前模式：均衡模式 · {outputSummary}。";
     }
 
     private static string FormatAudioJoinSampleRateText(int sampleRate)
@@ -1436,6 +1585,73 @@ public sealed class MergeViewModel : ObservableObject
             ? $"{bitrate / 1_000_000d:0.##} Mbps"
             : $"{bitrate / 1_000d:0.##} kbps";
     }
+
+    private static string BuildAudioJoinOutputSummaryText(
+        int sampleRate,
+        int? requestedBitrate,
+        OutputFormatOption outputFormat,
+        AudioJoinParameterMode parameterMode)
+    {
+        var sampleRateText = FormatAudioJoinSampleRateText(sampleRate);
+        var bitrateText = ResolveAudioJoinOutputBitrateText(sampleRate, requestedBitrate, outputFormat, parameterMode);
+        return $"{sampleRateText} · {bitrateText}";
+    }
+
+    private static string ResolveAudioJoinOutputBitrateText(
+        int sampleRate,
+        int? requestedBitrate,
+        OutputFormatOption outputFormat,
+        AudioJoinParameterMode parameterMode)
+    {
+        var effectiveBitrate = ResolveAudioJoinEffectiveBitrate(sampleRate, requestedBitrate, outputFormat, parameterMode);
+        return effectiveBitrate is > 0
+            ? FormatAudioJoinBitrateText(effectiveBitrate.Value)
+            : $"{outputFormat.DisplayName} 编码器自动码率";
+    }
+
+    private static int? ResolveAudioJoinEffectiveBitrate(
+        int sampleRate,
+        int? requestedBitrate,
+        OutputFormatOption outputFormat,
+        AudioJoinParameterMode parameterMode)
+    {
+        return outputFormat.Extension.ToLowerInvariant() switch
+        {
+            ".mp3" => ResolveLossyAudioJoinBitrate(requestedBitrate, parameterMode, fallbackKbps: 192, minKbps: 96, maxKbps: 320),
+            ".m4a" => ResolveLossyAudioJoinBitrate(requestedBitrate, parameterMode, fallbackKbps: 192, minKbps: 96, maxKbps: 320),
+            ".aac" => ResolveLossyAudioJoinBitrate(requestedBitrate, parameterMode, fallbackKbps: 192, minKbps: 96, maxKbps: 320),
+            ".wma" => ResolveLossyAudioJoinBitrate(requestedBitrate, parameterMode, fallbackKbps: 192, minKbps: 96, maxKbps: 320),
+            ".ogg" => ResolveLossyAudioJoinBitrate(requestedBitrate, parameterMode, fallbackKbps: 192, minKbps: 96, maxKbps: 320),
+            ".opus" => ResolveLossyAudioJoinBitrate(requestedBitrate, parameterMode, fallbackKbps: 160, minKbps: 48, maxKbps: 256),
+            ".wav" => ResolveStereoPcm16Bitrate(sampleRate),
+            ".aiff" => ResolveStereoPcm16Bitrate(sampleRate),
+            ".aif" => ResolveStereoPcm16Bitrate(sampleRate),
+            _ => null
+        };
+    }
+
+    private static int ResolveLossyAudioJoinBitrate(
+        int? requestedBitrate,
+        AudioJoinParameterMode parameterMode,
+        int fallbackKbps,
+        int minKbps,
+        int maxKbps)
+    {
+        if (requestedBitrate is not > 0)
+        {
+            return fallbackKbps * 1_000;
+        }
+
+        var rawKbps = (int)Math.Round(requestedBitrate.Value / 1_000d, MidpointRounding.AwayFromZero);
+        var clampedKbps = Math.Clamp(rawKbps, minKbps, maxKbps);
+        var effectiveKbps = parameterMode == AudioJoinParameterMode.Preset
+            ? clampedKbps
+            : Math.Max(32, (int)(Math.Round(clampedKbps / 16d, MidpointRounding.AwayFromZero) * 16d));
+        return effectiveKbps * 1_000;
+    }
+
+    private static int ResolveStereoPcm16Bitrate(int sampleRate) =>
+        sampleRate > 0 ? sampleRate * 2 * 16 : 0;
 
     private void TryRevealVideoJoinOutputFile(string outputPath)
     {
@@ -1611,9 +1827,15 @@ public sealed class MergeViewModel : ObservableObject
         _userPreferencesService.Update(existingPreferences => existingPreferences with
         {
             PreferredMergeAudioJoinOutputFormatExtension = _selectedAudioJoinOutputFormat?.Extension,
-            PreferredMergeAudioJoinOutputDirectory = AudioJoinHasCustomOutputDirectory ? AudioJoinOutputDirectory : null
+            PreferredMergeAudioJoinOutputDirectory = AudioJoinHasCustomOutputDirectory ? AudioJoinOutputDirectory : null,
+            PreferredMergeAudioJoinParameterMode = _selectedAudioJoinParameterMode
         });
     }
+
+    private static AudioJoinParameterMode ResolvePreferredAudioJoinParameterMode(AudioJoinParameterMode preferredMode) =>
+        Enum.IsDefined(typeof(AudioJoinParameterMode), preferredMode)
+            ? preferredMode
+            : AudioJoinParameterMode.Balanced;
 
     private static MergeSmallerResolutionStrategy ResolvePreferredMergeSmallerResolutionStrategy(
         MergeSmallerResolutionStrategy preferredStrategy) =>
@@ -1647,6 +1869,35 @@ public sealed class MergeViewModel : ObservableObject
         _selectedLargerResolutionStrategy == MergeLargerResolutionStrategy.SqueezeToFit
             ? "挤压"
             : "裁剪";
+
+    private void SetAudioJoinParameterMode(AudioJoinParameterMode parameterMode)
+    {
+        if (_selectedAudioJoinParameterMode == parameterMode)
+        {
+            return;
+        }
+
+        if (IsVideoJoinProcessing)
+        {
+            StatusMessage = "音频拼接任务处理中，若需切换参数模式，请先取消当前任务。";
+            OnPropertyChanged(nameof(IsBalancedAudioJoinParameterModeSelected));
+            OnPropertyChanged(nameof(IsPresetAudioJoinParameterModeSelected));
+            return;
+        }
+
+        _selectedAudioJoinParameterMode = parameterMode;
+        OnPropertyChanged(nameof(IsBalancedAudioJoinParameterModeSelected));
+        OnPropertyChanged(nameof(IsPresetAudioJoinParameterModeSelected));
+        OnPropertyChanged(nameof(AudioJoinPresetSelectionVisibility));
+        OnPropertyChanged(nameof(AudioTrackOperationHintText));
+        OnPropertyChanged(nameof(AudioJoinParameterModeHintText));
+        RefreshTrackCollection(_audioJoinAudioTrackItems, supportsVideoPreset: false);
+        RaiseTrackStatePropertiesChanged();
+        PersistAudioJoinPreferences();
+        StatusMessage = parameterMode == AudioJoinParameterMode.Preset
+            ? "已切换到指定预设模式，可在音频轨道上选择一段音频作为参数预设。"
+            : "已切换到均衡模式，系统将按全部有效音轨自动统一参数。";
+    }
 
     private string GetEffectiveVideoJoinOutputBaseName() =>
         GetEffectiveVideoJoinOutputBaseName(GetEffectiveVideoResolutionPresetItem()?.SourcePath);
@@ -1697,7 +1948,7 @@ public sealed class MergeViewModel : ObservableObject
     }
 
     private string GetEffectiveAudioJoinOutputBaseName() =>
-        GetEffectiveAudioJoinOutputBaseName(GetEffectiveAudioParameterPresetItem()?.SourcePath);
+        GetEffectiveAudioJoinOutputBaseName(GetAudioJoinOutputAnchorTrackItem()?.SourcePath);
 
     private string GetEffectiveAudioJoinOutputBaseName(string? presetSourcePath)
     {
@@ -1714,22 +1965,27 @@ public sealed class MergeViewModel : ObservableObject
 
     private string? GetDefaultAudioJoinOutputDirectory()
     {
-        var presetTrackItem = GetEffectiveAudioParameterPresetItem();
-        if (presetTrackItem is null || string.IsNullOrWhiteSpace(presetTrackItem.SourcePath))
+        var anchorTrackItem = GetAudioJoinOutputAnchorTrackItem();
+        if (anchorTrackItem is null || string.IsNullOrWhiteSpace(anchorTrackItem.SourcePath))
         {
             return null;
         }
 
         try
         {
-            return Path.GetDirectoryName(NormalizeSourcePath(presetTrackItem.SourcePath));
+            return Path.GetDirectoryName(NormalizeSourcePath(anchorTrackItem.SourcePath));
         }
         catch (Exception exception)
         {
-            _logger?.Log(LogLevel.Warning, $"解析音频拼接默认输出目录失败：{presetTrackItem.SourcePath}", exception);
+            _logger?.Log(LogLevel.Warning, $"解析音频拼接默认输出目录失败：{anchorTrackItem.SourcePath}", exception);
             return null;
         }
     }
+
+    private TrackItem? GetAudioJoinOutputAnchorTrackItem() =>
+        _selectedAudioJoinParameterMode == AudioJoinParameterMode.Preset
+            ? GetEffectiveAudioParameterPresetItem()
+            : _audioJoinAudioTrackItems.FirstOrDefault(trackItem => trackItem.IsSourceAvailable);
 
     private async Task<MediaItem> CreateMediaItemAsync(string filePath)
     {
@@ -2005,7 +2261,9 @@ public sealed class MergeViewModel : ObservableObject
         var presetTrackItem = ReferenceEquals(trackItems, _videoJoinVideoTrackItems)
             ? GetEffectiveVideoResolutionPresetItem()
             : ReferenceEquals(trackItems, _audioJoinAudioTrackItems)
-                ? GetEffectiveAudioParameterPresetItem()
+                ? _selectedAudioJoinParameterMode == AudioJoinParameterMode.Preset
+                    ? GetEffectiveAudioParameterPresetItem()
+                    : null
                 : null;
         for (var index = 0; index < trackItems.Count; index++)
         {
@@ -2085,6 +2343,9 @@ public sealed class MergeViewModel : ObservableObject
         OnPropertyChanged(nameof(VideoJoinOutputNameHintText));
         OnPropertyChanged(nameof(AudioJoinResolvedOutputFileName));
         OnPropertyChanged(nameof(AudioJoinOutputNameHintText));
+        OnPropertyChanged(nameof(AudioTrackOperationHintText));
+        OnPropertyChanged(nameof(AudioJoinParameterModeHintText));
+        OnPropertyChanged(nameof(AudioJoinPresetSelectionVisibility));
     }
 
     private void SetModeMismatchWarningVisibility(bool isVisible, string? message = null)

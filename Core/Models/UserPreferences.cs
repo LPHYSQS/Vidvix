@@ -34,6 +34,8 @@ public sealed record UserPreferences
 
     public string? PreferredMergeAudioJoinOutputDirectory { get; init; }
 
+    public AudioJoinParameterMode PreferredMergeAudioJoinParameterMode { get; init; } = AudioJoinParameterMode.Balanced;
+
     public MergeSmallerResolutionStrategy PreferredMergeSmallerResolutionStrategy { get; init; } =
         MergeSmallerResolutionStrategy.PadWithBlackBars;
 
