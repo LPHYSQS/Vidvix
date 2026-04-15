@@ -160,6 +160,17 @@
                     IsDynamicOverflowEnabled="True"
                     VerticalAlignment="Center"
                     Visibility="{x:Bind ViewModel.MergeWorkspaceVisibility, Mode=OneWay}">
+                    <AppBarButton Command="{x:Bind ViewModel.MergeWorkspace.StartVideoJoinProcessingCommand, Mode=OneWay}" Label="开始处理">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Play" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton Command="{x:Bind ViewModel.MergeWorkspace.CancelVideoJoinProcessingCommand, Mode=OneWay}" Label="取消任务">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Cancel" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarSeparator />
                     <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />

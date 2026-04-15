@@ -201,14 +201,13 @@
             Grid.Column="1"
             Padding="16"
             Style="{StaticResource SurfaceCardBorderStyle}">
-            <Grid RowSpacing="14">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+                <Grid RowSpacing="14">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
                 <StackPanel Spacing="4">
                     <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="合并工作区" />
@@ -218,27 +217,8 @@
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
 
-                <CommandBar
-                    Grid.Row="1"
-                    Background="Transparent"
-                    DefaultLabelPosition="Right"
-                    IsDynamicOverflowEnabled="False"
-                    OverflowButtonVisibility="Collapsed"
-                    Padding="0">
-                    <AppBarButton Command="{x:Bind ViewModel.StartVideoJoinProcessingCommand, Mode=OneWay}" Label="开始处理">
-                        <AppBarButton.Icon>
-                            <SymbolIcon Symbol="Play" />
-                        </AppBarButton.Icon>
-                    </AppBarButton>
-                    <AppBarButton Command="{x:Bind ViewModel.CancelVideoJoinProcessingCommand, Mode=OneWay}" Label="取消任务">
-                        <AppBarButton.Icon>
-                            <SymbolIcon Symbol="Cancel" />
-                        </AppBarButton.Icon>
-                    </AppBarButton>
-                </CommandBar>
-
                 <Border
-                    Grid.Row="2"
+                    Grid.Row="1"
                     HorizontalAlignment="Left"
                     Padding="4"
                     Background="{ThemeResource ControlFillColorSecondaryBrush}"
@@ -340,12 +320,12 @@
                 </Border>
 
                 <TextBlock
-                    Grid.Row="3"
+                    Grid.Row="2"
                     Opacity="0.72"
                     Text="{x:Bind ViewModel.TimelineHintText, Mode=OneWay}"
                     TextWrapping="WrapWholeWords" />
 
-                <Grid Grid.Row="4">
+                <Grid Grid.Row="3">
                     <Border
                         Padding="14"
                         Background="{ThemeResource ControlFillColorSecondaryBrush}"
@@ -366,10 +346,20 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock FontSize="16" FontWeight="SemiBold" Text="视频轨道" />
-                                <TextBlock
+                                <StackPanel
                                     Grid.Column="1"
-                                    Style="{StaticResource CaptionTextStyle}"
-                                    Text="{x:Bind ViewModel.VideoTrackSummaryText, Mode=OneWay}" />
+                                    HorizontalAlignment="Right"
+                                    Spacing="2">
+                                    <TextBlock
+                                        HorizontalAlignment="Right"
+                                        Style="{StaticResource CaptionTextStyle}"
+                                        Text="{x:Bind ViewModel.VideoTrackSummaryText, Mode=OneWay}" />
+                                    <TextBlock
+                                        HorizontalAlignment="Right"
+                                        Opacity="0.72"
+                                        Style="{StaticResource CaptionTextStyle}"
+                                        Text="{x:Bind ViewModel.VideoJoinTotalDurationText, Mode=OneWay}" />
+                                </StackPanel>
                             </Grid>
 
                             <StackPanel
@@ -748,7 +738,9 @@
             Grid.Column="2"
             Padding="16"
             Style="{StaticResource SurfaceCardBorderStyle}">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ScrollViewer
+                Padding="0,0,14,0"
+                VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="16">
                     <StackPanel Spacing="4">
                         <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="输出设置" />
@@ -785,8 +777,9 @@
 
                             <TextBox
                                 IsReadOnly="True"
-                                Text="{x:Bind ViewModel.OutputDirectory, Mode=OneWay}"
-                                PlaceholderText="留空时使用预设视频所在文件夹输出" />
+                                ToolTipService.ToolTip="{x:Bind ViewModel.VideoJoinOutputDirectoryDisplayText, Mode=OneWay}"
+                                Text="{x:Bind ViewModel.VideoJoinOutputDirectoryDisplayText, Mode=OneWay}"
+                                PlaceholderText="预设视频目录" />
                             <Button
                                 Grid.Column="1"
                                 Command="{x:Bind ViewModel.BrowseOutputDirectoryCommand, Mode=OneWay}"
@@ -813,16 +806,12 @@
                             TextWrapping="WrapWholeWords" />
                         <TextBlock FontWeight="SemiBold" Text="较小分辨率视频" />
                         <RadioButton
-                            Content="统一为第一段视频"
-                            GroupName="ResolutionStrategy"
-                            Visibility="Collapsed" />
-                        <RadioButton
                             Content="填充黑边"
-                            GroupName="ResolutionStrategy"
+                            GroupName="SmallerResolutionStrategy"
                             IsChecked="{x:Bind ViewModel.IsPadSmallerVideoWithBlackBarsSelected, Mode=TwoWay}" />
                         <RadioButton
                             Content="拉伸填充"
-                            GroupName="ResolutionStrategy"
+                            GroupName="SmallerResolutionStrategy"
                             IsChecked="{x:Bind ViewModel.IsStretchSmallerVideoToFillSelected, Mode=TwoWay}" />
                     </StackPanel>
 

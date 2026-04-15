@@ -151,6 +151,7 @@ public sealed class MergeViewModel : ObservableObject
             if (SetProperty(ref _outputDirectory, normalizedDirectory))
             {
                 OnPropertyChanged(nameof(HasCustomOutputDirectory));
+                OnPropertyChanged(nameof(VideoJoinOutputDirectoryDisplayText));
                 PersistVideoJoinPreferences();
                 NotifyCommandStates();
             }
@@ -159,7 +160,12 @@ public sealed class MergeViewModel : ObservableObject
 
     public bool HasCustomOutputDirectory => !string.IsNullOrWhiteSpace(OutputDirectory);
 
-    public string OutputDirectoryHintText => "留空时使用预设视频所在文件夹输出；设置后，处理结果会统一输出到所选文件夹。";
+    public string VideoJoinOutputDirectoryDisplayText =>
+        HasCustomOutputDirectory
+            ? OutputDirectory
+            : GetDefaultVideoJoinOutputDirectory() ?? string.Empty;
+
+    public string OutputDirectoryHintText => "默认使用当前分辨率预设视频所在文件夹；设置后，处理结果会统一输出到所选文件夹。";
 
     public string StatusMessage
     {
@@ -284,6 +290,37 @@ public sealed class MergeViewModel : ObservableObject
     public string VideoTrackSummaryText => ActiveVideoTrackItems.Count == 0
         ? "未添加片段"
         : $"{ActiveVideoTrackItems.Count} 个片段";
+
+    public string VideoJoinTotalDurationText
+    {
+        get
+        {
+            var activeTrackItems = _videoJoinVideoTrackItems
+                .Where(trackItem => trackItem.IsSourceAvailable)
+                .ToArray();
+            if (activeTrackItems.Length == 0)
+            {
+                return "总时长 · 00:00:00";
+            }
+
+            var totalDuration = TimeSpan.Zero;
+            var hasUnknownDuration = false;
+            foreach (var trackItem in activeTrackItems)
+            {
+                if (TryParseTrackDuration(trackItem.DurationText, out var duration))
+                {
+                    totalDuration += duration;
+                }
+                else
+                {
+                    hasUnknownDuration = true;
+                }
+            }
+
+            var suffix = hasUnknownDuration ? "+" : string.Empty;
+            return $"总时长 · {FormatDuration(totalDuration)}{suffix}";
+        }
+    }
 
     public string AudioTrackSummaryText => ActiveAudioTrackItems.Count == 0
         ? "未添加片段"
@@ -554,7 +591,7 @@ public sealed class MergeViewModel : ObservableObject
         }
 
         OutputDirectory = string.Empty;
-        StatusMessage = "已清空视频拼接输出目录，处理时将使用预设视频所在文件夹输出。";
+        StatusMessage = "已清空视频拼接输出目录，处理时将恢复为分辨率预设视频所在文件夹输出。";
     }
 
     private async Task StartVideoJoinProcessingAsync()
@@ -799,6 +836,25 @@ public sealed class MergeViewModel : ObservableObject
             ? "挤压"
             : "裁剪";
 
+    private string? GetDefaultVideoJoinOutputDirectory()
+    {
+        var presetTrackItem = GetEffectiveVideoResolutionPresetItem();
+        if (presetTrackItem is null || string.IsNullOrWhiteSpace(presetTrackItem.SourcePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            return Path.GetDirectoryName(NormalizeSourcePath(presetTrackItem.SourcePath));
+        }
+        catch (Exception exception)
+        {
+            _logger?.Log(LogLevel.Warning, $"解析视频拼接默认输出目录失败：{presetTrackItem.SourcePath}", exception);
+            return null;
+        }
+    }
+
     private async Task<MediaItem> CreateMediaItemAsync(string filePath)
     {
         var fileName = Path.GetFileName(filePath);
@@ -875,6 +931,9 @@ public sealed class MergeViewModel : ObservableObject
     }
 
     private static string FormatDuration(TimeSpan duration) => duration.ToString(@"hh\:mm\:ss");
+
+    private static bool TryParseTrackDuration(string durationText, out TimeSpan duration) =>
+        TimeSpan.TryParse(durationText, out duration);
 
     private static string ResolveResolutionText(MediaDetailsSnapshot snapshot)
     {
@@ -1054,10 +1113,12 @@ public sealed class MergeViewModel : ObservableObject
     private void RaiseTrackStatePropertiesChanged()
     {
         OnPropertyChanged(nameof(VideoTrackSummaryText));
+        OnPropertyChanged(nameof(VideoJoinTotalDurationText));
         OnPropertyChanged(nameof(AudioTrackSummaryText));
         OnPropertyChanged(nameof(VideoTrackEmptyVisibility));
         OnPropertyChanged(nameof(AudioTrackEmptyVisibility));
         OnPropertyChanged(nameof(VideoResolutionPresetSummaryText));
+        OnPropertyChanged(nameof(VideoJoinOutputDirectoryDisplayText));
     }
 
     private void SetModeMismatchWarningVisibility(bool isVisible, string? message = null)
