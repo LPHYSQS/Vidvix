@@ -30,6 +30,10 @@ public sealed record UserPreferences
 
     public string? PreferredMergeVideoJoinOutputDirectory { get; init; }
 
+    public string? PreferredMergeAudioJoinOutputFormatExtension { get; init; }
+
+    public string? PreferredMergeAudioJoinOutputDirectory { get; init; }
+
     public MergeSmallerResolutionStrategy PreferredMergeSmallerResolutionStrategy { get; init; } =
         MergeSmallerResolutionStrategy.PadWithBlackBars;
 

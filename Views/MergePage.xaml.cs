@@ -62,6 +62,22 @@ public sealed partial class MergePage : Page
         }
     }
 
+    private void OnRemoveAudioTrackItemClick(object sender, RoutedEventArgs e)
+    {
+        if (TryResolveTrackItem(sender, out var trackItem))
+        {
+            ViewModel.RemoveAudioTrackItem(trackItem);
+        }
+    }
+
+    private void OnSetAudioParameterPresetClick(object sender, RoutedEventArgs e)
+    {
+        if (TryResolveTrackItem(sender, out var trackItem))
+        {
+            ViewModel.SetAudioParameterPreset(trackItem);
+        }
+    }
+
     private static bool TryResolveTrackItem(object sender, out TrackItem trackItem)
     {
         if (sender is FrameworkElement { Tag: TrackItem taggedTrackItem })

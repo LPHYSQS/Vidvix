@@ -32,7 +32,7 @@ public sealed class MediaItem : ObservableObject
             : throw new ArgumentOutOfRangeException(nameof(durationSeconds));
         _isVideo = isVideo;
         _resolutionText = string.IsNullOrWhiteSpace(resolutionText)
-            ? "未知分辨率"
+            ? "未知参数"
             : resolutionText;
     }
 
@@ -85,7 +85,7 @@ public sealed class MediaItem : ObservableObject
         get => _resolutionText;
         set
         {
-            var normalizedValue = string.IsNullOrWhiteSpace(value) ? "未知分辨率" : value;
+            var normalizedValue = string.IsNullOrWhiteSpace(value) ? "未知参数" : value;
             SetProperty(ref _resolutionText, normalizedValue);
         }
     }

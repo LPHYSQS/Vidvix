@@ -35,7 +35,7 @@ public sealed class TrackItem : ObservableObject
             ? throw new ArgumentException("轨道片段时长文本不能为空。", nameof(durationText))
             : durationText;
         _resolutionText = string.IsNullOrWhiteSpace(resolutionText)
-            ? "未知分辨率"
+            ? "未知参数"
             : resolutionText;
         _visualWidth = visualWidth > 0
             ? visualWidth
@@ -86,7 +86,7 @@ public sealed class TrackItem : ObservableObject
         get => _resolutionText;
         set
         {
-            var normalizedValue = string.IsNullOrWhiteSpace(value) ? "未知分辨率" : value;
+            var normalizedValue = string.IsNullOrWhiteSpace(value) ? "未知参数" : value;
             if (SetProperty(ref _resolutionText, normalizedValue))
             {
                 OnPropertyChanged(nameof(ResolutionDisplayText));
@@ -109,6 +109,9 @@ public sealed class TrackItem : ObservableObject
             {
                 OnPropertyChanged(nameof(TypeDisplayText));
                 OnPropertyChanged(nameof(SummaryText));
+                OnPropertyChanged(nameof(ResolutionDisplayText));
+                OnPropertyChanged(nameof(ResolutionPresetLabelText));
+                OnPropertyChanged(nameof(CanSetAsResolutionPreset));
             }
         }
     }
@@ -165,14 +168,16 @@ public sealed class TrackItem : ObservableObject
 
     public string SummaryText => $"{TypeDisplayText} · {DurationText}";
 
-    public string ResolutionDisplayText => $"原始分辨率 · {ResolutionText}";
+    public string ResolutionDisplayText => IsVideo
+        ? $"原始分辨率 · {ResolutionText}"
+        : $"原始音频参数 · {ResolutionText}";
 
-    public string ResolutionPresetLabelText => "分辨率预设";
+    public string ResolutionPresetLabelText => IsVideo ? "分辨率预设" : "参数预设";
 
     public Visibility ResolutionPresetBadgeVisibility =>
         IsResolutionPreset ? Visibility.Visible : Visibility.Collapsed;
 
-    public bool CanSetAsResolutionPreset => IsVideo && IsSourceAvailable;
+    public bool CanSetAsResolutionPreset => IsSourceAvailable;
 
     public Visibility InvalidStateVisibility =>
         IsSourceAvailable ? Visibility.Collapsed : Visibility.Visible;

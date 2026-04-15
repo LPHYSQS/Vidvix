@@ -597,6 +597,278 @@
                         </Grid>
                     </Border>
 
+                    <Border
+                        Padding="14"
+                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                        CornerRadius="16"
+                        VerticalAlignment="Top"
+                        Visibility="{x:Bind ViewModel.AudioJoinTimelineVisibility, Mode=OneWay}">
+                        <Grid RowSpacing="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="音频轨道" />
+                                <StackPanel
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    Spacing="2">
+                                    <TextBlock
+                                        HorizontalAlignment="Right"
+                                        Style="{StaticResource CaptionTextStyle}"
+                                        Text="{x:Bind ViewModel.AudioTrackSummaryText, Mode=OneWay}" />
+                                    <TextBlock
+                                        HorizontalAlignment="Right"
+                                        Opacity="0.72"
+                                        Style="{StaticResource CaptionTextStyle}"
+                                        Text="{x:Bind ViewModel.AudioJoinTotalDurationText, Mode=OneWay}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel
+                                Grid.Row="1"
+                                Spacing="4">
+                                <TextBlock
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.AudioParameterPresetSummaryText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="可左键长按拖拽片段调整顺序，也可使用片段顶部按钮快速移除或设为参数预设。"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+
+                            <Grid
+                                Grid.Row="2"
+                                MinHeight="176">
+                                <ListView
+                                    AllowDrop="True"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    CanDragItems="True"
+                                    CanReorderItems="True"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    IsSwipeEnabled="False"
+                                    ItemContainerStyle="{StaticResource MergeTrackListViewItemStyle}"
+                                    ItemsSource="{x:Bind ViewModel.AudioTrackItems, Mode=OneWay}"
+                                    Padding="0,0,0,18"
+                                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                    ScrollViewer.HorizontalScrollMode="Enabled"
+                                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                    ScrollViewer.VerticalScrollMode="Disabled"
+                                    VerticalAlignment="Top"
+                                    SelectionMode="None">
+                                    <ListView.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <ItemsStackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ListView.ItemsPanel>
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="models:TrackItem">
+                                            <Grid
+                                                Width="{x:Bind VisualWidth}"
+                                                MinWidth="264"
+                                                Height="176"
+                                                ToolTipService.ToolTip="{x:Bind SourceName}">
+                                                <Border
+                                                    Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                                    BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="16" />
+                                                <Border
+                                                    BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                                    BorderThickness="1.4"
+                                                    CornerRadius="16"
+                                                    Opacity="{x:Bind NormalOutlineOpacity, Mode=OneWay}" />
+                                                <Border
+                                                    BorderBrush="#FFE25555"
+                                                    BorderThickness="2"
+                                                    CornerRadius="16"
+                                                    Visibility="{x:Bind InvalidStateVisibility, Mode=OneWay}" />
+                                                <Grid
+                                                    Padding="14,12"
+                                                    RowSpacing="10">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="*" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
+
+                                                    <Grid ColumnSpacing="8">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <Border
+                                                            Padding="10,4"
+                                                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                                            CornerRadius="10">
+                                                            <TextBlock
+                                                                FontWeight="SemiBold"
+                                                                Text="{x:Bind SequenceNumberText, Mode=OneWay}" />
+                                                        </Border>
+
+                                                        <StackPanel
+                                                            Grid.Column="1"
+                                                            Orientation="Horizontal"
+                                                            Spacing="6">
+                                                            <Border
+                                                                Padding="10,4"
+                                                                Background="{ThemeResource AccentFillColorSecondaryBrush}"
+                                                                CornerRadius="10"
+                                                                Visibility="{x:Bind ResolutionPresetBadgeVisibility, Mode=OneWay}">
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    FontWeight="SemiBold"
+                                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                                    Text="{x:Bind ResolutionPresetLabelText, Mode=OneWay}" />
+                                                            </Border>
+                                                            <Border
+                                                                Padding="10,4"
+                                                                Background="#24C42B1C"
+                                                                CornerRadius="10"
+                                                                Visibility="{x:Bind InvalidStateVisibility, Mode=OneWay}">
+                                                                <TextBlock
+                                                                    FontSize="12"
+                                                                    FontWeight="SemiBold"
+                                                                    Foreground="#FFC42B1C"
+                                                                    Text="已失效" />
+                                                            </Border>
+                                                        </StackPanel>
+
+                                                        <StackPanel
+                                                            Grid.Column="2"
+                                                            Orientation="Horizontal"
+                                                            Spacing="6">
+                                                            <Button
+                                                                Click="OnSetAudioParameterPresetClick"
+                                                                Style="{StaticResource MergeTrackActionButtonStyle}"
+                                                                IsEnabled="{x:Bind CanSetAsResolutionPreset, Mode=OneWay}"
+                                                                Tag="{x:Bind}"
+                                                                ToolTipService.ToolTip="设为参数预设">
+                                                                <TextBlock Text="预设" />
+                                                            </Button>
+                                                            <Button
+                                                                Click="OnRemoveAudioTrackItemClick"
+                                                                Style="{StaticResource MergeTrackActionButtonStyle}"
+                                                                Tag="{x:Bind}"
+                                                                ToolTipService.ToolTip="移除音频片段">
+                                                                <TextBlock Text="移除" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+
+                                                    <TextBlock
+                                                        Grid.Row="1"
+                                                        FontSize="15"
+                                                        FontWeight="SemiBold"
+                                                        MaxLines="2"
+                                                        Text="{x:Bind SourceName}"
+                                                        TextTrimming="CharacterEllipsis"
+                                                        TextWrapping="WrapWholeWords" />
+
+                                                    <StackPanel
+                                                        Grid.Row="2"
+                                                        VerticalAlignment="Top"
+                                                        Spacing="6">
+                                                        <TextBlock
+                                                            Style="{StaticResource CaptionTextStyle}"
+                                                            Text="{x:Bind TypeDisplayText}" />
+                                                        <TextBlock
+                                                            Style="{StaticResource CaptionTextStyle}"
+                                                            Text="{x:Bind ResolutionDisplayText, Mode=OneWay}" />
+                                                    </StackPanel>
+
+                                                    <Grid
+                                                        Grid.Row="3"
+                                                        ColumnSpacing="8">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock
+                                                            Style="{StaticResource CaptionTextStyle}"
+                                                            Text="{x:Bind DurationText}" />
+                                                        <TextBlock
+                                                            Grid.Column="1"
+                                                            HorizontalAlignment="Right"
+                                                            MaxWidth="140"
+                                                            FontSize="12"
+                                                            Foreground="#FFC42B1C"
+                                                            Text="{x:Bind SourceAvailabilityStatusText, Mode=OneWay}"
+                                                            TextAlignment="Right"
+                                                            TextWrapping="WrapWholeWords"
+                                                            Visibility="{x:Bind InvalidStateVisibility, Mode=OneWay}" />
+                                                    </Grid>
+                                                </Grid>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    MaxWidth="280"
+                                    Opacity="0.72"
+                                    Text="{x:Bind ViewModel.AudioTrackEmptyText, Mode=OneWay}"
+                                    TextAlignment="Center"
+                                    TextWrapping="WrapWholeWords"
+                                    Visibility="{x:Bind ViewModel.AudioTrackEmptyVisibility, Mode=OneWay}" />
+                            </Grid>
+
+                            <Border
+                                Grid.Row="3"
+                                Margin="0,4,0,0"
+                                Padding="10,8"
+                                Background="#24D13438"
+                                BorderBrush="#66D13438"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Visibility="{x:Bind ViewModel.ModeMismatchWarningVisibility, Mode=OneWay}">
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border
+                                        Width="20"
+                                        Height="20"
+                                        VerticalAlignment="Top"
+                                        Background="#FFD13438"
+                                        CornerRadius="10">
+                                        <TextBlock
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            FontSize="13"
+                                            FontWeight="Bold"
+                                            Foreground="White"
+                                            Text="!" />
+                                    </Border>
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Foreground="#FFF1B7B9"
+                                        Text="{x:Bind ViewModel.ModeMismatchWarningMessage, Mode=OneWay}"
+                                        TextWrapping="WrapWholeWords" />
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+
                     <Grid
                         RowSpacing="14"
                         Visibility="{x:Bind ViewModel.StandardTimelineVisibility, Mode=OneWay}">
@@ -840,6 +1112,82 @@
                             Content="裁剪"
                             GroupName="LargerResolutionStrategy"
                             IsChecked="{x:Bind ViewModel.IsCropLargerVideoToFillSelected, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <StackPanel
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.AudioJoinOutputSettingsVisibility, Mode=OneWay}">
+                        <TextBlock FontWeight="SemiBold" Text="输出格式" />
+                        <ComboBox
+                            DisplayMemberPath="DisplayName"
+                            ItemsSource="{x:Bind ViewModel.AudioJoinOutputFormats, Mode=OneWay}"
+                            SelectedItem="{x:Bind ViewModel.SelectedAudioJoinOutputFormat, Mode=TwoWay}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.SelectedAudioJoinOutputFormatDescription, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
+                    <StackPanel
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.AudioJoinOutputSettingsVisibility, Mode=OneWay}">
+                        <TextBlock FontWeight="SemiBold" Text="输出目录" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox
+                                IsReadOnly="True"
+                                ToolTipService.ToolTip="{x:Bind ViewModel.AudioJoinOutputDirectoryDisplayText, Mode=OneWay}"
+                                Text="{x:Bind ViewModel.AudioJoinOutputDirectoryDisplayText, Mode=OneWay}"
+                                PlaceholderText="预设音频目录" />
+                            <Button
+                                Grid.Column="1"
+                                Command="{x:Bind ViewModel.BrowseOutputDirectoryCommand, Mode=OneWay}"
+                                Content="选择目录" />
+                            <Button
+                                Grid.Column="2"
+                                Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
+                                Content="清空" />
+                        </Grid>
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.OutputDirectoryHintText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
+                    <StackPanel
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.AudioJoinOutputSettingsVisibility, Mode=OneWay}">
+                        <TextBlock FontWeight="SemiBold" Text="输出文件名" />
+                        <TextBox
+                            PlaceholderText="留空时自动生成"
+                            Text="{x:Bind ViewModel.AudioJoinOutputFileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.AudioJoinOutputNameHintText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
+                    <StackPanel
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.AudioJoinOutputSettingsVisibility, Mode=OneWay}">
+                        <TextBlock FontWeight="SemiBold" Text="参数基准" />
+                        <Border
+                            Padding="12"
+                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                            CornerRadius="12">
+                            <TextBlock
+                                Text="{x:Bind ViewModel.AudioParameterPresetSummaryText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </Border>
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="音频拼接会以当前预设片段的采样率为基准，并在可用时参考其码率生成输出。"
+                            TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
                     <Border
