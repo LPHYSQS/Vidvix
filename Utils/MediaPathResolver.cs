@@ -137,6 +137,61 @@ public static class MediaPathResolver
     public static string CreateMergeOutputPath(
         string inputFilePath,
         string outputExtension,
-        string? outputDirectory = null) =>
-        CreateOutputPath(inputFilePath, outputExtension, outputDirectory, "_merged");
+        string? outputDirectory = null,
+        string? outputFileNameWithoutExtension = null) =>
+        string.IsNullOrWhiteSpace(outputFileNameWithoutExtension)
+            ? CreateOutputPath(inputFilePath, outputExtension, outputDirectory, "_merged")
+            : CreateOutputPathWithFileName(inputFilePath, outputExtension, outputDirectory, outputFileNameWithoutExtension);
+
+    public static string CreateOutputPathWithFileName(
+        string inputFilePath,
+        string outputExtension,
+        string? outputDirectory,
+        string outputFileNameWithoutExtension)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(inputFilePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputExtension);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputFileNameWithoutExtension);
+
+        var normalizedExtension = outputExtension.StartsWith('.')
+            ? outputExtension
+            : $".{outputExtension}";
+        var directory = string.IsNullOrWhiteSpace(outputDirectory)
+            ? Path.GetDirectoryName(inputFilePath)
+            : Path.GetFullPath(outputDirectory);
+
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            throw new InvalidOperationException("输入文件路径缺少有效目录。");
+        }
+
+        var fileNameWithoutExtension = SanitizeOutputFileName(outputFileNameWithoutExtension);
+        var outputPath = Path.Combine(directory, $"{fileNameWithoutExtension}{normalizedExtension}");
+
+        if (string.Equals(outputPath, inputFilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            outputPath = Path.Combine(directory, $"{fileNameWithoutExtension}_output{normalizedExtension}");
+        }
+
+        return outputPath;
+    }
+
+    public static string SanitizeOutputFileName(string outputFileNameWithoutExtension)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputFileNameWithoutExtension);
+
+        var sanitized = Path.GetFileNameWithoutExtension(outputFileNameWithoutExtension.Trim());
+        if (string.IsNullOrWhiteSpace(sanitized))
+        {
+            return string.Empty;
+        }
+
+        foreach (var invalidChar in Path.GetInvalidFileNameChars())
+        {
+            sanitized = sanitized.Replace(invalidChar, '_');
+        }
+
+        sanitized = sanitized.Trim().TrimEnd('.');
+        return sanitized;
+    }
 }

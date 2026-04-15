@@ -798,6 +798,19 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.VideoJoinOutputSettingsVisibility, Mode=OneWay}">
+                        <TextBlock FontWeight="SemiBold" Text="输出文件名" />
+                        <TextBox
+                            PlaceholderText="留空时自动生成"
+                            Text="{x:Bind ViewModel.VideoJoinOutputFileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.VideoJoinOutputNameHintText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
+                    <StackPanel
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.VideoJoinOutputSettingsVisibility, Mode=OneWay}">
                         <TextBlock FontWeight="SemiBold" Text="分辨率处理" />
                         <TextBlock
                             Opacity="0.72"

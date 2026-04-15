@@ -37,7 +37,7 @@ public sealed class AppCompositionRoot
         var mediaRuntime = CreateMediaRuntimeServices(infrastructure.WindowContext);
         var workflows = CreateWorkflowServices(mediaRuntime);
         var trimWorkspace = CreateTrimWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
-        var mergeWorkspace = CreateMergeWorkspaceViewModel(infrastructure, mediaRuntime);
+        var mergeWorkspace = CreateMergeWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
         _mainViewModel = CreateMainViewModel(infrastructure, mediaRuntime, workflows, trimWorkspace, mergeWorkspace);
     }
 
@@ -115,6 +115,10 @@ public sealed class AppCompositionRoot
             mediaRuntime.VideoAccelerationService,
             mediaRuntime.MediaInfoService,
             videoTrimCommandFactory);
+        var videoJoinWorkflowService = new VideoJoinWorkflowService(
+            Configuration,
+            mediaRuntime.RuntimeService,
+            mediaRuntime.FFmpegService);
         var trimWorkflowService = new TrimWorkflowService(
             Configuration,
             mediaRuntime.MediaInfoService,
@@ -126,7 +130,8 @@ public sealed class AppCompositionRoot
         return new AppWorkflowServices(
             new MediaImportDiscoveryService(),
             mediaProcessingWorkflowService,
-            trimWorkflowService);
+            trimWorkflowService,
+            videoJoinWorkflowService);
     }
 
     private VideoTrimWorkspaceViewModel CreateTrimWorkspaceViewModel(
@@ -147,12 +152,15 @@ public sealed class AppCompositionRoot
 
     private MergeViewModel CreateMergeWorkspaceViewModel(
         AppInfrastructureServices infrastructure,
-        AppMediaRuntimeServices mediaRuntime)
+        AppMediaRuntimeServices mediaRuntime,
+        AppWorkflowServices workflows)
     {
         return new MergeViewModel(
             infrastructure.FilePickerService,
             mediaRuntime.MediaInfoService,
             infrastructure.UserPreferencesService,
+            workflows.VideoJoinWorkflowService,
+            infrastructure.FileRevealService,
             Configuration,
             Logger);
     }

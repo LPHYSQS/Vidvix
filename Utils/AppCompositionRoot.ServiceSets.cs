@@ -22,4 +22,5 @@ internal sealed record AppMediaRuntimeServices(
 internal sealed record AppWorkflowServices(
     IMediaImportDiscoveryService MediaImportDiscoveryService,
     IMediaProcessingWorkflowService MediaProcessingWorkflowService,
-    ITrimWorkflowService TrimWorkflowService);
+    ITrimWorkflowService TrimWorkflowService,
+    IVideoJoinWorkflowService VideoJoinWorkflowService);

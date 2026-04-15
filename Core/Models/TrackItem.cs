@@ -6,6 +6,7 @@ namespace Vidvix.Core.Models;
 
 public sealed class TrackItem : ObservableObject
 {
+    private readonly Guid _trackId = Guid.NewGuid();
     private string _sourceName;
     private string _sourcePath;
     private string _durationText;
@@ -45,6 +46,8 @@ public sealed class TrackItem : ObservableObject
             : throw new ArgumentOutOfRangeException(nameof(sequenceNumber));
         _isSourceAvailable = isSourceAvailable;
     }
+
+    public Guid TrackId => _trackId;
 
     public string SourceName
     {
