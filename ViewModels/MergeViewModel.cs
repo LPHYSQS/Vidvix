@@ -23,6 +23,7 @@ public sealed partial class MergeViewModel : ObservableObject
     private readonly ObservableCollection<TrackItem> _audioVideoComposeVideoTrackItems;
     private readonly ObservableCollection<TrackItem> _audioVideoComposeAudioTrackItems;
     private readonly ObservableCollection<TrackItem> _emptyTrackItems;
+    private readonly IReadOnlyDictionary<MergeWorkspaceMode, MergeWorkspaceModeState> _modeStates;
     private readonly IReadOnlyList<OutputFormatOption> _videoJoinOutputFormats;
     private readonly IReadOnlyList<OutputFormatOption> _audioJoinOutputFormats;
     private readonly AsyncRelayCommand _importFilesCommand;
@@ -31,6 +32,7 @@ public sealed partial class MergeViewModel : ObservableObject
     private readonly AsyncRelayCommand _startVideoJoinProcessingCommand;
     private readonly RelayCommand _cancelVideoJoinProcessingCommand;
     private readonly IFilePickerService? _filePickerService;
+    private readonly IMergeMediaAnalysisService? _mergeMediaAnalysisService;
     private readonly IVideoJoinWorkflowService? _videoJoinWorkflowService;
     private readonly IAudioJoinWorkflowService? _audioJoinWorkflowService;
     private readonly IFileRevealService? _fileRevealService;
@@ -64,6 +66,7 @@ public sealed partial class MergeViewModel : ObservableObject
         IFilePickerService? filePickerService = null,
         IMediaInfoService? mediaInfoService = null,
         IUserPreferencesService? userPreferencesService = null,
+        IMergeMediaAnalysisService? mergeMediaAnalysisService = null,
         IVideoJoinWorkflowService? videoJoinWorkflowService = null,
         IAudioJoinWorkflowService? audioJoinWorkflowService = null,
         IAudioVideoComposeWorkflowService? audioVideoComposeWorkflowService = null,
@@ -75,6 +78,7 @@ public sealed partial class MergeViewModel : ObservableObject
         var preferences = userPreferencesService?.Load() ?? new UserPreferences();
 
         _filePickerService = filePickerService;
+        _mergeMediaAnalysisService = mergeMediaAnalysisService;
         _videoJoinWorkflowService = videoJoinWorkflowService;
         _audioJoinWorkflowService = audioJoinWorkflowService;
         _audioVideoComposeWorkflowService = audioVideoComposeWorkflowService;
@@ -96,6 +100,7 @@ public sealed partial class MergeViewModel : ObservableObject
         _emptyTrackItems = new ObservableCollection<TrackItem>();
         _videoJoinOutputFormats = effectiveConfiguration.SupportedVideoOutputFormats;
         _audioJoinOutputFormats = effectiveConfiguration.SupportedAudioOutputFormats;
+        _modeStates = CreateModeStates(effectiveConfiguration);
 
         _selectedVideoJoinOutputFormat = ResolvePreferredVideoJoinOutputFormat(preferences.PreferredMergeVideoJoinOutputFormatExtension);
         _selectedAudioJoinOutputFormat = ResolvePreferredAudioJoinOutputFormat(preferences.PreferredMergeAudioJoinOutputFormatExtension);
@@ -126,9 +131,11 @@ public sealed partial class MergeViewModel : ObservableObject
 
     public event Action<string, string>? InvalidTrackItemsDetected;
 
-    private ObservableCollection<TrackItem> ActiveVideoTrackItems => GetVideoTrackItems(_selectedMergeMode);
+    private MergeWorkspaceModeState CurrentModeState => GetModeState(_selectedMergeMode);
 
-    private ObservableCollection<TrackItem> ActiveAudioTrackItems => GetAudioTrackItems(_selectedMergeMode);
+    private ObservableCollection<TrackItem> ActiveVideoTrackItems => CurrentModeState.VideoTrackItems;
+
+    private ObservableCollection<TrackItem> ActiveAudioTrackItems => CurrentModeState.AudioTrackItems;
 
     public ObservableCollection<MediaItem> MediaItems => _mediaItems;
 
@@ -445,12 +452,7 @@ public sealed partial class MergeViewModel : ObservableObject
         }
     }
 
-    public string TimelineHintText => _selectedMergeMode switch
-    {
-        MergeWorkspaceMode.VideoJoin => "当前为视频拼接模式，仅可将视频素材添加到视频轨道。",
-        MergeWorkspaceMode.AudioJoin => "当前为音频拼接模式，仅可将音频素材添加到音频轨道。",
-        _ => "当前为音视频合成模式，请分别添加 1 个视频和 1 个音频。"
-    };
+    public string TimelineHintText => CurrentModeState.Profile.TimelineHintText;
 
     public string VideoTrackSummaryText => ActiveVideoTrackItems.Count == 0
         ? "未添加片段"
@@ -529,13 +531,13 @@ public sealed partial class MergeViewModel : ObservableObject
     public Visibility AudioTrackEmptyVisibility => ActiveAudioTrackItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility VideoJoinTimelineVisibility =>
-        _selectedMergeMode == MergeWorkspaceMode.VideoJoin ? Visibility.Visible : Visibility.Collapsed;
+        CurrentModeState.Profile.ShowsVideoJoinTimeline ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility AudioJoinTimelineVisibility =>
-        _selectedMergeMode == MergeWorkspaceMode.AudioJoin ? Visibility.Visible : Visibility.Collapsed;
+        CurrentModeState.Profile.ShowsAudioJoinTimeline ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility StandardTimelineVisibility =>
-        _selectedMergeMode == MergeWorkspaceMode.AudioVideoCompose ? Visibility.Visible : Visibility.Collapsed;
+        CurrentModeState.Profile.ShowsStandardTimeline ? Visibility.Visible : Visibility.Collapsed;
 
     public string VideoResolutionPresetSummaryText
     {
@@ -584,10 +586,10 @@ public sealed partial class MergeViewModel : ObservableObject
                 return "当前暂无可用的音频片段可作为参数预设。";
             }
 
-            var sampleRate = TryResolveAudioJoinSampleRate(null, presetTrackItem, out var resolvedSampleRate)
+            var sampleRate = MergeMediaMetadataParser.TryResolveAudioJoinSampleRate(null, presetTrackItem, out var resolvedSampleRate)
                 ? resolvedSampleRate
                 : 0;
-            int? bitrate = TryResolveAudioJoinBitrate(null, presetTrackItem, out var resolvedBitrate)
+            int? bitrate = MergeMediaMetadataParser.TryResolveAudioJoinBitrate(null, presetTrackItem, out var resolvedBitrate)
                 ? resolvedBitrate
                 : null;
 
@@ -597,19 +599,9 @@ public sealed partial class MergeViewModel : ObservableObject
         }
     }
 
-    public string VideoTrackEmptyText => _selectedMergeMode switch
-    {
-        MergeWorkspaceMode.AudioJoin => "当前模式聚焦音频拼接，视频轨道暂不参与编排。",
-        MergeWorkspaceMode.AudioVideoCompose => "从素材列表单击一个视频文件，可将其放入视频轨道；再次添加会自动替换当前视频。",
-        _ => "从素材列表单击视频文件，可将其添加到视频轨道。"
-    };
+    public string VideoTrackEmptyText => CurrentModeState.Profile.VideoTrackEmptyText;
 
-    public string AudioTrackEmptyText => _selectedMergeMode switch
-    {
-        MergeWorkspaceMode.VideoJoin => "当前模式聚焦视频拼接，音频轨道暂不参与编排。",
-        MergeWorkspaceMode.AudioVideoCompose => "从素材列表单击一个音频文件，可将其放入音频轨道；再次添加会自动替换当前音频。",
-        _ => "从素材列表单击音频文件，可将其添加到音频轨道。"
-    };
+    public string AudioTrackEmptyText => CurrentModeState.Profile.AudioTrackEmptyText;
 
     public void AddMediaToTimeline(MediaItem mediaItem)
     {
@@ -629,7 +621,8 @@ public sealed partial class MergeViewModel : ObservableObject
         }
 
         SetModeMismatchWarningVisibility(false, string.Empty);
-        if (_selectedMergeMode == MergeWorkspaceMode.AudioVideoCompose)
+        if ((mediaItem.IsVideo && CurrentModeState.Profile.ReplaceVideoTrackOnAdd) ||
+            (mediaItem.IsAudio && CurrentModeState.Profile.ReplaceAudioTrackOnAdd))
         {
             AddMediaToAudioVideoComposeTimeline(mediaItem, trackItems);
             return;
@@ -985,7 +978,7 @@ public sealed partial class MergeViewModel : ObservableObject
             return;
         }
 
-        if (_videoJoinWorkflowService is null)
+        if (_videoJoinWorkflowService is null || _mergeMediaAnalysisService is null)
         {
             StatusMessage = "当前环境暂不支持视频拼接输出。";
             return;
@@ -1013,7 +1006,7 @@ public sealed partial class MergeViewModel : ObservableObject
                 throw new InvalidOperationException("无法定位当前分辨率预设片段。");
             }
 
-            var segments = await BuildVideoJoinSegmentsAsync(activeTrackItems, cancellationToken);
+            var segments = await _mergeMediaAnalysisService.BuildVideoJoinSegmentsAsync(activeTrackItems, cancellationToken);
             var presetSegment = segments[presetTrackIndex];
             var plannedOutputPath = CreatePlannedVideoJoinOutputPath(presetTrackItem.SourcePath);
             var request = new VideoJoinExportRequest(
@@ -1072,7 +1065,7 @@ public sealed partial class MergeViewModel : ObservableObject
             return;
         }
 
-        if (_audioJoinWorkflowService is null)
+        if (_audioJoinWorkflowService is null || _mergeMediaAnalysisService is null)
         {
             StatusMessage = "当前环境暂不支持音频拼接输出。";
             return;
@@ -1093,7 +1086,7 @@ public sealed partial class MergeViewModel : ObservableObject
             var activeTrackItems = _audioJoinAudioTrackItems
                 .Where(trackItem => trackItem.IsSourceAvailable)
                 .ToArray();
-            var segments = await BuildAudioJoinSegmentsAsync(activeTrackItems, cancellationToken);
+            var segments = await _mergeMediaAnalysisService.BuildAudioJoinSegmentsAsync(activeTrackItems, cancellationToken);
             var outputAnchorTrackItem = activeTrackItems[0];
             TrackItem? presetTrackItem = null;
             var targetSampleRate = 0;
@@ -1230,127 +1223,6 @@ public sealed partial class MergeViewModel : ObservableObject
         return "请先向音频轨道添加至少一个有效音频片段。";
     }
 
-    private async Task<TimeSpan> ResolveTrackDurationAsync(
-        string sourcePath,
-        string fallbackDurationText,
-        CancellationToken cancellationToken)
-    {
-        if (_mediaInfoService is not null && !string.IsNullOrWhiteSpace(sourcePath))
-        {
-            try
-            {
-                var loadResult = _mediaInfoService.TryGetCachedDetails(sourcePath, out var cachedSnapshot)
-                    ? MediaDetailsLoadResult.Success(cachedSnapshot)
-                    : await _mediaInfoService.GetMediaDetailsAsync(sourcePath, cancellationToken);
-
-                if (loadResult.IsSuccess &&
-                    loadResult.Snapshot?.MediaDuration is { } mediaDuration &&
-                    mediaDuration > TimeSpan.Zero)
-                {
-                    return mediaDuration;
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                _logger?.Log(LogLevel.Warning, $"读取视频拼接素材时长失败：{sourcePath}", exception);
-            }
-        }
-
-        return TimeSpan.TryParse(fallbackDurationText, out var parsedDuration)
-            ? parsedDuration
-            : TimeSpan.Zero;
-    }
-
-    private async Task<IReadOnlyList<VideoJoinSegment>> BuildVideoJoinSegmentsAsync(
-        IReadOnlyList<TrackItem> activeTrackItems,
-        CancellationToken cancellationToken)
-    {
-        var segments = new List<VideoJoinSegment>(activeTrackItems.Count);
-
-        foreach (var trackItem in activeTrackItems)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var snapshot = await LoadMediaDetailsSnapshotAsync(trackItem.SourcePath, cancellationToken);
-            if (snapshot is not null && !snapshot.HasVideoStream)
-            {
-                throw new InvalidOperationException($"{trackItem.SourceName} 不包含可拼接的视频流。");
-            }
-
-            if (!TryResolveVideoJoinResolution(snapshot, trackItem, out var width, out var height))
-            {
-                throw new InvalidOperationException($"无法读取 {trackItem.SourceName} 的分辨率信息。");
-            }
-
-            var duration = await ResolveTrackDurationAsync(trackItem.SourcePath, trackItem.DurationText, cancellationToken);
-            if (duration <= TimeSpan.Zero)
-            {
-                throw new InvalidOperationException($"无法读取 {trackItem.SourceName} 的时长信息。");
-            }
-
-            var frameRate = TryResolveVideoJoinFrameRate(snapshot, out var resolvedFrameRate)
-                ? resolvedFrameRate
-                : 30d;
-
-            segments.Add(new VideoJoinSegment(
-                trackItem.SourcePath,
-                trackItem.SourceName,
-                width,
-                height,
-                frameRate,
-                duration,
-                snapshot?.HasAudioStream ?? true));
-        }
-
-        return segments;
-    }
-
-    private async Task<IReadOnlyList<AudioJoinSegment>> BuildAudioJoinSegmentsAsync(
-        IReadOnlyList<TrackItem> activeTrackItems,
-        CancellationToken cancellationToken)
-    {
-        var segments = new List<AudioJoinSegment>(activeTrackItems.Count);
-
-        foreach (var trackItem in activeTrackItems)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var snapshot = await LoadMediaDetailsSnapshotAsync(trackItem.SourcePath, cancellationToken);
-            if (snapshot is not null && !snapshot.HasAudioStream)
-            {
-                throw new InvalidOperationException($"{trackItem.SourceName} 不包含可拼接的音频流。");
-            }
-
-            var duration = await ResolveTrackDurationAsync(trackItem.SourcePath, trackItem.DurationText, cancellationToken);
-            if (duration <= TimeSpan.Zero)
-            {
-                throw new InvalidOperationException($"无法读取 {trackItem.SourceName} 的时长信息。");
-            }
-
-            if (!TryResolveAudioJoinSampleRate(snapshot, trackItem, out var sampleRate))
-            {
-                throw new InvalidOperationException($"无法读取 {trackItem.SourceName} 的采样率信息。");
-            }
-
-            int? bitrate = TryResolveAudioJoinBitrate(snapshot, trackItem, out var resolvedBitrate)
-                ? resolvedBitrate
-                : null;
-
-            segments.Add(new AudioJoinSegment(
-                trackItem.SourcePath,
-                trackItem.SourceName,
-                duration,
-                sampleRate,
-                bitrate));
-        }
-
-        return segments;
-    }
-
     private static (int TargetSampleRate, int? TargetBitrate) ResolveBalancedAudioJoinTargets(
         IEnumerable<AudioJoinSegment> segments)
     {
@@ -1371,11 +1243,11 @@ public sealed partial class MergeViewModel : ObservableObject
 
         var targetSampleRate = ResolveDominantPositiveValue(
             availableTrackItems
-                .Select(trackItem => TryResolveAudioJoinSampleRate(null, trackItem, out var sampleRate) ? sampleRate : 0),
+                .Select(trackItem => MergeMediaMetadataParser.TryResolveAudioJoinSampleRate(null, trackItem, out var sampleRate) ? sampleRate : 0),
             fallbackValue: 48_000);
         var targetBitrate = ResolveDominantPositiveNullableValue(
             availableTrackItems
-                .Select(trackItem => TryResolveAudioJoinBitrate(null, trackItem, out var bitrate) ? (int?)bitrate : null));
+                .Select(trackItem => MergeMediaMetadataParser.TryResolveAudioJoinBitrate(null, trackItem, out var bitrate) ? (int?)bitrate : null));
         return (targetSampleRate, targetBitrate);
     }
 
@@ -1404,160 +1276,6 @@ public sealed partial class MergeViewModel : ObservableObject
             .FirstOrDefault();
 
         return dominantValue > 0 ? dominantValue : null;
-    }
-
-    private async Task<MediaDetailsSnapshot?> LoadMediaDetailsSnapshotAsync(string sourcePath, CancellationToken cancellationToken)
-    {
-        if (_mediaInfoService is null || string.IsNullOrWhiteSpace(sourcePath))
-        {
-            return null;
-        }
-
-        if (_mediaInfoService.TryGetCachedDetails(sourcePath, out var cachedSnapshot))
-        {
-            return cachedSnapshot;
-        }
-
-        var loadResult = await _mediaInfoService.GetMediaDetailsAsync(sourcePath, cancellationToken);
-        return loadResult.IsSuccess ? loadResult.Snapshot : null;
-    }
-
-    private static bool TryResolveVideoJoinResolution(
-        MediaDetailsSnapshot? snapshot,
-        TrackItem trackItem,
-        out int width,
-        out int height)
-    {
-        var resolutionText = snapshot is null
-            ? trackItem.ResolutionText
-            : TryGetDetailFieldValue(snapshot.VideoFields, "分辨率") ??
-              TryGetDetailFieldValue(snapshot.OverviewFields, "分辨率") ??
-              trackItem.ResolutionText;
-
-        return TryParseResolutionText(resolutionText, out width, out height);
-    }
-
-    private static bool TryResolveVideoJoinFrameRate(MediaDetailsSnapshot? snapshot, out double frameRate)
-    {
-        frameRate = 0d;
-        if (snapshot is null)
-        {
-            return false;
-        }
-
-        var frameRateText = TryGetDetailFieldValue(snapshot.VideoFields, "帧率");
-        if (string.IsNullOrWhiteSpace(frameRateText))
-        {
-            return false;
-        }
-
-        var numericText = new string(frameRateText
-            .Trim()
-            .TakeWhile(character => char.IsDigit(character) || character is '.')
-            .ToArray());
-        return double.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out frameRate) &&
-               frameRate > 0d;
-    }
-
-    private static bool TryResolveAudioJoinSampleRate(
-        MediaDetailsSnapshot? snapshot,
-        TrackItem trackItem,
-        out int sampleRate)
-    {
-        var sampleRateText = snapshot is null
-            ? trackItem.ResolutionText
-            : TryGetDetailFieldValue(snapshot.AudioFields, "采样率") ??
-              trackItem.ResolutionText;
-
-        return TryParseSampleRateText(sampleRateText, out sampleRate);
-    }
-
-    private static bool TryResolveAudioJoinBitrate(
-        MediaDetailsSnapshot? snapshot,
-        TrackItem trackItem,
-        out int bitrate)
-    {
-        var bitrateText = snapshot is null
-            ? trackItem.ResolutionText
-            : TryGetDetailFieldValue(snapshot.AudioFields, "音频码率") ??
-              trackItem.ResolutionText;
-
-        return TryParseBitrateText(bitrateText, out bitrate);
-    }
-
-    private static bool TryParseSampleRateText(string? sampleRateText, out int sampleRate)
-    {
-        sampleRate = 0;
-        if (string.IsNullOrWhiteSpace(sampleRateText))
-        {
-            return false;
-        }
-
-        var segments = sampleRateText.Split(
-            new[] { '·', '|', ',', ';', '，', '；' },
-            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var candidate = segments.FirstOrDefault(segment =>
-            segment.Contains("Hz", StringComparison.OrdinalIgnoreCase));
-        if (string.IsNullOrWhiteSpace(candidate))
-        {
-            candidate = sampleRateText;
-        }
-
-        var numericText = new string(candidate
-            .Where(character => char.IsDigit(character) || character is '.')
-            .ToArray());
-        if (!double.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || value <= 0d)
-        {
-            return false;
-        }
-
-        if (candidate.Contains("kHz", StringComparison.OrdinalIgnoreCase))
-        {
-            value *= 1_000d;
-        }
-
-        sampleRate = (int)Math.Round(value, MidpointRounding.AwayFromZero);
-        return sampleRate > 0;
-    }
-
-    private static bool TryParseBitrateText(string? bitrateText, out int bitrate)
-    {
-        bitrate = 0;
-        if (string.IsNullOrWhiteSpace(bitrateText))
-        {
-            return false;
-        }
-
-        var segments = bitrateText.Split(
-            new[] { '·', '|', ',', ';', '，', '；' },
-            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var candidate = segments.FirstOrDefault(segment =>
-            segment.Contains("bps", StringComparison.OrdinalIgnoreCase) ||
-            segment.Contains("比特/秒", StringComparison.Ordinal));
-        if (string.IsNullOrWhiteSpace(candidate))
-        {
-            candidate = bitrateText;
-        }
-
-        var numericText = new string(candidate
-            .Where(character => char.IsDigit(character) || character is '.')
-            .ToArray());
-        if (!double.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || value <= 0d)
-        {
-            return false;
-        }
-
-        if (candidate.Contains("Mbps", StringComparison.OrdinalIgnoreCase))
-        {
-            value *= 1_000_000d;
-        }
-        else if (candidate.Contains("kbps", StringComparison.OrdinalIgnoreCase))
-        {
-            value *= 1_000d;
-        }
-
-        bitrate = (int)Math.Round(value, MidpointRounding.AwayFromZero);
-        return bitrate > 0;
     }
 
     private void UpdateVideoJoinProgress(FFmpegProgressUpdate progress, int segmentCount)
@@ -2062,7 +1780,9 @@ public sealed partial class MergeViewModel : ObservableObject
                 var snapshot = loadResult.Snapshot;
                 fileName = string.IsNullOrWhiteSpace(snapshot.FileName) ? fileName : snapshot.FileName;
                 isVideo = ResolveIsVideo(snapshot, filePath);
-                resolutionText = isVideo ? ResolveResolutionText(snapshot) : ResolveAudioParameterText(snapshot);
+                resolutionText = isVideo
+                    ? MergeMediaMetadataParser.ResolveResolutionText(snapshot)
+                    : MergeMediaMetadataParser.ResolveAudioParameterText(snapshot);
 
                 if (snapshot.MediaDuration is { } mediaDuration && mediaDuration > TimeSpan.Zero)
                 {
@@ -2117,70 +1837,6 @@ public sealed partial class MergeViewModel : ObservableObject
 
     private static bool TryParseTrackDuration(string durationText, out TimeSpan duration) =>
         TimeSpan.TryParse(durationText, out duration);
-
-    private static bool TryParseResolutionText(string? resolutionText, out int width, out int height)
-    {
-        width = 0;
-        height = 0;
-        if (string.IsNullOrWhiteSpace(resolutionText))
-        {
-            return false;
-        }
-
-        var normalizedText = resolutionText
-            .Replace("×", "x", StringComparison.Ordinal)
-            .Replace("X", "x", StringComparison.Ordinal)
-            .Replace(" ", string.Empty, StringComparison.Ordinal);
-        var parts = normalizedText.Split('x', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return parts.Length == 2 &&
-               int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out width) &&
-               int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out height) &&
-               width > 0 &&
-               height > 0;
-    }
-
-    private static string ResolveResolutionText(MediaDetailsSnapshot snapshot)
-    {
-        var resolutionText = TryGetDetailFieldValue(snapshot.VideoFields, "分辨率") ??
-                             TryGetDetailFieldValue(snapshot.OverviewFields, "分辨率");
-        return string.IsNullOrWhiteSpace(resolutionText) ? "未知分辨率" : resolutionText;
-    }
-
-    private static string ResolveAudioParameterText(MediaDetailsSnapshot snapshot)
-    {
-        var sampleRateText = TryGetDetailFieldValue(snapshot.AudioFields, "采样率");
-        var bitrateText = TryGetDetailFieldValue(snapshot.AudioFields, "音频码率");
-        if (string.IsNullOrWhiteSpace(sampleRateText) && string.IsNullOrWhiteSpace(bitrateText))
-        {
-            return "未知音频参数";
-        }
-
-        if (string.IsNullOrWhiteSpace(sampleRateText))
-        {
-            return bitrateText!;
-        }
-
-        if (string.IsNullOrWhiteSpace(bitrateText))
-        {
-            return sampleRateText;
-        }
-
-        return $"{sampleRateText} · {bitrateText}";
-    }
-
-    private static string? TryGetDetailFieldValue(IReadOnlyList<MediaDetailField> fields, string label)
-    {
-        foreach (var field in fields)
-        {
-            if (string.Equals(field.Label, label, StringComparison.OrdinalIgnoreCase) &&
-                !string.IsNullOrWhiteSpace(field.Value))
-            {
-                return field.Value;
-            }
-        }
-
-        return null;
-    }
 
     private TrackItem CreateTrackItem(MediaItem mediaItem, int index, bool isSourceAvailable)
     {
@@ -2252,12 +1908,7 @@ public sealed partial class MergeViewModel : ObservableObject
         SetModeMismatchWarningVisibility(false, string.Empty);
         NotifyCommandStates();
 
-        StatusMessage = mergeMode switch
-        {
-            MergeWorkspaceMode.VideoJoin => "已切换到视频拼接模式。",
-            MergeWorkspaceMode.AudioJoin => "已切换到音频拼接模式。",
-            _ => "已切换到音视频合成模式。"
-        };
+        StatusMessage = GetModeState(mergeMode).Profile.SelectionMessage;
 
         PersistMergeWorkspaceMode();
     }
@@ -2481,55 +2132,59 @@ public sealed partial class MergeViewModel : ObservableObject
         out ObservableCollection<TrackItem> trackItems,
         out string rejectionMessage)
     {
+        var profile = CurrentModeState.Profile;
         rejectionMessage = string.Empty;
 
-        switch (_selectedMergeMode)
+        if (mediaItem.IsVideo)
         {
-            case MergeWorkspaceMode.VideoJoin:
-                if (mediaItem.IsAudio)
-                {
-                    trackItems = _emptyTrackItems;
-                    rejectionMessage = "当前是视频拼接模式，请选择视频素材加入视频轨道。";
-                    return false;
-                }
+            if (!profile.SupportsVideoTrackInput)
+            {
+                trackItems = _emptyTrackItems;
+                rejectionMessage = profile.RejectVideoInputMessage;
+                return false;
+            }
 
-                trackItems = _videoJoinVideoTrackItems;
-                return true;
-
-            case MergeWorkspaceMode.AudioJoin:
-                if (mediaItem.IsVideo)
-                {
-                    trackItems = _emptyTrackItems;
-                    rejectionMessage = "当前是音频拼接模式，请选择音频素材加入音频轨道。";
-                    return false;
-                }
-
-                trackItems = _audioJoinAudioTrackItems;
-                return true;
-
-            default:
-                trackItems = mediaItem.IsVideo
-                    ? _audioVideoComposeVideoTrackItems
-                    : _audioVideoComposeAudioTrackItems;
-                return true;
+            trackItems = CurrentModeState.VideoTrackItems;
+            return true;
         }
+
+        if (!profile.SupportsAudioTrackInput)
+        {
+            trackItems = _emptyTrackItems;
+            rejectionMessage = profile.RejectAudioInputMessage;
+            return false;
+        }
+
+        trackItems = CurrentModeState.AudioTrackItems;
+        return true;
     }
 
-    private ObservableCollection<TrackItem> GetVideoTrackItems(MergeWorkspaceMode mergeMode) =>
-        mergeMode switch
-        {
-            MergeWorkspaceMode.VideoJoin => _videoJoinVideoTrackItems,
-            MergeWorkspaceMode.AudioVideoCompose => _audioVideoComposeVideoTrackItems,
-            _ => _emptyTrackItems
-        };
+    private IReadOnlyDictionary<MergeWorkspaceMode, MergeWorkspaceModeState> CreateModeStates(
+        ApplicationConfiguration configuration)
+    {
+        var profiles = configuration.MergeModeProfiles;
 
-    private ObservableCollection<TrackItem> GetAudioTrackItems(MergeWorkspaceMode mergeMode) =>
-        mergeMode switch
+        return new Dictionary<MergeWorkspaceMode, MergeWorkspaceModeState>
         {
-            MergeWorkspaceMode.AudioJoin => _audioJoinAudioTrackItems,
-            MergeWorkspaceMode.AudioVideoCompose => _audioVideoComposeAudioTrackItems,
-            _ => _emptyTrackItems
+            [MergeWorkspaceMode.VideoJoin] = new(
+                profiles[MergeWorkspaceMode.VideoJoin],
+                _videoJoinVideoTrackItems,
+                _emptyTrackItems),
+            [MergeWorkspaceMode.AudioJoin] = new(
+                profiles[MergeWorkspaceMode.AudioJoin],
+                _emptyTrackItems,
+                _audioJoinAudioTrackItems),
+            [MergeWorkspaceMode.AudioVideoCompose] = new(
+                profiles[MergeWorkspaceMode.AudioVideoCompose],
+                _audioVideoComposeVideoTrackItems,
+                _audioVideoComposeAudioTrackItems)
         };
+    }
+
+    private MergeWorkspaceModeState GetModeState(MergeWorkspaceMode mergeMode) =>
+        _modeStates.TryGetValue(mergeMode, out var state)
+            ? state
+            : _modeStates[MergeWorkspaceMode.AudioVideoCompose];
 
     private IEnumerable<ObservableCollection<TrackItem>> GetAllTrackCollections()
     {

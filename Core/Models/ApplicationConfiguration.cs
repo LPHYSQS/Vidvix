@@ -111,6 +111,55 @@ public sealed class ApplicationConfiguration
                 headerDescription: "统一编排音视频素材，完成拼接与音视频合成。")
         };
 
+    public IReadOnlyDictionary<MergeWorkspaceMode, MergeWorkspaceModeProfile> MergeModeProfiles { get; init; } =
+        new Dictionary<MergeWorkspaceMode, MergeWorkspaceModeProfile>
+        {
+            [MergeWorkspaceMode.VideoJoin] = new(
+                MergeWorkspaceMode.VideoJoin,
+                displayName: "视频拼接",
+                selectionMessage: "已切换到视频拼接模式。",
+                timelineHintText: "当前为视频拼接模式，仅可将视频素材添加到视频轨道。",
+                videoTrackEmptyText: "从素材列表单击视频文件，可将其添加到视频轨道。",
+                audioTrackEmptyText: "当前模式聚焦视频拼接，音频轨道暂不参与编排。",
+                supportsVideoTrackInput: true,
+                supportsAudioTrackInput: false,
+                replaceVideoTrackOnAdd: false,
+                replaceAudioTrackOnAdd: false,
+                showsVideoJoinTimeline: true,
+                showsAudioJoinTimeline: false,
+                showsStandardTimeline: false,
+                rejectAudioInputMessage: "当前是视频拼接模式，请选择视频素材加入视频轨道。"),
+            [MergeWorkspaceMode.AudioJoin] = new(
+                MergeWorkspaceMode.AudioJoin,
+                displayName: "音频拼接",
+                selectionMessage: "已切换到音频拼接模式。",
+                timelineHintText: "当前为音频拼接模式，仅可将音频素材添加到音频轨道。",
+                videoTrackEmptyText: "当前模式聚焦音频拼接，视频轨道暂不参与编排。",
+                audioTrackEmptyText: "从素材列表单击音频文件，可将其添加到音频轨道。",
+                supportsVideoTrackInput: false,
+                supportsAudioTrackInput: true,
+                replaceVideoTrackOnAdd: false,
+                replaceAudioTrackOnAdd: false,
+                showsVideoJoinTimeline: false,
+                showsAudioJoinTimeline: true,
+                showsStandardTimeline: false,
+                rejectVideoInputMessage: "当前是音频拼接模式，请选择音频素材加入音频轨道。"),
+            [MergeWorkspaceMode.AudioVideoCompose] = new(
+                MergeWorkspaceMode.AudioVideoCompose,
+                displayName: "音视频合成",
+                selectionMessage: "已切换到音视频合成模式。",
+                timelineHintText: "当前为音视频合成模式，请分别添加 1 个视频和 1 个音频。",
+                videoTrackEmptyText: "从素材列表单击一个视频文件，可将其放入视频轨道；再次添加会自动替换当前视频。",
+                audioTrackEmptyText: "从素材列表单击一个音频文件，可将其放入音频轨道；再次添加会自动替换当前音频。",
+                supportsVideoTrackInput: true,
+                supportsAudioTrackInput: true,
+                replaceVideoTrackOnAdd: true,
+                replaceAudioTrackOnAdd: true,
+                showsVideoJoinTimeline: false,
+                showsAudioJoinTimeline: false,
+                showsStandardTimeline: true)
+        };
+
     public IReadOnlyList<ProcessingModeOption> SupportedProcessingModes { get; init; } =
         new[]
         {

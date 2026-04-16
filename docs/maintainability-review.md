@@ -20,6 +20,10 @@
   这样标题栏配色、浮层动画、拖拽导入、窗口位置恢复和 Win32 互操作各自收口，后续修改窗口行为时更不容易误碰别的路径。
 - 把 `Utils/AppCompositionRoot` 的对象装配改为服务分组。
   入口继续保持手动组合根，不引入额外 DI 依赖，但已经把基础设施、媒体运行时和业务工作流分层整理，降低新增服务时的接线成本。
+- 为合并模块新增 `MergeWorkspaceModeProfile` 与 `MergeWorkspaceModeState`。
+  现在“视频拼接 / 音频拼接 / 音视频合成”的轨道能力、时间轴显示和模式提示不再散落在 ViewModel 的条件分支里，而是统一通过模式配置与模式状态装配。
+- 新增 `IMergeMediaAnalysisService / MergeMediaAnalysisService`，承接合并模块的媒体探测与分段准备。
+  `MergeViewModel` 现在更接近“界面协调层”，不再同时承担分辨率解析、采样率推导、时长探测和导出前素材分析。
 - 新增标准 `Vidvix.sln` 与三套离线发布 `pubxml`。
   这两部分主要解决 IDE 兼容性和自包含发布的可重复性，不涉及功能行为变更。
 
@@ -32,8 +36,8 @@
 
 - `ViewModels/MainViewModel.Execution.cs`
   仍然承担执行编排、预检、日志反馈、取消控制和异常翻译，职责偏重。下一轮如继续整理，建议优先抽出“预检服务”和“批处理执行编排器”。
-- `Services/MediaInfo/MediaInfoService.cs`
-  文件体量较大，既负责调用 `ffprobe`，也负责结果解析和展示字段整形。后续更适合拆成“探测执行器 + 结果映射器 + 展示字段格式化器”。
+- `ViewModels/MergeViewModel.cs`
+  体量已经明显下降，但仍负责轨道交互、输出设置、偏好持久化和状态通知。下一轮更适合继续拆出“输出设置状态对象”和“轨道编排协调器”。
 - `Views/MainWindow.xaml`
   页面已经稳定，但内容密度较高。后续如果继续增加 AI 面板、批量规则或高级设置，建议把主窗口内容继续拆成独立用户控件，避免单个 XAML 继续膨胀。
 

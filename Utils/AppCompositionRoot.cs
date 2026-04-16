@@ -108,6 +108,9 @@ public sealed class AppCompositionRoot
             mediaRuntime.MediaInfoService,
             mediaProcessingCommandFactory,
             Logger);
+        var mergeMediaAnalysisService = new MergeMediaAnalysisService(
+            mediaRuntime.MediaInfoService,
+            Logger);
         var videoTrimWorkflowService = new VideoTrimWorkflowService(
             Configuration,
             mediaRuntime.RuntimeService,
@@ -139,6 +142,7 @@ public sealed class AppCompositionRoot
             new MediaImportDiscoveryService(),
             mediaProcessingWorkflowService,
             trimWorkflowService,
+            mergeMediaAnalysisService,
             videoJoinWorkflowService,
             audioJoinWorkflowService,
             audioVideoComposeWorkflowService);
@@ -169,6 +173,7 @@ public sealed class AppCompositionRoot
             infrastructure.FilePickerService,
             mediaRuntime.MediaInfoService,
             infrastructure.UserPreferencesService,
+            workflows.MergeMediaAnalysisService,
             workflows.VideoJoinWorkflowService,
             workflows.AudioJoinWorkflowService,
             workflows.AudioVideoComposeWorkflowService,

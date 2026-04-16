@@ -23,6 +23,7 @@ internal sealed record AppWorkflowServices(
     IMediaImportDiscoveryService MediaImportDiscoveryService,
     IMediaProcessingWorkflowService MediaProcessingWorkflowService,
     ITrimWorkflowService TrimWorkflowService,
+    IMergeMediaAnalysisService MergeMediaAnalysisService,
     IVideoJoinWorkflowService VideoJoinWorkflowService,
     IAudioJoinWorkflowService AudioJoinWorkflowService,
     IAudioVideoComposeWorkflowService AudioVideoComposeWorkflowService);

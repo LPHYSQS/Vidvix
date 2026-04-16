@@ -505,7 +505,7 @@ public sealed partial class MergeViewModel
             return;
         }
 
-        if (_audioVideoComposeWorkflowService is null)
+        if (_audioVideoComposeWorkflowService is null || _mergeMediaAnalysisService is null)
         {
             StatusMessage = "当前环境暂不支持音视频合成输出。";
             return;
@@ -540,41 +540,17 @@ public sealed partial class MergeViewModel
 
             EnsureAudioVideoComposeOutputDirectoryExists();
 
-            var videoSnapshot = await LoadMediaDetailsSnapshotAsync(videoTrackItem.SourcePath, cancellationToken);
-            var audioSnapshot = await LoadMediaDetailsSnapshotAsync(audioTrackItem.SourcePath, cancellationToken);
-
-            if (videoSnapshot is not null && !videoSnapshot.HasVideoStream)
-            {
-                throw new InvalidOperationException($"{videoTrackItem.SourceName} 不包含可用于合成的视频流。");
-            }
-
-            if (audioSnapshot is not null && !audioSnapshot.HasAudioStream)
-            {
-                throw new InvalidOperationException($"{audioTrackItem.SourceName} 不包含可用于合成的音频流。");
-            }
-
-            var videoDuration = await ResolveTrackDurationAsync(videoTrackItem.SourcePath, videoTrackItem.DurationText, cancellationToken);
-            var audioDuration = await ResolveTrackDurationAsync(audioTrackItem.SourcePath, audioTrackItem.DurationText, cancellationToken);
-            if (videoDuration <= TimeSpan.Zero)
-            {
-                throw new InvalidOperationException($"无法读取 {videoTrackItem.SourceName} 的时长信息。");
-            }
-
-            if (audioDuration <= TimeSpan.Zero)
-            {
-                throw new InvalidOperationException($"无法读取 {audioTrackItem.SourceName} 的时长信息。");
-            }
-
-            var frameRate = TryResolveVideoJoinFrameRate(videoSnapshot, out var resolvedFrameRate)
-                ? resolvedFrameRate
-                : 30d;
+            var sourceAnalysis = await _mergeMediaAnalysisService.AnalyzeAudioVideoComposeAsync(
+                videoTrackItem,
+                audioTrackItem,
+                cancellationToken);
             var request = BuildAudioVideoComposeExportRequest(
                 videoTrackItem,
                 audioTrackItem,
-                videoDuration,
-                audioDuration,
-                frameRate,
-                videoSnapshot?.HasAudioStream == true);
+                sourceAnalysis.VideoDuration,
+                sourceAnalysis.AudioDuration,
+                sourceAnalysis.VideoFrameRate,
+                sourceAnalysis.VideoHasAudioStream);
 
             StatusMessage = "正在准备 FFmpeg 运行时...";
             await _audioVideoComposeWorkflowService.EnsureRuntimeReadyAsync(cancellationToken);

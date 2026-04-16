@@ -25,6 +25,8 @@
 - `MainViewModel` 按职责拆成 `Import`、`Details`、`Processing`、`Preferences` 四个 partial 文件。
 - FFmpeg 命令拼装已继续下沉到 `Services/FFmpeg/MediaProcessingCommandFactory`，ViewModel 只保留执行上下文编排。
 - 音频 / 视频工作区的中文文案、提示语和输入格式规则已集中到 `ProcessingWorkspaceProfile`。
+- 合并模块新增 `MergeWorkspaceModeProfile`，把“模式能力、轨道接纳规则、时间轴展示和提示文案”提升为一等配置对象，不再把模式差异硬编码在 `MergeViewModel` 的大量 `switch` 中。
+- 合并模块新增 `IMergeMediaAnalysisService / MergeMediaAnalysisService`，把视频拼接、音频拼接、音视频合成所需的媒体探测、分段准备和时长 / 分辨率 / 采样率分析从 `MergeViewModel` 中抽离。
 - 用户偏好改为“基于现有对象更新”的持久化方式，避免每次新增设置项时在多个调用点手动复制所有字段。
 - 新增 `.editorconfig` 统一中文源码采用 `UTF-8 BOM`，降低 Windows 默认工具、脚本和 AI Agent 误判乱码的概率。
 - 新增全局“转码方式”偏好：默认保持现有快速换封装行为，可切换到真正转码，并在视频可适用时接入 GPU 可用性检测与自动回退。
@@ -39,6 +41,7 @@
 - Service 不要依赖具体窗口或控件类型，避免平台事件向下层渗透。
 - 新增设置项时优先走 `IUserPreferencesService.Update(...)`，不要重新手写整对象复制。
 - 新增处理模式时优先扩展独立流程或策略，不要继续把 `MainViewModel` 变回“大而全”的总控类。
+- 新增合并模式时，优先补充 `MergeWorkspaceModeProfile` 与对应分析 / 导出流程，不要直接在 `MergeViewModel` 中继续堆叠判断分支。
 
 ## 面向后续“视频 / 音频双模式”扩展的建议
 
