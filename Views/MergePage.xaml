@@ -1215,9 +1215,12 @@
                             <Grid
                                 Grid.Row="2"
                                 MinHeight="176">
-                                <ItemsControl
-                                    ItemTemplate="{StaticResource AudioVideoComposeVideoTrackItemTemplate}"
-                                    ItemsSource="{x:Bind ViewModel.VideoTrackItems, Mode=OneWay}" />
+                                <ContentControl
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Top"
+                                    Content="{x:Bind ViewModel.AudioVideoComposeVideoTrackItem, Mode=OneWay}"
+                                    ContentTemplate="{StaticResource AudioVideoComposeVideoTrackItemTemplate}"
+                                    Visibility="{x:Bind ViewModel.AudioVideoComposeVideoTrackItemVisibility, Mode=OneWay}" />
                             </Grid>
 
                             <StackPanel
@@ -1284,9 +1287,12 @@
                             <Grid
                                 Grid.Row="2"
                                 MinHeight="176">
-                                <ItemsControl
-                                    ItemTemplate="{StaticResource AudioVideoComposeAudioTrackItemTemplate}"
-                                    ItemsSource="{x:Bind ViewModel.AudioTrackItems, Mode=OneWay}" />
+                                <ContentControl
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Top"
+                                    Content="{x:Bind ViewModel.AudioVideoComposeAudioTrackItem, Mode=OneWay}"
+                                    ContentTemplate="{StaticResource AudioVideoComposeAudioTrackItemTemplate}"
+                                    Visibility="{x:Bind ViewModel.AudioVideoComposeAudioTrackItemVisibility, Mode=OneWay}" />
                             </Grid>
                         </Grid>
                     </Border>

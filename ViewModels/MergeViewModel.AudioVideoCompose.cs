@@ -362,6 +362,16 @@ public sealed partial class MergeViewModel
         }
     }
 
+    public TrackItem? AudioVideoComposeVideoTrackItem => GetAudioVideoComposeVideoTrackItem();
+
+    public TrackItem? AudioVideoComposeAudioTrackItem => GetAudioVideoComposeAudioTrackItem();
+
+    public Visibility AudioVideoComposeVideoTrackItemVisibility =>
+        AudioVideoComposeVideoTrackItem is null ? Visibility.Collapsed : Visibility.Visible;
+
+    public Visibility AudioVideoComposeAudioTrackItemVisibility =>
+        AudioVideoComposeAudioTrackItem is null ? Visibility.Collapsed : Visibility.Visible;
+
     public string AudioVideoComposeVideoTrackSummaryText
     {
         get
@@ -937,6 +947,10 @@ public sealed partial class MergeViewModel
         OnPropertyChanged(nameof(AudioVideoComposeFadeHintText));
         OnPropertyChanged(nameof(AudioVideoComposeDurationSummaryText));
         OnPropertyChanged(nameof(AudioVideoComposeStrategySummaryText));
+        OnPropertyChanged(nameof(AudioVideoComposeVideoTrackItem));
+        OnPropertyChanged(nameof(AudioVideoComposeAudioTrackItem));
+        OnPropertyChanged(nameof(AudioVideoComposeVideoTrackItemVisibility));
+        OnPropertyChanged(nameof(AudioVideoComposeAudioTrackItemVisibility));
         OnPropertyChanged(nameof(AudioVideoComposeVideoTrackSummaryText));
         OnPropertyChanged(nameof(AudioVideoComposeAudioTrackSummaryText));
         OnPropertyChanged(nameof(AudioVideoComposeVideoDurationText));
