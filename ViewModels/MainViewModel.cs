@@ -62,10 +62,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly ObservableCollection<LogEntry> _audioLogEntries;
     private readonly ObservableCollection<LogEntry> _trimLogEntries;
     private readonly ObservableCollection<LogEntry> _mergeLogEntries;
+    private readonly ObservableCollection<LogEntry> _terminalLogEntries;
     private readonly ObservableCollection<MediaJobViewModel> _videoImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _audioImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _trimImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _mergeImportItems;
+    private readonly ObservableCollection<MediaJobViewModel> _terminalImportItems;
     private readonly AsyncRelayCommand _selectFilesCommand;
     private readonly AsyncRelayCommand _selectFolderCommand;
     private readonly AsyncRelayCommand _selectOutputDirectoryCommand;
@@ -138,10 +140,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _audioLogEntries = new ObservableCollection<LogEntry>();
         _trimLogEntries = new ObservableCollection<LogEntry>();
         _mergeLogEntries = new ObservableCollection<LogEntry>();
+        _terminalLogEntries = new ObservableCollection<LogEntry>();
         _videoImportItems = new ObservableCollection<MediaJobViewModel>();
         _audioImportItems = new ObservableCollection<MediaJobViewModel>();
         _trimImportItems = new ObservableCollection<MediaJobViewModel>();
         _mergeImportItems = new ObservableCollection<MediaJobViewModel>();
+        _terminalImportItems = new ObservableCollection<MediaJobViewModel>();
         DetailPanel = new MediaDetailPanelViewModel();
         ProcessingModes = _configuration.SupportedProcessingModes;
 
@@ -175,6 +179,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _switchToAudioWorkspaceCommand = new AsyncRelayCommand(SwitchToAudioWorkspaceAsync, () => CanModifyInputs);
         _switchToTrimWorkspaceCommand = new AsyncRelayCommand(SwitchToTrimWorkspaceAsync, () => CanModifyInputs);
         _switchToMergeWorkspaceCommand = new AsyncRelayCommand(SwitchToMergeWorkspaceAsync, () => CanModifyInputs);
+        _switchToTerminalWorkspaceCommand = new AsyncRelayCommand(SwitchToTerminalWorkspaceAsync, () => CanModifyInputs);
 
         DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
         TrimWorkspace.PropertyChanged += OnTrimWorkspacePropertyChanged;

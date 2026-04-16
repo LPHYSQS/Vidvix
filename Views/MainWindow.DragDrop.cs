@@ -21,7 +21,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (ViewModel.IsMergeWorkspaceSelected)
+        if (ViewModel.IsMergeWorkspaceSelected || ViewModel.IsTerminalWorkspaceSelected)
         {
             e.AcceptedOperation = DataPackageOperation.None;
             return;
@@ -54,7 +54,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (ViewModel.IsMergeWorkspaceSelected)
+        if (ViewModel.IsMergeWorkspaceSelected || ViewModel.IsTerminalWorkspaceSelected)
         {
             return;
         }

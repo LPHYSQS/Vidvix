@@ -66,6 +66,8 @@ public sealed partial class MainWindow
         TrimWorkspaceText.Foreground = ViewModel.IsTrimWorkspaceSelected ? accentBrush : defaultBrush;
         MergeWorkspaceIcon.Stroke = ViewModel.IsMergeWorkspaceSelected ? accentBrush : defaultBrush;
         MergeWorkspaceText.Foreground = ViewModel.IsMergeWorkspaceSelected ? accentBrush : defaultBrush;
+        TerminalWorkspaceIcon.Stroke = ViewModel.IsTerminalWorkspaceSelected ? accentBrush : defaultBrush;
+        TerminalWorkspaceText.Foreground = ViewModel.IsTerminalWorkspaceSelected ? accentBrush : defaultBrush;
     }
 
     private static Brush ResolveBrushResource(string resourceKey) =>

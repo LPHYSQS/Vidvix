@@ -504,6 +504,36 @@
                                         Text="合并" />
                                 </StackPanel>
                             </ToggleButton>
+
+                            <ToggleButton
+                                x:Name="TerminalWorkspaceToggle"
+                                Command="{x:Bind ViewModel.SwitchToTerminalWorkspaceCommand, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.IsTerminalWorkspaceSelected, Mode=OneWay}"
+                                IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                <StackPanel
+                                    HorizontalAlignment="Center"
+                                    Spacing="5">
+                                    <Path
+                                        x:Name="TerminalWorkspaceIcon"
+                                        HorizontalAlignment="Center"
+                                        Width="18"
+                                        Height="18"
+                                        Stretch="Uniform"
+                                        Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                                        StrokeThickness="1.9"
+                                        StrokeStartLineCap="Round"
+                                        StrokeEndLineCap="Round"
+                                        StrokeLineJoin="Round"
+                                        Data="M4 6.5H20V17.5H4Z M7.5 10L10.5 12L7.5 14 M12.5 14H16.5" />
+                                    <TextBlock
+                                        x:Name="TerminalWorkspaceText"
+                                        HorizontalAlignment="Center"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Text="终端" />
+                                </StackPanel>
+                            </ToggleButton>
                         </StackPanel>
                     </Border>
 
@@ -995,6 +1025,12 @@
                         VerticalAlignment="Stretch"
                         ViewModel="{x:Bind ViewModel.MergeWorkspace, Mode=OneWay}"
                         Visibility="{x:Bind ViewModel.MergeWorkspaceVisibility, Mode=OneWay}" />
+
+                    <views:TerminalPage
+                        Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Visibility="{x:Bind ViewModel.TerminalWorkspaceVisibility, Mode=OneWay}" />
                 </Grid>
             </SplitView.Content>
         </SplitView>

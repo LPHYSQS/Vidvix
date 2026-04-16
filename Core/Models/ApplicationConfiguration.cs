@@ -108,7 +108,16 @@ public sealed class ApplicationConfiguration
                 fixedProcessingModeDisplayName: "素材合并",
                 fixedProcessingModeDescription: "统一编排多段音视频素材，完成拼接、混音与音视频合成。",
                 headerTitle: "媒体合并",
-                headerDescription: "统一编排音视频素材，完成拼接与音视频合成。")
+                headerDescription: "统一编排音视频素材，完成拼接与音视频合成。"),
+            [ProcessingWorkspaceKind.Terminal] = new(
+                ProcessingWorkspaceKind.Terminal,
+                "终端",
+                "终端内容",
+                Array.Empty<string>(),
+                fixedProcessingModeDisplayName: "终端",
+                fixedProcessingModeDescription: "预留终端工作区，后续可在这里扩展命令与脚本能力。",
+                headerTitle: "终端",
+                headerDescription: "终端工作区已预留，当前版本暂不放置任何组件。")
         };
 
     public IReadOnlyDictionary<MergeWorkspaceMode, MergeWorkspaceModeProfile> MergeModeProfiles { get; init; } =

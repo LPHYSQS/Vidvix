@@ -5,5 +5,6 @@ public enum ProcessingWorkspaceKind
     Video,
     Audio,
     Trim,
-    Merge
+    Merge,
+    Terminal
 }
