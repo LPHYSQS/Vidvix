@@ -317,7 +317,7 @@
                     </Button>
                 </Grid>
 
-                <Border Grid.Column="0" Grid.Row="2" Padding="14" Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="16">
+                <Border Grid.Column="0" Grid.Row="2" Padding="14" CornerRadius="16" Style="{StaticResource InsetSurfaceCardBorderStyle}">
                     <StackPanel Spacing="12">
                         <TextBlock FontSize="14" FontWeight="SemiBold" Text="裁剪区间" />
                         <TextBlock Opacity="0.72" Text="{x:Bind ViewModel.SelectionSummaryText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
@@ -409,7 +409,7 @@
 
                 <ScrollViewer Grid.Column="1" Grid.RowSpan="3" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" VerticalScrollMode="Enabled">
                     <StackPanel Padding="0,0,16,0" Spacing="12">
-                        <Border Padding="12" Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="16">
+                        <Border Padding="12" CornerRadius="16" Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <StackPanel Spacing="8">
                                 <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="当前选区" />
                                 <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectionSummaryText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
@@ -431,7 +431,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Padding="12" Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="16">
+                        <Border Padding="12" CornerRadius="16" Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <StackPanel Spacing="10">
                                 <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="输出设置" />
                                 <StackPanel Spacing="6">
@@ -460,7 +460,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Padding="12" Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="16">
+                        <Border Padding="12" CornerRadius="16" Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <StackPanel Spacing="8">
                                 <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="{x:Bind ViewModel.MediaInfoPanelTitle, Mode=OneWay}" />
                                 <TextBlock MaxLines="2" FontWeight="SemiBold" Text="{x:Bind ViewModel.InputFileName, Mode=OneWay}" TextTrimming="CharacterEllipsis" />

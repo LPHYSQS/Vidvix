@@ -610,8 +610,8 @@
                 <Grid Grid.Row="3">
                     <Border
                         Padding="14"
-                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
                         CornerRadius="16"
+                        Style="{StaticResource InsetSurfaceCardBorderStyle}"
                         VerticalAlignment="Top"
                         Visibility="{x:Bind ViewModel.VideoJoinTimelineVisibility, Mode=OneWay}">
                         <Grid RowSpacing="12">
@@ -876,8 +876,8 @@
 
                     <Border
                         Padding="14"
-                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
                         CornerRadius="16"
+                        Style="{StaticResource InsetSurfaceCardBorderStyle}"
                         VerticalAlignment="Top"
                         Visibility="{x:Bind ViewModel.AudioJoinTimelineVisibility, Mode=OneWay}">
                         <Grid RowSpacing="12">
@@ -1152,8 +1152,10 @@
 
                     <Border
                         Padding="14"
-                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
                         CornerRadius="16">
+                        <Border.Style>
+                            <StaticResource ResourceKey="InsetSurfaceCardBorderStyle" />
+                        </Border.Style>
                         <ScrollViewer
                             Padding="0,0,12,0"
                             HorizontalScrollBarVisibility="Disabled"
@@ -1306,8 +1308,10 @@
                     <Border
                         Grid.Row="1"
                         Padding="14"
-                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
                         CornerRadius="16">
+                        <Border.Style>
+                            <StaticResource ResourceKey="InsetSurfaceCardBorderStyle" />
+                        </Border.Style>
                         <ScrollViewer
                             Padding="0,0,12,0"
                             HorizontalScrollBarVisibility="Disabled"
@@ -1637,8 +1641,8 @@
                         <TextBlock FontWeight="SemiBold" Text="参数基准" />
                         <Border
                             Padding="12"
-                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                            CornerRadius="12">
+                            CornerRadius="12"
+                            Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <TextBlock
                                 Text="{x:Bind ViewModel.AudioParameterPresetSummaryText, Mode=OneWay}"
                                 TextWrapping="WrapWholeWords" />
@@ -1713,8 +1717,8 @@
                         <TextBlock FontWeight="SemiBold" Text="智能对齐策略" />
                         <Border
                             Padding="12"
-                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                            CornerRadius="12">
+                            CornerRadius="12"
+                            Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <StackPanel Spacing="6">
                                 <TextBlock
                                     FontWeight="SemiBold"
@@ -1734,8 +1738,8 @@
                         <TextBlock FontWeight="SemiBold" Text="导入音频处理" />
                         <Border
                             Padding="12"
-                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                            CornerRadius="12">
+                            CornerRadius="12"
+                            Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <StackPanel Spacing="10">
                                 <Grid ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>
@@ -1772,8 +1776,8 @@
                         <TextBlock FontWeight="SemiBold" Text="混音" />
                         <Border
                             Padding="12"
-                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                            CornerRadius="12">
+                            CornerRadius="12"
+                            Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <StackPanel Spacing="10">
                                 <ToggleSwitch
                                     Header="保留原视频声音并与导入音频混合"
@@ -1819,8 +1823,8 @@
                         <TextBlock FontWeight="SemiBold" Text="淡入淡出" />
                         <Border
                             Padding="12"
-                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                            CornerRadius="12">
+                            CornerRadius="12"
+                            Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <StackPanel Spacing="12">
                                 <ToggleSwitch
                                     Header="导入音频淡入"

@@ -12,6 +12,10 @@
 
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="SurfaceCardBackgroundBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="SurfaceCardBorderBrush" Color="#24000000" />
+                    <SolidColorBrush x:Key="InsetSurfaceCardBackgroundBrush" Color="#FFF7F7F7" />
+                    <SolidColorBrush x:Key="InsetSurfaceCardBorderBrush" Color="#1C000000" />
                     <SolidColorBrush x:Key="SettingsPaneBackgroundBrush" Color="#FFF8F8F8" />
                     <SolidColorBrush x:Key="SettingsPaneSectionBrush" Color="#FFFFFFFF" />
                     <SolidColorBrush x:Key="SettingsPaneBorderBrush" Color="#1A000000" />
@@ -21,6 +25,10 @@
                     <SolidColorBrush x:Key="DetailOverlayBorderBrush" Color="#16000000" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="SurfaceCardBackgroundBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="SurfaceCardBorderBrush" Color="#24000000" />
+                    <SolidColorBrush x:Key="InsetSurfaceCardBackgroundBrush" Color="#FFF7F7F7" />
+                    <SolidColorBrush x:Key="InsetSurfaceCardBorderBrush" Color="#1C000000" />
                     <SolidColorBrush x:Key="SettingsPaneBackgroundBrush" Color="#FFF8F8F8" />
                     <SolidColorBrush x:Key="SettingsPaneSectionBrush" Color="#FFFFFFFF" />
                     <SolidColorBrush x:Key="SettingsPaneBorderBrush" Color="#1A000000" />
@@ -30,6 +38,10 @@
                     <SolidColorBrush x:Key="DetailOverlayBorderBrush" Color="#16000000" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
+                    <StaticResource x:Key="SurfaceCardBackgroundBrush" ResourceKey="ControlFillColorSecondaryBrush" />
+                    <StaticResource x:Key="SurfaceCardBorderBrush" ResourceKey="ControlStrokeColorDefaultBrush" />
+                    <StaticResource x:Key="InsetSurfaceCardBackgroundBrush" ResourceKey="ControlFillColorSecondaryBrush" />
+                    <SolidColorBrush x:Key="InsetSurfaceCardBorderBrush" Color="#00FFFFFF" />
                     <SolidColorBrush x:Key="SettingsPaneBackgroundBrush" Color="#FF1E1E1E" />
                     <SolidColorBrush x:Key="SettingsPaneSectionBrush" Color="#FF2A2A2A" />
                     <SolidColorBrush x:Key="SettingsPaneBorderBrush" Color="#26FFFFFF" />
@@ -39,6 +51,10 @@
                     <SolidColorBrush x:Key="DetailOverlayBorderBrush" Color="#29FFFFFF" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="SurfaceCardBackgroundBrush" Color="#FF000000" />
+                    <SolidColorBrush x:Key="SurfaceCardBorderBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="InsetSurfaceCardBackgroundBrush" Color="#FF000000" />
+                    <SolidColorBrush x:Key="InsetSurfaceCardBorderBrush" Color="#FFFFFFFF" />
                     <SolidColorBrush x:Key="SettingsPaneBackgroundBrush" Color="#FF000000" />
                     <SolidColorBrush x:Key="SettingsPaneSectionBrush" Color="#FF000000" />
                     <SolidColorBrush x:Key="SettingsPaneBorderBrush" Color="#FFFFFFFF" />
@@ -52,10 +68,18 @@
             <Style
                 x:Key="SurfaceCardBorderStyle"
                 TargetType="Border">
-                <Setter Property="Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
-                <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                <Setter Property="Background" Value="{ThemeResource SurfaceCardBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource SurfaceCardBorderBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="CornerRadius" Value="20" />
+            </Style>
+
+            <Style
+                x:Key="InsetSurfaceCardBorderStyle"
+                TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource InsetSurfaceCardBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource InsetSurfaceCardBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
             </Style>
 
             <Style
