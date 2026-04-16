@@ -447,7 +447,7 @@ public sealed partial class MergeViewModel : ObservableObject
     {
         MergeWorkspaceMode.VideoJoin => "当前为视频拼接模式，仅可将视频素材添加到视频轨道。",
         MergeWorkspaceMode.AudioJoin => "当前为音频拼接模式，仅可将音频素材添加到音频轨道。",
-        _ => "当前为音视频合成模式，素材会自动进入对应轨道。"
+        _ => "当前为音视频合成模式，请分别添加 1 个视频和 1 个音频。"
     };
 
     public string VideoTrackSummaryText => ActiveVideoTrackItems.Count == 0

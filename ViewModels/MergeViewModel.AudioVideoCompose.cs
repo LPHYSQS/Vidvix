@@ -368,18 +368,18 @@ public sealed partial class MergeViewModel
         {
             if (GetAudioVideoComposeVideoTrackItem() is null)
             {
-                return "放入 1 个视频后，这里会负责画面输出与原视频声音的混音判定。";
+                return "从素材列表添加 1 个视频后，这里会负责画面输出和原视频声音混音。";
             }
 
             return GetAudioVideoComposeVideoHasEmbeddedAudio()
-                ? "当前视频包含可用原声，可按需和导入音频混合输出。"
+                ? "当前视频包含可用原声，可按需与导入音频混合输出。"
                 : "当前视频不包含可用原声，导出时会直接使用导入音频。";
         }
     }
 
     public string AudioVideoComposeAudioTrackSummaryText =>
         GetAudioVideoComposeAudioTrackItem() is null
-            ? "放入 1 个音频后，这里会负责配乐、解说或其它导入音轨的整体处理。"
+            ? "从素材列表添加 1 个音频后，这里会负责配乐、解说等导入音轨处理。"
             : "导入音频可在右侧统一调整音量、淡入、淡出和混音策略。";
 
     public string AudioVideoComposeVideoDurationText =>

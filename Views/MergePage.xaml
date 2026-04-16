@@ -83,6 +83,18 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
+        <Style
+            x:Key="MergeTrackEmptyTextStyle"
+            TargetType="TextBlock"
+            BasedOn="{StaticResource CaptionTextStyle}">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="MaxWidth" Value="420" />
+            <Setter Property="Opacity" Value="0.72" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
         <DataTemplate
             x:Key="AudioVideoComposeVideoTrackItemTemplate"
             x:DataType="models:TrackItem">
@@ -841,13 +853,8 @@
                                 </ListView>
 
                                 <TextBlock
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    MaxWidth="280"
-                                    Opacity="0.72"
+                                    Style="{StaticResource MergeTrackEmptyTextStyle}"
                                     Text="{x:Bind ViewModel.VideoTrackEmptyText, Mode=OneWay}"
-                                    TextAlignment="Center"
-                                    TextWrapping="WrapWholeWords"
                                     Visibility="{x:Bind ViewModel.VideoTrackEmptyVisibility, Mode=OneWay}" />
                             </Grid>
                             <Border
@@ -1113,13 +1120,8 @@
                                 </ListView>
 
                                 <TextBlock
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    MaxWidth="280"
-                                    Opacity="0.72"
+                                    Style="{StaticResource MergeTrackEmptyTextStyle}"
                                     Text="{x:Bind ViewModel.AudioTrackEmptyText, Mode=OneWay}"
-                                    TextAlignment="Center"
-                                    TextWrapping="WrapWholeWords"
                                     Visibility="{x:Bind ViewModel.AudioTrackEmptyVisibility, Mode=OneWay}" />
                             </Grid>
 
@@ -1216,16 +1218,6 @@
                                 <ItemsControl
                                     ItemTemplate="{StaticResource AudioVideoComposeVideoTrackItemTemplate}"
                                     ItemsSource="{x:Bind ViewModel.VideoTrackItems, Mode=OneWay}" />
-
-                                <TextBlock
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    MaxWidth="280"
-                                    Opacity="0.72"
-                                    Text="{x:Bind ViewModel.VideoTrackEmptyText, Mode=OneWay}"
-                                    TextAlignment="Center"
-                                    TextWrapping="WrapWholeWords"
-                                    Visibility="{x:Bind ViewModel.VideoTrackEmptyVisibility, Mode=OneWay}" />
                             </Grid>
 
                             <StackPanel
@@ -1295,16 +1287,6 @@
                                 <ItemsControl
                                     ItemTemplate="{StaticResource AudioVideoComposeAudioTrackItemTemplate}"
                                     ItemsSource="{x:Bind ViewModel.AudioTrackItems, Mode=OneWay}" />
-
-                                <TextBlock
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    MaxWidth="280"
-                                    Opacity="0.72"
-                                    Text="{x:Bind ViewModel.AudioTrackEmptyText, Mode=OneWay}"
-                                    TextAlignment="Center"
-                                    TextWrapping="WrapWholeWords"
-                                    Visibility="{x:Bind ViewModel.AudioTrackEmptyVisibility, Mode=OneWay}" />
                             </Grid>
                         </Grid>
                     </Border>
