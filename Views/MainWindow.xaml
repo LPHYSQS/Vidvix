@@ -1030,6 +1030,7 @@
                         Grid.Column="1"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Stretch"
+                        ViewModel="{x:Bind ViewModel.TerminalWorkspace, Mode=OneWay}"
                         Visibility="{x:Bind ViewModel.TerminalWorkspaceVisibility, Mode=OneWay}" />
                 </Grid>
             </SplitView.Content>

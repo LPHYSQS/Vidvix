@@ -2,11 +2,11 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Vidvix.ViewModels;
 
-namespace Vidvix.Views;
+namespace Vidvix.Views.Controls;
 
-public sealed partial class TerminalPage : Page
+public sealed partial class TerminalCommandComposer : UserControl
 {
-    public TerminalPage()
+    public TerminalCommandComposer()
     {
         InitializeComponent();
     }
@@ -20,6 +20,6 @@ public sealed partial class TerminalPage : Page
     public static readonly DependencyProperty ViewModelProperty = DependencyProperty.Register(
         nameof(ViewModel),
         typeof(TerminalWorkspaceViewModel),
-        typeof(TerminalPage),
+        typeof(TerminalCommandComposer),
         new PropertyMetadata(new TerminalWorkspaceViewModel()));
 }

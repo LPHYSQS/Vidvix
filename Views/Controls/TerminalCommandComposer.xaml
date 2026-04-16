@@ -1,0 +1,48 @@
+<UserControl
+    x:Class="Vidvix.Views.Controls.TerminalCommandComposer"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    x:Name="Root">
+
+    <Border
+        Padding="16,14"
+        Style="{StaticResource SurfaceCardBorderStyle}">
+        <StackPanel Spacing="12">
+            <StackPanel Spacing="4">
+                <TextBlock
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    Text="{x:Bind ViewModel.CommandSectionTitle, Mode=OneWay}" />
+                <TextBlock
+                    Opacity="0.72"
+                    Text="{x:Bind ViewModel.CommandSectionDescription, Mode=OneWay}" />
+            </StackPanel>
+
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox
+                    Padding="14,10"
+                    FontSize="14"
+                    FontFamily="Cascadia Mono,Consolas,Segoe UI"
+                    PlaceholderText="{x:Bind ViewModel.CommandPlaceholder, Mode=OneWay}"
+                    Text="{x:Bind ViewModel.CommandText, Mode=TwoWay}"
+                    VerticalAlignment="Center"
+                    VerticalContentAlignment="Center" />
+
+                <Button
+                    Grid.Column="1"
+                    MinWidth="108"
+                    Padding="18,10"
+                    VerticalAlignment="Center"
+                    Content="{x:Bind ViewModel.ExecuteButtonText, Mode=OneWay}" />
+            </Grid>
+        </StackPanel>
+    </Border>
+</UserControl>

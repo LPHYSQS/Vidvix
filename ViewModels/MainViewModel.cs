@@ -132,6 +132,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _fileRevealService = fileRevealService;
         TrimWorkspace = trimWorkspace ?? throw new ArgumentNullException(nameof(trimWorkspace));
         MergeWorkspace = mergeWorkspace ?? throw new ArgumentNullException(nameof(mergeWorkspace));
+        TerminalWorkspace = new TerminalWorkspaceViewModel();
         _statusMessage = RuntimePreparingMessage;
 
         ThemeOptions = ThemePreferenceOptions;

@@ -115,9 +115,9 @@ public sealed class ApplicationConfiguration
                 "终端内容",
                 Array.Empty<string>(),
                 fixedProcessingModeDisplayName: "终端",
-                fixedProcessingModeDescription: "预留终端工作区，后续可在这里扩展命令与脚本能力。",
+                fixedProcessingModeDescription: "集中输入 FFmpeg、FFprobe 等媒体命令，并查看执行输出与状态。",
                 headerTitle: "终端",
-                headerDescription: "终端工作区已预留，当前版本暂不放置任何组件。")
+                headerDescription: "输入 FFmpeg、FFprobe 等命令，统一查看输出信息、错误提示与执行状态。")
         };
 
     public IReadOnlyDictionary<MergeWorkspaceMode, MergeWorkspaceModeProfile> MergeModeProfiles { get; init; } =
