@@ -10,22 +10,26 @@ public sealed class TrackItem : ObservableObject
     private string _sourceName;
     private string _sourcePath;
     private string _durationText;
+    private int _durationSeconds;
     private string _resolutionText;
     private double _visualWidth;
     private bool _isVideo;
     private int _sequenceNumber;
     private bool _isResolutionPreset;
     private bool _isSourceAvailable;
+    private bool _hasEmbeddedAudioStream;
 
     public TrackItem(
         string sourceName,
         string sourcePath,
         string durationText,
+        int durationSeconds,
         string resolutionText,
         double visualWidth,
         bool isVideo,
         int sequenceNumber,
-        bool isSourceAvailable = true)
+        bool isSourceAvailable = true,
+        bool hasEmbeddedAudioStream = false)
     {
         _sourceName = string.IsNullOrWhiteSpace(sourceName)
             ? throw new ArgumentException("轨道片段名称不能为空。", nameof(sourceName))
@@ -34,6 +38,9 @@ public sealed class TrackItem : ObservableObject
         _durationText = string.IsNullOrWhiteSpace(durationText)
             ? throw new ArgumentException("轨道片段时长文本不能为空。", nameof(durationText))
             : durationText;
+        _durationSeconds = durationSeconds >= 0
+            ? durationSeconds
+            : throw new ArgumentOutOfRangeException(nameof(durationSeconds));
         _resolutionText = string.IsNullOrWhiteSpace(resolutionText)
             ? "未知参数"
             : resolutionText;
@@ -45,6 +52,7 @@ public sealed class TrackItem : ObservableObject
             ? sequenceNumber
             : throw new ArgumentOutOfRangeException(nameof(sequenceNumber));
         _isSourceAvailable = isSourceAvailable;
+        _hasEmbeddedAudioStream = hasEmbeddedAudioStream;
     }
 
     public Guid TrackId => _trackId;
@@ -71,6 +79,19 @@ public sealed class TrackItem : ObservableObject
             {
                 OnPropertyChanged(nameof(TypeDisplayText));
                 OnPropertyChanged(nameof(SummaryText));
+            }
+        }
+    }
+
+    public int DurationSeconds
+    {
+        get => _durationSeconds;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            if (SetProperty(ref _durationSeconds, value))
+            {
+                OnPropertyChanged(nameof(KnownDuration));
             }
         }
     }
@@ -131,6 +152,12 @@ public sealed class TrackItem : ObservableObject
         }
     }
 
+    public bool HasEmbeddedAudioStream
+    {
+        get => _hasEmbeddedAudioStream;
+        set => SetProperty(ref _hasEmbeddedAudioStream, value);
+    }
+
     public int SequenceNumber
     {
         get => _sequenceNumber;
@@ -163,6 +190,10 @@ public sealed class TrackItem : ObservableObject
     public string DisplayName => $"{SequenceNumberText} · {SourceName}";
 
     public string SequenceNumberText => SequenceNumber.ToString("00");
+
+    public TimeSpan? KnownDuration => DurationSeconds > 0
+        ? TimeSpan.FromSeconds(DurationSeconds)
+        : null;
 
     public string TypeDisplayText => IsVideo ? "视频片段" : "音频片段";
 

@@ -15,7 +15,7 @@ using Vidvix.Utils;
 
 namespace Vidvix.ViewModels;
 
-public sealed class MergeViewModel : ObservableObject
+public sealed partial class MergeViewModel : ObservableObject
 {
     private readonly ObservableCollection<MediaItem> _mediaItems;
     private readonly ObservableCollection<TrackItem> _videoJoinVideoTrackItems;
@@ -41,6 +41,7 @@ public sealed class MergeViewModel : ObservableObject
     private readonly HashSet<string> _supportedAudioInputFileTypes;
     private readonly IReadOnlyList<string> _supportedImportFileTypes;
     private CancellationTokenSource? _videoJoinProcessingCancellationSource;
+    private bool _isNormalizingAudioVideoComposeTrackCollection;
 
     private OutputFormatOption? _selectedVideoJoinOutputFormat;
     private OutputFormatOption? _selectedAudioJoinOutputFormat;
@@ -65,6 +66,7 @@ public sealed class MergeViewModel : ObservableObject
         IUserPreferencesService? userPreferencesService = null,
         IVideoJoinWorkflowService? videoJoinWorkflowService = null,
         IAudioJoinWorkflowService? audioJoinWorkflowService = null,
+        IAudioVideoComposeWorkflowService? audioVideoComposeWorkflowService = null,
         IFileRevealService? fileRevealService = null,
         ApplicationConfiguration? configuration = null,
         ILogger? logger = null)
@@ -75,6 +77,7 @@ public sealed class MergeViewModel : ObservableObject
         _filePickerService = filePickerService;
         _videoJoinWorkflowService = videoJoinWorkflowService;
         _audioJoinWorkflowService = audioJoinWorkflowService;
+        _audioVideoComposeWorkflowService = audioVideoComposeWorkflowService;
         _fileRevealService = fileRevealService;
         _mediaInfoService = mediaInfoService;
         _userPreferencesService = userPreferencesService;
@@ -106,6 +109,7 @@ public sealed class MergeViewModel : ObservableObject
         _selectedSmallerResolutionStrategy = ResolvePreferredMergeSmallerResolutionStrategy(preferences.PreferredMergeSmallerResolutionStrategy);
         _selectedLargerResolutionStrategy = ResolvePreferredMergeLargerResolutionStrategy(preferences.PreferredMergeLargerResolutionStrategy);
         _selectedAudioJoinParameterMode = ResolvePreferredAudioJoinParameterMode(preferences.PreferredMergeAudioJoinParameterMode);
+        InitializeAudioVideoComposeState(preferences);
 
         _importFilesCommand = new AsyncRelayCommand(ImportFilesAsync, () => !IsVideoJoinProcessing);
         _browseOutputDirectoryCommand = new AsyncRelayCommand(BrowseOutputDirectoryAsync, CanEditActiveOutputSettings);
@@ -594,12 +598,14 @@ public sealed class MergeViewModel : ObservableObject
     public string VideoTrackEmptyText => _selectedMergeMode switch
     {
         MergeWorkspaceMode.AudioJoin => "当前模式聚焦音频拼接，视频轨道暂不参与编排。",
+        MergeWorkspaceMode.AudioVideoCompose => "从素材列表单击一个视频文件，可将其放入视频轨道；再次添加会自动替换当前视频。",
         _ => "从素材列表单击视频文件，可将其添加到视频轨道。"
     };
 
     public string AudioTrackEmptyText => _selectedMergeMode switch
     {
         MergeWorkspaceMode.VideoJoin => "当前模式聚焦视频拼接，音频轨道暂不参与编排。",
+        MergeWorkspaceMode.AudioVideoCompose => "从素材列表单击一个音频文件，可将其放入音频轨道；再次添加会自动替换当前音频。",
         _ => "从素材列表单击音频文件，可将其添加到音频轨道。"
     };
 
@@ -609,7 +615,7 @@ public sealed class MergeViewModel : ObservableObject
 
         if (IsVideoJoinProcessing)
         {
-            StatusMessage = "视频拼接任务处理中，若需调整轨道，请先取消当前任务。";
+            StatusMessage = "当前合并任务处理中，若需调整轨道，请先取消当前任务。";
             return;
         }
 
@@ -621,6 +627,12 @@ public sealed class MergeViewModel : ObservableObject
         }
 
         SetModeMismatchWarningVisibility(false, string.Empty);
+        if (_selectedMergeMode == MergeWorkspaceMode.AudioVideoCompose)
+        {
+            AddMediaToAudioVideoComposeTimeline(mediaItem, trackItems);
+            return;
+        }
+
         trackItems.Add(CreateTrackItem(mediaItem, trackItems.Count + 1, IsSourcePathAvailable(mediaItem.SourcePath)));
         StatusMessage = mediaItem.IsVideo
             ? $"{mediaItem.FileName} 已加入视频轨道。"
@@ -633,7 +645,7 @@ public sealed class MergeViewModel : ObservableObject
 
         if (IsVideoJoinProcessing)
         {
-            StatusMessage = "视频拼接任务处理中，若需调整素材，请先取消当前任务。";
+            StatusMessage = "当前合并任务处理中，若需调整素材，请先取消当前任务。";
             return;
         }
 
@@ -667,18 +679,30 @@ public sealed class MergeViewModel : ObservableObject
 
         if (IsVideoJoinProcessing)
         {
-            StatusMessage = "视频拼接任务处理中，若需调整轨道，请先取消当前任务。";
+            StatusMessage = "当前合并任务处理中，若需调整轨道，请先取消当前任务。";
             return;
         }
 
-        if (!_videoJoinVideoTrackItems.Contains(trackItem))
+        var targetCollection = _videoJoinVideoTrackItems.Contains(trackItem)
+            ? _videoJoinVideoTrackItems
+            : _audioVideoComposeVideoTrackItems.Contains(trackItem)
+                ? _audioVideoComposeVideoTrackItems
+                : null;
+        if (targetCollection is null)
         {
             return;
         }
 
         var removedClipName = trackItem.SourceName;
+        if (ReferenceEquals(targetCollection, _audioVideoComposeVideoTrackItems))
+        {
+            targetCollection.Remove(trackItem);
+            StatusMessage = $"{removedClipName} 已从音视频合成的视频轨道移除。";
+            return;
+        }
+
         var removedPresetClip = ReferenceEquals(GetEffectiveVideoResolutionPresetItem(), trackItem);
-        _videoJoinVideoTrackItems.Remove(trackItem);
+        targetCollection.Remove(trackItem);
 
         var fallbackPresetTrackItem = GetEffectiveVideoResolutionPresetItem();
         StatusMessage = removedPresetClip && fallbackPresetTrackItem is not null
@@ -719,19 +743,31 @@ public sealed class MergeViewModel : ObservableObject
 
         if (IsVideoJoinProcessing)
         {
-            StatusMessage = "音频拼接任务处理中，若需调整轨道，请先取消当前任务。";
+            StatusMessage = "当前合并任务处理中，若需调整轨道，请先取消当前任务。";
             return;
         }
 
-        if (!_audioJoinAudioTrackItems.Contains(trackItem))
+        var targetCollection = _audioJoinAudioTrackItems.Contains(trackItem)
+            ? _audioJoinAudioTrackItems
+            : _audioVideoComposeAudioTrackItems.Contains(trackItem)
+                ? _audioVideoComposeAudioTrackItems
+                : null;
+        if (targetCollection is null)
         {
             return;
         }
 
         var removedClipName = trackItem.SourceName;
+        if (ReferenceEquals(targetCollection, _audioVideoComposeAudioTrackItems))
+        {
+            targetCollection.Remove(trackItem);
+            StatusMessage = $"{removedClipName} 已从音视频合成的音频轨道移除。";
+            return;
+        }
+
         var removedPresetClip = _selectedAudioJoinParameterMode == AudioJoinParameterMode.Preset &&
-                                ReferenceEquals(GetEffectiveAudioParameterPresetItem(), trackItem);
-        _audioJoinAudioTrackItems.Remove(trackItem);
+                                 ReferenceEquals(GetEffectiveAudioParameterPresetItem(), trackItem);
+        targetCollection.Remove(trackItem);
 
         if (_selectedAudioJoinParameterMode != AudioJoinParameterMode.Preset)
         {
@@ -865,17 +901,21 @@ public sealed class MergeViewModel : ObservableObject
                 return;
             }
 
-            if (_selectedMergeMode == MergeWorkspaceMode.AudioJoin)
+            switch (_selectedMergeMode)
             {
-                AudioJoinOutputDirectory = selectedFolder;
+                case MergeWorkspaceMode.AudioJoin:
+                    AudioJoinOutputDirectory = selectedFolder;
+                    StatusMessage = $"已将音频拼接输出目录设置为：{AudioJoinOutputDirectory}";
+                    break;
+                case MergeWorkspaceMode.AudioVideoCompose:
+                    AudioVideoComposeOutputDirectory = selectedFolder;
+                    StatusMessage = $"已将音视频合成输出目录设置为：{AudioVideoComposeOutputDirectory}";
+                    break;
+                default:
+                    OutputDirectory = selectedFolder;
+                    StatusMessage = $"已将视频拼接输出目录设置为：{OutputDirectory}";
+                    break;
             }
-            else
-            {
-                OutputDirectory = selectedFolder;
-            }
-            StatusMessage = _selectedMergeMode == MergeWorkspaceMode.AudioJoin
-                ? $"已将音频拼接输出目录设置为：{AudioJoinOutputDirectory}"
-                : $"已将视频拼接输出目录设置为：{OutputDirectory}";
         }
         catch (OperationCanceledException)
         {
@@ -902,6 +942,13 @@ public sealed class MergeViewModel : ObservableObject
             return;
         }
 
+        if (_selectedMergeMode == MergeWorkspaceMode.AudioVideoCompose)
+        {
+            AudioVideoComposeOutputDirectory = string.Empty;
+            StatusMessage = "已清空音视频合成输出目录，处理时将恢复为当前视频素材所在文件夹。";
+            return;
+        }
+
         OutputDirectory = string.Empty;
         StatusMessage = "已清空视频拼接输出目录，处理时将恢复为分辨率预设视频所在文件夹输出。";
     }
@@ -910,27 +957,23 @@ public sealed class MergeViewModel : ObservableObject
     {
         MergeWorkspaceMode.VideoJoin => StartVideoJoinProcessingAsync(),
         MergeWorkspaceMode.AudioJoin => StartAudioJoinProcessingAsync(),
-        _ => HandleUnsupportedMergeModeAsync()
+        _ => StartAudioVideoComposeProcessingAsync()
     };
 
     private bool CanStartProcessing() => _selectedMergeMode switch
     {
         MergeWorkspaceMode.VideoJoin => CanStartVideoJoinProcessing(),
         MergeWorkspaceMode.AudioJoin => CanStartAudioJoinProcessing(),
-        _ => false
+        _ => CanStartAudioVideoComposeProcessing()
     };
 
     private void CancelProcessing() => CancelVideoJoinProcessing();
 
     private bool CanEditActiveOutputSettings() =>
         !IsVideoJoinProcessing &&
-        (_selectedMergeMode == MergeWorkspaceMode.VideoJoin || _selectedMergeMode == MergeWorkspaceMode.AudioJoin);
-
-    private Task HandleUnsupportedMergeModeAsync()
-    {
-        StatusMessage = "当前音视频合成模式暂未接入独立导出流程。";
-        return Task.CompletedTask;
-    }
+        (_selectedMergeMode == MergeWorkspaceMode.VideoJoin ||
+         _selectedMergeMode == MergeWorkspaceMode.AudioJoin ||
+         _selectedMergeMode == MergeWorkspaceMode.AudioVideoCompose);
 
     private async Task StartVideoJoinProcessingAsync()
     {
@@ -1137,7 +1180,9 @@ public sealed class MergeViewModel : ObservableObject
         CanEditActiveOutputSettings() &&
         (_selectedMergeMode == MergeWorkspaceMode.AudioJoin
             ? AudioJoinHasCustomOutputDirectory
-            : HasCustomOutputDirectory);
+            : _selectedMergeMode == MergeWorkspaceMode.AudioVideoCompose
+                ? AudioVideoComposeHasCustomOutputDirectory
+                : HasCustomOutputDirectory);
 
     private string GetVideoJoinCannotStartMessage()
     {
@@ -2131,7 +2176,7 @@ public sealed class MergeViewModel : ObservableObject
         return null;
     }
 
-    private static TrackItem CreateTrackItem(MediaItem mediaItem, int index, bool isSourceAvailable)
+    private TrackItem CreateTrackItem(MediaItem mediaItem, int index, bool isSourceAvailable)
     {
         ArgumentNullException.ThrowIfNull(mediaItem);
         var visualWidth = mediaItem.IsVideo
@@ -2142,11 +2187,27 @@ public sealed class MergeViewModel : ObservableObject
             mediaItem.FileName,
             mediaItem.SourcePath,
             mediaItem.DurationText,
+            mediaItem.DurationSeconds,
             mediaItem.ResolutionText,
             visualWidth,
             mediaItem.IsVideo,
             index,
-            isSourceAvailable);
+            isSourceAvailable,
+            ResolveMediaItemHasEmbeddedAudio(mediaItem));
+    }
+
+    private bool ResolveMediaItemHasEmbeddedAudio(MediaItem mediaItem)
+    {
+        ArgumentNullException.ThrowIfNull(mediaItem);
+        if (!mediaItem.IsVideo ||
+            _mediaInfoService is null ||
+            string.IsNullOrWhiteSpace(mediaItem.SourcePath))
+        {
+            return false;
+        }
+
+        return _mediaInfoService.TryGetCachedDetails(mediaItem.SourcePath, out var snapshot) &&
+               snapshot.HasAudioStream;
     }
 
     private void SetMergeMode(MergeWorkspaceMode mergeMode)
@@ -2158,7 +2219,7 @@ public sealed class MergeViewModel : ObservableObject
 
         if (IsVideoJoinProcessing)
         {
-            StatusMessage = "视频拼接任务处理中，若需切换模式，请先取消当前任务。";
+            StatusMessage = "当前合并任务处理中，若需切换模式，请先取消当前任务。";
             OnPropertyChanged(nameof(IsVideoJoinModeSelected));
             OnPropertyChanged(nameof(IsAudioJoinModeSelected));
             OnPropertyChanged(nameof(IsAudioVideoComposeModeSelected));
@@ -2172,6 +2233,7 @@ public sealed class MergeViewModel : ObservableObject
         OnPropertyChanged(nameof(VideoJoinOutputSettingsVisibility));
         OnPropertyChanged(nameof(AudioJoinOutputSettingsVisibility));
         OnPropertyChanged(nameof(NonVideoJoinOutputSettingsVisibility));
+        OnPropertyChanged(nameof(AudioVideoComposeOutputSettingsVisibility));
         OnPropertyChanged(nameof(TimelineHintText));
         OnPropertyChanged(nameof(VideoTrackItems));
         OnPropertyChanged(nameof(AudioTrackItems));
@@ -2223,6 +2285,11 @@ public sealed class MergeViewModel : ObservableObject
     {
         if (sender is ObservableCollection<TrackItem> trackItems)
         {
+            if (IsAudioVideoComposeTrackCollection(trackItems))
+            {
+                NormalizeAudioVideoComposeTrackCollection(trackItems);
+            }
+
             RefreshTrackCollection(
                 trackItems,
                 supportsVideoPreset: ReferenceEquals(trackItems, _videoJoinVideoTrackItems));
@@ -2249,9 +2316,38 @@ public sealed class MergeViewModel : ObservableObject
 
         RefreshTrackCollection(_videoJoinVideoTrackItems, supportsVideoPreset: true);
         RefreshTrackCollection(_audioJoinAudioTrackItems, supportsVideoPreset: false);
+        NormalizeAudioVideoComposeTrackCollection(_audioVideoComposeVideoTrackItems);
+        NormalizeAudioVideoComposeTrackCollection(_audioVideoComposeAudioTrackItems);
         RefreshTrackCollection(_audioVideoComposeVideoTrackItems, supportsVideoPreset: false);
         RefreshTrackCollection(_audioVideoComposeAudioTrackItems, supportsVideoPreset: false);
         RaiseTrackStatePropertiesChanged();
+    }
+
+    private bool IsAudioVideoComposeTrackCollection(ObservableCollection<TrackItem> trackItems) =>
+        ReferenceEquals(trackItems, _audioVideoComposeVideoTrackItems) ||
+        ReferenceEquals(trackItems, _audioVideoComposeAudioTrackItems);
+
+    private void NormalizeAudioVideoComposeTrackCollection(ObservableCollection<TrackItem> trackItems)
+    {
+        if (_isNormalizingAudioVideoComposeTrackCollection ||
+            !IsAudioVideoComposeTrackCollection(trackItems) ||
+            trackItems.Count <= 1)
+        {
+            return;
+        }
+
+        _isNormalizingAudioVideoComposeTrackCollection = true;
+        try
+        {
+            while (trackItems.Count > 1)
+            {
+                trackItems.RemoveAt(0);
+            }
+        }
+        finally
+        {
+            _isNormalizingAudioVideoComposeTrackCollection = false;
+        }
     }
 
     private void RefreshTrackCollection(
@@ -2264,6 +2360,16 @@ public sealed class MergeViewModel : ObservableObject
                 ? _selectedAudioJoinParameterMode == AudioJoinParameterMode.Preset
                     ? GetEffectiveAudioParameterPresetItem()
                     : null
+                : ReferenceEquals(trackItems, _audioVideoComposeVideoTrackItems)
+                    ? GetAudioVideoComposeVideoTrackItem() is not null &&
+                      _selectedAudioVideoComposeReferenceMode == AudioVideoComposeReferenceMode.Video
+                        ? GetAudioVideoComposeVideoTrackItem()
+                        : null
+                    : ReferenceEquals(trackItems, _audioVideoComposeAudioTrackItems)
+                        ? GetAudioVideoComposeAudioTrackItem() is not null &&
+                          _selectedAudioVideoComposeReferenceMode == AudioVideoComposeReferenceMode.Audio
+                            ? GetAudioVideoComposeAudioTrackItem()
+                            : null
                 : null;
         for (var index = 0; index < trackItems.Count; index++)
         {
@@ -2346,6 +2452,7 @@ public sealed class MergeViewModel : ObservableObject
         OnPropertyChanged(nameof(AudioTrackOperationHintText));
         OnPropertyChanged(nameof(AudioJoinParameterModeHintText));
         OnPropertyChanged(nameof(AudioJoinPresetSelectionVisibility));
+        RaiseAudioVideoComposeStatePropertiesChanged();
     }
 
     private void SetModeMismatchWarningVisibility(bool isVisible, string? message = null)

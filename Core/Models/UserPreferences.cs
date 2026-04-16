@@ -36,6 +36,30 @@ public sealed record UserPreferences
 
     public AudioJoinParameterMode PreferredMergeAudioJoinParameterMode { get; init; } = AudioJoinParameterMode.Balanced;
 
+    public string? PreferredMergeAudioVideoComposeOutputFormatExtension { get; init; }
+
+    public string? PreferredMergeAudioVideoComposeOutputDirectory { get; init; }
+
+    public AudioVideoComposeReferenceMode PreferredMergeAudioVideoComposeReferenceMode { get; init; } =
+        AudioVideoComposeReferenceMode.Video;
+
+    public AudioVideoComposeVideoExtendMode PreferredMergeAudioVideoComposeVideoExtendMode { get; init; } =
+        AudioVideoComposeVideoExtendMode.Loop;
+
+    public double PreferredMergeAudioVideoComposeImportedAudioVolumeDecibels { get; init; }
+
+    public bool PreferredMergeAudioVideoComposeMixOriginalVideoAudio { get; init; }
+
+    public double PreferredMergeAudioVideoComposeOriginalVideoVolumeDecibels { get; init; } = -8d;
+
+    public bool PreferredMergeAudioVideoComposeEnableFadeIn { get; init; }
+
+    public double PreferredMergeAudioVideoComposeFadeInSeconds { get; init; } = 2d;
+
+    public bool PreferredMergeAudioVideoComposeEnableFadeOut { get; init; }
+
+    public double PreferredMergeAudioVideoComposeFadeOutSeconds { get; init; } = 2d;
+
     public MergeSmallerResolutionStrategy PreferredMergeSmallerResolutionStrategy { get; init; } =
         MergeSmallerResolutionStrategy.PadWithBlackBars;
 

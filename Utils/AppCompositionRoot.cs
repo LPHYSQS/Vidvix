@@ -123,6 +123,10 @@ public sealed class AppCompositionRoot
             Configuration,
             mediaRuntime.RuntimeService,
             mediaRuntime.FFmpegService);
+        var audioVideoComposeWorkflowService = new AudioVideoComposeWorkflowService(
+            Configuration,
+            mediaRuntime.RuntimeService,
+            mediaRuntime.FFmpegService);
         var trimWorkflowService = new TrimWorkflowService(
             Configuration,
             mediaRuntime.MediaInfoService,
@@ -136,7 +140,8 @@ public sealed class AppCompositionRoot
             mediaProcessingWorkflowService,
             trimWorkflowService,
             videoJoinWorkflowService,
-            audioJoinWorkflowService);
+            audioJoinWorkflowService,
+            audioVideoComposeWorkflowService);
     }
 
     private VideoTrimWorkspaceViewModel CreateTrimWorkspaceViewModel(
@@ -166,6 +171,7 @@ public sealed class AppCompositionRoot
             infrastructure.UserPreferencesService,
             workflows.VideoJoinWorkflowService,
             workflows.AudioJoinWorkflowService,
+            workflows.AudioVideoComposeWorkflowService,
             infrastructure.FileRevealService,
             Configuration,
             Logger);
