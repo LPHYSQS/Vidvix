@@ -1154,11 +1154,17 @@
                         Padding="14"
                         Background="{ThemeResource ControlFillColorSecondaryBrush}"
                         CornerRadius="16">
-                        <Grid RowSpacing="12">
+                        <ScrollViewer
+                            Padding="0,0,12,0"
+                            HorizontalScrollBarVisibility="Disabled"
+                            HorizontalScrollMode="Disabled"
+                            VerticalScrollBarVisibility="Auto"
+                            VerticalScrollMode="Enabled">
+                            <Grid RowSpacing="12">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <Grid ColumnSpacing="12">
@@ -1204,7 +1210,6 @@
                                     x:Name="AudioVideoComposeVideoTrackScrollViewer"
                                     HorizontalScrollBarVisibility="Auto"
                                     HorizontalScrollMode="Enabled"
-                                    PointerWheelChanged="OnAudioVideoComposeTrackPointerWheelChanged"
                                     VerticalScrollBarVisibility="Disabled"
                                     VerticalScrollMode="Disabled">
                                     <Border MinWidth="{Binding ElementName=AudioVideoComposeVideoTrackScrollViewer, Path=ActualWidth}">
@@ -1294,7 +1299,8 @@
                                         IsChecked="{Binding ViewModel.IsAudioVideoComposeFreezeFrameVideoExtendModeSelected, ElementName=RootPage, Mode=TwoWay}" />
                                 </StackPanel>
                             </StackPanel>
-                        </Grid>
+                            </Grid>
+                        </ScrollViewer>
                     </Border>
 
                     <Border
@@ -1302,11 +1308,17 @@
                         Padding="14"
                         Background="{ThemeResource ControlFillColorSecondaryBrush}"
                         CornerRadius="16">
-                        <Grid RowSpacing="12">
+                        <ScrollViewer
+                            Padding="0,0,12,0"
+                            HorizontalScrollBarVisibility="Disabled"
+                            HorizontalScrollMode="Disabled"
+                            VerticalScrollBarVisibility="Auto"
+                            VerticalScrollMode="Enabled">
+                            <Grid RowSpacing="12">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
@@ -1351,7 +1363,6 @@
                                     x:Name="AudioVideoComposeAudioTrackScrollViewer"
                                     HorizontalScrollBarVisibility="Auto"
                                     HorizontalScrollMode="Enabled"
-                                    PointerWheelChanged="OnAudioVideoComposeTrackPointerWheelChanged"
                                     VerticalScrollBarVisibility="Disabled"
                                     VerticalScrollMode="Disabled">
                                     <Border MinWidth="{Binding ElementName=AudioVideoComposeAudioTrackScrollViewer, Path=ActualWidth}">
@@ -1422,7 +1433,8 @@
                                     </Border>
                                 </ScrollViewer>
                             </Grid>
-                        </Grid>
+                            </Grid>
+                        </ScrollViewer>
                     </Border>
                 </Grid>
                 </Grid>

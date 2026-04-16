@@ -1,7 +1,6 @@
 using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
 using Vidvix.Core.Models;
 using Vidvix.ViewModels;
 
@@ -77,35 +76,6 @@ public sealed partial class MergePage : Page
         {
             ViewModel.SetAudioParameterPreset(trackItem);
         }
-    }
-
-    private void OnAudioVideoComposeTrackPointerWheelChanged(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is not ScrollViewer scrollViewer || scrollViewer.ScrollableWidth <= 0)
-        {
-            return;
-        }
-
-        var delta = e.GetCurrentPoint(scrollViewer).Properties.MouseWheelDelta;
-        if (delta == 0)
-        {
-            return;
-        }
-
-        var step = Math.Max(96d, scrollViewer.ActualWidth * 0.18d);
-        var targetOffset = Math.Max(
-            0d,
-            Math.Min(
-                scrollViewer.ScrollableWidth,
-                scrollViewer.HorizontalOffset - Math.Sign(delta) * step));
-
-        if (Math.Abs(targetOffset - scrollViewer.HorizontalOffset) < 0.1d)
-        {
-            return;
-        }
-
-        scrollViewer.ChangeView(targetOffset, null, null, true);
-        e.Handled = true;
     }
 
     private static bool TryResolveTrackItem(object sender, out TrackItem trackItem)
