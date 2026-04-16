@@ -305,6 +305,71 @@
             </Grid>
         </Border>
 
+        <Border
+            Grid.Row="1"
+            Padding="14,12"
+            Style="{StaticResource SurfaceCardBorderStyle}"
+            Visibility="{Binding ElementName=RootWindow, Path=ViewModel.MergeWorkspace.ProcessingProgressVisibility}">
+            <Grid ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border
+                    Width="34"
+                    Height="34"
+                    VerticalAlignment="Top"
+                    Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                    CornerRadius="17">
+                    <Path
+                        Width="18"
+                        Height="18"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Stretch="Uniform"
+                        Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                        StrokeThickness="1.9"
+                        StrokeStartLineCap="Round"
+                        StrokeEndLineCap="Round"
+                        StrokeLineJoin="Round"
+                        Data="M4 7H10L14 12 M4 17H10L14 12 M14 12H20 M17 9L20 12L17 15" />
+                </Border>
+
+                <StackPanel
+                    Grid.Column="1"
+                    Spacing="8">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="{Binding ElementName=RootWindow, Path=ViewModel.MergeWorkspace.ProcessingProgressSummaryText}" />
+
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Opacity="0.72"
+                            Text="{Binding ElementName=RootWindow, Path=ViewModel.MergeWorkspace.ProcessingProgressPercentText}" />
+                    </Grid>
+
+                    <ProgressBar
+                        Height="6"
+                        IsIndeterminate="{Binding ElementName=RootWindow, Path=ViewModel.MergeWorkspace.IsProcessingProgressIndeterminate}"
+                        Maximum="100"
+                        Value="{Binding ElementName=RootWindow, Path=ViewModel.MergeWorkspace.ProcessingProgressValue}" />
+
+                    <TextBlock
+                        Style="{StaticResource CaptionTextStyle}"
+                        Text="{Binding ElementName=RootWindow, Path=ViewModel.MergeWorkspace.ProcessingProgressDetailText}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <SplitView
             Grid.Row="2"
             CompactPaneLength="0"

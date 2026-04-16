@@ -301,6 +301,8 @@ public sealed partial class MergeViewModel : ObservableObject
         {
             if (SetProperty(ref _isVideoJoinProcessing, value))
             {
+                OnPropertyChanged(nameof(CanModifyWorkspace));
+                OnPropertyChanged(nameof(WorkspaceInteractionShieldVisibility));
                 NotifyCommandStates();
             }
         }
@@ -996,6 +998,7 @@ public sealed partial class MergeViewModel : ObservableObject
         try
         {
             IsVideoJoinProcessing = true;
+            ShowProcessingPreparationProgress("视频拼接", "正在检查视频拼接素材并准备输出参数...");
             StatusMessage = "正在检查视频拼接素材并准备输出参数...";
 
             EnsureOutputDirectoryExists();
@@ -1027,7 +1030,7 @@ public sealed partial class MergeViewModel : ObservableObject
             await _videoJoinWorkflowService.EnsureRuntimeReadyAsync(cancellationToken);
 
             StatusMessage = $"FFmpeg 已就绪，正在拼接 {segments.Count} 段视频...";
-            var progressReporter = new Progress<FFmpegProgressUpdate>(update => UpdateVideoJoinProgress(update, segments.Count));
+            var progressReporter = new Progress<FFmpegProgressUpdate>(update => HandleVideoJoinProgress(update, segments.Count));
             var exportResult = await _videoJoinWorkflowService.ExportAsync(request, progressReporter, cancellationToken);
             var result = exportResult.ExecutionResult;
 
@@ -1054,6 +1057,7 @@ public sealed partial class MergeViewModel : ObservableObject
         }
         finally
         {
+            ResetProcessingProgress();
             IsVideoJoinProcessing = false;
             _videoJoinProcessingCancellationSource?.Dispose();
             _videoJoinProcessingCancellationSource = null;
@@ -1081,6 +1085,7 @@ public sealed partial class MergeViewModel : ObservableObject
         try
         {
             IsVideoJoinProcessing = true;
+            ShowProcessingPreparationProgress("音频拼接", "正在检查音频拼接素材并准备输出参数...");
             StatusMessage = "正在检查音频拼接素材并准备输出参数...";
 
             EnsureAudioOutputDirectoryExists();
@@ -1126,7 +1131,7 @@ public sealed partial class MergeViewModel : ObservableObject
             await _audioJoinWorkflowService.EnsureRuntimeReadyAsync(cancellationToken);
 
             StatusMessage = $"FFmpeg 已就绪，正在拼接 {segments.Count} 段音频...";
-            var progressReporter = new Progress<FFmpegProgressUpdate>(update => UpdateAudioJoinProgress(update, segments.Count));
+            var progressReporter = new Progress<FFmpegProgressUpdate>(update => HandleAudioJoinProgress(update, segments.Count));
             var exportResult = await _audioJoinWorkflowService.ExportAsync(request, progressReporter, cancellationToken);
             var result = exportResult.ExecutionResult;
 
@@ -1152,6 +1157,7 @@ public sealed partial class MergeViewModel : ObservableObject
         }
         finally
         {
+            ResetProcessingProgress();
             IsVideoJoinProcessing = false;
             _videoJoinProcessingCancellationSource?.Dispose();
             _videoJoinProcessingCancellationSource = null;

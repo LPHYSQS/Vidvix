@@ -136,7 +136,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        if (IsBusy || TrimWorkspace.IsBusy)
+        if (IsBusy || TrimWorkspace.IsBusy || MergeWorkspace.IsVideoJoinProcessing)
         {
             StatusMessage = "当前任务处理中，暂不支持切换模块。";
             return;

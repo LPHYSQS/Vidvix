@@ -366,7 +366,8 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid ColumnSpacing="12">
+    <Grid
+        ColumnSpacing="12">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="260" />
             <ColumnDefinition Width="*" />
@@ -1860,5 +1861,10 @@
                 </StackPanel>
             </ScrollViewer>
         </Border>
+
+        <Border
+            Grid.ColumnSpan="3"
+            Background="Transparent"
+            Visibility="{Binding ViewModel.WorkspaceInteractionShieldVisibility, ElementName=RootPage}" />
     </Grid>
 </Page>

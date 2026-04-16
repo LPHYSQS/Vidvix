@@ -535,6 +535,7 @@ public sealed partial class MergeViewModel
         try
         {
             IsVideoJoinProcessing = true;
+            ShowProcessingPreparationProgress("音视频合成", "正在检查音视频素材并准备合成参数...");
             StatusMessage = "正在检查音视频素材并准备合成参数...";
 
             EnsureAudioVideoComposeOutputDirectoryExists();
@@ -579,7 +580,7 @@ public sealed partial class MergeViewModel
             await _audioVideoComposeWorkflowService.EnsureRuntimeReadyAsync(cancellationToken);
 
             StatusMessage = $"FFmpeg 已就绪，正在合成音视频：{FormatDuration(request.OutputDuration)}";
-            var progressReporter = new Progress<FFmpegProgressUpdate>(UpdateAudioVideoComposeProgress);
+            var progressReporter = new Progress<FFmpegProgressUpdate>(HandleAudioVideoComposeProgress);
             var exportResult = await _audioVideoComposeWorkflowService.ExportAsync(request, progressReporter, cancellationToken);
             var result = exportResult.ExecutionResult;
 
@@ -605,6 +606,7 @@ public sealed partial class MergeViewModel
         }
         finally
         {
+            ResetProcessingProgress();
             IsVideoJoinProcessing = false;
             _videoJoinProcessingCancellationSource?.Dispose();
             _videoJoinProcessingCancellationSource = null;

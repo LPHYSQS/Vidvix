@@ -178,6 +178,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
         TrimWorkspace.PropertyChanged += OnTrimWorkspacePropertyChanged;
+        MergeWorkspace.PropertyChanged += OnMergeWorkspacePropertyChanged;
 
         _selectedProcessingMode = ResolveProcessingMode(userPreferences.PreferredProcessingMode);
         ReloadOutputFormats();
@@ -419,7 +420,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public bool CanModifyInputs => !IsBusy && !TrimWorkspace.IsBusy;
+    public bool CanModifyInputs => !IsBusy && !TrimWorkspace.IsBusy && !MergeWorkspace.IsVideoJoinProcessing;
 
     public string QueueSummaryText => ImportItems.Count switch
     {
@@ -442,6 +443,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _videoImportItems.CollectionChanged -= OnImportItemsChanged;
         _audioImportItems.CollectionChanged -= OnImportItemsChanged;
         TrimWorkspace.PropertyChanged -= OnTrimWorkspacePropertyChanged;
+        MergeWorkspace.PropertyChanged -= OnMergeWorkspacePropertyChanged;
         DetailPanel.PropertyChanged -= OnDetailPanelPropertyChanged;
         TrimWorkspace.Dispose();
 
@@ -481,6 +483,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private void OnTrimWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(VideoTrimWorkspaceViewModel.IsBusy))
+        {
+            OnPropertyChanged(nameof(CanModifyInputs));
+            NotifyCommandStates();
+        }
+    }
+
+    private void OnMergeWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MergeViewModel.IsVideoJoinProcessing))
         {
             OnPropertyChanged(nameof(CanModifyInputs));
             NotifyCommandStates();
