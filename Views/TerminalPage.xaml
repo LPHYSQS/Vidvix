@@ -7,5 +7,253 @@
     Background="Transparent"
     mc:Ignorable="d">
 
-    <Grid Background="Transparent" />
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="TerminalModeSelectorBackgroundBrush" Color="#FFF5F7FB" />
+                    <SolidColorBrush x:Key="TerminalModeSelectorBorderBrush" Color="#26000000" />
+                    <SolidColorBrush x:Key="TerminalCommandInputBackgroundBrush" Color="#FFF0F4FA" />
+                    <SolidColorBrush x:Key="TerminalCommandInputFocusedBackgroundBrush" Color="#FFF7FAFF" />
+                    <SolidColorBrush x:Key="TerminalCommandInputBorderBrush" Color="#2948586E" />
+                    <SolidColorBrush x:Key="TerminalCommandInputFocusedBorderBrush" Color="#4A5E7EA8" />
+                    <SolidColorBrush x:Key="TerminalCommandInputForegroundBrush" Color="#FF3A465B" />
+                    <SolidColorBrush x:Key="TerminalCommandInputPlaceholderBrush" Color="#996F7D93" />
+                    <SolidColorBrush x:Key="TerminalExecuteBackgroundBrush" Color="#FF2F64C8" />
+                    <SolidColorBrush x:Key="TerminalExecuteBorderBrush" Color="#FF2B5CB7" />
+                    <SolidColorBrush x:Key="TerminalExecuteForegroundBrush" Color="#FFE9EFFC" />
+                    <SolidColorBrush x:Key="TerminalExecuteHoverBackgroundBrush" Color="#FF2959B4" />
+                    <SolidColorBrush x:Key="TerminalExecuteHoverBorderBrush" Color="#FF2550A2" />
+                    <SolidColorBrush x:Key="TerminalExecutePressedBackgroundBrush" Color="#FF224B99" />
+                    <SolidColorBrush x:Key="TerminalExecutePressedBorderBrush" Color="#FF1F4287" />
+                    <StaticResource x:Key="TextControlBackground" ResourceKey="TerminalCommandInputBackgroundBrush" />
+                    <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="TerminalCommandInputBackgroundBrush" />
+                    <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="TerminalCommandInputFocusedBackgroundBrush" />
+                    <StaticResource x:Key="TextControlForeground" ResourceKey="TerminalCommandInputForegroundBrush" />
+                    <StaticResource x:Key="TextControlForegroundFocused" ResourceKey="TerminalCommandInputForegroundBrush" />
+                    <StaticResource x:Key="TextControlBorderBrush" ResourceKey="TerminalCommandInputBorderBrush" />
+                    <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="TerminalCommandInputBorderBrush" />
+                    <StaticResource x:Key="TextControlBorderBrushFocused" ResourceKey="TerminalCommandInputFocusedBorderBrush" />
+                    <StaticResource x:Key="TextControlPlaceholderForeground" ResourceKey="TerminalCommandInputPlaceholderBrush" />
+                    <StaticResource x:Key="TextControlPlaceholderForegroundFocused" ResourceKey="TerminalCommandInputPlaceholderBrush" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="TerminalModeSelectorBackgroundBrush" Color="#FFF5F7FB" />
+                    <SolidColorBrush x:Key="TerminalModeSelectorBorderBrush" Color="#26000000" />
+                    <SolidColorBrush x:Key="TerminalCommandInputBackgroundBrush" Color="#FFF0F4FA" />
+                    <SolidColorBrush x:Key="TerminalCommandInputFocusedBackgroundBrush" Color="#FFF7FAFF" />
+                    <SolidColorBrush x:Key="TerminalCommandInputBorderBrush" Color="#2948586E" />
+                    <SolidColorBrush x:Key="TerminalCommandInputFocusedBorderBrush" Color="#4A5E7EA8" />
+                    <SolidColorBrush x:Key="TerminalCommandInputForegroundBrush" Color="#FF3A465B" />
+                    <SolidColorBrush x:Key="TerminalCommandInputPlaceholderBrush" Color="#996F7D93" />
+                    <SolidColorBrush x:Key="TerminalExecuteBackgroundBrush" Color="#FF2F64C8" />
+                    <SolidColorBrush x:Key="TerminalExecuteBorderBrush" Color="#FF2B5CB7" />
+                    <SolidColorBrush x:Key="TerminalExecuteForegroundBrush" Color="#FFE9EFFC" />
+                    <SolidColorBrush x:Key="TerminalExecuteHoverBackgroundBrush" Color="#FF2959B4" />
+                    <SolidColorBrush x:Key="TerminalExecuteHoverBorderBrush" Color="#FF2550A2" />
+                    <SolidColorBrush x:Key="TerminalExecutePressedBackgroundBrush" Color="#FF224B99" />
+                    <SolidColorBrush x:Key="TerminalExecutePressedBorderBrush" Color="#FF1F4287" />
+                    <StaticResource x:Key="TextControlBackground" ResourceKey="TerminalCommandInputBackgroundBrush" />
+                    <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="TerminalCommandInputBackgroundBrush" />
+                    <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="TerminalCommandInputFocusedBackgroundBrush" />
+                    <StaticResource x:Key="TextControlForeground" ResourceKey="TerminalCommandInputForegroundBrush" />
+                    <StaticResource x:Key="TextControlForegroundFocused" ResourceKey="TerminalCommandInputForegroundBrush" />
+                    <StaticResource x:Key="TextControlBorderBrush" ResourceKey="TerminalCommandInputBorderBrush" />
+                    <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="TerminalCommandInputBorderBrush" />
+                    <StaticResource x:Key="TextControlBorderBrushFocused" ResourceKey="TerminalCommandInputFocusedBorderBrush" />
+                    <StaticResource x:Key="TextControlPlaceholderForeground" ResourceKey="TerminalCommandInputPlaceholderBrush" />
+                    <StaticResource x:Key="TextControlPlaceholderForegroundFocused" ResourceKey="TerminalCommandInputPlaceholderBrush" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="TerminalModeSelectorBackgroundBrush" Color="#80253142" />
+                    <SolidColorBrush x:Key="TerminalModeSelectorBorderBrush" Color="#3FFFFFFF" />
+                    <SolidColorBrush x:Key="TerminalCommandInputBackgroundBrush" Color="#FF2C313C" />
+                    <SolidColorBrush x:Key="TerminalCommandInputFocusedBackgroundBrush" Color="#FF313744" />
+                    <SolidColorBrush x:Key="TerminalCommandInputBorderBrush" Color="#45FFFFFF" />
+                    <SolidColorBrush x:Key="TerminalCommandInputFocusedBorderBrush" Color="#6D86A7D4" />
+                    <SolidColorBrush x:Key="TerminalCommandInputForegroundBrush" Color="#FFF3F6FB" />
+                    <SolidColorBrush x:Key="TerminalCommandInputPlaceholderBrush" Color="#9DBEC8D6" />
+                    <SolidColorBrush x:Key="TerminalExecuteBackgroundBrush" Color="#FF304A75" />
+                    <SolidColorBrush x:Key="TerminalExecuteBorderBrush" Color="#FF355381" />
+                    <SolidColorBrush x:Key="TerminalExecuteForegroundBrush" Color="#FFD9E1EF" />
+                    <SolidColorBrush x:Key="TerminalExecuteHoverBackgroundBrush" Color="#FF2A4066" />
+                    <SolidColorBrush x:Key="TerminalExecuteHoverBorderBrush" Color="#FF314C77" />
+                    <SolidColorBrush x:Key="TerminalExecutePressedBackgroundBrush" Color="#FF233756" />
+                    <SolidColorBrush x:Key="TerminalExecutePressedBorderBrush" Color="#FF2A4268" />
+                    <StaticResource x:Key="TextControlBackground" ResourceKey="TerminalCommandInputBackgroundBrush" />
+                    <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="TerminalCommandInputBackgroundBrush" />
+                    <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="TerminalCommandInputFocusedBackgroundBrush" />
+                    <StaticResource x:Key="TextControlForeground" ResourceKey="TerminalCommandInputForegroundBrush" />
+                    <StaticResource x:Key="TextControlForegroundFocused" ResourceKey="TerminalCommandInputForegroundBrush" />
+                    <StaticResource x:Key="TextControlBorderBrush" ResourceKey="TerminalCommandInputBorderBrush" />
+                    <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="TerminalCommandInputBorderBrush" />
+                    <StaticResource x:Key="TextControlBorderBrushFocused" ResourceKey="TerminalCommandInputFocusedBorderBrush" />
+                    <StaticResource x:Key="TextControlPlaceholderForeground" ResourceKey="TerminalCommandInputPlaceholderBrush" />
+                    <StaticResource x:Key="TextControlPlaceholderForegroundFocused" ResourceKey="TerminalCommandInputPlaceholderBrush" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="TerminalModeSelectorBackgroundBrush" Color="#FF000000" />
+                    <SolidColorBrush x:Key="TerminalModeSelectorBorderBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="TerminalCommandInputBackgroundBrush" Color="#FF111111" />
+                    <SolidColorBrush x:Key="TerminalCommandInputFocusedBackgroundBrush" Color="#FF111111" />
+                    <SolidColorBrush x:Key="TerminalCommandInputBorderBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="TerminalCommandInputFocusedBorderBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="TerminalCommandInputForegroundBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="TerminalCommandInputPlaceholderBrush" Color="#FFCFCFCF" />
+                    <SolidColorBrush x:Key="TerminalExecuteBackgroundBrush" Color="#FF003366" />
+                    <SolidColorBrush x:Key="TerminalExecuteBorderBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="TerminalExecuteForegroundBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="TerminalExecuteHoverBackgroundBrush" Color="#FF004C99" />
+                    <SolidColorBrush x:Key="TerminalExecuteHoverBorderBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="TerminalExecutePressedBackgroundBrush" Color="#FF00264D" />
+                    <SolidColorBrush x:Key="TerminalExecutePressedBorderBrush" Color="#FFFFFFFF" />
+                    <StaticResource x:Key="TextControlBackground" ResourceKey="TerminalCommandInputBackgroundBrush" />
+                    <StaticResource x:Key="TextControlBackgroundPointerOver" ResourceKey="TerminalCommandInputBackgroundBrush" />
+                    <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="TerminalCommandInputFocusedBackgroundBrush" />
+                    <StaticResource x:Key="TextControlForeground" ResourceKey="TerminalCommandInputForegroundBrush" />
+                    <StaticResource x:Key="TextControlForegroundFocused" ResourceKey="TerminalCommandInputForegroundBrush" />
+                    <StaticResource x:Key="TextControlBorderBrush" ResourceKey="TerminalCommandInputBorderBrush" />
+                    <StaticResource x:Key="TextControlBorderBrushPointerOver" ResourceKey="TerminalCommandInputBorderBrush" />
+                    <StaticResource x:Key="TextControlBorderBrushFocused" ResourceKey="TerminalCommandInputFocusedBorderBrush" />
+                    <StaticResource x:Key="TextControlPlaceholderForeground" ResourceKey="TerminalCommandInputPlaceholderBrush" />
+                    <StaticResource x:Key="TextControlPlaceholderForegroundFocused" ResourceKey="TerminalCommandInputPlaceholderBrush" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <Style
+                x:Key="TerminalModeComboBoxStyle"
+                TargetType="ComboBox">
+                <Setter Property="MinWidth" Value="196" />
+                <Setter Property="MinHeight" Value="40" />
+                <Setter Property="Padding" Value="12,6" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Background" Value="{ThemeResource TerminalModeSelectorBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource TerminalModeSelectorBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="10" />
+            </Style>
+
+            <Style
+                x:Key="TerminalCommandInputTextBoxStyle"
+                TargetType="TextBox">
+                <Setter Property="Padding" Value="14,10" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,Segoe UI" />
+                <Setter Property="Background" Value="{ThemeResource TerminalCommandInputBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource TerminalCommandInputBorderBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource TerminalCommandInputForegroundBrush}" />
+                <Setter Property="PlaceholderForeground" Value="{ThemeResource TerminalCommandInputPlaceholderBrush}" />
+            </Style>
+
+            <Style
+                x:Key="TerminalExecuteButtonStyle"
+                TargetType="Button">
+                <Setter Property="MinWidth" Value="98" />
+                <Setter Property="Height" Value="40" />
+                <Setter Property="Padding" Value="16,0" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Background" Value="{ThemeResource TerminalExecuteBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource TerminalExecuteBorderBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource TerminalExecuteForegroundBrush}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid
+                                x:Name="LayoutRoot"
+                                MinHeight="{TemplateBinding MinHeight}"
+                                MinWidth="{TemplateBinding MinWidth}">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="InteractionSurface.Background" Value="{ThemeResource TerminalExecuteHoverBackgroundBrush}" />
+                                                <Setter Target="InteractionSurface.BorderBrush" Value="{ThemeResource TerminalExecuteHoverBorderBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="InteractionSurface.Background" Value="{ThemeResource TerminalExecutePressedBackgroundBrush}" />
+                                                <Setter Target="InteractionSurface.BorderBrush" Value="{ThemeResource TerminalExecutePressedBorderBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="LayoutRoot.Opacity" Value="0.45" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <Border
+                                    x:Name="InteractionSurface"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="{TemplateBinding CornerRadius}"
+                                    Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter
+                                        HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                        VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                        Content="{TemplateBinding Content}"
+                                        ContentTemplate="{TemplateBinding ContentTemplate}"
+                                        Foreground="{TemplateBinding Foreground}" />
+                                </Border>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid
+        Background="Transparent"
+        Padding="8,6,8,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid
+            MinHeight="52"
+            ColumnSpacing="10"
+            VerticalAlignment="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <ComboBox
+                SelectedIndex="0"
+                Style="{StaticResource TerminalModeComboBoxStyle}">
+                <ComboBoxItem Content="FFmpeg" />
+                <ComboBoxItem Content="FFplay" />
+                <ComboBoxItem Content="FFprobe" />
+                <ComboBoxItem Content="帮助" />
+                <ComboBoxItem Content="历史记录" />
+            </ComboBox>
+
+            <TextBox
+                Grid.Column="1"
+                Style="{StaticResource TerminalCommandInputTextBoxStyle}"
+                PlaceholderText="输入命令，例如：-i input.mp4 -vf scale=1280:-2 output.mp4"
+                VerticalAlignment="Center"
+                VerticalContentAlignment="Center" />
+
+            <Button
+                Grid.Column="2"
+                Style="{StaticResource TerminalExecuteButtonStyle}"
+                VerticalAlignment="Center"
+                Content="执行" />
+        </Grid>
+    </Grid>
 </Page>
