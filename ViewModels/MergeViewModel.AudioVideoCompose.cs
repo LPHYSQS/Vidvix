@@ -717,7 +717,7 @@ public sealed partial class MergeViewModel
         PersistAudioVideoComposePreferences();
         StatusMessage = GetAudioVideoComposeAudioTrackItem() is not null && HasAudioVideoComposeDurationMismatch()
             ? "已切换为以视频为准，导入音频会自动匹配到视频长度。"
-            : "已将视频设为当前预设。";
+            : "已将视频设为当前长度预设。";
     }
 
     public void SetAudioVideoComposeAudioPreset(TrackItem trackItem)
@@ -750,7 +750,7 @@ public sealed partial class MergeViewModel
         PersistAudioVideoComposePreferences();
         StatusMessage = GetAudioVideoComposeVideoTrackItem() is not null && HasAudioVideoComposeDurationMismatch()
             ? "已切换为以音频为准，视频会按当前策略自动匹配到音频长度。"
-            : "已将音频设为当前预设。";
+            : "已将音频设为当前长度预设。";
     }
 
     private void AddMediaToAudioVideoComposeTimeline(MediaItem mediaItem, ObservableCollection<TrackItem> trackItems)

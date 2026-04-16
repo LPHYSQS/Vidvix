@@ -157,7 +157,7 @@
                                     FontSize="12"
                                     FontWeight="SemiBold"
                                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                    Text="{x:Bind ResolutionPresetLabelText, Mode=OneWay}" />
+                                    Text="视频长度预设" />
                             </Border>
                             <Border
                                 Padding="10,4"
@@ -182,8 +182,8 @@
                                 IsEnabled="{x:Bind CanSetAsResolutionPreset, Mode=OneWay}"
                                 Tag="{x:Bind}"
                                 Visibility="{Binding ViewModel.AudioVideoComposePresetSelectionVisibility, ElementName=RootPage}"
-                                ToolTipService.ToolTip="设为视频预设">
-                                <TextBlock Text="预设" />
+                                ToolTipService.ToolTip="设为视频长度预设">
+                                <TextBlock Text="长度预设" />
                             </Button>
                             <Button
                                 Click="OnRemoveVideoTrackItemClick"
@@ -303,7 +303,7 @@
                                     FontSize="12"
                                     FontWeight="SemiBold"
                                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                    Text="{x:Bind ResolutionPresetLabelText, Mode=OneWay}" />
+                                    Text="音频长度预设" />
                             </Border>
                             <Border
                                 Padding="10,4"
@@ -328,8 +328,8 @@
                                 IsEnabled="{x:Bind CanSetAsResolutionPreset, Mode=OneWay}"
                                 Tag="{x:Bind}"
                                 Visibility="{Binding ViewModel.AudioVideoComposePresetSelectionVisibility, ElementName=RootPage}"
-                                ToolTipService.ToolTip="设为音频预设">
-                                <TextBlock Text="预设" />
+                                ToolTipService.ToolTip="设为音频长度预设">
+                                <TextBlock Text="长度预设" />
                             </Button>
                             <Button
                                 Click="OnRemoveAudioTrackItemClick"
