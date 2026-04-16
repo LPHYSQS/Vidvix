@@ -1223,45 +1223,43 @@
 
                                     <Border
                                         Grid.Column="1"
+                                        Grid.RowSpan="2"
                                         Padding="18,16"
                                         Background="{ThemeResource ControlFillColorSecondaryBrush}"
                                         BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
                                         BorderThickness="1"
                                         CornerRadius="16"
                                         Visibility="{x:Bind ViewModel.AudioVideoComposeVideoTrackItemVisibility, Mode=OneWay}">
-                                        <StackPanel Spacing="8">
-                                            <TextBlock
-                                                FontSize="13"
-                                                FontWeight="SemiBold"
-                                                Text="当前定位" />
-                                            <TextBlock
-                                                Text="{x:Bind ViewModel.AudioVideoComposeVideoTrackSummaryText, Mode=OneWay}"
-                                                TextWrapping="WrapWholeWords" />
-                                            <TextBlock
-                                                Opacity="0.72"
-                                                Style="{StaticResource CaptionTextStyle}"
-                                                Text="{x:Bind ViewModel.AudioVideoComposeDurationSummaryText, Mode=OneWay}"
-                                                TextWrapping="WrapWholeWords" />
-                                        </StackPanel>
-                                    </Border>
+                                        <StackPanel Spacing="12">
+                                            <StackPanel Spacing="8">
+                                                <TextBlock
+                                                    FontSize="13"
+                                                    FontWeight="SemiBold"
+                                                    Text="当前定位" />
+                                                <TextBlock
+                                                    Text="{x:Bind ViewModel.AudioVideoComposeVideoTrackSummaryText, Mode=OneWay}"
+                                                    TextWrapping="WrapWholeWords" />
+                                                <TextBlock
+                                                    Opacity="0.72"
+                                                    Style="{StaticResource CaptionTextStyle}"
+                                                    Text="{x:Bind ViewModel.AudioVideoComposeDurationSummaryText, Mode=OneWay}"
+                                                    TextWrapping="WrapWholeWords" />
+                                            </StackPanel>
 
-                                    <Border
-                                        Grid.Row="1"
-                                        Grid.Column="1"
-                                        Padding="18,16"
-                                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                        BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="16"
-                                        Visibility="{x:Bind ViewModel.AudioVideoComposeVideoTrackItemVisibility, Mode=OneWay}">
-                                        <StackPanel Spacing="8">
-                                            <TextBlock
-                                                FontSize="13"
-                                                FontWeight="SemiBold"
-                                                Text="合成策略" />
-                                            <TextBlock
-                                                Text="{x:Bind ViewModel.AudioVideoComposeVideoCardStrategyText, Mode=OneWay}"
-                                                TextWrapping="WrapWholeWords" />
+                                            <Border
+                                                Height="1"
+                                                Background="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                                Opacity="0.65" />
+
+                                            <StackPanel Spacing="8">
+                                                <TextBlock
+                                                    FontSize="13"
+                                                    FontWeight="SemiBold"
+                                                    Text="合成策略" />
+                                                <TextBlock
+                                                    Text="{x:Bind ViewModel.AudioVideoComposeVideoCardStrategyText, Mode=OneWay}"
+                                                    TextWrapping="WrapWholeWords" />
+                                            </StackPanel>
                                         </StackPanel>
                                     </Border>
                                 </Grid>
@@ -1361,45 +1359,43 @@
 
                                     <Border
                                         Grid.Column="1"
+                                        Grid.RowSpan="2"
                                         Padding="18,16"
                                         Background="{ThemeResource ControlFillColorSecondaryBrush}"
                                         BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
                                         BorderThickness="1"
                                         CornerRadius="16"
                                         Visibility="{x:Bind ViewModel.AudioVideoComposeAudioTrackItemVisibility, Mode=OneWay}">
-                                        <StackPanel Spacing="8">
-                                            <TextBlock
-                                                FontSize="13"
-                                                FontWeight="SemiBold"
-                                                Text="当前定位" />
-                                            <TextBlock
-                                                Text="{x:Bind ViewModel.AudioVideoComposeAudioTrackSummaryText, Mode=OneWay}"
-                                                TextWrapping="WrapWholeWords" />
-                                            <TextBlock
-                                                Opacity="0.72"
-                                                Style="{StaticResource CaptionTextStyle}"
-                                                Text="{x:Bind ViewModel.AudioVideoComposeDurationSummaryText, Mode=OneWay}"
-                                                TextWrapping="WrapWholeWords" />
-                                        </StackPanel>
-                                    </Border>
+                                        <StackPanel Spacing="12">
+                                            <StackPanel Spacing="8">
+                                                <TextBlock
+                                                    FontSize="13"
+                                                    FontWeight="SemiBold"
+                                                    Text="当前定位" />
+                                                <TextBlock
+                                                    Text="{x:Bind ViewModel.AudioVideoComposeAudioTrackSummaryText, Mode=OneWay}"
+                                                    TextWrapping="WrapWholeWords" />
+                                                <TextBlock
+                                                    Opacity="0.72"
+                                                    Style="{StaticResource CaptionTextStyle}"
+                                                    Text="{x:Bind ViewModel.AudioVideoComposeDurationSummaryText, Mode=OneWay}"
+                                                    TextWrapping="WrapWholeWords" />
+                                            </StackPanel>
 
-                                    <Border
-                                        Grid.Row="1"
-                                        Grid.Column="1"
-                                        Padding="18,16"
-                                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                        BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="16"
-                                        Visibility="{x:Bind ViewModel.AudioVideoComposeAudioTrackItemVisibility, Mode=OneWay}">
-                                        <StackPanel Spacing="8">
-                                            <TextBlock
-                                                FontSize="13"
-                                                FontWeight="SemiBold"
-                                                Text="音轨策略" />
-                                            <TextBlock
-                                                Text="{x:Bind ViewModel.AudioVideoComposeAudioCardStrategyText, Mode=OneWay}"
-                                                TextWrapping="WrapWholeWords" />
+                                            <Border
+                                                Height="1"
+                                                Background="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                                Opacity="0.65" />
+
+                                            <StackPanel Spacing="8">
+                                                <TextBlock
+                                                    FontSize="13"
+                                                    FontWeight="SemiBold"
+                                                    Text="音轨策略" />
+                                                <TextBlock
+                                                    Text="{x:Bind ViewModel.AudioVideoComposeAudioCardStrategyText, Mode=OneWay}"
+                                                    TextWrapping="WrapWholeWords" />
+                                            </StackPanel>
                                         </StackPanel>
                                     </Border>
                                 </Grid>
