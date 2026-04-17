@@ -7,13 +7,27 @@ namespace Vidvix.Core.Models;
 
 public sealed class VideoTrimExportResult
 {
-    public VideoTrimExportResult(VideoTrimExportRequest request, FFmpegExecutionResult executionResult)
+    public VideoTrimExportResult(
+        VideoTrimExportRequest request,
+        FFmpegExecutionResult executionResult,
+        string? transcodingMessage = null,
+        bool usedFastPath = false,
+        bool usedCpuFallback = false)
     {
         Request = request;
         ExecutionResult = executionResult ?? throw new ArgumentNullException(nameof(executionResult));
+        TranscodingMessage = transcodingMessage;
+        UsedFastPath = usedFastPath;
+        UsedCpuFallback = usedCpuFallback;
     }
 
     public VideoTrimExportRequest Request { get; }
 
     public FFmpegExecutionResult ExecutionResult { get; }
+
+    public string? TranscodingMessage { get; }
+
+    public bool UsedFastPath { get; }
+
+    public bool UsedCpuFallback { get; }
 }

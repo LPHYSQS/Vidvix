@@ -547,29 +547,34 @@ public sealed partial class MergeViewModel
             var request = BuildAudioVideoComposeExportRequest(
                 videoTrackItem,
                 audioTrackItem,
-                sourceAnalysis.VideoDuration,
-                sourceAnalysis.AudioDuration,
-                sourceAnalysis.VideoFrameRate,
-                sourceAnalysis.VideoHasAudioStream);
+                sourceAnalysis);
 
             StatusMessage = "正在准备 FFmpeg 运行时...";
             await _audioVideoComposeWorkflowService.EnsureRuntimeReadyAsync(cancellationToken);
 
             StatusMessage = $"FFmpeg 已就绪，正在合成音视频：{FormatDuration(request.OutputDuration)}";
             var progressReporter = new Progress<FFmpegProgressUpdate>(HandleAudioVideoComposeProgress);
-            var exportResult = await _audioVideoComposeWorkflowService.ExportAsync(request, progressReporter, cancellationToken);
+            var exportResult = await _audioVideoComposeWorkflowService.ExportAsync(
+                request,
+                progressReporter,
+                () => StatusMessage = "GPU 编码失败，已自动回退为 CPU 重试一次。",
+                cancellationToken);
             var result = exportResult.ExecutionResult;
 
             if (result.WasSuccessful && File.Exists(exportResult.Request.OutputPath))
             {
-                StatusMessage = BuildAudioVideoComposeCompletionMessage(exportResult.Request);
+                StatusMessage = AppendTranscodingMessage(
+                    BuildAudioVideoComposeCompletionMessage(exportResult.Request),
+                    exportResult.TranscodingMessage);
                 TryRevealVideoJoinOutputFile(exportResult.Request.OutputPath);
                 return;
             }
 
             StatusMessage = result.WasCancelled
                 ? "已取消音视频合成任务。"
-                : $"音视频合成失败：{ExtractFriendlyVideoJoinFailureMessage(result)}";
+                : AppendTranscodingMessage(
+                    $"音视频合成失败：{ExtractFriendlyVideoJoinFailureMessage(result)}",
+                    exportResult.TranscodingMessage);
         }
         catch (OperationCanceledException) when (_videoJoinProcessingCancellationSource?.IsCancellationRequested == true)
         {
@@ -592,13 +597,11 @@ public sealed partial class MergeViewModel
     private AudioVideoComposeExportRequest BuildAudioVideoComposeExportRequest(
         TrackItem videoTrackItem,
         TrackItem audioTrackItem,
-        TimeSpan videoDuration,
-        TimeSpan audioDuration,
-        double frameRate,
-        bool videoHasAudio)
+        AudioVideoComposeSourceAnalysis sourceAnalysis)
     {
+        var preferences = GetCurrentUserPreferences();
         var plannedOutputPath = CreatePlannedAudioVideoComposeOutputPath(videoTrackItem.SourcePath);
-        var targetDuration = GetAudioVideoComposeTargetDuration() ?? videoDuration;
+        var targetDuration = GetAudioVideoComposeTargetDuration() ?? sourceAnalysis.VideoDuration;
         var fadeInDuration = _isAudioVideoComposeFadeInEnabled
             ? TimeSpan.FromSeconds(Math.Min(_audioVideoComposeFadeInSeconds, targetDuration.TotalSeconds))
             : TimeSpan.Zero;
@@ -609,18 +612,25 @@ public sealed partial class MergeViewModel
         return new AudioVideoComposeExportRequest(
             videoTrackItem.SourcePath,
             videoTrackItem.SourceName,
-            videoDuration,
-            frameRate,
-            videoHasAudio,
+            sourceAnalysis.VideoDuration,
+            sourceAnalysis.VideoFrameRate,
+            sourceAnalysis.VideoHasAudioStream,
+            sourceAnalysis.VideoCodecName,
+            sourceAnalysis.VideoContainerExtension,
             audioTrackItem.SourcePath,
             audioTrackItem.SourceName,
-            audioDuration,
+            sourceAnalysis.AudioDuration,
+            sourceAnalysis.AudioCodecName,
+            sourceAnalysis.AudioContainerExtension,
             plannedOutputPath,
             SelectedAudioVideoComposeOutputFormat,
+            preferences.PreferredTranscodingMode,
+            preferences.EnableGpuAccelerationForTranscoding,
+            VideoAccelerationKind.None,
             GetEffectiveAudioVideoComposeReferenceMode(),
             _selectedAudioVideoComposeVideoExtendMode,
             _audioVideoComposeImportedAudioVolumeDecibels,
-            _isAudioVideoComposeMixOriginalVideoAudioEnabled && videoHasAudio,
+            _isAudioVideoComposeMixOriginalVideoAudioEnabled && sourceAnalysis.VideoHasAudioStream,
             _audioVideoComposeOriginalVideoVolumeDecibels,
             _isAudioVideoComposeFadeInEnabled,
             fadeInDuration,

@@ -776,6 +776,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
                 request,
                 preferences,
                 new Progress<FFmpegProgressUpdate>(UpdateExportProgress),
+                () => StatusMessage = "GPU 编码失败，已自动回退为 CPU 重试一次。",
                 _exportCancellationSource.Token);
             var result = exportResult.ExecutionResult;
             if (result.WasSuccessful && File.Exists(exportResult.Request.OutputPath))
@@ -783,14 +784,19 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
                 ExportProgressValue = 100d;
                 ExportProgressPercentText = "100%";
                 ExportProgressDetailText = "\u5bfc\u51fa\u5b8c\u6210\uff0c\u6b63\u5728\u6574\u7406\u7ed3\u679c...";
-                StatusMessage = $"\u88c1\u526a\u5bfc\u51fa\u5b8c\u6210\uff1a{Path.GetFileName(exportResult.Request.OutputPath)}";
+                var completionMessage = $"\u88c1\u526a\u5bfc\u51fa\u5b8c\u6210\uff1a{Path.GetFileName(exportResult.Request.OutputPath)}";
+                StatusMessage = string.IsNullOrWhiteSpace(exportResult.TranscodingMessage)
+                    ? completionMessage
+                    : $"{completionMessage} {exportResult.TranscodingMessage}";
                 TryRevealOutputFile(exportResult.Request.OutputPath);
                 return;
             }
 
             StatusMessage = result.WasCancelled
                 ? "\u5df2\u53d6\u6d88\u88c1\u526a\u5bfc\u51fa\u3002"
-                : $"\u88c1\u526a\u5bfc\u51fa\u5931\u8d25\uff1a{ExtractFriendlyFailureMessage(result)}";
+                : string.IsNullOrWhiteSpace(exportResult.TranscodingMessage)
+                    ? $"\u88c1\u526a\u5bfc\u51fa\u5931\u8d25\uff1a{ExtractFriendlyFailureMessage(result)}"
+                    : $"\u88c1\u526a\u5bfc\u51fa\u5931\u8d25\uff1a{ExtractFriendlyFailureMessage(result)} {exportResult.TranscodingMessage}";
         }
         catch (OperationCanceledException) when (_exportCancellationSource?.IsCancellationRequested == true)
         {

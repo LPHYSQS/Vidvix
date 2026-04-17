@@ -1009,10 +1009,14 @@ public sealed partial class MergeViewModel : ObservableObject
             var segments = await _mergeMediaAnalysisService.BuildVideoJoinSegmentsAsync(activeTrackItems, cancellationToken);
             var presetSegment = segments[presetTrackIndex];
             var plannedOutputPath = CreatePlannedVideoJoinOutputPath(presetTrackItem.SourcePath);
+            var preferences = GetCurrentUserPreferences();
             var request = new VideoJoinExportRequest(
                 segments,
                 plannedOutputPath,
                 SelectedOutputFormat,
+                preferences.PreferredTranscodingMode,
+                preferences.EnableGpuAccelerationForTranscoding,
+                VideoAccelerationKind.None,
                 presetSegment.Width,
                 presetSegment.Height,
                 presetSegment.FrameRate,
@@ -1024,20 +1028,27 @@ public sealed partial class MergeViewModel : ObservableObject
 
             StatusMessage = $"FFmpeg 已就绪，正在拼接 {segments.Count} 段视频...";
             var progressReporter = new Progress<FFmpegProgressUpdate>(update => HandleVideoJoinProgress(update, segments.Count));
-            var exportResult = await _videoJoinWorkflowService.ExportAsync(request, progressReporter, cancellationToken);
+            var exportResult = await _videoJoinWorkflowService.ExportAsync(
+                request,
+                progressReporter,
+                () => StatusMessage = "GPU 编码失败，已自动回退为 CPU 重试一次。",
+                cancellationToken);
             var result = exportResult.ExecutionResult;
 
             if (result.WasSuccessful && File.Exists(exportResult.Request.OutputPath))
             {
-                StatusMessage =
-                    $"视频拼接完成：{Path.GetFileName(exportResult.Request.OutputPath)}。预设分辨率来源：{presetTrackItem.SourceName} · {presetTrackItem.ResolutionText}；较小分辨率视频：{GetSmallerResolutionStrategyLabel()}；较大分辨率视频：{GetLargerResolutionStrategyLabel()}。";
+                StatusMessage = AppendTranscodingMessage(
+                    $"视频拼接完成：{Path.GetFileName(exportResult.Request.OutputPath)}。预设分辨率来源：{presetTrackItem.SourceName} · {presetTrackItem.ResolutionText}；较小分辨率视频：{GetSmallerResolutionStrategyLabel()}；较大分辨率视频：{GetLargerResolutionStrategyLabel()}。",
+                    exportResult.TranscodingMessage);
                 TryRevealVideoJoinOutputFile(exportResult.Request.OutputPath);
                 return;
             }
 
             StatusMessage = result.WasCancelled
                 ? "已取消视频拼接任务。"
-                : $"视频拼接失败：{ExtractFriendlyVideoJoinFailureMessage(result)}";
+                : AppendTranscodingMessage(
+                    $"视频拼接失败：{ExtractFriendlyVideoJoinFailureMessage(result)}",
+                    exportResult.TranscodingMessage);
         }
         catch (OperationCanceledException) when (_videoJoinProcessingCancellationSource?.IsCancellationRequested == true)
         {
@@ -1112,10 +1123,13 @@ public sealed partial class MergeViewModel : ObservableObject
             }
 
             var plannedOutputPath = CreatePlannedAudioJoinOutputPath(outputAnchorTrackItem.SourcePath);
+            var preferences = GetCurrentUserPreferences();
             var request = new AudioJoinExportRequest(
                 segments,
                 plannedOutputPath,
                 SelectedAudioJoinOutputFormat,
+                preferences.PreferredTranscodingMode,
+                preferences.EnableGpuAccelerationForTranscoding,
                 _selectedAudioJoinParameterMode,
                 targetSampleRate,
                 targetBitrate);
@@ -1130,14 +1144,18 @@ public sealed partial class MergeViewModel : ObservableObject
 
             if (result.WasSuccessful && File.Exists(exportResult.Request.OutputPath))
             {
-                StatusMessage = BuildAudioJoinCompletionMessage(exportResult.Request, presetTrackItem);
+                StatusMessage = AppendTranscodingMessage(
+                    BuildAudioJoinCompletionMessage(exportResult.Request, presetTrackItem),
+                    exportResult.TranscodingMessage);
                 TryRevealVideoJoinOutputFile(exportResult.Request.OutputPath);
                 return;
             }
 
             StatusMessage = result.WasCancelled
                 ? "已取消音频拼接任务。"
-                : $"音频拼接失败：{ExtractFriendlyVideoJoinFailureMessage(result)}";
+                : AppendTranscodingMessage(
+                    $"音频拼接失败：{ExtractFriendlyVideoJoinFailureMessage(result)}",
+                    exportResult.TranscodingMessage);
         }
         catch (OperationCanceledException) when (_videoJoinProcessingCancellationSource?.IsCancellationRequested == true)
         {
@@ -1330,6 +1348,14 @@ public sealed partial class MergeViewModel : ObservableObject
             ? $"音频拼接完成：{Path.GetFileName(request.OutputPath)}。参数预设来源：{presetTrackItem.SourceName} · {outputSummary}。"
             : $"音频拼接完成：{Path.GetFileName(request.OutputPath)}。当前模式：均衡模式 · {outputSummary}。";
     }
+
+    private UserPreferences GetCurrentUserPreferences() =>
+        _userPreferencesService?.Load() ?? new UserPreferences();
+
+    private static string AppendTranscodingMessage(string baseMessage, string? transcodingMessage) =>
+        string.IsNullOrWhiteSpace(transcodingMessage)
+            ? baseMessage
+            : $"{baseMessage} {transcodingMessage}";
 
     private static string FormatAudioJoinSampleRateText(int sampleRate)
     {

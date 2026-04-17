@@ -15,5 +15,6 @@ public interface IVideoJoinWorkflowService
     Task<VideoJoinExportResult> ExportAsync(
         VideoJoinExportRequest request,
         IProgress<FFmpegProgressUpdate>? progress = null,
+        Action? onCpuFallback = null,
         CancellationToken cancellationToken = default);
 }

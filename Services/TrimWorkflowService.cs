@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Services.FFmpeg;
 
 namespace Vidvix.Services;
 
@@ -17,6 +18,7 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
     private readonly IFFmpegService _ffmpegService;
     private readonly IVideoTrimWorkflowService _videoTrimWorkflowService;
     private readonly IAudioTrimCommandFactory _audioTrimCommandFactory;
+    private readonly TranscodingDecisionResolver _transcodingDecisionResolver;
 
     public TrimWorkflowService(
         ApplicationConfiguration configuration,
@@ -24,7 +26,8 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
         IFFmpegRuntimeService ffmpegRuntimeService,
         IFFmpegService ffmpegService,
         IVideoTrimWorkflowService videoTrimWorkflowService,
-        IAudioTrimCommandFactory audioTrimCommandFactory)
+        IAudioTrimCommandFactory audioTrimCommandFactory,
+        TranscodingDecisionResolver transcodingDecisionResolver)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _mediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
@@ -32,6 +35,7 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
         _ffmpegService = ffmpegService ?? throw new ArgumentNullException(nameof(ffmpegService));
         _videoTrimWorkflowService = videoTrimWorkflowService ?? throw new ArgumentNullException(nameof(videoTrimWorkflowService));
         _audioTrimCommandFactory = audioTrimCommandFactory ?? throw new ArgumentNullException(nameof(audioTrimCommandFactory));
+        _transcodingDecisionResolver = transcodingDecisionResolver ?? throw new ArgumentNullException(nameof(transcodingDecisionResolver));
     }
 
     public async Task<VideoTrimImportResult> ImportAsync(
@@ -101,6 +105,7 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
         VideoTrimExportRequest request,
         UserPreferences preferences,
         IProgress<FFmpegProgressUpdate>? progress = null,
+        Action? onCpuFallback = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -109,12 +114,24 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
         if (request.MediaKind == TrimMediaKind.Video)
         {
             return await _videoTrimWorkflowService
-                .ExportAsync(request, preferences, progress, cancellationToken)
+                .ExportAsync(request, preferences, progress, onCpuFallback, cancellationToken)
                 .ConfigureAwait(false);
         }
 
         var runtime = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
-        var command = _audioTrimCommandFactory.Create(request, runtime.ExecutablePath);
+        var inputSnapshot = _mediaInfoService.TryGetCachedDetails(request.InputPath, out var cachedSnapshot)
+            ? cachedSnapshot
+            : (await _mediaInfoService.GetMediaDetailsAsync(request.InputPath, cancellationToken).ConfigureAwait(false)).Snapshot;
+        var decision = await _transcodingDecisionResolver
+            .ResolveAsync(
+                runtime.ExecutablePath,
+                request.OutputFormat,
+                request.TranscodingMode,
+                preferences.EnableGpuAccelerationForTranscoding,
+                containsVideo: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var command = _audioTrimCommandFactory.Create(request, runtime.ExecutablePath, inputSnapshot);
         var options = new FFmpegExecutionOptions
         {
             Timeout = _configuration.DefaultExecutionTimeout,
@@ -126,7 +143,17 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
             .ExecuteAsync(command, options, cancellationToken)
             .ConfigureAwait(false);
 
-        return new VideoTrimExportResult(request, executionResult);
+        var usedFastPath = request.TranscodingMode == TranscodingMode.FastContainerConversion &&
+                           TranscodingCompatibilityEvaluator.CanCopyAudioCodecToContainer(
+                               inputSnapshot?.PrimaryAudioCodecName,
+                               request.OutputFormat.Extension);
+        var message = usedFastPath
+            ? "当前素材与目标输出兼容，已优先复用原始音频流。"
+            : request.TranscodingMode == TranscodingMode.FastContainerConversion
+                ? "当前素材与目标输出不完全兼容，本次已回退为兼容音频转码。"
+                : decision.Message;
+
+        return new VideoTrimExportResult(request, executionResult, message, usedFastPath);
     }
 
     private static bool TryResolveMediaKind(MediaDetailsSnapshot snapshot, out TrimMediaKind mediaKind)

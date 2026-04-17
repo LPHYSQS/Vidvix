@@ -13,6 +13,13 @@ internal static class MergeMediaMetadataParser
         out int width,
         out int height)
     {
+        if (snapshot?.PrimaryVideoWidth is > 0 && snapshot.PrimaryVideoHeight is > 0)
+        {
+            width = snapshot.PrimaryVideoWidth.Value;
+            height = snapshot.PrimaryVideoHeight.Value;
+            return true;
+        }
+
         var resolutionText = snapshot is null
             ? trackItem.ResolutionText
             : TryGetDetailFieldValue(snapshot.VideoFields, "分辨率") ??
@@ -24,6 +31,12 @@ internal static class MergeMediaMetadataParser
 
     public static bool TryResolveVideoFrameRate(MediaDetailsSnapshot? snapshot, out double frameRate)
     {
+        if (snapshot?.PrimaryVideoFrameRate is > 0d)
+        {
+            frameRate = snapshot.PrimaryVideoFrameRate.Value;
+            return true;
+        }
+
         frameRate = 0d;
         if (snapshot is null)
         {
@@ -49,6 +62,12 @@ internal static class MergeMediaMetadataParser
         TrackItem trackItem,
         out int sampleRate)
     {
+        if (snapshot?.PrimaryAudioSampleRate is > 0)
+        {
+            sampleRate = snapshot.PrimaryAudioSampleRate.Value;
+            return true;
+        }
+
         var sampleRateText = snapshot is null
             ? trackItem.ResolutionText
             : TryGetDetailFieldValue(snapshot.AudioFields, "采样率") ??
@@ -70,16 +89,38 @@ internal static class MergeMediaMetadataParser
         return TryParseBitrateText(bitrateText, out bitrate);
     }
 
+    public static bool TryResolveAudioChannelLayout(MediaDetailsSnapshot? snapshot, out string channelLayout)
+    {
+        channelLayout = snapshot?.PrimaryAudioChannelLayout?.Trim() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(channelLayout);
+    }
+
+    public static string? ResolveVideoCodecName(MediaDetailsSnapshot? snapshot) =>
+        string.IsNullOrWhiteSpace(snapshot?.PrimaryVideoCodecName)
+            ? null
+            : snapshot.PrimaryVideoCodecName;
+
+    public static string? ResolveAudioCodecName(MediaDetailsSnapshot? snapshot) =>
+        string.IsNullOrWhiteSpace(snapshot?.PrimaryAudioCodecName)
+            ? null
+            : snapshot.PrimaryAudioCodecName;
+
     public static string ResolveResolutionText(MediaDetailsSnapshot snapshot)
     {
-        var resolutionText = TryGetDetailFieldValue(snapshot.VideoFields, "分辨率") ??
-                             TryGetDetailFieldValue(snapshot.OverviewFields, "分辨率");
+        var resolutionText = snapshot.PrimaryVideoWidth is > 0 && snapshot.PrimaryVideoHeight is > 0
+            ? $"{snapshot.PrimaryVideoWidth} x {snapshot.PrimaryVideoHeight}"
+            : TryGetDetailFieldValue(snapshot.VideoFields, "分辨率") ??
+              TryGetDetailFieldValue(snapshot.OverviewFields, "分辨率");
         return string.IsNullOrWhiteSpace(resolutionText) ? "未知分辨率" : resolutionText;
     }
 
     public static string ResolveAudioParameterText(MediaDetailsSnapshot snapshot)
     {
-        var sampleRateText = TryGetDetailFieldValue(snapshot.AudioFields, "采样率");
+        var sampleRateText = snapshot.PrimaryAudioSampleRate is > 0
+            ? snapshot.PrimaryAudioSampleRate >= 1_000
+                ? $"{snapshot.PrimaryAudioSampleRate / 1_000d:0.###} kHz"
+                : $"{snapshot.PrimaryAudioSampleRate:0} Hz"
+            : TryGetDetailFieldValue(snapshot.AudioFields, "采样率");
         var bitrateText = TryGetDetailFieldValue(snapshot.AudioFields, "音频码率");
         if (string.IsNullOrWhiteSpace(sampleRateText) && string.IsNullOrWhiteSpace(bitrateText))
         {

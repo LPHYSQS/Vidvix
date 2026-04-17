@@ -109,6 +109,7 @@ public sealed class AppCompositionRoot
         var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(Configuration, commandBuilder);
         var videoTrimCommandFactory = new VideoTrimCommandFactory(Configuration, commandBuilder);
         var audioTrimCommandFactory = new AudioTrimCommandFactory(Configuration, commandBuilder);
+        var transcodingDecisionResolver = new TranscodingDecisionResolver(mediaRuntime.VideoAccelerationService);
         var mediaProcessingWorkflowService = new MediaProcessingWorkflowService(
             Configuration,
             mediaRuntime.RuntimeService,
@@ -116,6 +117,7 @@ public sealed class AppCompositionRoot
             mediaRuntime.VideoAccelerationService,
             mediaRuntime.MediaInfoService,
             mediaProcessingCommandFactory,
+            transcodingDecisionResolver,
             Logger);
         var mergeMediaAnalysisService = new MergeMediaAnalysisService(
             mediaRuntime.MediaInfoService,
@@ -126,26 +128,31 @@ public sealed class AppCompositionRoot
             mediaRuntime.FFmpegService,
             mediaRuntime.VideoAccelerationService,
             mediaRuntime.MediaInfoService,
-            videoTrimCommandFactory);
+            videoTrimCommandFactory,
+            transcodingDecisionResolver);
         var videoJoinWorkflowService = new VideoJoinWorkflowService(
             Configuration,
             mediaRuntime.RuntimeService,
-            mediaRuntime.FFmpegService);
+            mediaRuntime.FFmpegService,
+            transcodingDecisionResolver);
         var audioJoinWorkflowService = new AudioJoinWorkflowService(
             Configuration,
             mediaRuntime.RuntimeService,
-            mediaRuntime.FFmpegService);
+            mediaRuntime.FFmpegService,
+            transcodingDecisionResolver);
         var audioVideoComposeWorkflowService = new AudioVideoComposeWorkflowService(
             Configuration,
             mediaRuntime.RuntimeService,
-            mediaRuntime.FFmpegService);
+            mediaRuntime.FFmpegService,
+            transcodingDecisionResolver);
         var trimWorkflowService = new TrimWorkflowService(
             Configuration,
             mediaRuntime.MediaInfoService,
             mediaRuntime.RuntimeService,
             mediaRuntime.FFmpegService,
             videoTrimWorkflowService,
-            audioTrimCommandFactory);
+            audioTrimCommandFactory,
+            transcodingDecisionResolver);
 
         return new AppWorkflowServices(
             new MediaImportDiscoveryService(),

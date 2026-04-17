@@ -66,10 +66,34 @@
                 CornerRadius="16"
                 Visibility="{x:Bind ViewModel.SettingsPaneProcessingBehaviorVisibility, Mode=OneWay}">
                 <StackPanel Spacing="12">
-                    <TextBlock
-                        FontSize="14"
-                        FontWeight="SemiBold"
-                        Text="处理完成行为" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock
+                            FontSize="14"
+                            FontWeight="SemiBold"
+                            Text="处理完成行为" />
+                        <Border
+                            Width="18"
+                            Height="18"
+                            Background="{ThemeResource SettingsInfoBadgeBackgroundBrush}"
+                            CornerRadius="9"
+                            VerticalAlignment="Center">
+                            <ToolTipService.ToolTip>
+                                <ToolTip>
+                                    <TextBlock
+                                        MaxWidth="360"
+                                        Text="{x:Bind ViewModel.SettingsPaneProcessingBehaviorInfoTooltip, Mode=OneWay}"
+                                        TextWrapping="WrapWholeWords" />
+                                </ToolTip>
+                            </ToolTipService.ToolTip>
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontSize="11"
+                                FontWeight="Bold"
+                                Foreground="{ThemeResource SettingsInfoBadgeForegroundBrush}"
+                                Text="!" />
+                        </Border>
+                    </StackPanel>
 
                     <ToggleSwitch
                         Header="处理完成后定位输出文件"
@@ -90,10 +114,34 @@
                 CornerRadius="16"
                 Visibility="{x:Bind ViewModel.SettingsPaneTranscodingVisibility, Mode=OneWay}">
                 <StackPanel Spacing="12">
-                    <TextBlock
-                        FontSize="14"
-                        FontWeight="SemiBold"
-                        Text="转码方式" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock
+                            FontSize="14"
+                            FontWeight="SemiBold"
+                            Text="转码方式" />
+                        <Border
+                            Width="18"
+                            Height="18"
+                            Background="{ThemeResource SettingsInfoBadgeBackgroundBrush}"
+                            CornerRadius="9"
+                            VerticalAlignment="Center">
+                            <ToolTipService.ToolTip>
+                                <ToolTip>
+                                    <TextBlock
+                                        MaxWidth="360"
+                                        Text="{x:Bind ViewModel.SettingsPaneTranscodingInfoTooltip, Mode=OneWay}"
+                                        TextWrapping="WrapWholeWords" />
+                                </ToolTip>
+                            </ToolTipService.ToolTip>
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                FontSize="11"
+                                FontWeight="Bold"
+                                Foreground="{ThemeResource SettingsInfoBadgeForegroundBrush}"
+                                Text="!" />
+                        </Border>
+                    </StackPanel>
 
                     <StackPanel Spacing="6">
                         <TextBlock Text="默认转码策略" />

@@ -21,6 +21,7 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
     private readonly IFFmpegVideoAccelerationService _ffmpegVideoAccelerationService;
     private readonly IMediaInfoService _mediaInfoService;
     private readonly IVideoTrimCommandFactory _videoTrimCommandFactory;
+    private readonly TranscodingDecisionResolver _transcodingDecisionResolver;
 
     public VideoTrimWorkflowService(
         ApplicationConfiguration configuration,
@@ -28,7 +29,8 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
         IFFmpegService ffmpegService,
         IFFmpegVideoAccelerationService ffmpegVideoAccelerationService,
         IMediaInfoService mediaInfoService,
-        IVideoTrimCommandFactory videoTrimCommandFactory)
+        IVideoTrimCommandFactory videoTrimCommandFactory,
+        TranscodingDecisionResolver transcodingDecisionResolver)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _ffmpegRuntimeService = ffmpegRuntimeService ?? throw new ArgumentNullException(nameof(ffmpegRuntimeService));
@@ -36,6 +38,7 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
         _ffmpegVideoAccelerationService = ffmpegVideoAccelerationService ?? throw new ArgumentNullException(nameof(ffmpegVideoAccelerationService));
         _mediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
         _videoTrimCommandFactory = videoTrimCommandFactory ?? throw new ArgumentNullException(nameof(videoTrimCommandFactory));
+        _transcodingDecisionResolver = transcodingDecisionResolver ?? throw new ArgumentNullException(nameof(transcodingDecisionResolver));
     }
 
     public async Task<VideoTrimImportResult> ImportAsync(
@@ -99,21 +102,24 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
         VideoTrimExportRequest request,
         UserPreferences preferences,
         IProgress<FFmpegProgressUpdate>? progress = null,
+        Action? onCpuFallback = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(preferences);
 
         var runtime = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
-        var videoAccelerationKind = await ResolveVideoAccelerationKindAsync(
+        var decision = await _transcodingDecisionResolver.ResolveAsync(
             runtime.ExecutablePath,
             request.OutputFormat,
-            preferences,
+            request.TranscodingMode,
+            preferences.EnableGpuAccelerationForTranscoding,
+            containsVideo: true,
             cancellationToken).ConfigureAwait(false);
 
         var resolvedRequest = request with
         {
-            VideoAccelerationKind = videoAccelerationKind
+            VideoAccelerationKind = decision.VideoAccelerationKind
         };
 
         var command = _videoTrimCommandFactory.Create(resolvedRequest, runtime.ExecutablePath);
@@ -128,27 +134,39 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
             .ExecuteAsync(command, options, cancellationToken)
             .ConfigureAwait(false);
 
-        return new VideoTrimExportResult(resolvedRequest, executionResult);
-    }
-
-    private async Task<VideoAccelerationKind> ResolveVideoAccelerationKindAsync(
-        string runtimeExecutablePath,
-        OutputFormatOption outputFormat,
-        UserPreferences preferences,
-        CancellationToken cancellationToken)
-    {
-        if (preferences.PreferredTranscodingMode != TranscodingMode.FullTranscode ||
-            !preferences.EnableGpuAccelerationForTranscoding ||
-            !FFmpegVideoEncodingPolicy.SupportsHardwareVideoEncoding(outputFormat))
+        var usedCpuFallback = false;
+        if (decision.UsesHardwareVideoEncoding &&
+            !executionResult.WasSuccessful &&
+            !executionResult.WasCancelled &&
+            !executionResult.TimedOut)
         {
-            return VideoAccelerationKind.None;
+            usedCpuFallback = true;
+            onCpuFallback?.Invoke();
+
+            resolvedRequest = resolvedRequest with
+            {
+                VideoAccelerationKind = VideoAccelerationKind.None
+            };
+
+            command = _videoTrimCommandFactory.Create(resolvedRequest, runtime.ExecutablePath);
+            executionResult = await _ffmpegService
+                .ExecuteAsync(command, options, cancellationToken)
+                .ConfigureAwait(false);
         }
 
-        var probeResult = await _ffmpegVideoAccelerationService
-            .ProbeBestEncoderAsync(runtimeExecutablePath, cancellationToken)
-            .ConfigureAwait(false);
+        var usedFastPath = request.TranscodingMode == TranscodingMode.FastContainerConversion &&
+                           TranscodingCompatibilityEvaluator.SupportsFastVideoTrimCopy(
+                               request.InputPath,
+                               request.OutputFormat.Extension);
+        var message = usedFastPath
+            ? "当前素材与目标输出兼容，已优先复用原始流。"
+            : usedCpuFallback
+                ? "GPU 编码失败，已自动回退为 CPU 重试一次。"
+                : request.TranscodingMode == TranscodingMode.FastContainerConversion
+                    ? "当前流程无法完全复用原始流，本次已回退为兼容转码。"
+                    : decision.Message;
 
-        return probeResult.IsAvailable ? probeResult.Kind : VideoAccelerationKind.None;
+        return new VideoTrimExportResult(resolvedRequest, executionResult, message, usedFastPath, usedCpuFallback);
     }
 
     private static string ResolveImportFailureMessage(MediaDetailsLoadResult result)

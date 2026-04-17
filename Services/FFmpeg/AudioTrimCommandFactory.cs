@@ -17,7 +17,7 @@ public sealed class AudioTrimCommandFactory : IAudioTrimCommandFactory
         _commandBuilder = commandBuilder ?? throw new ArgumentNullException(nameof(commandBuilder));
     }
 
-    public FFmpegCommand Create(VideoTrimExportRequest request, string runtimeExecutablePath)
+    public FFmpegCommand Create(VideoTrimExportRequest request, string runtimeExecutablePath, MediaDetailsSnapshot? inputSnapshot = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(runtimeExecutablePath);
@@ -41,85 +41,68 @@ public sealed class AudioTrimCommandFactory : IAudioTrimCommandFactory
             .AddParameter("-sn")
             .AddParameter("-dn");
 
-        return BuildAudioOutputCommand(builder, request.OutputFormat, request.TranscodingMode);
+        return BuildAudioOutputCommand(builder, request.OutputFormat, request.TranscodingMode, inputSnapshot);
     }
 
     private static FFmpegCommand BuildAudioOutputCommand(
         IFFmpegCommandBuilder builder,
         OutputFormatOption outputFormat,
-        TranscodingMode transcodingMode)
+        TranscodingMode transcodingMode,
+        MediaDetailsSnapshot? inputSnapshot)
     {
         var extension = outputFormat.Extension.ToLowerInvariant();
 
-        builder = transcodingMode == TranscodingMode.FullTranscode
-            ? extension switch
+        if (transcodingMode != TranscodingMode.FullTranscode &&
+            TranscodingCompatibilityEvaluator.CanCopyAudioCodecToContainer(inputSnapshot?.PrimaryAudioCodecName, extension))
+        {
+            builder = builder.AddParameter("-c:a", "copy");
+
+            if (extension == ".mka")
             {
-                ".mp3" => builder
-                    .AddParameter("-c:a", "libmp3lame")
-                    .AddParameter("-q:a", "2"),
-                ".m4a" => builder
-                    .AddParameter("-c:a", "aac")
-                    .AddParameter("-b:a", "256k")
-                    .AddParameter("-movflags", "+faststart"),
-                ".aac" => builder
-                    .AddParameter("-c:a", "aac")
-                    .AddParameter("-b:a", "256k"),
-                ".wav" => builder
-                    .AddParameter("-c:a", "pcm_s16le"),
-                ".flac" => builder
-                    .AddParameter("-c:a", "flac"),
-                ".wma" => builder
-                    .AddParameter("-c:a", "wmav2")
-                    .AddParameter("-b:a", "192k"),
-                ".ogg" => builder
-                    .AddParameter("-c:a", "libvorbis")
-                    .AddParameter("-q:a", "5"),
-                ".opus" => builder
-                    .AddParameter("-c:a", "libopus")
-                    .AddParameter("-b:a", "160k"),
-                ".aiff" => builder
-                    .AddParameter("-c:a", "pcm_s16be"),
-                ".aif" => builder
-                    .AddParameter("-c:a", "pcm_s16be"),
-                ".mka" => builder
-                    .AddParameter("-c:a", "flac")
-                    .AddParameter("-f", "matroska"),
-                _ => throw new InvalidOperationException("不支持的音频裁剪输出格式。")
+                builder = builder.AddParameter("-f", "matroska");
             }
-            : extension switch
+            else if (extension == ".m4a")
             {
-                ".mp3" => builder
-                    .AddParameter("-c:a", "libmp3lame")
-                    .AddParameter("-q:a", "2"),
-                ".m4a" => builder
-                    .AddParameter("-c:a", "aac")
-                    .AddParameter("-b:a", "256k")
-                    .AddParameter("-movflags", "+faststart"),
-                ".aac" => builder
-                    .AddParameter("-c:a", "aac")
-                    .AddParameter("-b:a", "256k"),
-                ".wav" => builder
-                    .AddParameter("-c:a", "pcm_s16le"),
-                ".flac" => builder
-                    .AddParameter("-c:a", "flac"),
-                ".wma" => builder
-                    .AddParameter("-c:a", "wmav2")
-                    .AddParameter("-b:a", "192k"),
-                ".ogg" => builder
-                    .AddParameter("-c:a", "libvorbis")
-                    .AddParameter("-q:a", "5"),
-                ".opus" => builder
-                    .AddParameter("-c:a", "libopus")
-                    .AddParameter("-b:a", "160k"),
-                ".aiff" => builder
-                    .AddParameter("-c:a", "pcm_s16be"),
-                ".aif" => builder
-                    .AddParameter("-c:a", "pcm_s16be"),
-                ".mka" => builder
-                    .AddParameter("-c:a", "copy")
-                    .AddParameter("-f", "matroska"),
-                _ => throw new InvalidOperationException("不支持的音频裁剪输出格式。")
-            };
+                builder = builder.AddParameter("-movflags", "+faststart");
+            }
+
+            return builder.Build();
+        }
+
+        builder = extension switch
+        {
+            ".mp3" => builder
+                .AddParameter("-c:a", "libmp3lame")
+                .AddParameter("-q:a", "2"),
+            ".m4a" => builder
+                .AddParameter("-c:a", "aac")
+                .AddParameter("-b:a", "256k")
+                .AddParameter("-movflags", "+faststart"),
+            ".aac" => builder
+                .AddParameter("-c:a", "aac")
+                .AddParameter("-b:a", "256k"),
+            ".wav" => builder
+                .AddParameter("-c:a", "pcm_s16le"),
+            ".flac" => builder
+                .AddParameter("-c:a", "flac"),
+            ".wma" => builder
+                .AddParameter("-c:a", "wmav2")
+                .AddParameter("-b:a", "192k"),
+            ".ogg" => builder
+                .AddParameter("-c:a", "libvorbis")
+                .AddParameter("-q:a", "5"),
+            ".opus" => builder
+                .AddParameter("-c:a", "libopus")
+                .AddParameter("-b:a", "160k"),
+            ".aiff" => builder
+                .AddParameter("-c:a", "pcm_s16be"),
+            ".aif" => builder
+                .AddParameter("-c:a", "pcm_s16be"),
+            ".mka" => builder
+                .AddParameter("-c:a", "flac")
+                .AddParameter("-f", "matroska"),
+            _ => throw new InvalidOperationException("不支持的音频裁剪输出格式。")
+        };
 
         return builder.Build();
     }

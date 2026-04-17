@@ -12,5 +12,6 @@ public interface IAudioVideoComposeWorkflowService
     Task<AudioVideoComposeExportResult> ExportAsync(
         AudioVideoComposeExportRequest request,
         IProgress<FFmpegProgressUpdate>? progress = null,
+        Action? onCpuFallback = null,
         CancellationToken cancellationToken = default);
 }

@@ -1,31 +1,36 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Services.FFmpeg;
 
 namespace Vidvix.Services;
 
 public sealed class AudioJoinWorkflowService : IAudioJoinWorkflowService
 {
-    private const int DefaultSampleRate = 48000;
+    private const int DefaultSampleRate = 48_000;
     private const string NormalizedChannelLayout = "stereo";
 
     private readonly ApplicationConfiguration _configuration;
     private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
     private readonly IFFmpegService _ffmpegService;
+    private readonly TranscodingDecisionResolver _transcodingDecisionResolver;
 
     public AudioJoinWorkflowService(
         ApplicationConfiguration configuration,
         IFFmpegRuntimeService ffmpegRuntimeService,
-        IFFmpegService ffmpegService)
+        IFFmpegService ffmpegService,
+        TranscodingDecisionResolver transcodingDecisionResolver)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _ffmpegRuntimeService = ffmpegRuntimeService ?? throw new ArgumentNullException(nameof(ffmpegRuntimeService));
         _ffmpegService = ffmpegService ?? throw new ArgumentNullException(nameof(ffmpegService));
+        _transcodingDecisionResolver = transcodingDecisionResolver ?? throw new ArgumentNullException(nameof(transcodingDecisionResolver));
     }
 
     public Task<FFmpegRuntimeResolution> EnsureRuntimeReadyAsync(CancellationToken cancellationToken = default) =>
@@ -44,7 +49,16 @@ public sealed class AudioJoinWorkflowService : IAudioJoinWorkflowService
         }
 
         var runtime = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
-        var command = CreateCommand(runtime.ExecutablePath, request);
+        var decision = await _transcodingDecisionResolver
+            .ResolveAsync(
+                runtime.ExecutablePath,
+                request.OutputFormat,
+                request.TranscodingMode,
+                request.IsGpuAccelerationRequested,
+                containsVideo: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         var options = new FFmpegExecutionOptions
         {
             Timeout = _configuration.DefaultExecutionTimeout,
@@ -52,14 +66,74 @@ public sealed class AudioJoinWorkflowService : IAudioJoinWorkflowService
             Progress = progress
         };
 
-        var executionResult = await _ffmpegService
-            .ExecuteAsync(command, options, cancellationToken)
-            .ConfigureAwait(false);
+        var usedFastPath = false;
+        var transcodingMessage = request.TranscodingMode == TranscodingMode.FastContainerConversion
+            ? "当前素材参数不完全一致，或当前流程需要统一采样率 / 声道布局，本次已回退为兼容音频转码。"
+            : decision.Message;
 
-        return new AudioJoinExportResult(request, executionResult);
+        FFmpegExecutionResult executionResult;
+        string? concatListPath = null;
+
+        try
+        {
+            if (request.TranscodingMode == TranscodingMode.FastContainerConversion && CanUseFastJoin(request))
+            {
+                concatListPath = CreateConcatListFile(request.Segments.Select(static segment => segment.SourcePath));
+                executionResult = await _ffmpegService
+                    .ExecuteAsync(CreateFastJoinCommand(runtime.ExecutablePath, request, concatListPath), options, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (executionResult.WasSuccessful || executionResult.WasCancelled || executionResult.TimedOut)
+                {
+                    usedFastPath = executionResult.WasSuccessful;
+                    transcodingMessage = executionResult.WasSuccessful
+                        ? "当前素材与目标输出兼容，已优先复用原始音频流。"
+                        : transcodingMessage;
+                    return new AudioJoinExportResult(request, executionResult, transcodingMessage, usedFastPath);
+                }
+
+                transcodingMessage = "当前素材无法完整复用原始音频流，本次已自动回退为兼容音频转码。";
+            }
+
+            executionResult = await _ffmpegService
+                .ExecuteAsync(CreateTranscodedCommand(runtime.ExecutablePath, request), options, cancellationToken)
+                .ConfigureAwait(false);
+
+            return new AudioJoinExportResult(request, executionResult, transcodingMessage, usedFastPath);
+        }
+        finally
+        {
+            TryDeleteFile(concatListPath);
+        }
     }
 
-    private FFmpegCommand CreateCommand(string runtimeExecutablePath, AudioJoinExportRequest request)
+    private FFmpegCommand CreateFastJoinCommand(string runtimeExecutablePath, AudioJoinExportRequest request, string concatListPath)
+    {
+        var arguments = new List<string>
+        {
+            "-hide_banner",
+            _configuration.OverwriteOutputFiles ? "-y" : "-n",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            concatListPath,
+            "-map",
+            "0:a:0",
+            "-vn",
+            "-sn",
+            "-dn",
+            "-c:a",
+            "copy"
+        };
+
+        ApplyCopyOutputEncoding(arguments, request.OutputFormat);
+        arguments.Add(request.OutputPath);
+        return new FFmpegCommand(runtimeExecutablePath, arguments);
+    }
+
+    private FFmpegCommand CreateTranscodedCommand(string runtimeExecutablePath, AudioJoinExportRequest request)
     {
         var arguments = new List<string>
         {
@@ -111,6 +185,50 @@ public sealed class AudioJoinWorkflowService : IAudioJoinWorkflowService
 
     private static int GetEffectiveSampleRate(AudioJoinExportRequest request) =>
         request.TargetSampleRate > 0 ? request.TargetSampleRate : DefaultSampleRate;
+
+    private static bool CanUseFastJoin(AudioJoinExportRequest request)
+    {
+        if (request.Segments.Count == 0)
+        {
+            return false;
+        }
+
+        var firstSegment = request.Segments[0];
+        if (!TranscodingCompatibilityEvaluator.CanCopyAudioCodecToContainer(firstSegment.AudioCodecName, request.OutputFormat.Extension))
+        {
+            return false;
+        }
+
+        var effectiveSampleRate = GetEffectiveSampleRate(request);
+        if (effectiveSampleRate != firstSegment.SampleRate)
+        {
+            return false;
+        }
+
+        return request.Segments.All(segment =>
+            string.Equals(segment.AudioCodecName, firstSegment.AudioCodecName, StringComparison.OrdinalIgnoreCase) &&
+            segment.SampleRate == firstSegment.SampleRate &&
+            TranscodingCompatibilityEvaluator.AreChannelLayoutsCompatible(segment.AudioChannelLayout, firstSegment.AudioChannelLayout));
+    }
+
+    private static void ApplyCopyOutputEncoding(List<string> arguments, OutputFormatOption outputFormat)
+    {
+        switch (outputFormat.Extension.ToLowerInvariant())
+        {
+            case ".m4a":
+                arguments.Add("-movflags");
+                arguments.Add("+faststart");
+                break;
+            case ".aac":
+                arguments.Add("-f");
+                arguments.Add("adts");
+                break;
+            case ".mka":
+                arguments.Add("-f");
+                arguments.Add("matroska");
+                break;
+        }
+    }
 
     private static void ApplyOutputEncoding(
         List<string> arguments,
@@ -220,5 +338,37 @@ public sealed class AudioJoinWorkflowService : IAudioJoinWorkflowService
         return parameterMode == AudioJoinParameterMode.Preset
             ? clampedKbps
             : Math.Max(32, (int)(Math.Round(clampedKbps / 16d, MidpointRounding.AwayFromZero) * 16d));
+    }
+
+    private static string CreateConcatListFile(IEnumerable<string> inputPaths)
+    {
+        var concatListPath = Path.Combine(Path.GetTempPath(), $"vidvix-audio-join-{Guid.NewGuid():N}.txt");
+        var lines = inputPaths.Select(static path => $"file '{EscapeConcatPath(path)}'");
+        File.WriteAllLines(concatListPath, lines);
+        return concatListPath;
+    }
+
+    private static string EscapeConcatPath(string path) =>
+        path.Replace("\\", "/", StringComparison.Ordinal)
+            .Replace("'", "'\\''", StringComparison.Ordinal);
+
+    private static void TryDeleteFile(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // 忽略临时 concat list 清理失败，避免吞掉主流程结果。
+        }
     }
 }

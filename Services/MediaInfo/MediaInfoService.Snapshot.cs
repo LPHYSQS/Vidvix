@@ -34,6 +34,15 @@ public sealed partial class MediaInfoService
         var audioMissing = audioStream is null;
         var hasEmbeddedArtwork = artworkStream is not null;
         var subtitleCount = subtitleStreams.Length;
+        var primaryVideoFrameRate = ParseFrameRate(videoStream?.avg_frame_rate) ?? ParseFrameRate(videoStream?.r_frame_rate);
+        var primaryAudioSampleRate = TryParsePositiveDouble(audioStream?.sample_rate, out var sampleRate)
+            ? (int?)Math.Round(sampleRate, MidpointRounding.AwayFromZero)
+            : null;
+        var primaryAudioChannelLayout = !string.IsNullOrWhiteSpace(audioStream?.channel_layout)
+            ? audioStream.channel_layout
+            : audioStream?.channels is > 0
+                ? $"{audioStream.channels.Value}ch"
+                : null;
         var videoBitrateText = videoMissing ? MissingVideoStreamValue : FormatBitrate(resolvedBitrates.VideoBitrateText);
         var audioBitrateText = audioMissing ? MissingAudioStreamValue : FormatBitrate(resolvedBitrates.AudioBitrateText);
         var overviewFields = new List<MediaDetailField>
@@ -98,7 +107,14 @@ public sealed partial class MediaInfoService
             HasEmbeddedArtwork = hasEmbeddedArtwork,
             HasSubtitleStream = subtitleCount > 0,
             SubtitleStreamCount = subtitleCount,
+            PrimaryVideoCodecName = videoStream?.codec_name,
+            PrimaryAudioCodecName = audioStream?.codec_name,
             PrimarySubtitleCodecName = subtitleStream?.codec_name,
+            PrimaryVideoFrameRate = primaryVideoFrameRate is > 0d ? primaryVideoFrameRate : null,
+            PrimaryAudioSampleRate = primaryAudioSampleRate is > 0 ? primaryAudioSampleRate : null,
+            PrimaryAudioChannelLayout = primaryAudioChannelLayout,
+            PrimaryVideoWidth = videoStream?.width is > 0 ? videoStream.width : null,
+            PrimaryVideoHeight = videoStream?.height is > 0 ? videoStream.height : null,
             OverviewFields = overviewFields,
             VideoFields = videoFields,
             AudioFields = audioFields,

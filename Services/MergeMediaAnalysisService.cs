@@ -62,7 +62,14 @@ public sealed class MergeMediaAnalysisService : IMergeMediaAnalysisService
                 height,
                 frameRate,
                 duration,
-                snapshot?.HasAudioStream ?? true));
+                snapshot?.HasAudioStream ?? true,
+                MergeMediaMetadataParser.ResolveVideoCodecName(snapshot),
+                MergeMediaMetadataParser.ResolveAudioCodecName(snapshot),
+                snapshot?.PrimaryAudioSampleRate ?? 0,
+                MergeMediaMetadataParser.TryResolveAudioChannelLayout(snapshot, out var audioChannelLayout)
+                    ? audioChannelLayout
+                    : null,
+                Path.GetExtension(trackItem.SourcePath)));
         }
 
         return segments;
@@ -106,7 +113,12 @@ public sealed class MergeMediaAnalysisService : IMergeMediaAnalysisService
                 trackItem.SourceName,
                 duration,
                 sampleRate,
-                bitrate));
+                bitrate,
+                MergeMediaMetadataParser.ResolveAudioCodecName(snapshot),
+                MergeMediaMetadataParser.TryResolveAudioChannelLayout(snapshot, out var audioChannelLayout)
+                    ? audioChannelLayout
+                    : null,
+                Path.GetExtension(trackItem.SourcePath)));
         }
 
         return segments;
@@ -153,7 +165,11 @@ public sealed class MergeMediaAnalysisService : IMergeMediaAnalysisService
             videoDuration,
             audioDuration,
             frameRate,
-            videoSnapshot?.HasAudioStream == true);
+            videoSnapshot?.HasAudioStream == true,
+            MergeMediaMetadataParser.ResolveVideoCodecName(videoSnapshot),
+            MergeMediaMetadataParser.ResolveAudioCodecName(audioSnapshot),
+            Path.GetExtension(videoTrackItem.SourcePath),
+            Path.GetExtension(audioTrackItem.SourcePath));
     }
 
     private async Task<MediaDetailsSnapshot?> LoadMediaDetailsSnapshotAsync(string sourcePath, CancellationToken cancellationToken)

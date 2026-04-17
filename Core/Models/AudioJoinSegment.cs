@@ -7,4 +7,7 @@ public sealed record AudioJoinSegment(
     string SourceName,
     TimeSpan Duration,
     int SampleRate,
-    int? Bitrate);
+    int? Bitrate,
+    string? AudioCodecName,
+    string? AudioChannelLayout,
+    string InputContainerExtension);

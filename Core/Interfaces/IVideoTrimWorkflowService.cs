@@ -19,5 +19,6 @@ public interface IVideoTrimWorkflowService
         VideoTrimExportRequest request,
         UserPreferences preferences,
         IProgress<FFmpegProgressUpdate>? progress = null,
+        Action? onCpuFallback = null,
         CancellationToken cancellationToken = default);
 }

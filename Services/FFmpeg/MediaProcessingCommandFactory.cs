@@ -39,7 +39,7 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
 
         if (context.WorkspaceKind == ProcessingWorkspaceKind.Audio)
         {
-            return BuildAudioConversionCommand(builder, context.OutputFormat, context);
+            return BuildAudioConversionCommand(builder, context.OutputFormat, context, request.InputSnapshot);
         }
 
         return context.ProcessingMode switch
@@ -52,7 +52,8 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
                     .AddParameter("-dn"),
                 includeAudio: true,
                 context.OutputFormat,
-                context),
+                context,
+                request.InputSnapshot),
             ProcessingMode.VideoTrackExtract => BuildVideoOutputCommand(
                 builder
                     .AddParameter("-map", "0:v")
@@ -61,8 +62,9 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
                     .AddParameter("-dn"),
                 includeAudio: false,
                 context.OutputFormat,
-                context),
-            ProcessingMode.AudioTrackExtract => BuildAudioExtractionCommand(builder, context.OutputFormat, context),
+                context,
+                request.InputSnapshot),
+            ProcessingMode.AudioTrackExtract => BuildAudioExtractionCommand(builder, context.OutputFormat, context, request.InputSnapshot),
             ProcessingMode.SubtitleTrackExtract => BuildSubtitleExtractionCommand(builder, context.OutputFormat),
             _ => throw new InvalidOperationException("不支持的处理模式。")
         };
@@ -75,7 +77,8 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
         IFFmpegCommandBuilder builder,
         bool includeAudio,
         OutputFormatOption outputFormat,
-        MediaProcessingContext executionContext)
+        MediaProcessingContext executionContext,
+        MediaDetailsSnapshot? inputSnapshot)
     {
         var extension = outputFormat.Extension.ToLowerInvariant();
 
@@ -84,37 +87,17 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
             return BuildTranscodedVideoOutputCommand(builder, includeAudio, extension, executionContext.VideoAccelerationKind);
         }
 
+        if (extension is ".mp4" or ".mkv" or ".mov" or ".m4v" or ".ts" or ".m2ts")
+        {
+            return BuildFastVideoOutputCommand(builder, includeAudio, extension, inputSnapshot);
+        }
+
         return extension switch
         {
-            ".mp4" => builder
-                .AddParameter("-c", "copy")
-                .AddParameter("-movflags", "+faststart")
-                .Build(),
-            ".mkv" => builder
-                .AddParameter("-c", "copy")
-                .Build(),
-            ".mov" => builder
-                .AddParameter("-c", "copy")
-                .AddParameter("-movflags", "+faststart")
-                .Build(),
             ".avi" => BuildAviOutputCommand(builder, includeAudio),
             ".wmv" => BuildWmvOutputCommand(builder, includeAudio),
-            ".m4v" => builder
-                .AddParameter("-c", "copy")
-                .AddParameter("-f", "mp4")
-                .AddParameter("-movflags", "+faststart")
-                .Build(),
             ".flv" => BuildFlvOutputCommand(builder, includeAudio),
             ".webm" => BuildWebMOutputCommand(builder, includeAudio),
-            ".ts" => builder
-                .AddParameter("-c", "copy")
-                .AddParameter("-f", "mpegts")
-                .Build(),
-            ".m2ts" => builder
-                .AddParameter("-c", "copy")
-                .AddParameter("-f", "mpegts")
-                .AddParameter("-mpegts_m2ts_mode", "1")
-                .Build(),
             ".mpeg" => BuildMpegOutputCommand(builder, includeAudio),
             ".mpg" => BuildMpegOutputCommand(builder, includeAudio),
             _ => throw new InvalidOperationException("不支持的视频输出格式。")
@@ -145,21 +128,74 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
         };
     }
 
+    private FFmpegCommand BuildFastVideoOutputCommand(
+        IFFmpegCommandBuilder builder,
+        bool includeAudio,
+        string extension,
+        MediaDetailsSnapshot? inputSnapshot)
+    {
+        var canCopyVideo = TranscodingCompatibilityEvaluator.CanCopyVideoCodecToContainer(
+            inputSnapshot?.PrimaryVideoCodecName,
+            extension);
+        var canCopyAudio = includeAudio &&
+                           inputSnapshot?.HasAudioStream == true &&
+                           TranscodingCompatibilityEvaluator.CanCopyAudioCodecToContainer(
+                               inputSnapshot.PrimaryAudioCodecName,
+                               extension);
+
+        if (canCopyVideo && (!includeAudio || inputSnapshot?.HasAudioStream != true || canCopyAudio))
+        {
+            return BuildCopiedVideoOutputCommand(builder, extension);
+        }
+
+        if (canCopyVideo)
+        {
+            return BuildH264VideoOutputCommand(
+                builder,
+                includeAudio,
+                VideoAccelerationKind.None,
+                formatOverride: extension is ".m4v" ? "mp4" : extension is ".ts" or ".m2ts" ? "mpegts" : null,
+                addFastStart: extension is ".mp4" or ".mov" or ".m4v",
+                m2tsMode: extension == ".m2ts",
+                copyVideo: true);
+        }
+
+        if (includeAudio && canCopyAudio)
+        {
+            return BuildH264VideoOutputCommand(
+                builder,
+                includeAudio,
+                VideoAccelerationKind.None,
+                formatOverride: extension is ".m4v" ? "mp4" : extension is ".ts" or ".m2ts" ? "mpegts" : null,
+                addFastStart: extension is ".mp4" or ".mov" or ".m4v",
+                m2tsMode: extension == ".m2ts",
+                copyAudio: true);
+        }
+
+        return BuildTranscodedVideoOutputCommand(builder, includeAudio, extension, VideoAccelerationKind.None);
+    }
+
     private static FFmpegCommand BuildH264VideoOutputCommand(
         IFFmpegCommandBuilder builder,
         bool includeAudio,
         VideoAccelerationKind videoAccelerationKind,
         string? formatOverride = null,
         bool addFastStart = false,
-        bool m2tsMode = false)
+        bool m2tsMode = false,
+        bool copyVideo = false,
+        bool copyAudio = false)
     {
-        builder = ApplyVideoEncoding(builder, videoAccelerationKind);
+        builder = copyVideo
+            ? builder.AddParameter("-c:v", "copy")
+            : ApplyVideoEncoding(builder, videoAccelerationKind);
 
         if (includeAudio)
         {
-            builder = builder
-                .AddParameter("-c:a", "aac")
-                .AddParameter("-b:a", "256k");
+            builder = copyAudio
+                ? builder.AddParameter("-c:a", "copy")
+                : builder
+                    .AddParameter("-c:a", "aac")
+                    .AddParameter("-b:a", "256k");
         }
 
         if (!string.IsNullOrWhiteSpace(formatOverride))
@@ -176,6 +212,26 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
         {
             builder = builder.AddParameter("-movflags", "+faststart");
         }
+
+        return builder.Build();
+    }
+
+    private static FFmpegCommand BuildCopiedVideoOutputCommand(IFFmpegCommandBuilder builder, string extension)
+    {
+        builder = builder.AddParameter("-c", "copy");
+
+        builder = extension switch
+        {
+            ".mp4" or ".mov" => builder.AddParameter("-movflags", "+faststart"),
+            ".m4v" => builder
+                .AddParameter("-f", "mp4")
+                .AddParameter("-movflags", "+faststart"),
+            ".ts" => builder.AddParameter("-f", "mpegts"),
+            ".m2ts" => builder
+                .AddParameter("-f", "mpegts")
+                .AddParameter("-mpegts_m2ts_mode", "1"),
+            _ => builder
+        };
 
         return builder.Build();
     }
@@ -270,7 +326,8 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
     private FFmpegCommand BuildAudioConversionCommand(
         IFFmpegCommandBuilder builder,
         OutputFormatOption outputFormat,
-        MediaProcessingContext executionContext) =>
+        MediaProcessingContext executionContext,
+        MediaDetailsSnapshot? inputSnapshot) =>
         BuildAudioOutputCommand(
             builder
                 .AddParameter("-map", "0:a:0")
@@ -278,12 +335,14 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
                 .AddParameter("-sn")
                 .AddParameter("-dn"),
             outputFormat,
-            executionContext);
+            executionContext,
+            inputSnapshot);
 
     private FFmpegCommand BuildAudioExtractionCommand(
         IFFmpegCommandBuilder builder,
         OutputFormatOption outputFormat,
-        MediaProcessingContext executionContext) =>
+        MediaProcessingContext executionContext,
+        MediaDetailsSnapshot? inputSnapshot) =>
         BuildAudioOutputCommand(
             builder
                 .AddParameter("-map", "0:a:0")
@@ -291,7 +350,8 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
                 .AddParameter("-sn")
                 .AddParameter("-dn"),
             outputFormat,
-            executionContext);
+            executionContext,
+            inputSnapshot);
 
     private static FFmpegCommand BuildSubtitleExtractionCommand(
         IFFmpegCommandBuilder builder,
@@ -336,79 +396,70 @@ public sealed class MediaProcessingCommandFactory : IMediaProcessingCommandFacto
     private static FFmpegCommand BuildAudioOutputCommand(
         IFFmpegCommandBuilder builder,
         OutputFormatOption outputFormat,
-        MediaProcessingContext executionContext)
+        MediaProcessingContext executionContext,
+        MediaDetailsSnapshot? inputSnapshot)
     {
         var extension = outputFormat.Extension.ToLowerInvariant();
 
-        builder = executionContext.TranscodingMode == TranscodingMode.FullTranscode
-            ? extension switch
-            {
-                ".mp3" => builder
-                    .AddParameter("-c:a", "libmp3lame")
-                    .AddParameter("-q:a", "2"),
-                ".m4a" => builder
-                    .AddParameter("-c:a", "aac")
-                    .AddParameter("-b:a", "256k")
-                    .AddParameter("-movflags", "+faststart"),
-                ".aac" => builder
-                    .AddParameter("-c:a", "aac")
-                    .AddParameter("-b:a", "256k"),
-                ".wav" => builder
-                    .AddParameter("-c:a", "pcm_s16le"),
-                ".flac" => builder
-                    .AddParameter("-c:a", "flac"),
-                ".wma" => builder
-                    .AddParameter("-c:a", "wmav2")
-                    .AddParameter("-b:a", "192k"),
-                ".ogg" => builder
-                    .AddParameter("-c:a", "libvorbis")
-                    .AddParameter("-q:a", "5"),
-                ".opus" => builder
-                    .AddParameter("-c:a", "libopus")
-                    .AddParameter("-b:a", "160k"),
-                ".aiff" => builder
-                    .AddParameter("-c:a", "pcm_s16be"),
-                ".aif" => builder
-                    .AddParameter("-c:a", "pcm_s16be"),
-                ".mka" => builder
-                    .AddParameter("-c:a", "flac")
-                    .AddParameter("-f", "matroska"),
-                _ => throw new InvalidOperationException("不支持的音频输出格式。")
-            }
-            : extension switch
-            {
-                ".mp3" => builder
-                    .AddParameter("-c:a", "libmp3lame")
-                    .AddParameter("-q:a", "2"),
-                ".m4a" => builder
-                    .AddParameter("-c:a", "aac")
-                    .AddParameter("-b:a", "256k")
-                    .AddParameter("-movflags", "+faststart"),
-                ".aac" => builder
-                    .AddParameter("-c:a", "aac")
-                    .AddParameter("-b:a", "256k"),
-                ".wav" => builder
-                    .AddParameter("-c:a", "pcm_s16le"),
-                ".flac" => builder
-                    .AddParameter("-c:a", "flac"),
-                ".wma" => builder
-                    .AddParameter("-c:a", "wmav2")
-                    .AddParameter("-b:a", "192k"),
-                ".ogg" => builder
-                    .AddParameter("-c:a", "libvorbis")
-                    .AddParameter("-q:a", "5"),
-                ".opus" => builder
-                    .AddParameter("-c:a", "libopus")
-                    .AddParameter("-b:a", "160k"),
-                ".aiff" => builder
-                    .AddParameter("-c:a", "pcm_s16be"),
-                ".aif" => builder
-                    .AddParameter("-c:a", "pcm_s16be"),
-                ".mka" => builder
-                    .AddParameter("-c:a", "copy")
-                    .AddParameter("-f", "matroska"),
-                _ => throw new InvalidOperationException("不支持的音频输出格式。")
-            };
+        if (executionContext.TranscodingMode != TranscodingMode.FullTranscode &&
+            TranscodingCompatibilityEvaluator.CanCopyAudioCodecToContainer(inputSnapshot?.PrimaryAudioCodecName, extension))
+        {
+            return BuildCopiedAudioOutputCommand(builder, extension);
+        }
+
+        return BuildTranscodedAudioOutputCommand(builder, extension);
+    }
+
+    private static FFmpegCommand BuildTranscodedAudioOutputCommand(IFFmpegCommandBuilder builder, string extension)
+    {
+        builder = extension switch
+        {
+            ".mp3" => builder
+                .AddParameter("-c:a", "libmp3lame")
+                .AddParameter("-q:a", "2"),
+            ".m4a" => builder
+                .AddParameter("-c:a", "aac")
+                .AddParameter("-b:a", "256k")
+                .AddParameter("-movflags", "+faststart"),
+            ".aac" => builder
+                .AddParameter("-c:a", "aac")
+                .AddParameter("-b:a", "256k"),
+            ".wav" => builder
+                .AddParameter("-c:a", "pcm_s16le"),
+            ".flac" => builder
+                .AddParameter("-c:a", "flac"),
+            ".wma" => builder
+                .AddParameter("-c:a", "wmav2")
+                .AddParameter("-b:a", "192k"),
+            ".ogg" => builder
+                .AddParameter("-c:a", "libvorbis")
+                .AddParameter("-q:a", "5"),
+            ".opus" => builder
+                .AddParameter("-c:a", "libopus")
+                .AddParameter("-b:a", "160k"),
+            ".aiff" => builder
+                .AddParameter("-c:a", "pcm_s16be"),
+            ".aif" => builder
+                .AddParameter("-c:a", "pcm_s16be"),
+            ".mka" => builder
+                .AddParameter("-c:a", "flac")
+                .AddParameter("-f", "matroska"),
+            _ => throw new InvalidOperationException("不支持的音频输出格式。")
+        };
+
+        return builder.Build();
+    }
+
+    private static FFmpegCommand BuildCopiedAudioOutputCommand(IFFmpegCommandBuilder builder, string extension)
+    {
+        builder = builder.AddParameter("-c:a", "copy");
+
+        builder = extension switch
+        {
+            ".m4a" => builder.AddParameter("-movflags", "+faststart"),
+            ".mka" => builder.AddParameter("-f", "matroska"),
+            _ => builder
+        };
 
         return builder.Build();
     }

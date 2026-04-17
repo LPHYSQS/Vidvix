@@ -11,7 +11,8 @@ public sealed class MediaProcessingCommandRequest
         string runtimeExecutablePath,
         string inputPath,
         string outputPath,
-        MediaProcessingContext context)
+        MediaProcessingContext context,
+        MediaDetailsSnapshot? inputSnapshot = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(runtimeExecutablePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
@@ -21,6 +22,7 @@ public sealed class MediaProcessingCommandRequest
         InputPath = inputPath;
         OutputPath = outputPath;
         Context = context;
+        InputSnapshot = inputSnapshot;
     }
 
     public string RuntimeExecutablePath { get; }
@@ -30,4 +32,6 @@ public sealed class MediaProcessingCommandRequest
     public string OutputPath { get; }
 
     public MediaProcessingContext Context { get; }
+
+    public MediaDetailsSnapshot? InputSnapshot { get; }
 }

@@ -8,6 +8,8 @@ public sealed record AudioJoinExportRequest(
     IReadOnlyList<AudioJoinSegment> Segments,
     string OutputPath,
     OutputFormatOption OutputFormat,
+    TranscodingMode TranscodingMode,
+    bool IsGpuAccelerationRequested,
     AudioJoinParameterMode ParameterMode,
     int TargetSampleRate,
     int? TargetBitrate)

@@ -9,4 +9,9 @@ public sealed record VideoJoinSegment(
     int Height,
     double FrameRate,
     TimeSpan Duration,
-    bool HasAudio);
+    bool HasAudio,
+    string? VideoCodecName,
+    string? AudioCodecName,
+    int AudioSampleRate,
+    string? AudioChannelLayout,
+    string InputContainerExtension);

@@ -23,7 +23,21 @@ public sealed class MediaDetailsSnapshot
 
     public required int SubtitleStreamCount { get; init; }
 
+    public string? PrimaryVideoCodecName { get; init; }
+
+    public string? PrimaryAudioCodecName { get; init; }
+
     public string? PrimarySubtitleCodecName { get; init; }
+
+    public double? PrimaryVideoFrameRate { get; init; }
+
+    public int? PrimaryAudioSampleRate { get; init; }
+
+    public string? PrimaryAudioChannelLayout { get; init; }
+
+    public int? PrimaryVideoWidth { get; init; }
+
+    public int? PrimaryVideoHeight { get; init; }
 
     public required IReadOnlyList<MediaDetailField> OverviewFields { get; init; }
 

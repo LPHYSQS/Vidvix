@@ -34,15 +34,30 @@ public sealed partial class MainViewModel
     public Visibility TerminalWorkspaceVisibility => IsTerminalWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public string SettingsPaneDescription =>
-        IsTerminalWorkspaceSelected
-            ? "终端模块当前仅提供外观设置，方便快速切换软件主题。"
-            : "应用级偏好统一集中在这里扩展，不占用主处理区域。";
+        "应用级偏好统一集中在这里管理，不占用主处理区域；不同模块对处理完成行为和转码方式的生效范围可查看标题旁的说明提示。";
 
     public Visibility SettingsPaneProcessingBehaviorVisibility =>
-        IsTerminalWorkspaceSelected ? Visibility.Collapsed : Visibility.Visible;
+        Visibility.Visible;
 
     public Visibility SettingsPaneTranscodingVisibility =>
-        IsTerminalWorkspaceSelected ? Visibility.Collapsed : Visibility.Visible;
+        Visibility.Visible;
+
+    public string SettingsPaneProcessingBehaviorInfoTooltip =>
+        "适用范围：" + Environment.NewLine +
+        "视频模块、音频模块、裁剪模块、合并模块。" + Environment.NewLine + Environment.NewLine +
+        "不适用范围：" + Environment.NewLine +
+        "终端模块。" + Environment.NewLine + Environment.NewLine +
+        "说明：" + Environment.NewLine +
+        "开启后，处理完成时会自动定位输出文件；终端模块不会产出这类处理结果，因此不会使用该设置。";
+
+    public string SettingsPaneTranscodingInfoTooltip =>
+        "生效范围：" + Environment.NewLine +
+        "视频模块的视频转换、视频提取、音频提取；音频模块的音频转换；裁剪模块的视频裁剪、音频裁剪；合并模块的视频拼接、音频拼接、音视频合成。" + Environment.NewLine + Environment.NewLine +
+        "不适用范围：" + Environment.NewLine +
+        "终端模块；字幕提取不使用快速换封装 / 真正转码 / GPU 加速语义。" + Environment.NewLine + Environment.NewLine +
+        "补充说明：" + Environment.NewLine +
+        "快速换封装会优先复用可兼容的原始流，遇到拼接、混音、滤镜或格式不兼容时会自动回退为兼容转码。" + Environment.NewLine +
+        "真正转码会重新编码输出；GPU 加速仅在真正转码且存在视频编码、输出格式支持硬件 H.264 时生效，音频任务或不支持的格式会继续使用 CPU。";
 
     public Visibility VideoProcessingModeVisibility => IsVideoWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 

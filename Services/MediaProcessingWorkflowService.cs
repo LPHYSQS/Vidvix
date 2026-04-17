@@ -20,6 +20,7 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
     private readonly IFFmpegVideoAccelerationService _ffmpegVideoAccelerationService;
     private readonly IMediaInfoService _mediaInfoService;
     private readonly IMediaProcessingCommandFactory _mediaProcessingCommandFactory;
+    private readonly TranscodingDecisionResolver _transcodingDecisionResolver;
     private readonly ILogger _logger;
 
     public MediaProcessingWorkflowService(
@@ -29,6 +30,7 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
         IFFmpegVideoAccelerationService ffmpegVideoAccelerationService,
         IMediaInfoService mediaInfoService,
         IMediaProcessingCommandFactory mediaProcessingCommandFactory,
+        TranscodingDecisionResolver transcodingDecisionResolver,
         ILogger logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -37,6 +39,7 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
         _ffmpegVideoAccelerationService = ffmpegVideoAccelerationService ?? throw new ArgumentNullException(nameof(ffmpegVideoAccelerationService));
         _mediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
         _mediaProcessingCommandFactory = mediaProcessingCommandFactory ?? throw new ArgumentNullException(nameof(mediaProcessingCommandFactory));
+        _transcodingDecisionResolver = transcodingDecisionResolver ?? throw new ArgumentNullException(nameof(transcodingDecisionResolver));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -65,52 +68,22 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
                 messages);
         }
 
-        if (executionContext.TranscodingMode != TranscodingMode.FullTranscode)
-        {
-            messages.Add(new MediaProcessingLogMessage(
-                LogLevel.Info,
-                "当前使用快速换封装模式：优先直接复用原始流，并保持现有兼容策略。"));
-
-            return new MediaProcessingContextResolutionResult(executionContext, messages);
-        }
-
-        if (!executionContext.IsGpuAccelerationRequested)
-        {
-            messages.Add(new MediaProcessingLogMessage(
-                LogLevel.Info,
-                "当前使用真正转码模式：本次将通过 CPU 重新编码输出。"));
-
-            return new MediaProcessingContextResolutionResult(executionContext, messages);
-        }
-
-        if (executionContext.WorkspaceKind == ProcessingWorkspaceKind.Audio)
-        {
-            messages.Add(new MediaProcessingLogMessage(
-                LogLevel.Info,
-                "已开启 GPU 加速，但当前为音频任务；GPU 加速仅对视频重新编码生效，本次将继续使用 CPU 音频转码。"));
-
-            return new MediaProcessingContextResolutionResult(executionContext, messages);
-        }
-
-        if (!_mediaProcessingCommandFactory.SupportsHardwareVideoEncoding(executionContext.OutputFormat))
-        {
-            messages.Add(new MediaProcessingLogMessage(
-                LogLevel.Info,
-                $"已开启 GPU 加速，但 {executionContext.OutputFormat.DisplayName} 当前仍使用固定兼容编码，本次会自动回退为 CPU 转码。"));
-
-            return new MediaProcessingContextResolutionResult(executionContext, messages);
-        }
-
-        var probeResult = await _ffmpegVideoAccelerationService
-            .ProbeBestEncoderAsync(runtimeExecutablePath, cancellationToken)
+        var decision = await _transcodingDecisionResolver
+            .ResolveAsync(
+                runtimeExecutablePath,
+                executionContext.OutputFormat,
+                executionContext.TranscodingMode,
+                executionContext.IsGpuAccelerationRequested,
+                containsVideo: executionContext.WorkspaceKind != ProcessingWorkspaceKind.Audio,
+                cancellationToken)
             .ConfigureAwait(false);
 
         messages.Add(new MediaProcessingLogMessage(
-            probeResult.IsAvailable ? LogLevel.Info : LogLevel.Warning,
-            probeResult.Message));
+            decision.MessageLevel,
+            decision.Message));
 
         return new MediaProcessingContextResolutionResult(
-            executionContext with { VideoAccelerationKind = probeResult.Kind },
+            executionContext with { VideoAccelerationKind = decision.VideoAccelerationKind },
             messages);
     }
 
@@ -192,11 +165,13 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var inputSnapshot = await LoadInputSnapshotAsync(request.InputPath, cancellationToken).ConfigureAwait(false);
         var command = CreateCommand(
             request.RuntimeExecutablePath,
             request.InputPath,
             request.OutputPath,
-            request.ExecutionContext);
+            request.ExecutionContext,
+            inputSnapshot);
 
         var options = new FFmpegExecutionOptions
         {
@@ -224,7 +199,8 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
                 request.RuntimeExecutablePath,
                 request.InputPath,
                 request.OutputPath,
-                cpuFallbackContext);
+                cpuFallbackContext,
+                inputSnapshot);
 
             result = await _ffmpegService.ExecuteAsync(command, options, cancellationToken).ConfigureAwait(false);
             totalDuration += result.Duration;
@@ -237,13 +213,26 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
         string runtimeExecutablePath,
         string inputPath,
         string outputPath,
-        MediaProcessingContext executionContext) =>
+        MediaProcessingContext executionContext,
+        MediaDetailsSnapshot? inputSnapshot) =>
         _mediaProcessingCommandFactory.Create(
             new MediaProcessingCommandRequest(
                 runtimeExecutablePath,
                 inputPath,
                 outputPath,
-                executionContext));
+                executionContext,
+                inputSnapshot));
+
+    private async Task<MediaDetailsSnapshot?> LoadInputSnapshotAsync(string inputPath, CancellationToken cancellationToken)
+    {
+        if (_mediaInfoService.TryGetCachedDetails(inputPath, out var cachedSnapshot))
+        {
+            return cachedSnapshot;
+        }
+
+        var loadResult = await _mediaInfoService.GetMediaDetailsAsync(inputPath, cancellationToken).ConfigureAwait(false);
+        return loadResult.IsSuccess ? loadResult.Snapshot : null;
+    }
 
     private static bool TryGetRequiredTrackType(
         MediaProcessingContext executionContext,

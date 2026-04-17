@@ -9,4 +9,8 @@ public sealed record AudioVideoComposeSourceAnalysis(
     TimeSpan VideoDuration,
     TimeSpan AudioDuration,
     double VideoFrameRate,
-    bool VideoHasAudioStream);
+    bool VideoHasAudioStream,
+    string? VideoCodecName,
+    string? AudioCodecName,
+    string VideoContainerExtension,
+    string AudioContainerExtension);

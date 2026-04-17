@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Services.FFmpeg;
 
 namespace Vidvix.Services;
 
@@ -16,15 +17,18 @@ public sealed class AudioVideoComposeWorkflowService : IAudioVideoComposeWorkflo
     private readonly ApplicationConfiguration _configuration;
     private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
     private readonly IFFmpegService _ffmpegService;
+    private readonly TranscodingDecisionResolver _transcodingDecisionResolver;
 
     public AudioVideoComposeWorkflowService(
         ApplicationConfiguration configuration,
         IFFmpegRuntimeService ffmpegRuntimeService,
-        IFFmpegService ffmpegService)
+        IFFmpegService ffmpegService,
+        TranscodingDecisionResolver transcodingDecisionResolver)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _ffmpegRuntimeService = ffmpegRuntimeService ?? throw new ArgumentNullException(nameof(ffmpegRuntimeService));
         _ffmpegService = ffmpegService ?? throw new ArgumentNullException(nameof(ffmpegService));
+        _transcodingDecisionResolver = transcodingDecisionResolver ?? throw new ArgumentNullException(nameof(transcodingDecisionResolver));
     }
 
     public Task<FFmpegRuntimeResolution> EnsureRuntimeReadyAsync(CancellationToken cancellationToken = default) =>
@@ -33,6 +37,7 @@ public sealed class AudioVideoComposeWorkflowService : IAudioVideoComposeWorkflo
     public async Task<AudioVideoComposeExportResult> ExportAsync(
         AudioVideoComposeExportRequest request,
         IProgress<FFmpegProgressUpdate>? progress = null,
+        Action? onCpuFallback = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -43,7 +48,16 @@ public sealed class AudioVideoComposeWorkflowService : IAudioVideoComposeWorkflo
         }
 
         var runtime = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
-        var command = CreateCommand(runtime.ExecutablePath, request);
+        var decision = await _transcodingDecisionResolver
+            .ResolveAsync(
+                runtime.ExecutablePath,
+                request.OutputFormat,
+                request.TranscodingMode,
+                request.IsGpuAccelerationRequested,
+                containsVideo: true,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         var options = new FFmpegExecutionOptions
         {
             Timeout = _configuration.DefaultExecutionTimeout,
@@ -51,52 +65,150 @@ public sealed class AudioVideoComposeWorkflowService : IAudioVideoComposeWorkflo
             Progress = progress
         };
 
-        var executionResult = await _ffmpegService
-            .ExecuteAsync(command, options, cancellationToken)
-            .ConfigureAwait(false);
-
-        return new AudioVideoComposeExportResult(request, executionResult);
-    }
-
-    private FFmpegCommand CreateCommand(string runtimeExecutablePath, AudioVideoComposeExportRequest request)
-    {
-        var arguments = new List<string>
+        var resolvedRequest = request with
         {
-            "-hide_banner",
-            _configuration.OverwriteOutputFiles ? "-y" : "-n"
+            VideoAccelerationKind = decision.VideoAccelerationKind
         };
 
-        if (request.ShouldLoopVideo)
+        var finalRequest = resolvedRequest;
+        var usedFastPath = false;
+        var usedCpuFallback = false;
+        var transcodingMessage = request.TranscodingMode == TranscodingMode.FastContainerConversion
+            ? "当前流程无法完整复用原始视频流，本次将回退为兼容转码。"
+            : decision.Message;
+
+        FFmpegExecutionResult executionResult;
+
+        if (request.TranscodingMode == TranscodingMode.FastContainerConversion && CanUseFastCompose(request))
         {
-            arguments.Add("-stream_loop");
-            arguments.Add("-1");
+            executionResult = await _ffmpegService
+                .ExecuteAsync(CreateFastComposeCommand(runtime.ExecutablePath, request), options, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (executionResult.WasSuccessful || executionResult.WasCancelled || executionResult.TimedOut)
+            {
+                usedFastPath = executionResult.WasSuccessful;
+                finalRequest = request;
+                transcodingMessage = executionResult.WasSuccessful
+                    ? "当前素材与目标输出兼容，已优先复用原始视频流。"
+                    : transcodingMessage;
+                return new AudioVideoComposeExportResult(finalRequest, executionResult, transcodingMessage, usedFastPath, usedCpuFallback);
+            }
+
+            transcodingMessage = "当前流程无法完整复用原始视频流，本次已自动回退为兼容转码。";
         }
 
-        arguments.Add("-i");
-        arguments.Add(request.VideoSourcePath);
+        executionResult = await _ffmpegService
+            .ExecuteAsync(CreateTranscodedCommand(runtime.ExecutablePath, resolvedRequest), options, cancellationToken)
+            .ConfigureAwait(false);
 
-        if (request.ShouldLoopImportedAudio)
+        if (decision.UsesHardwareVideoEncoding &&
+            !executionResult.WasSuccessful &&
+            !executionResult.WasCancelled &&
+            !executionResult.TimedOut)
         {
-            arguments.Add("-stream_loop");
-            arguments.Add("-1");
+            usedCpuFallback = true;
+            onCpuFallback?.Invoke();
+
+            resolvedRequest = resolvedRequest with
+            {
+                VideoAccelerationKind = VideoAccelerationKind.None
+            };
+
+            executionResult = await _ffmpegService
+                .ExecuteAsync(CreateTranscodedCommand(runtime.ExecutablePath, resolvedRequest), options, cancellationToken)
+                .ConfigureAwait(false);
+            transcodingMessage = "GPU 编码失败，已自动回退为 CPU 重试一次。";
         }
 
-        arguments.Add("-i");
-        arguments.Add(request.AudioSourcePath);
+        finalRequest = resolvedRequest;
+        return new AudioVideoComposeExportResult(finalRequest, executionResult, transcodingMessage, usedFastPath, usedCpuFallback);
+    }
+
+    private FFmpegCommand CreateFastComposeCommand(string runtimeExecutablePath, AudioVideoComposeExportRequest request)
+    {
+        var arguments = CreateBaseArguments();
+        AddVideoInput(arguments, request.ShouldLoopVideo, request.VideoSourcePath);
+        AddAudioInput(arguments, request.ShouldLoopImportedAudio, request.AudioSourcePath);
+
         arguments.Add("-filter_complex");
-        arguments.Add(BuildFilterComplex(request));
+        arguments.Add(BuildAudioOnlyFilterComplex(request));
+        arguments.Add("-map");
+        arguments.Add("0:v:0");
+        arguments.Add("-map");
+        arguments.Add("[aout]");
+        arguments.Add("-sn");
+        arguments.Add("-dn");
+        arguments.Add("-t");
+        arguments.Add(FormatSeconds(request.OutputDuration.TotalSeconds));
+        ApplyOutputEncoding(arguments, request.OutputFormat, VideoAccelerationKind.None, copyVideo: true);
+        arguments.Add(request.OutputPath);
+        return new FFmpegCommand(runtimeExecutablePath, arguments);
+    }
+
+    private FFmpegCommand CreateTranscodedCommand(string runtimeExecutablePath, AudioVideoComposeExportRequest request)
+    {
+        var arguments = CreateBaseArguments();
+        AddVideoInput(arguments, request.ShouldLoopVideo, request.VideoSourcePath);
+        AddAudioInput(arguments, request.ShouldLoopImportedAudio, request.AudioSourcePath);
+
+        arguments.Add("-filter_complex");
+        arguments.Add(BuildTranscodedFilterComplex(request));
         arguments.Add("-map");
         arguments.Add("[vout]");
         arguments.Add("-map");
         arguments.Add("[aout]");
         arguments.Add("-sn");
         arguments.Add("-dn");
-        ApplyOutputEncoding(arguments, request.OutputFormat);
+        ApplyOutputEncoding(arguments, request.OutputFormat, request.VideoAccelerationKind);
         arguments.Add(request.OutputPath);
         return new FFmpegCommand(runtimeExecutablePath, arguments);
     }
 
-    private static string BuildFilterComplex(AudioVideoComposeExportRequest request)
+    private List<string> CreateBaseArguments() =>
+        new()
+        {
+            "-hide_banner",
+            _configuration.OverwriteOutputFiles ? "-y" : "-n"
+        };
+
+    private static void AddVideoInput(ICollection<string> arguments, bool shouldLoopVideo, string videoSourcePath)
+    {
+        if (shouldLoopVideo)
+        {
+            arguments.Add("-stream_loop");
+            arguments.Add("-1");
+        }
+
+        arguments.Add("-i");
+        arguments.Add(videoSourcePath);
+    }
+
+    private static void AddAudioInput(ICollection<string> arguments, bool shouldLoopImportedAudio, string audioSourcePath)
+    {
+        if (shouldLoopImportedAudio)
+        {
+            arguments.Add("-stream_loop");
+            arguments.Add("-1");
+        }
+
+        arguments.Add("-i");
+        arguments.Add(audioSourcePath);
+    }
+
+    private static bool CanUseFastCompose(AudioVideoComposeExportRequest request) =>
+        !request.ShouldLoopVideo &&
+        !request.ShouldFreezeLastFrame &&
+        request.VideoDuration > TimeSpan.Zero &&
+        TranscodingCompatibilityEvaluator.CanCopyVideoCodecToContainer(request.VideoCodecName, request.OutputFormat.Extension);
+
+    private static string BuildAudioOnlyFilterComplex(AudioVideoComposeExportRequest request)
+    {
+        var targetDurationText = FormatSeconds(request.OutputDuration.TotalSeconds);
+        return string.Join(";", BuildAudioFilterParts(request, targetDurationText));
+    }
+
+    private static string BuildTranscodedFilterComplex(AudioVideoComposeExportRequest request)
     {
         var targetDurationSeconds = request.OutputDuration.TotalSeconds;
         var targetDurationText = FormatSeconds(targetDurationSeconds);
@@ -123,14 +235,34 @@ public sealed class AudioVideoComposeWorkflowService : IAudioVideoComposeWorkflo
         videoFilters.Add($"trim=duration={targetDurationText}");
         videoFilters.Add("setpts=PTS-STARTPTS");
         filterParts.Add($"[0:v]{string.Join(",", videoFilters)}[vout]");
+        filterParts.AddRange(BuildAudioFilterParts(request, targetDurationText));
 
-        var importedAudioFilters = new List<string>
+        return string.Join(";", filterParts);
+    }
+
+    private static IEnumerable<string> BuildAudioFilterParts(AudioVideoComposeExportRequest request, string targetDurationText)
+    {
+        var filterParts = new List<string>(3)
         {
-            $"aresample={NormalizedAudioSampleRate}",
-            $"aformat=sample_fmts=fltp:sample_rates={NormalizedAudioSampleRate}:channel_layouts={NormalizedChannelLayout}",
-            $"atrim=duration={targetDurationText}",
-            "asetpts=PTS-STARTPTS"
+            $"[1:a]{string.Join(",", BuildImportedAudioFilters(request, targetDurationText))}[amusic]"
         };
+
+        if (request.IncludeOriginalVideoAudio)
+        {
+            filterParts.Add($"[0:a]{string.Join(",", BuildOriginalVideoAudioFilters(request, targetDurationText))}[avideo]");
+            filterParts.Add("[avideo][amusic]amix=inputs=2:duration=longest:dropout_transition=0[aout]");
+        }
+        else
+        {
+            filterParts.Add("[amusic]anull[aout]");
+        }
+
+        return filterParts;
+    }
+
+    private static List<string> BuildImportedAudioFilters(AudioVideoComposeExportRequest request, string targetDurationText)
+    {
+        var importedAudioFilters = CreateBaseAudioFilters(targetDurationText);
 
         var importedVolumeFilter = BuildVolumeFilter(request.ImportedAudioVolumeDecibels);
         if (!string.IsNullOrWhiteSpace(importedVolumeFilter))
@@ -138,6 +270,7 @@ public sealed class AudioVideoComposeWorkflowService : IAudioVideoComposeWorkflo
             importedAudioFilters.Add(importedVolumeFilter);
         }
 
+        var targetDurationSeconds = request.OutputDuration.TotalSeconds;
         var fadeInDuration = request.EnableImportedAudioFadeIn
             ? Math.Clamp(request.ImportedAudioFadeInDuration.TotalSeconds, 0d, targetDurationSeconds)
             : 0d;
@@ -155,34 +288,29 @@ public sealed class AudioVideoComposeWorkflowService : IAudioVideoComposeWorkflo
             importedAudioFilters.Add($"afade=t=out:st={FormatSeconds(fadeOutStart)}:d={FormatSeconds(fadeOutDuration)}");
         }
 
-        filterParts.Add($"[1:a]{string.Join(",", importedAudioFilters)}[amusic]");
-
-        if (request.IncludeOriginalVideoAudio)
-        {
-            var originalAudioFilters = new List<string>
-            {
-                $"aresample={NormalizedAudioSampleRate}",
-                $"aformat=sample_fmts=fltp:sample_rates={NormalizedAudioSampleRate}:channel_layouts={NormalizedChannelLayout}",
-                $"atrim=duration={targetDurationText}",
-                "asetpts=PTS-STARTPTS"
-            };
-
-            var originalVolumeFilter = BuildVolumeFilter(request.OriginalVideoAudioVolumeDecibels);
-            if (!string.IsNullOrWhiteSpace(originalVolumeFilter))
-            {
-                originalAudioFilters.Add(originalVolumeFilter);
-            }
-
-            filterParts.Add($"[0:a]{string.Join(",", originalAudioFilters)}[avideo]");
-            filterParts.Add("[avideo][amusic]amix=inputs=2:duration=longest:dropout_transition=0[aout]");
-        }
-        else
-        {
-            filterParts.Add("[amusic]anull[aout]");
-        }
-
-        return string.Join(";", filterParts);
+        return importedAudioFilters;
     }
+
+    private static List<string> BuildOriginalVideoAudioFilters(AudioVideoComposeExportRequest request, string targetDurationText)
+    {
+        var originalAudioFilters = CreateBaseAudioFilters(targetDurationText);
+        var originalVolumeFilter = BuildVolumeFilter(request.OriginalVideoAudioVolumeDecibels);
+        if (!string.IsNullOrWhiteSpace(originalVolumeFilter))
+        {
+            originalAudioFilters.Add(originalVolumeFilter);
+        }
+
+        return originalAudioFilters;
+    }
+
+    private static List<string> CreateBaseAudioFilters(string targetDurationText) =>
+        new()
+        {
+            $"aresample={NormalizedAudioSampleRate}",
+            $"aformat=sample_fmts=fltp:sample_rates={NormalizedAudioSampleRate}:channel_layouts={NormalizedChannelLayout}",
+            $"atrim=duration={targetDurationText}",
+            "asetpts=PTS-STARTPTS"
+        };
 
     private static string? BuildVolumeFilter(double decibels)
     {
@@ -198,47 +326,61 @@ public sealed class AudioVideoComposeWorkflowService : IAudioVideoComposeWorkflo
     private static string FormatSeconds(double seconds) =>
         seconds.ToString("0.###", CultureInfo.InvariantCulture);
 
-    private static void ApplyOutputEncoding(List<string> arguments, OutputFormatOption outputFormat)
+    private static void ApplyOutputEncoding(
+        List<string> arguments,
+        OutputFormatOption outputFormat,
+        VideoAccelerationKind videoAccelerationKind,
+        bool copyVideo = false)
     {
         switch (outputFormat.Extension.ToLowerInvariant())
         {
             case ".mp4":
-                ApplyH264VideoOutput(arguments, addFastStart: true);
+                ApplyH264VideoOutput(arguments, videoAccelerationKind, copyVideo, addFastStart: true);
                 break;
             case ".mkv":
-                ApplyH264VideoOutput(arguments);
+                ApplyH264VideoOutput(arguments, videoAccelerationKind, copyVideo);
                 break;
             case ".mov":
-                ApplyH264VideoOutput(arguments, addFastStart: true);
+                ApplyH264VideoOutput(arguments, videoAccelerationKind, copyVideo, addFastStart: true);
                 break;
             case ".m4v":
-                ApplyH264VideoOutput(arguments, formatOverride: "mp4", addFastStart: true);
+                ApplyH264VideoOutput(arguments, videoAccelerationKind, copyVideo, formatOverride: "mp4", addFastStart: true);
                 break;
             case ".ts":
-                ApplyH264VideoOutput(arguments, formatOverride: "mpegts");
+                ApplyH264VideoOutput(arguments, videoAccelerationKind, copyVideo, formatOverride: "mpegts");
                 break;
             case ".m2ts":
-                ApplyH264VideoOutput(arguments, formatOverride: "mpegts", m2tsMode: true);
+                ApplyH264VideoOutput(arguments, videoAccelerationKind, copyVideo, formatOverride: "mpegts", m2tsMode: true);
                 break;
             case ".avi":
-                arguments.AddRange(new[] { "-c:v", "mpeg4", "-q:v", "2", "-pix_fmt", "yuv420p" });
+                arguments.AddRange(copyVideo
+                    ? new[] { "-c:v", "copy" }
+                    : new[] { "-c:v", "mpeg4", "-q:v", "2", "-pix_fmt", "yuv420p" });
                 arguments.AddRange(new[] { "-c:a", "libmp3lame", "-q:a", "2" });
                 break;
             case ".wmv":
-                arguments.AddRange(new[] { "-c:v", "wmv2", "-b:v", "4M", "-pix_fmt", "yuv420p" });
+                arguments.AddRange(copyVideo
+                    ? new[] { "-c:v", "copy" }
+                    : new[] { "-c:v", "wmv2", "-b:v", "4M", "-pix_fmt", "yuv420p" });
                 arguments.AddRange(new[] { "-c:a", "wmav2", "-b:a", "192k" });
                 break;
             case ".flv":
-                arguments.AddRange(new[] { "-c:v", "flv", "-b:v", "3M", "-pix_fmt", "yuv420p" });
+                arguments.AddRange(copyVideo
+                    ? new[] { "-c:v", "copy" }
+                    : new[] { "-c:v", "flv", "-b:v", "3M", "-pix_fmt", "yuv420p" });
                 arguments.AddRange(new[] { "-c:a", "libmp3lame", "-b:a", "192k" });
                 break;
             case ".webm":
-                arguments.AddRange(new[] { "-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-pix_fmt", "yuv420p" });
+                arguments.AddRange(copyVideo
+                    ? new[] { "-c:v", "copy" }
+                    : new[] { "-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-pix_fmt", "yuv420p" });
                 arguments.AddRange(new[] { "-c:a", "libopus", "-b:a", "160k" });
                 break;
             case ".mpeg":
             case ".mpg":
-                arguments.AddRange(new[] { "-c:v", "mpeg2video", "-q:v", "2", "-pix_fmt", "yuv420p", "-f", "mpeg" });
+                arguments.AddRange(copyVideo
+                    ? new[] { "-c:v", "copy", "-f", "mpeg" }
+                    : new[] { "-c:v", "mpeg2video", "-q:v", "2", "-pix_fmt", "yuv420p", "-f", "mpeg" });
                 arguments.AddRange(new[] { "-c:a", "mp2", "-b:a", "192k" });
                 break;
             default:
@@ -248,11 +390,21 @@ public sealed class AudioVideoComposeWorkflowService : IAudioVideoComposeWorkflo
 
     private static void ApplyH264VideoOutput(
         List<string> arguments,
+        VideoAccelerationKind videoAccelerationKind,
+        bool copyVideo,
         string? formatOverride = null,
         bool addFastStart = false,
         bool m2tsMode = false)
     {
-        arguments.AddRange(new[] { "-c:v", "libx264", "-crf", "23", "-preset", "medium", "-pix_fmt", "yuv420p" });
+        if (copyVideo)
+        {
+            arguments.AddRange(new[] { "-c:v", "copy" });
+        }
+        else
+        {
+            FFmpegVideoEncodingPolicy.AppendH264Encoding(arguments, videoAccelerationKind);
+        }
+
         arguments.AddRange(new[] { "-c:a", "aac", "-b:a", "256k" });
 
         if (!string.IsNullOrWhiteSpace(formatOverride))
