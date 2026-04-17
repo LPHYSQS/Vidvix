@@ -33,6 +33,7 @@
                     AcceptsReturn="False"
                     FontSize="14"
                     FontFamily="Cascadia Mono,Consolas,Segoe UI"
+                    IsSpellCheckEnabled="False"
                     KeyDown="OnCommandTextBoxKeyDown"
                     PlaceholderText="{x:Bind ViewModel.CommandPlaceholder, Mode=OneWay}"
                     Text="{x:Bind ViewModel.CommandText, Mode=TwoWay}"

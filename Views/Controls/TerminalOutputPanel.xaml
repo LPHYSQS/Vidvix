@@ -64,6 +64,7 @@
                                         </Grid>
 
                                         <TextBlock
+                                            IsTextSelectionEnabled="True"
                                             FontSize="13"
                                             FontFamily="Cascadia Mono,Consolas,Segoe UI"
                                             FontWeight="SemiBold"
@@ -72,6 +73,7 @@
                                             Visibility="{x:Bind CommandVisibility, Mode=OneWay}" />
 
                                         <TextBlock
+                                            IsTextSelectionEnabled="True"
                                             FontSize="13"
                                             FontFamily="Cascadia Mono,Consolas,Segoe UI"
                                             Text="{x:Bind OutputText, Mode=OneWay}"
