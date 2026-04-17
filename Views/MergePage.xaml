@@ -403,7 +403,12 @@
                     </StackPanel>
                 </Button>
 
-                <Grid Grid.Row="2">
+                <Grid
+                    Grid.Row="2"
+                    AllowDrop="True"
+                    DragEnter="OnMediaListDragEnter"
+                    DragOver="OnMediaListDragOver"
+                    Drop="OnMediaListDrop">
                     <ListView
                         Background="Transparent"
                         BorderThickness="0"

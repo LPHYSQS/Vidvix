@@ -1,8 +1,10 @@
 using System;
+using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Vidvix.Core.Models;
 using Vidvix.ViewModels;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace Vidvix.Views;
 
@@ -28,6 +30,51 @@ public sealed partial class MergePage : Page
     {
         get => (MergeViewModel)GetValue(ViewModelProperty);
         set => SetValue(ViewModelProperty, value);
+    }
+
+    private void OnMediaListDragEnter(object sender, DragEventArgs e)
+    {
+        UpdateMediaListDropOperation(e);
+    }
+
+    private void OnMediaListDragOver(object sender, DragEventArgs e)
+    {
+        UpdateMediaListDropOperation(e);
+    }
+
+    private async void OnMediaListDrop(object sender, DragEventArgs e)
+    {
+        if (!ViewModel.CanModifyWorkspace || !e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            e.Handled = true;
+            return;
+        }
+
+        var deferral = e.GetDeferral();
+        try
+        {
+            var storageItems = await e.DataView.GetStorageItemsAsync();
+            var paths = storageItems
+                .Where(item => !string.IsNullOrWhiteSpace(item.Path))
+                .Select(item => item.Path)
+                .ToArray();
+
+            if (paths.Length == 0)
+            {
+                e.AcceptedOperation = DataPackageOperation.None;
+                e.Handled = true;
+                return;
+            }
+
+            await ViewModel.ImportPathsAsync(paths);
+            e.AcceptedOperation = DataPackageOperation.Copy;
+            e.Handled = true;
+        }
+        finally
+        {
+            deferral.Complete();
+        }
     }
 
     private void OnMediaItemClick(object sender, ItemClickEventArgs e)
@@ -150,5 +197,21 @@ public sealed partial class MergePage : Page
         };
 
         await dialog.ShowAsync();
+    }
+
+    private void UpdateMediaListDropOperation(DragEventArgs e)
+    {
+        if (!ViewModel.CanModifyWorkspace || !e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            e.Handled = true;
+            return;
+        }
+
+        e.AcceptedOperation = DataPackageOperation.Copy;
+        e.DragUIOverride.Caption = "将文件或文件夹拖到这里导入素材";
+        e.DragUIOverride.IsCaptionVisible = true;
+        e.DragUIOverride.IsContentVisible = true;
+        e.Handled = true;
     }
 }

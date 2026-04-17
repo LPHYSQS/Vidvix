@@ -9,6 +9,7 @@ internal sealed class MergeWorkspaceDependencies
         IFilePickerService? filePickerService = null,
         IMediaInfoService? mediaInfoService = null,
         IUserPreferencesService? userPreferencesService = null,
+        IMediaImportDiscoveryService? mediaImportDiscoveryService = null,
         IMergeMediaAnalysisService? mergeMediaAnalysisService = null,
         IVideoJoinWorkflowService? videoJoinWorkflowService = null,
         IAudioJoinWorkflowService? audioJoinWorkflowService = null,
@@ -20,6 +21,7 @@ internal sealed class MergeWorkspaceDependencies
         FilePickerService = filePickerService;
         MediaInfoService = mediaInfoService;
         UserPreferencesService = userPreferencesService;
+        MediaImportDiscoveryService = mediaImportDiscoveryService;
         MergeMediaAnalysisService = mergeMediaAnalysisService;
         VideoJoinWorkflowService = videoJoinWorkflowService;
         AudioJoinWorkflowService = audioJoinWorkflowService;
@@ -34,6 +36,8 @@ internal sealed class MergeWorkspaceDependencies
     public IMediaInfoService? MediaInfoService { get; }
 
     public IUserPreferencesService? UserPreferencesService { get; }
+
+    public IMediaImportDiscoveryService? MediaImportDiscoveryService { get; }
 
     public IMergeMediaAnalysisService? MergeMediaAnalysisService { get; }
 

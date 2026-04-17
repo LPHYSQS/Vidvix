@@ -11,6 +11,7 @@ using System.Windows.Input;
 using Microsoft.UI.Xaml;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Services;
 using Vidvix.Utils;
 
 namespace Vidvix.ViewModels;
@@ -32,6 +33,7 @@ public sealed partial class MergeViewModel : ObservableObject
     private readonly AsyncRelayCommand _startVideoJoinProcessingCommand;
     private readonly RelayCommand _cancelVideoJoinProcessingCommand;
     private readonly IFilePickerService? _filePickerService;
+    private readonly IMediaImportDiscoveryService? _mediaImportDiscoveryService;
     private readonly IMergeMediaAnalysisService? _mergeMediaAnalysisService;
     private readonly IVideoJoinWorkflowService? _videoJoinWorkflowService;
     private readonly IAudioJoinWorkflowService? _audioJoinWorkflowService;
@@ -70,6 +72,7 @@ public sealed partial class MergeViewModel : ObservableObject
         var preferences = dependencies.UserPreferencesService?.Load() ?? new UserPreferences();
 
         _filePickerService = dependencies.FilePickerService;
+        _mediaImportDiscoveryService = dependencies.MediaImportDiscoveryService;
         _mergeMediaAnalysisService = dependencies.MergeMediaAnalysisService;
         _videoJoinWorkflowService = dependencies.VideoJoinWorkflowService;
         _audioJoinWorkflowService = dependencies.AudioJoinWorkflowService;
@@ -660,6 +663,51 @@ public sealed partial class MergeViewModel : ObservableObject
         InvalidTrackItemsDetected?.Invoke("轨道片段已标记为失效", notificationMessage);
     }
 
+    public async Task ImportPathsAsync(IEnumerable<string> inputPaths)
+    {
+        ArgumentNullException.ThrowIfNull(inputPaths);
+
+        if (IsVideoJoinProcessing)
+        {
+            StatusMessage = "当前合并任务处理中，若需导入新素材，请先取消当前任务。";
+            return;
+        }
+
+        try
+        {
+            var normalizedInputPaths = inputPaths
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Select(NormalizeSourcePath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (normalizedInputPaths.Length == 0)
+            {
+                return;
+            }
+
+            var discoveryService = _mediaImportDiscoveryService ?? new MediaImportDiscoveryService();
+            var discoveryResult = discoveryService.Discover(normalizedInputPaths, _supportedImportFileTypes);
+            var (addedCount, duplicateCount) = await AddSupportedMediaItemsAsync(discoveryResult.SupportedFiles);
+
+            StatusMessage = BuildImportPathsStatusMessage(
+                addedCount,
+                duplicateCount,
+                discoveryResult.UnsupportedEntries,
+                discoveryResult.MissingEntries,
+                discoveryResult.UnavailableDirectories);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "已取消素材导入。";
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = "导入素材失败，请稍后重试。";
+            _logger?.Log(LogLevel.Error, "通过拖拽导入合并素材时发生异常。", exception);
+        }
+    }
+
     public void RemoveVideoTrackItem(TrackItem trackItem)
     {
         ArgumentNullException.ThrowIfNull(trackItem);
@@ -820,33 +868,7 @@ public sealed partial class MergeViewModel : ObservableObject
                 return;
             }
 
-            var existingPaths = new HashSet<string>(
-                _mediaItems
-                    .Select(item => item.SourcePath)
-                    .Where(path => !string.IsNullOrWhiteSpace(path))
-                    .Select(NormalizeSourcePath),
-                StringComparer.OrdinalIgnoreCase);
-
-            var addedCount = 0;
-            var duplicateCount = 0;
-
-            foreach (var selectedFile in selectedFiles)
-            {
-                if (string.IsNullOrWhiteSpace(selectedFile))
-                {
-                    continue;
-                }
-
-                var filePath = NormalizeSourcePath(selectedFile);
-                if (!existingPaths.Add(filePath))
-                {
-                    duplicateCount++;
-                    continue;
-                }
-
-                _mediaItems.Add(await CreateMediaItemAsync(filePath));
-                addedCount++;
-            }
+            var (addedCount, duplicateCount) = await AddSupportedMediaItemsAsync(selectedFiles);
 
             if (addedCount > 0)
             {
@@ -869,6 +891,85 @@ public sealed partial class MergeViewModel : ObservableObject
             StatusMessage = "导入文件失败，请稍后重试。";
             _logger?.Log(LogLevel.Error, "导入合并素材时发生异常。", exception);
         }
+    }
+
+    private async Task<(int AddedCount, int DuplicateCount)> AddSupportedMediaItemsAsync(IEnumerable<string> filePaths)
+    {
+        ArgumentNullException.ThrowIfNull(filePaths);
+
+        var existingPaths = new HashSet<string>(
+            _mediaItems
+                .Select(item => item.SourcePath)
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Select(NormalizeSourcePath),
+            StringComparer.OrdinalIgnoreCase);
+
+        var addedCount = 0;
+        var duplicateCount = 0;
+
+        foreach (var filePath in filePaths)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                continue;
+            }
+
+            var normalizedPath = NormalizeSourcePath(filePath);
+            if (!existingPaths.Add(normalizedPath))
+            {
+                duplicateCount++;
+                continue;
+            }
+
+            _mediaItems.Add(await CreateMediaItemAsync(normalizedPath));
+            addedCount++;
+        }
+
+        return (addedCount, duplicateCount);
+    }
+
+    private static string BuildImportPathsStatusMessage(
+        int addedCount,
+        int duplicateCount,
+        int unsupportedEntries,
+        int missingEntries,
+        int unavailableDirectories)
+    {
+        var details = new List<string>();
+
+        if (duplicateCount > 0)
+        {
+            details.Add($"{duplicateCount} 个重复素材已跳过");
+        }
+
+        if (unsupportedEntries > 0)
+        {
+            details.Add($"{unsupportedEntries} 个不支持的文件已排除");
+        }
+
+        if (missingEntries > 0)
+        {
+            details.Add($"{missingEntries} 个路径不存在");
+        }
+
+        if (unavailableDirectories > 0)
+        {
+            details.Add($"{unavailableDirectories} 个文件夹无法访问");
+        }
+
+        if (addedCount > 0)
+        {
+            return details.Count > 0
+                ? $"已导入 {addedCount} 个素材，{string.Join("，", details)}。"
+                : $"已导入 {addedCount} 个素材。";
+        }
+
+        if (details.Count > 0)
+        {
+            return $"未导入新的素材，{string.Join("，", details)}。";
+        }
+
+        return "未导入新的素材。";
     }
 
     private async Task BrowseOutputDirectoryAsync()

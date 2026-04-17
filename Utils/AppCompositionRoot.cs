@@ -191,6 +191,7 @@ public sealed class AppCompositionRoot
             infrastructure.FilePickerService,
             mediaRuntime.MediaInfoService,
             infrastructure.UserPreferencesService,
+            workflows.MediaImportDiscoveryService,
             workflows.MergeMediaAnalysisService,
             workflows.VideoJoinWorkflowService,
             workflows.AudioJoinWorkflowService,
