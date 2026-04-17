@@ -13,8 +13,8 @@ public sealed class FFmpegVideoAccelerationService : IFFmpegVideoAccelerationSer
         new[]
         {
             new ProbeCandidate(VideoAccelerationKind.NvidiaNvenc, "NVIDIA NVENC", "h264_nvenc"),
-            new ProbeCandidate(VideoAccelerationKind.IntelQuickSync, "Intel Quick Sync", "h264_qsv"),
-            new ProbeCandidate(VideoAccelerationKind.AmdAmf, "AMD AMF", "h264_amf")
+            new ProbeCandidate(VideoAccelerationKind.AmdAmf, "AMD AMF", "h264_amf"),
+            new ProbeCandidate(VideoAccelerationKind.IntelQuickSync, "Intel Quick Sync", "h264_qsv")
         };
 
     private readonly IFFmpegService _ffmpegService;

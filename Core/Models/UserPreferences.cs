@@ -22,6 +22,8 @@ public sealed record UserPreferences
 
     public string? PreferredTrimOutputDirectory { get; init; }
 
+    public TranscodingMode PreferredTrimTranscodingMode { get; init; } = TranscodingMode.FastContainerConversion;
+
     public double PreferredTrimPreviewVolumePercent { get; init; } = 80d;
 
     public MergeWorkspaceMode PreferredMergeWorkspaceMode { get; init; } = MergeWorkspaceMode.AudioVideoCompose;

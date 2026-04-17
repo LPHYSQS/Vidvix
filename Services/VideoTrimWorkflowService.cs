@@ -13,7 +13,7 @@ using Vidvix.Services.FFmpeg;
 
 namespace Vidvix.Services;
 
-public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
+public sealed partial class VideoTrimWorkflowService : IVideoTrimWorkflowService
 {
     private readonly ApplicationConfiguration _configuration;
     private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
@@ -109,6 +109,10 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
         ArgumentNullException.ThrowIfNull(preferences);
 
         var runtime = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
+        var inputSnapshot = _mediaInfoService.TryGetCachedDetails(request.InputPath, out var cachedSnapshot)
+            ? cachedSnapshot
+            : (await _mediaInfoService.GetMediaDetailsAsync(request.InputPath, cancellationToken).ConfigureAwait(false)).Snapshot;
+
         var decision = await _transcodingDecisionResolver.ResolveAsync(
             runtime.ExecutablePath,
             request.OutputFormat,
@@ -121,6 +125,32 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
         {
             VideoAccelerationKind = decision.VideoAccelerationKind
         };
+
+        if (resolvedRequest.TranscodingMode == TranscodingMode.FullTranscode &&
+            inputSnapshot is not null)
+        {
+            var smartTrimResult = await TryExecuteSmartTrimAsync(
+                    resolvedRequest,
+                    runtime.ExecutablePath,
+                    inputSnapshot,
+                    progress,
+                    onCpuFallback,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            if (smartTrimResult.ExportResult is not null)
+            {
+                return smartTrimResult.ExportResult;
+            }
+
+            if (!string.IsNullOrWhiteSpace(smartTrimResult.FallbackMessage))
+            {
+                decision = decision with
+                {
+                    Message = $"{decision.Message} {smartTrimResult.FallbackMessage}".Trim()
+                };
+            }
+        }
 
         var command = _videoTrimCommandFactory.Create(resolvedRequest, runtime.ExecutablePath);
         var options = new FFmpegExecutionOptions
@@ -158,13 +188,7 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
                            TranscodingCompatibilityEvaluator.SupportsFastVideoTrimCopy(
                                request.InputPath,
                                request.OutputFormat.Extension);
-        var message = usedFastPath
-            ? "当前素材与目标输出兼容，已优先复用原始流。"
-            : usedCpuFallback
-                ? "GPU 编码失败，已自动回退为 CPU 重试一次。"
-                : request.TranscodingMode == TranscodingMode.FastContainerConversion
-                    ? "当前流程无法完全复用原始流，本次已回退为兼容转码。"
-                    : decision.Message;
+        var message = BuildCompletionMessage(request.TranscodingMode, usedFastPath, usedCpuFallback, decision.Message);
 
         return new VideoTrimExportResult(resolvedRequest, executionResult, message, usedFastPath, usedCpuFallback);
     }
@@ -187,5 +211,30 @@ public sealed class VideoTrimWorkflowService : IVideoTrimWorkflowService
         }
 
         return "当前视频时长无效，无法开始裁剪。";
+    }
+
+    private static string BuildCompletionMessage(
+        TranscodingMode transcodingMode,
+        bool usedFastPath,
+        bool usedCpuFallback,
+        string decisionMessage)
+    {
+        if (usedFastPath)
+        {
+            return "速度优先已命中兼容容器，当前片段优先复用原始流完成导出。";
+        }
+
+        if (transcodingMode == TranscodingMode.FastContainerConversion)
+        {
+            return "速度优先下当前片段无法完全复用原始流，本次已自动回退为兼容重编码。";
+        }
+
+        var prefix = usedCpuFallback
+            ? "精确度优先下 GPU 编码失败，已自动回退为 CPU 重新执行精确裁剪。"
+            : "精确度优先已按所选入点和出点完成精确裁剪。";
+
+        return string.IsNullOrWhiteSpace(decisionMessage)
+            ? prefix
+            : $"{prefix} {decisionMessage}";
     }
 }

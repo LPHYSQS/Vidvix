@@ -20,6 +20,18 @@ namespace Vidvix.ViewModels;
 public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 {
     private static readonly TimeSpan MinimumSelectionLength = TimeSpan.FromMilliseconds(1);
+    private static readonly IReadOnlyList<TranscodingModeOption> TrimTranscodingModeOptions =
+        new[]
+        {
+            new TranscodingModeOption(
+                TranscodingMode.FastContainerConversion,
+                "速度优先",
+                "保留当前快速导出路径：当输入与输出容器兼容时优先直接复用原始流，整体速度更快。"),
+            new TranscodingModeOption(
+                TranscodingMode.FullTranscode,
+                "精确度优先",
+                "统一使用精确裁剪路径；视频会优先尝试智能裁剪，必要时回退为整段精确重编码。")
+        };
     private const double DefaultTrimPreviewVolumePercent = 80d;
 
     private readonly ApplicationConfiguration _configuration;
@@ -39,6 +51,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private string _previewStateMessage;
     private IReadOnlyList<OutputFormatOption> _availableOutputFormats = Array.Empty<OutputFormatOption>();
     private OutputFormatOption? _selectedOutputFormat;
+    private TranscodingModeOption? _selectedTranscodingModeOption;
     private string _inputPath = string.Empty;
     private string _inputFileName = string.Empty;
     private MediaDetailsSnapshot? _mediaDetailsSnapshot;
@@ -86,6 +99,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         var preferences = _userPreferencesService.Load();
         _availableOutputFormats = ResolveOutputFormats(_currentMediaKind);
         _selectedOutputFormat = ResolvePreferredOutputFormat(preferences.PreferredTrimOutputFormatExtension);
+        _selectedTranscodingModeOption = ResolvePreferredTranscodingMode(preferences.PreferredTrimTranscodingMode);
         _outputDirectory = NormalizeOutputDirectory(preferences.PreferredTrimOutputDirectory);
         _volume = ResolvePreferredVolumePercent(preferences.PreferredTrimPreviewVolumePercent) / 100d;
         _statusMessage = "\u8bf7\u5bfc\u5165\u97f3\u9891\u6216\u89c6\u9891\u6587\u4ef6\uff0c\u4e5f\u53ef\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002";
@@ -101,6 +115,8 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     }
 
     public IReadOnlyList<OutputFormatOption> AvailableOutputFormats => _availableOutputFormats;
+
+    public IReadOnlyList<TranscodingModeOption> TranscodingOptions => TrimTranscodingModeOptions;
 
     public ICommand SelectVideoCommand => _selectVideoCommand;
 
@@ -134,7 +150,10 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public string RemoveInputCommandText => "\u79fb\u9664\u6587\u4ef6";
 
-    public string SelectionRuleDescription => "\u5bfc\u51fa\u65f6\u4f1a\u4e25\u683c\u6309\u7167\u5165\u70b9\u548c\u51fa\u70b9\u622a\u53d6\u6240\u9009\u7247\u6bb5\u3002";
+    public string SelectionRuleDescription =>
+        SelectedTranscodingModeOption.Mode == TranscodingMode.FullTranscode
+            ? "\u7cbe\u786e\u5ea6\u4f18\u5148\u4f1a\u4e25\u683c\u6309\u5165\u70b9\u548c\u51fa\u70b9\u5bfc\u51fa\uff1b\u89c6\u9891\u4f1a\u4f18\u5148\u5c1d\u8bd5\u667a\u80fd\u88c1\u526a\uff0c\u5fc5\u8981\u65f6\u81ea\u52a8\u56de\u9000\u4e3a\u6574\u6bb5\u7cbe\u786e\u91cd\u7f16\u7801\u3002"
+            : "\u901f\u5ea6\u4f18\u5148\u4f1a\u5728\u5bb9\u5668\u517c\u5bb9\u65f6\u4f18\u5148\u590d\u7528\u539f\u59cb\u6d41\uff0c\u5bfc\u51fa\u66f4\u5feb\uff0c\u4f46\u975e\u5173\u952e\u5e27\u8fb9\u754c\u53ef\u80fd\u4e0e\u9884\u89c8\u5b58\u5728\u8f7b\u5fae\u504f\u5dee\u3002";
 
     public string OutputDirectoryHintText => "\u7559\u7a7a\u65f6\u9ed8\u8ba4\u5bfc\u51fa\u5230\u539f\u6587\u4ef6\u6240\u5728\u6587\u4ef6\u5939";
 
@@ -308,6 +327,26 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     }
 
     public string SelectedOutputFormatDescription => SelectedOutputFormat.Description;
+
+    public TranscodingModeOption SelectedTranscodingModeOption
+    {
+        get => _selectedTranscodingModeOption ?? TrimTranscodingModeOptions[0];
+        set
+        {
+            if (value is not null && SetProperty(ref _selectedTranscodingModeOption, value))
+            {
+                OnPropertyChanged(nameof(SelectedTranscodingModeDescription));
+                OnPropertyChanged(nameof(SelectionRuleDescription));
+                PersistPreferences();
+                NotifyCommandStates();
+            }
+        }
+    }
+
+    public string SelectedTranscodingModeDescription =>
+        SelectedTranscodingModeOption.Mode == TranscodingMode.FullTranscode
+            ? BuildAccurateTrimModeDescription()
+            : SelectedTranscodingModeOption.Description;
 
     public string OutputDirectory
     {
@@ -764,7 +803,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
                 _selectionEnd,
                 _currentMediaKind,
                 SelectedOutputFormat,
-                preferences.PreferredTranscodingMode,
+                SelectedTranscodingModeOption.Mode,
                 VideoAccelerationKind.None);
             var exportResult = await _trimWorkflowService.ExportAsync(
                 request,
@@ -969,6 +1008,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         {
             PreferredTrimOutputFormatExtension = _selectedOutputFormat?.Extension,
             PreferredTrimOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null,
+            PreferredTrimTranscodingMode = SelectedTranscodingModeOption.Mode,
             PreferredTrimPreviewVolumePercent = VolumePercent
         });
     }
@@ -981,6 +1021,20 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private OutputFormatOption ResolvePreferredOutputFormat(string? extension) =>
         _availableOutputFormats.FirstOrDefault(item => string.Equals(item.Extension, extension, StringComparison.OrdinalIgnoreCase))
         ?? _availableOutputFormats.First();
+
+    private TranscodingModeOption ResolvePreferredTranscodingMode(TranscodingMode mode)
+    {
+        var matchedOption = TrimTranscodingModeOptions.FirstOrDefault(item => item.Mode == mode);
+        return matchedOption ?? TrimTranscodingModeOptions[0];
+    }
+
+    private string BuildAccurateTrimModeDescription()
+    {
+        var gpuAccelerationEnabled = _userPreferencesService.Load().EnableGpuAccelerationForTranscoding;
+        return gpuAccelerationEnabled
+            ? "\u7edf\u4e00\u4f7f\u7528\u8f93\u5165\u540e\u7684 `-ss/-t` \u7cbe\u786e\u88c1\u526a\uff1b\u89c6\u9891\u4f1a\u4f18\u5148\u5c1d\u8bd5 smart trim\uff0c\u5e76\u6309 NVIDIA NVENC -> AMD AMF -> Intel Quick Sync -> CPU \u7684\u987a\u5e8f\u9009\u62e9\u7f16\u7801\u80fd\u529b\u3002"
+            : "\u7edf\u4e00\u4f7f\u7528\u8f93\u5165\u540e\u7684 `-ss/-t` \u7cbe\u786e\u88c1\u526a\uff1b\u89c6\u9891\u4f1a\u4f18\u5148\u5c1d\u8bd5 smart trim\uff0c\u5f53\u524d\u82e5\u9700\u8981\u91cd\u7f16\u7801\u5219\u7531 CPU \u5168\u7a0b\u514c\u5e95\u3002";
+    }
 
     private void ApplyImportFailure(string message, string? diagnosticDetails)
     {
