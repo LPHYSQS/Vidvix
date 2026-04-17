@@ -1,4 +1,4 @@
-﻿<UserControl
+<UserControl
     x:Class="Vidvix.Views.Controls.ApplicationSettingsPane"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -21,7 +21,7 @@
                         Text="应用设置" />
                     <TextBlock
                         Opacity="0.72"
-                        Text="应用级偏好统一集中在这里扩展，不占用主处理区域。"
+                        Text="{x:Bind ViewModel.SettingsPaneDescription, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
 
@@ -63,7 +63,8 @@
             <Border
                 Padding="14"
                 Background="{ThemeResource SettingsPaneSectionBrush}"
-                CornerRadius="16">
+                CornerRadius="16"
+                Visibility="{x:Bind ViewModel.SettingsPaneProcessingBehaviorVisibility, Mode=OneWay}">
                 <StackPanel Spacing="12">
                     <TextBlock
                         FontSize="14"
@@ -86,7 +87,8 @@
             <Border
                 Padding="14"
                 Background="{ThemeResource SettingsPaneSectionBrush}"
-                CornerRadius="16">
+                CornerRadius="16"
+                Visibility="{x:Bind ViewModel.SettingsPaneTranscodingVisibility, Mode=OneWay}">
                 <StackPanel Spacing="12">
                     <TextBlock
                         FontSize="14"

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -32,6 +32,17 @@ public sealed partial class MainViewModel
     public Visibility MergeWorkspaceVisibility => IsMergeWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility TerminalWorkspaceVisibility => IsTerminalWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
+
+    public string SettingsPaneDescription =>
+        IsTerminalWorkspaceSelected
+            ? "终端模块当前仅提供外观设置，方便快速切换软件主题。"
+            : "应用级偏好统一集中在这里扩展，不占用主处理区域。";
+
+    public Visibility SettingsPaneProcessingBehaviorVisibility =>
+        IsTerminalWorkspaceSelected ? Visibility.Collapsed : Visibility.Visible;
+
+    public Visibility SettingsPaneTranscodingVisibility =>
+        IsTerminalWorkspaceSelected ? Visibility.Collapsed : Visibility.Visible;
 
     public Visibility VideoProcessingModeVisibility => IsVideoWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
@@ -186,6 +197,9 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(SupportedInputFormatsHint));
         OnPropertyChanged(nameof(QueueDragDropHintText));
         OnPropertyChanged(nameof(DragDropCaptionText));
+        OnPropertyChanged(nameof(SettingsPaneDescription));
+        OnPropertyChanged(nameof(SettingsPaneProcessingBehaviorVisibility));
+        OnPropertyChanged(nameof(SettingsPaneTranscodingVisibility));
         OnPropertyChanged(nameof(FixedProcessingModeDisplayName));
         OnPropertyChanged(nameof(FixedProcessingModeDescription));
 

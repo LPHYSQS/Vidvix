@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Window
     x:Class="Vidvix.Views.MainWindow"
     x:Name="RootWindow"
@@ -171,6 +171,20 @@
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarSeparator />
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Setting" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                </CommandBar>
+
+                <CommandBar
+                    Grid.Column="1"
+                    Background="Transparent"
+                    DefaultLabelPosition="Right"
+                    IsDynamicOverflowEnabled="True"
+                    VerticalAlignment="Center"
+                    Visibility="{x:Bind ViewModel.TerminalWorkspaceVisibility, Mode=OneWay}">
                     <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />
