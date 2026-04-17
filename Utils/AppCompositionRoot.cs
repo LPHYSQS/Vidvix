@@ -203,7 +203,7 @@ public sealed class AppCompositionRoot
     }
 
     private TerminalWorkspaceViewModel CreateTerminalWorkspaceViewModel(AppMediaRuntimeServices mediaRuntime) =>
-        new(mediaRuntime.TerminalService);
+        new(Configuration, mediaRuntime.TerminalService);
 
     private MainViewModel CreateMainViewModel(
         AppInfrastructureServices infrastructure,

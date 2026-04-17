@@ -21,7 +21,12 @@
                     Text="{x:Bind ViewModel.CommandSectionDescription, Mode=OneWay}" />
             </StackPanel>
 
-            <Grid ColumnSpacing="10">
+            <Grid
+                ColumnSpacing="10"
+                AllowDrop="True"
+                DragEnter="OnCommandInputDragEnter"
+                DragOver="OnCommandInputDragOver"
+                Drop="OnCommandInputDrop">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />

@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -14,19 +17,29 @@ namespace Vidvix.ViewModels;
 public sealed class TerminalWorkspaceViewModel : ObservableObject, IDisposable
 {
     private readonly IFFmpegTerminalService? _terminalService;
+    private readonly HashSet<string> _supportedDropFileExtensions;
     private readonly AsyncRelayCommand _executeCommand;
     private string _commandText = string.Empty;
     private bool _isExecuting;
     private CancellationTokenSource? _executionCancellationSource;
 
     public TerminalWorkspaceViewModel()
-        : this(null)
+        : this(new ApplicationConfiguration(), null)
     {
     }
 
-    public TerminalWorkspaceViewModel(IFFmpegTerminalService? terminalService)
+    public TerminalWorkspaceViewModel(
+        ApplicationConfiguration configuration,
+        IFFmpegTerminalService? terminalService)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
+
         _terminalService = terminalService;
+        _supportedDropFileExtensions = configuration.SupportedVideoInputFileTypes
+            .Concat(configuration.SupportedAudioInputFileTypes)
+            .Where(static extension => !string.IsNullOrWhiteSpace(extension))
+            .Select(static extension => extension.StartsWith(".", StringComparison.Ordinal) ? extension : $".{extension}")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         _executeCommand = new AsyncRelayCommand(ExecuteCommandAsync, CanExecuteCommand);
         OutputEntries.CollectionChanged += OnOutputEntriesChanged;
     }
@@ -85,6 +98,23 @@ public sealed class TerminalWorkspaceViewModel : ObservableObject, IDisposable
 
     public Visibility EmptyStateVisibility =>
         OutputEntries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public bool CanAcceptDroppedItem(string path, bool isFolder)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        if (isFolder)
+        {
+            return true;
+        }
+
+        var extension = Path.GetExtension(path);
+        return !string.IsNullOrWhiteSpace(extension) &&
+               _supportedDropFileExtensions.Contains(extension);
+    }
 
     public void Dispose()
     {
