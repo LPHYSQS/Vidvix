@@ -33,6 +33,8 @@
 - `MediaInfoService` 已拆成多文件 partial 结构，分别承载主协调、探测诊断、快照构建、字段格式化和 ffprobe 模型，降低媒体探测逻辑继续膨胀时的维护成本。
 - `MainWindow` 代码后置已按窗口外观、浮层反馈、拖拽导入、窗口位置持久化拆开，避免 Win32 互操作、动画和页面事件长期混在一个文件中。
 - `AppCompositionRoot` 改为按“基础设施 / 运行时 / 工作流”分组装配，入口类不再承载一整条线性 `new` 链。
+- 新增 `MainViewModelDependencies`、`VideoTrimWorkspaceDependencies` 与 `MergeWorkspaceDependencies`，把重量级 ViewModel 的服务依赖收口为显式依赖包，降低组合根与构造器签名的同步修改成本。
+- `MergeViewModel` 继续按职责拆成 `MergeViewModel.TrackState.cs` 与 `MergeViewModel.MediaMetadata.cs`，分别承载轨道集合协调 / 模式状态刷新与素材元数据辅助逻辑，避免合并工作区继续回到单文件膨胀。
 - 新增标准 `Vidvix.sln`，并保留原有 `Vidvix.slnx`，提升不同 IDE / 工具链下的解决方案兼容性。
 
 ## 仍需长期坚持的约束

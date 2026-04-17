@@ -70,24 +70,18 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private string _exportProgressPercentText = string.Empty;
     private bool _isDisposed;
 
-    public VideoTrimWorkspaceViewModel(
-        ApplicationConfiguration configuration,
-        ITrimWorkflowService trimWorkflowService,
-        IFilePickerService filePickerService,
-        IUserPreferencesService userPreferencesService,
-        IFileRevealService fileRevealService,
-        IVideoPreviewService videoPreviewService,
-        IDispatcherService dispatcherService,
-        ILogger logger)
+    internal VideoTrimWorkspaceViewModel(VideoTrimWorkspaceDependencies dependencies)
     {
-        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        _trimWorkflowService = trimWorkflowService ?? throw new ArgumentNullException(nameof(trimWorkflowService));
-        _filePickerService = filePickerService ?? throw new ArgumentNullException(nameof(filePickerService));
-        _userPreferencesService = userPreferencesService ?? throw new ArgumentNullException(nameof(userPreferencesService));
-        _fileRevealService = fileRevealService ?? throw new ArgumentNullException(nameof(fileRevealService));
-        _videoPreviewService = videoPreviewService ?? throw new ArgumentNullException(nameof(videoPreviewService));
-        _dispatcherService = dispatcherService ?? throw new ArgumentNullException(nameof(dispatcherService));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        ArgumentNullException.ThrowIfNull(dependencies);
+
+        _configuration = dependencies.Configuration;
+        _trimWorkflowService = dependencies.TrimWorkflowService;
+        _filePickerService = dependencies.FilePickerService;
+        _userPreferencesService = dependencies.UserPreferencesService;
+        _fileRevealService = dependencies.FileRevealService;
+        _videoPreviewService = dependencies.VideoPreviewService;
+        _dispatcherService = dependencies.DispatcherService;
+        _logger = dependencies.Logger;
 
         var preferences = _userPreferencesService.Load();
         _availableOutputFormats = ResolveOutputFormats(_currentMediaKind);

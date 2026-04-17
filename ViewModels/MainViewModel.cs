@@ -106,31 +106,24 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private bool _isDisposed;
     private ProcessingWorkspaceKind _selectedWorkspaceKind;
 
-    public MainViewModel(
-        ApplicationConfiguration configuration,
-        IMediaInfoService mediaInfoService,
-        IVideoThumbnailService videoThumbnailService,
-        IMediaProcessingWorkflowService mediaProcessingWorkflowService,
-        IMediaImportDiscoveryService mediaImportDiscoveryService,
-        ILogger logger,
-        IFilePickerService filePickerService,
-        IDispatcherService dispatcherService,
-        IUserPreferencesService userPreferencesService,
-        IFileRevealService fileRevealService,
+    internal MainViewModel(
+        MainViewModelDependencies dependencies,
         VideoTrimWorkspaceViewModel trimWorkspace,
         MergeViewModel mergeWorkspace,
         TerminalWorkspaceViewModel terminalWorkspace)
     {
-        _configuration = configuration;
-        _mediaInfoService = mediaInfoService;
-        _videoThumbnailService = videoThumbnailService;
-        _mediaProcessingWorkflowService = mediaProcessingWorkflowService;
-        _mediaImportDiscoveryService = mediaImportDiscoveryService;
-        _logger = logger;
-        _filePickerService = filePickerService;
-        _dispatcherService = dispatcherService;
-        _userPreferencesService = userPreferencesService;
-        _fileRevealService = fileRevealService;
+        ArgumentNullException.ThrowIfNull(dependencies);
+
+        _configuration = dependencies.Configuration;
+        _mediaInfoService = dependencies.MediaInfoService;
+        _videoThumbnailService = dependencies.VideoThumbnailService;
+        _mediaProcessingWorkflowService = dependencies.MediaProcessingWorkflowService;
+        _mediaImportDiscoveryService = dependencies.MediaImportDiscoveryService;
+        _logger = dependencies.Logger;
+        _filePickerService = dependencies.FilePickerService;
+        _dispatcherService = dependencies.DispatcherService;
+        _userPreferencesService = dependencies.UserPreferencesService;
+        _fileRevealService = dependencies.FileRevealService;
         TrimWorkspace = trimWorkspace ?? throw new ArgumentNullException(nameof(trimWorkspace));
         MergeWorkspace = mergeWorkspace ?? throw new ArgumentNullException(nameof(mergeWorkspace));
         TerminalWorkspace = terminalWorkspace ?? throw new ArgumentNullException(nameof(terminalWorkspace));

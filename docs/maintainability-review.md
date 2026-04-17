@@ -24,6 +24,10 @@
   现在“视频拼接 / 音频拼接 / 音视频合成”的轨道能力、时间轴显示和模式提示不再散落在 ViewModel 的条件分支里，而是统一通过模式配置与模式状态装配。
 - 新增 `IMergeMediaAnalysisService / MergeMediaAnalysisService`，承接合并模块的媒体探测与分段准备。
   `MergeViewModel` 现在更接近“界面协调层”，不再同时承担分辨率解析、采样率推导、时长探测和导出前素材分析。
+- 新增 `MainViewModelDependencies`、`VideoTrimWorkspaceDependencies` 与 `MergeWorkspaceDependencies`，把 ViewModel 构造器从长参数列表改为显式依赖包。
+  后续新增服务时，组合根与 ViewModel 之间的改动面更可控，也更方便继续把依赖拆向独立协调器或状态对象。
+- 把 `MergeViewModel` 中“轨道集合同步 / 模式状态刷新 / 预设轨道解析 / 素材元数据辅助”进一步拆到独立 partial 文件。
+  这一步不改任何行为，但显著降低了继续整理合并工作区时的文件冲突和定位成本。
 - 新增标准 `Vidvix.sln` 与三套离线发布 `pubxml`。
   这两部分主要解决 IDE 兼容性和自包含发布的可重复性，不涉及功能行为变更。
 

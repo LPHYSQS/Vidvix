@@ -169,7 +169,7 @@ public sealed class AppCompositionRoot
         AppMediaRuntimeServices mediaRuntime,
         AppWorkflowServices workflows)
     {
-        return new VideoTrimWorkspaceViewModel(
+        var dependencies = new VideoTrimWorkspaceDependencies(
             Configuration,
             workflows.TrimWorkflowService,
             infrastructure.FilePickerService,
@@ -178,6 +178,8 @@ public sealed class AppCompositionRoot
             mediaRuntime.VideoPreviewService,
             infrastructure.DispatcherService,
             Logger);
+
+        return new VideoTrimWorkspaceViewModel(dependencies);
     }
 
     private MergeViewModel CreateMergeWorkspaceViewModel(
@@ -185,7 +187,7 @@ public sealed class AppCompositionRoot
         AppMediaRuntimeServices mediaRuntime,
         AppWorkflowServices workflows)
     {
-        return new MergeViewModel(
+        var dependencies = new MergeWorkspaceDependencies(
             infrastructure.FilePickerService,
             mediaRuntime.MediaInfoService,
             infrastructure.UserPreferencesService,
@@ -196,6 +198,8 @@ public sealed class AppCompositionRoot
             infrastructure.FileRevealService,
             Configuration,
             Logger);
+
+        return new MergeViewModel(dependencies);
     }
 
     private TerminalWorkspaceViewModel CreateTerminalWorkspaceViewModel(AppMediaRuntimeServices mediaRuntime) =>
@@ -209,7 +213,7 @@ public sealed class AppCompositionRoot
         MergeViewModel mergeWorkspace,
         TerminalWorkspaceViewModel terminalWorkspace)
     {
-        return new MainViewModel(
+        var dependencies = new MainViewModelDependencies(
             Configuration,
             mediaRuntime.MediaInfoService,
             mediaRuntime.VideoThumbnailService,
@@ -219,7 +223,10 @@ public sealed class AppCompositionRoot
             infrastructure.FilePickerService,
             infrastructure.DispatcherService,
             infrastructure.UserPreferencesService,
-            infrastructure.FileRevealService,
+            infrastructure.FileRevealService);
+
+        return new MainViewModel(
+            dependencies,
             trimWorkspace,
             mergeWorkspace,
             terminalWorkspace);
