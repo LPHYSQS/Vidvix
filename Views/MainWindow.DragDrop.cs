@@ -21,7 +21,9 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (ViewModel.IsMergeWorkspaceSelected || ViewModel.IsTerminalWorkspaceSelected)
+        if (ViewModel.IsMergeWorkspaceSelected ||
+            ViewModel.IsSplitAudioWorkspaceSelected ||
+            ViewModel.IsTerminalWorkspaceSelected)
         {
             e.AcceptedOperation = DataPackageOperation.None;
             return;
@@ -54,7 +56,9 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (ViewModel.IsMergeWorkspaceSelected || ViewModel.IsTerminalWorkspaceSelected)
+        if (ViewModel.IsMergeWorkspaceSelected ||
+            ViewModel.IsSplitAudioWorkspaceSelected ||
+            ViewModel.IsTerminalWorkspaceSelected)
         {
             return;
         }

@@ -135,6 +135,7 @@ public sealed partial class MainWindow : Window
             e.PropertyName == nameof(MainViewModel.IsAudioWorkspaceSelected) ||
             e.PropertyName == nameof(MainViewModel.IsTrimWorkspaceSelected) ||
             e.PropertyName == nameof(MainViewModel.IsMergeWorkspaceSelected) ||
+            e.PropertyName == nameof(MainViewModel.IsSplitAudioWorkspaceSelected) ||
             e.PropertyName == nameof(MainViewModel.IsTerminalWorkspaceSelected))
         {
             UpdateWorkspaceToggleVisuals();

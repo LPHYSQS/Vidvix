@@ -123,6 +123,48 @@
                     DefaultLabelPosition="Right"
                     IsDynamicOverflowEnabled="True"
                     VerticalAlignment="Center"
+                    Visibility="Collapsed">
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Setting" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                </CommandBar>
+
+                <CommandBar
+                    Grid.Column="1"
+                    Background="Transparent"
+                    DefaultLabelPosition="Right"
+                    IsDynamicOverflowEnabled="True"
+                    VerticalAlignment="Center"
+                    Visibility="{x:Bind ViewModel.SplitAudioWorkspaceVisibility, Mode=OneWay}">
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Setting" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                </CommandBar>
+
+                <CommandBar
+                    Grid.Column="1"
+                    Background="Transparent"
+                    DefaultLabelPosition="Right"
+                    IsDynamicOverflowEnabled="True"
+                    VerticalAlignment="Center"
+                    Visibility="Collapsed">
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Setting" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                </CommandBar>
+
+                <CommandBar
+                    Grid.Column="1"
+                    Background="Transparent"
+                    DefaultLabelPosition="Right"
+                    IsDynamicOverflowEnabled="True"
+                    VerticalAlignment="Center"
                     Visibility="{x:Bind ViewModel.TrimWorkspaceVisibility, Mode=OneWay}">
                     <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.SelectVideoCommand}" Label="导入文件">
                         <AppBarButton.Icon>
@@ -516,6 +558,36 @@
                                         FontSize="12"
                                         FontWeight="SemiBold"
                                         Text="合并" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <ToggleButton
+                                x:Name="SplitAudioWorkspaceToggle"
+                                Command="{x:Bind ViewModel.SwitchToSplitAudioWorkspaceCommand, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.IsSplitAudioWorkspaceSelected, Mode=OneWay}"
+                                IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                <StackPanel
+                                    HorizontalAlignment="Center"
+                                    Spacing="5">
+                                    <Path
+                                        x:Name="SplitAudioWorkspaceIcon"
+                                        HorizontalAlignment="Center"
+                                        Width="18"
+                                        Height="18"
+                                        Stretch="Uniform"
+                                        Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                                        StrokeThickness="1.9"
+                                        StrokeStartLineCap="Round"
+                                        StrokeEndLineCap="Round"
+                                        StrokeLineJoin="Round"
+                                        Data="M4 10H8 M8 10L12 6 M8 10L12 14 M12 6H15 M12 14H15 M5.5 7V13 M16.5 4V8 M16.5 12V16" />
+                                    <TextBlock
+                                        x:Name="SplitAudioWorkspaceText"
+                                        HorizontalAlignment="Center"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Text="拆音" />
                                 </StackPanel>
                             </ToggleButton>
 
@@ -1039,6 +1111,12 @@
                         VerticalAlignment="Stretch"
                         ViewModel="{x:Bind ViewModel.MergeWorkspace, Mode=OneWay}"
                         Visibility="{x:Bind ViewModel.MergeWorkspaceVisibility, Mode=OneWay}" />
+
+                    <views:SplitAudioPage
+                        Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        Visibility="{x:Bind ViewModel.SplitAudioWorkspaceVisibility, Mode=OneWay}" />
 
                     <views:TerminalPage
                         Grid.Column="1"

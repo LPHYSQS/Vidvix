@@ -6,5 +6,6 @@ public enum ProcessingWorkspaceKind
     Audio,
     Trim,
     Merge,
+    SplitAudio,
     Terminal
 }

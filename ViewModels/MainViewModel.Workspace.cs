@@ -22,6 +22,8 @@ public sealed partial class MainViewModel
 
     public bool IsMergeWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.Merge;
 
+    public bool IsSplitAudioWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.SplitAudio;
+
     public bool IsTerminalWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.Terminal;
 
     public Visibility ProcessingWorkspaceVisibility =>
@@ -30,6 +32,8 @@ public sealed partial class MainViewModel
     public Visibility TrimWorkspaceVisibility => IsTrimWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility MergeWorkspaceVisibility => IsMergeWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility SplitAudioWorkspaceVisibility => IsSplitAudioWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility TerminalWorkspaceVisibility => IsTerminalWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
@@ -98,6 +102,7 @@ public sealed partial class MainViewModel
             ProcessingWorkspaceKind.Audio => _audioImportItems,
             ProcessingWorkspaceKind.Trim => _trimImportItems,
             ProcessingWorkspaceKind.Merge => _mergeImportItems,
+            ProcessingWorkspaceKind.SplitAudio => _splitAudioImportItems,
             ProcessingWorkspaceKind.Terminal => _terminalImportItems,
             _ => _videoImportItems
         };
@@ -111,6 +116,7 @@ public sealed partial class MainViewModel
             ProcessingWorkspaceKind.Audio => _audioLogEntries,
             ProcessingWorkspaceKind.Trim => _trimLogEntries,
             ProcessingWorkspaceKind.Merge => _mergeLogEntries,
+            ProcessingWorkspaceKind.SplitAudio => _splitAudioLogEntries,
             ProcessingWorkspaceKind.Terminal => _terminalLogEntries,
             _ => _videoLogEntries
         };
@@ -161,6 +167,8 @@ public sealed partial class MainViewModel
 
     private Task SwitchToMergeWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.Merge);
 
+    private Task SwitchToSplitAudioWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.SplitAudio);
+
     private Task SwitchToTerminalWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.Terminal);
 
     private async Task SetWorkspaceAsync(ProcessingWorkspaceKind workspaceKind)
@@ -199,10 +207,12 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(IsAudioWorkspaceSelected));
         OnPropertyChanged(nameof(IsTrimWorkspaceSelected));
         OnPropertyChanged(nameof(IsMergeWorkspaceSelected));
+        OnPropertyChanged(nameof(IsSplitAudioWorkspaceSelected));
         OnPropertyChanged(nameof(IsTerminalWorkspaceSelected));
         OnPropertyChanged(nameof(ProcessingWorkspaceVisibility));
         OnPropertyChanged(nameof(TrimWorkspaceVisibility));
         OnPropertyChanged(nameof(MergeWorkspaceVisibility));
+        OnPropertyChanged(nameof(SplitAudioWorkspaceVisibility));
         OnPropertyChanged(nameof(TerminalWorkspaceVisibility));
         OnPropertyChanged(nameof(VideoProcessingModeVisibility));
         OnPropertyChanged(nameof(AudioProcessingModeVisibility));

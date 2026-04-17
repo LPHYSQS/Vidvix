@@ -111,6 +111,15 @@ public sealed class ApplicationConfiguration
                 fixedProcessingModeDescription: "统一编排多段音视频素材，完成拼接、混音与音视频合成。",
                 headerTitle: "媒体合并",
                 headerDescription: "拼接音视频并完成合成。"),
+            [ProcessingWorkspaceKind.SplitAudio] = new(
+                ProcessingWorkspaceKind.SplitAudio,
+                "拆音",
+                "音频文件",
+                Array.Empty<string>(),
+                fixedProcessingModeDisplayName: "拆音分离",
+                fixedProcessingModeDescription: "预留给人声与背景音分离功能的独立工作区，当前阶段仅提供界面入口。",
+                headerTitle: "拆音",
+                headerDescription: "预留人声与背景音分离工作区。"),
             [ProcessingWorkspaceKind.Terminal] = new(
                 ProcessingWorkspaceKind.Terminal,
                 "终端",
