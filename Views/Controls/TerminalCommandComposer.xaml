@@ -28,9 +28,12 @@
                 </Grid.ColumnDefinitions>
 
                 <TextBox
+                    x:Name="CommandTextBox"
                     Padding="14,10"
+                    AcceptsReturn="False"
                     FontSize="14"
                     FontFamily="Cascadia Mono,Consolas,Segoe UI"
+                    KeyDown="OnCommandTextBoxKeyDown"
                     PlaceholderText="{x:Bind ViewModel.CommandPlaceholder, Mode=OneWay}"
                     Text="{x:Bind ViewModel.CommandText, Mode=TwoWay}"
                     VerticalAlignment="Center"
@@ -38,6 +41,7 @@
 
                 <Button
                     Grid.Column="1"
+                    Command="{x:Bind ViewModel.ExecuteCommand, Mode=OneWay}"
                     MinWidth="108"
                     Padding="18,10"
                     VerticalAlignment="Center"

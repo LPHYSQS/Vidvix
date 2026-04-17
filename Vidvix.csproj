@@ -64,6 +64,14 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup Condition="Exists('Tools\MediaEngine\Current\bin\ffplay.exe')">
+    <Content Include="Tools\MediaEngine\Current\bin\ffplay.exe">
+      <TargetPath>Tools\ffmpeg\ffplay.exe</TargetPath>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
   <ItemGroup Condition="Exists('Tools\mpv\mpv-1.dll')">
     <Content Include="Tools\mpv\mpv-1.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -86,6 +94,9 @@
     <Error
       Condition="!Exists('$(MSBuildProjectDirectory)\Tools\ffmpeg\ffprobe.exe')"
       Text="Offline publish bundle is missing Tools\ffmpeg\ffprobe.exe." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\MediaEngine\Current\bin\ffplay.exe')"
+      Text="Offline publish bundle is missing Tools\MediaEngine\Current\bin\ffplay.exe." />
     <Error
       Condition="!Exists('$(MSBuildProjectDirectory)\Tools\mpv\mpv-1.dll')"
       Text="Offline publish bundle is missing Tools\mpv\mpv-1.dll." />

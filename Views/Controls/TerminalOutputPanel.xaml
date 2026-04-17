@@ -29,6 +29,7 @@
 
             <Grid Grid.Row="1">
                 <ScrollViewer
+                    x:Name="OutputScrollViewer"
                     VerticalScrollBarVisibility="Auto"
                     VerticalScrollMode="Enabled"
                     Visibility="{x:Bind ViewModel.OutputEntriesVisibility, Mode=OneWay}">

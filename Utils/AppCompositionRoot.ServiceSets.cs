@@ -14,6 +14,7 @@ internal sealed record AppInfrastructureServices(
 internal sealed record AppMediaRuntimeServices(
     IFFmpegRuntimeService RuntimeService,
     IFFmpegService FFmpegService,
+    IFFmpegTerminalService TerminalService,
     IFFmpegVideoAccelerationService VideoAccelerationService,
     IMediaInfoService MediaInfoService,
     IVideoThumbnailService VideoThumbnailService,

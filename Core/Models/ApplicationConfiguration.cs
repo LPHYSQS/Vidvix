@@ -27,6 +27,8 @@ public sealed class ApplicationConfiguration
 
     public string FFprobeExecutableFileName { get; init; } = "ffprobe.exe";
 
+    public string FFplayExecutableFileName { get; init; } = "ffplay.exe";
+
     public string LocalDataDirectoryName { get; init; } = "Vidvix";
 
     public string UserPreferencesFileName { get; init; } = "user-preferences.json";
@@ -115,9 +117,9 @@ public sealed class ApplicationConfiguration
                 "终端内容",
                 Array.Empty<string>(),
                 fixedProcessingModeDisplayName: "终端",
-                fixedProcessingModeDescription: "集中输入 FFmpeg、FFprobe 等媒体命令，并查看执行输出与状态。",
+                fixedProcessingModeDescription: "集中输入 FFmpeg、FFprobe、FFplay 命令，并查看执行输出与状态。",
                 headerTitle: "终端",
-                headerDescription: "输入 FFmpeg、FFprobe 等命令，统一查看输出信息、错误提示与执行状态。")
+                headerDescription: "输入 FFmpeg、FFprobe、FFplay 命令，统一查看输出信息、错误提示与执行状态。")
         };
 
     public IReadOnlyDictionary<MergeWorkspaceMode, MergeWorkspaceModeProfile> MergeModeProfiles { get; init; } =

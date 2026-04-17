@@ -118,7 +118,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         IUserPreferencesService userPreferencesService,
         IFileRevealService fileRevealService,
         VideoTrimWorkspaceViewModel trimWorkspace,
-        MergeViewModel mergeWorkspace)
+        MergeViewModel mergeWorkspace,
+        TerminalWorkspaceViewModel terminalWorkspace)
     {
         _configuration = configuration;
         _mediaInfoService = mediaInfoService;
@@ -132,7 +133,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _fileRevealService = fileRevealService;
         TrimWorkspace = trimWorkspace ?? throw new ArgumentNullException(nameof(trimWorkspace));
         MergeWorkspace = mergeWorkspace ?? throw new ArgumentNullException(nameof(mergeWorkspace));
-        TerminalWorkspace = new TerminalWorkspaceViewModel();
+        TerminalWorkspace = terminalWorkspace ?? throw new ArgumentNullException(nameof(terminalWorkspace));
         _statusMessage = RuntimePreparingMessage;
 
         ThemeOptions = ThemePreferenceOptions;
@@ -452,6 +453,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         MergeWorkspace.PropertyChanged -= OnMergeWorkspacePropertyChanged;
         DetailPanel.PropertyChanged -= OnDetailPanelPropertyChanged;
         TrimWorkspace.Dispose();
+        TerminalWorkspace.Dispose();
 
         CancelDetailLoad();
         _detailLoadCancellationSource?.Dispose();

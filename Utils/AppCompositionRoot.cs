@@ -38,7 +38,14 @@ public sealed class AppCompositionRoot
         var workflows = CreateWorkflowServices(mediaRuntime);
         var trimWorkspace = CreateTrimWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
         var mergeWorkspace = CreateMergeWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
-        _mainViewModel = CreateMainViewModel(infrastructure, mediaRuntime, workflows, trimWorkspace, mergeWorkspace);
+        var terminalWorkspace = CreateTerminalWorkspaceViewModel(mediaRuntime);
+        _mainViewModel = CreateMainViewModel(
+            infrastructure,
+            mediaRuntime,
+            workflows,
+            trimWorkspace,
+            mergeWorkspace,
+            terminalWorkspace);
     }
 
     public ApplicationConfiguration Configuration { get; }
@@ -80,6 +87,7 @@ public sealed class AppCompositionRoot
         var packageSource = new FFmpegPackageSource(Configuration, Logger);
         var runtimeService = new FFmpegRuntimeService(Configuration, packageSource, Logger);
         var ffmpegService = new FFmpegService(Logger);
+        var terminalService = new FFmpegTerminalService(Configuration, runtimeService, Logger);
         var ffmpegVideoAccelerationService = new FFmpegVideoAccelerationService(ffmpegService, Logger);
         var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
         var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
@@ -88,6 +96,7 @@ public sealed class AppCompositionRoot
         return new AppMediaRuntimeServices(
             runtimeService,
             ffmpegService,
+            terminalService,
             ffmpegVideoAccelerationService,
             mediaInfoService,
             videoThumbnailService,
@@ -182,12 +191,16 @@ public sealed class AppCompositionRoot
             Logger);
     }
 
+    private TerminalWorkspaceViewModel CreateTerminalWorkspaceViewModel(AppMediaRuntimeServices mediaRuntime) =>
+        new(mediaRuntime.TerminalService);
+
     private MainViewModel CreateMainViewModel(
         AppInfrastructureServices infrastructure,
         AppMediaRuntimeServices mediaRuntime,
         AppWorkflowServices workflows,
         VideoTrimWorkspaceViewModel trimWorkspace,
-        MergeViewModel mergeWorkspace)
+        MergeViewModel mergeWorkspace,
+        TerminalWorkspaceViewModel terminalWorkspace)
     {
         return new MainViewModel(
             Configuration,
@@ -201,6 +214,7 @@ public sealed class AppCompositionRoot
             infrastructure.UserPreferencesService,
             infrastructure.FileRevealService,
             trimWorkspace,
-            mergeWorkspace);
+            mergeWorkspace,
+            terminalWorkspace);
     }
 }
