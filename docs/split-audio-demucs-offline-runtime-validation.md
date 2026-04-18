@@ -165,6 +165,47 @@
 
 本次视频输入联调总耗时约 `13.1s`。
 
+### 4. 可移植性核实
+
+这一步专门回答一个问题：
+
+- 没有系统 Python 和相关依赖环境的电脑，能不能跑
+
+本次做法不是口头判断，而是做了一个“隔离环境实测”：
+
+1. 使用 `tests/SplitAudioOfflineSmoke` 作为真实 C# 工作流入口
+2. 运行前手动清掉 `tests/SplitAudioOfflineSmoke/bin/Debug/net8.0-windows10.0.19041.0/Tools/Demucs/Current`
+3. 启动子进程时把 `PATH` 收敛到：
+   - `C:\Windows\System32`
+   - `C:\Windows`
+   - `C:\Program Files\dotnet`
+4. 同时清空：
+   - `PYTHONHOME`
+   - `PYTHONPATH`
+5. 在这个隔离环境里先执行 `where python`
+6. 再执行拆音
+7. 同时监控实际被拉起的 `python.exe` 路径
+
+实际结果：
+
+- `where python` 返回“找不到文件”
+- 拆音流程仍然成功
+- 实际被拉起的解释器路径是：
+  - `tests/SplitAudioOfflineSmoke/bin/Debug/net8.0-windows10.0.19041.0/Tools/Demucs/Current/python.exe`
+- 最终仍然成功导出四轨：
+  - `portable-proof-input_vocals.wav`
+  - `portable-proof-input_drums.wav`
+  - `portable-proof-input_bass.wav`
+  - `portable-proof-input_other.wav`
+
+这说明当前拆音链路运行时并不依赖系统 Python。
+
+从代码层面看，这个结论也成立：
+
+- `DemucsRuntimeService` 只会从应用自身的 `Tools/Demucs/Current` 或其解压结果里解析 `python.exe`
+- `AudioSeparationWorkflowService` 在启动 Demucs 时，`ProcessStartInfo.FileName` 直接使用 `demucsRuntime.PythonExecutablePath`
+- 整个流程没有任何“去 PATH 里找 python”的代码
+
 ## 本次联调里真正遇到过的问题
 
 ### 问题 1：只装 `demucs + torch + torchaudio` 还不够

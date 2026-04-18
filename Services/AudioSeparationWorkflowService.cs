@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -32,7 +33,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
     private readonly IMediaInfoService _mediaInfoService;
     private readonly IMediaProcessingCommandFactory _mediaProcessingCommandFactory;
     private readonly IFFmpegCommandBuilder _commandBuilder;
-    private readonly IDemucsRuntimeService _demucsRuntimeService;
+    private readonly IDemucsExecutionPlanner _demucsExecutionPlanner;
     private readonly ILogger _logger;
 
     public AudioSeparationWorkflowService(
@@ -42,7 +43,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         IMediaInfoService mediaInfoService,
         IMediaProcessingCommandFactory mediaProcessingCommandFactory,
         IFFmpegCommandBuilder commandBuilder,
-        IDemucsRuntimeService demucsRuntimeService,
+        IDemucsExecutionPlanner demucsExecutionPlanner,
         ILogger logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -51,7 +52,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         _mediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
         _mediaProcessingCommandFactory = mediaProcessingCommandFactory ?? throw new ArgumentNullException(nameof(mediaProcessingCommandFactory));
         _commandBuilder = commandBuilder ?? throw new ArgumentNullException(nameof(commandBuilder));
-        _demucsRuntimeService = demucsRuntimeService ?? throw new ArgumentNullException(nameof(demucsRuntimeService));
+        _demucsExecutionPlanner = demucsExecutionPlanner ?? throw new ArgumentNullException(nameof(demucsExecutionPlanner));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -68,7 +69,6 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
         var startedAt = DateTimeOffset.UtcNow;
         var ffmpegResolution = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
-        var demucsResolution = await _demucsRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
         await ValidateInputAsync(request.InputPath, cancellationToken).ConfigureAwait(false);
 
         var normalizedOutputDirectory = ResolveOutputDirectory(request.InputPath, request.OutputDirectory);
@@ -92,9 +92,28 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
                 request.Progress,
                 cancellationToken).ConfigureAwait(false);
 
+            ReportProgress(
+                request.Progress,
+                "运行策略",
+                request.AccelerationMode == DemucsAccelerationMode.GpuPreferred
+                    ? "已选择 GPU 优先模式，正在检测独显与核显..."
+                    : "已选择 CPU 模式，正在准备 Demucs 运行时...",
+                0.15d);
+
+            var executionPlans = await _demucsExecutionPlanner
+                .ResolveExecutionPlansAsync(request.AccelerationMode, cancellationToken)
+                .ConfigureAwait(false);
+            var executionPlan = executionPlans[0];
+
+            ReportProgress(
+                request.Progress,
+                "运行策略",
+                executionPlan.ResolutionSummary,
+                0.15d);
+
             var demucsOutputRootPath = Path.Combine(temporaryRootPath, "demucs-output");
-            await RunDemucsAsync(
-                demucsResolution,
+            executionPlan = await RunDemucsWithFallbackAsync(
+                executionPlans,
                 normalizedInputPath,
                 demucsOutputRootPath,
                 request.Progress,
@@ -140,7 +159,8 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
                 request.InputPath,
                 normalizedOutputDirectory,
                 stemOutputs,
-                DateTimeOffset.UtcNow - startedAt);
+                DateTimeOffset.UtcNow - startedAt,
+                executionPlan);
         }
         finally
         {
@@ -229,7 +249,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
     }
 
     private async Task RunDemucsAsync(
-        DemucsRuntimeResolution demucsRuntime,
+        DemucsExecutionPlan executionPlan,
         string normalizedInputPath,
         string demucsOutputRootPath,
         IProgress<AudioSeparationProgress>? progress,
@@ -240,7 +260,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         using var process = new Process
         {
             StartInfo = CreateDemucsStartInfo(
-                demucsRuntime,
+                executionPlan,
                 normalizedInputPath,
                 demucsOutputRootPath),
             EnableRaisingEvents = true
@@ -316,11 +336,65 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         ReportProgress(progress, "Demucs 分离", "四轨 WAV 已生成，正在准备导出。", 0.80d);
     }
 
+    private async Task<DemucsExecutionPlan> RunDemucsWithFallbackAsync(
+        IReadOnlyList<DemucsExecutionPlan> executionPlans,
+        string normalizedInputPath,
+        string demucsOutputRootPath,
+        IProgress<AudioSeparationProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        if (executionPlans.Count == 0)
+        {
+            throw new InvalidOperationException("未找到可用的 Demucs 执行方案。");
+        }
+
+        ExceptionDispatchInfo? lastFailure = null;
+
+        for (var attemptIndex = 0; attemptIndex < executionPlans.Count; attemptIndex++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var executionPlan = executionPlans[attemptIndex];
+            TryDeleteDirectory(demucsOutputRootPath);
+            Directory.CreateDirectory(demucsOutputRootPath);
+
+            ReportProgress(
+                progress,
+                "运行策略",
+                executionPlan.ResolutionSummary,
+                0.15d);
+
+            try
+            {
+                await RunDemucsAsync(
+                    executionPlan,
+                    normalizedInputPath,
+                    demucsOutputRootPath,
+                    progress,
+                    cancellationToken).ConfigureAwait(false);
+
+                return executionPlan;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException && attemptIndex < executionPlans.Count - 1)
+            {
+                lastFailure = ExceptionDispatchInfo.Capture(exception);
+                _logger.Log(
+                    LogLevel.Warning,
+                    $"Demucs 执行失败，准备回退到下一个方案：{executionPlan.DeviceDisplayName} ({executionPlan.DeviceArgument})",
+                    exception);
+            }
+        }
+
+        lastFailure?.Throw();
+        throw new InvalidOperationException("Demucs 执行失败，且没有可用的回退方案。");
+    }
+
     private ProcessStartInfo CreateDemucsStartInfo(
-        DemucsRuntimeResolution demucsRuntime,
+        DemucsExecutionPlan executionPlan,
         string normalizedInputPath,
         string demucsOutputRootPath)
     {
+        var demucsRuntime = executionPlan.RuntimeResolution;
         var startInfo = new ProcessStartInfo
         {
             FileName = demucsRuntime.PythonExecutablePath,
@@ -334,8 +408,9 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         };
 
         startInfo.Environment["PYTHONUTF8"] = "1";
-        startInfo.ArgumentList.Add("-m");
-        startInfo.ArgumentList.Add("demucs.separate");
+        startInfo.ArgumentList.Add(executionPlan.LauncherScriptPath);
+        startInfo.ArgumentList.Add("separate");
+        startInfo.ArgumentList.Add("--");
         startInfo.ArgumentList.Add("-n");
         startInfo.ArgumentList.Add(_configuration.DemucsModelName);
         startInfo.ArgumentList.Add("--repo");
@@ -343,7 +418,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         startInfo.ArgumentList.Add("-o");
         startInfo.ArgumentList.Add(demucsOutputRootPath);
         startInfo.ArgumentList.Add("-d");
-        startInfo.ArgumentList.Add("cpu");
+        startInfo.ArgumentList.Add(executionPlan.DeviceArgument);
         startInfo.ArgumentList.Add(normalizedInputPath);
         return startInfo;
     }

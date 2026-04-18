@@ -115,6 +115,10 @@ public sealed class AppCompositionRoot
         var videoTrimCommandFactory = new VideoTrimCommandFactory(Configuration, commandBuilder);
         var audioTrimCommandFactory = new AudioTrimCommandFactory(Configuration, commandBuilder);
         var transcodingDecisionResolver = new TranscodingDecisionResolver(mediaRuntime.VideoAccelerationService);
+        var demucsExecutionPlanner = new DemucsExecutionPlanner(
+            Configuration,
+            mediaRuntime.DemucsRuntimeService,
+            Logger);
         var mediaProcessingWorkflowService = new MediaProcessingWorkflowService(
             Configuration,
             mediaRuntime.RuntimeService,
@@ -131,7 +135,7 @@ public sealed class AppCompositionRoot
             mediaRuntime.MediaInfoService,
             mediaProcessingCommandFactory,
             commandBuilder,
-            mediaRuntime.DemucsRuntimeService,
+            demucsExecutionPlanner,
             Logger);
         var mergeMediaAnalysisService = new MergeMediaAnalysisService(
             mediaRuntime.MediaInfoService,

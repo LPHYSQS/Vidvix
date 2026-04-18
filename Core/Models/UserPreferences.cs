@@ -26,6 +26,8 @@ public sealed record UserPreferences
 
     public string? PreferredSplitAudioOutputDirectory { get; init; }
 
+    public DemucsAccelerationMode PreferredSplitAudioAccelerationMode { get; init; } = DemucsAccelerationMode.Cpu;
+
     public TranscodingMode PreferredTrimTranscodingMode { get; init; } = TranscodingMode.FastContainerConversion;
 
     public double PreferredTrimPreviewVolumePercent { get; init; } = 80d;

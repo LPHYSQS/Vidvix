@@ -112,6 +112,64 @@ function Download-FileWithFallback {
     throw $lastError
 }
 
+function Get-ManifestStringArray {
+    param(
+        [Parameter(Mandatory = $true)]$ManifestObject,
+        [Parameter(Mandatory = $true)][string]$PropertyName
+    )
+
+    if (-not ($ManifestObject.PSObject.Properties.Name -contains $PropertyName)) {
+        return @()
+    }
+
+    $propertyValue = $ManifestObject.$PropertyName
+    if ($null -eq $propertyValue) {
+        return @()
+    }
+
+    return @([string[]]$propertyValue)
+}
+
+function Get-UriLeafName {
+    param([Parameter(Mandatory = $true)][string]$Uri)
+
+    $parsedUri = [System.Uri]$Uri
+    $leafName = [System.IO.Path]::GetFileName($parsedUri.AbsolutePath)
+    if ([string]::IsNullOrWhiteSpace($leafName)) {
+        throw ("Unable to determine a file name from URI: {0}" -f $Uri)
+    }
+
+    return $leafName
+}
+
+function Compress-DirectoryWithRetry {
+    param(
+        [Parameter(Mandatory = $true)][string]$SourceDirectoryPath,
+        [Parameter(Mandatory = $true)][string]$DestinationArchivePath,
+        [int]$MaxAttempts = 6,
+        [int]$DelaySeconds = 5
+    )
+
+    $lastError = $null
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        try {
+            Remove-PathIfExists -Path $DestinationArchivePath
+            Compress-Archive -Path (Join-Path $SourceDirectoryPath "*") -DestinationPath $DestinationArchivePath -CompressionLevel Optimal
+            return
+        }
+        catch {
+            $lastError = $_
+            if ($attempt -lt $MaxAttempts) {
+                Write-Step ("Compression attempt {0}/{1} failed, retrying in {2}s..." -f $attempt, $MaxAttempts, $DelaySeconds)
+                Start-Sleep -Seconds $DelaySeconds
+            }
+        }
+    }
+
+    throw $lastError
+}
+
 Reset-NetworkEnvironment
 
 $scriptRoot = if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
@@ -132,6 +190,15 @@ if ([string]::IsNullOrWhiteSpace($ManifestPath)) {
 $resolvedRepoRoot = Resolve-FullPath -Path $RepoRoot -BasePath (Get-Location).Path
 $resolvedManifestPath = Resolve-FullPath -Path $ManifestPath -BasePath $resolvedRepoRoot
 $manifest = Get-Content -LiteralPath $resolvedManifestPath -Raw | ConvertFrom-Json
+$resolvedBaseRuntimeArchivePath = if (
+    ($manifest.PSObject.Properties.Name -contains "baseRuntimeArchivePath") -and
+    -not [string]::IsNullOrWhiteSpace([string]$manifest.baseRuntimeArchivePath)
+) {
+    Resolve-FullPath -Path ([string]$manifest.baseRuntimeArchivePath) -BasePath $resolvedRepoRoot
+}
+else {
+    $null
+}
 $resolvedOutputZipPath = if ([string]::IsNullOrWhiteSpace($OutputZipPath)) {
     Resolve-FullPath -Path $manifest.outputZipPath -BasePath $resolvedRepoRoot
 }
@@ -150,8 +217,9 @@ $downloadsPath = Join-Path $workingRootPath "downloads"
 $runtimeRootPath = Join-Path $workingRootPath "runtime"
 $pythonEmbedArchivePath = Join-Path $downloadsPath "python-embed.zip"
 $getPipScriptPath = Join-Path $downloadsPath "get-pip.py"
+$prefetchedPackagesPath = Join-Path $downloadsPath "runtime-packages"
 $importCheckScriptPath = Join-Path $workingRootPath "import-check.py"
-$stagedArchivePath = Join-Path $workingRootPath "demucs-runtime-win-x64-cpu.zip"
+$stagedArchivePath = Join-Path $workingRootPath ([System.IO.Path]::GetFileName($resolvedOutputZipPath))
 
 Write-Step ("Repo root: {0}" -f $resolvedRepoRoot)
 Write-Step ("Manifest: {0}" -f $resolvedManifestPath)
@@ -164,44 +232,73 @@ try {
     New-Item -ItemType Directory -Path $runtimeRootPath -Force | Out-Null
     New-Item -ItemType Directory -Path ([System.IO.Path]::GetDirectoryName($resolvedOutputZipPath)) -Force | Out-Null
 
-    Write-Step ("Downloading Python embeddable runtime {0}" -f $manifest.python.version)
-    Download-FileWithFallback -CandidateUrls @([string]$manifest.python.embedUrl) -DestinationPath $pythonEmbedArchivePath
-
     Write-Step "Downloading get-pip bootstrap"
     Download-FileWithFallback -CandidateUrls @(
         [string]$manifest.python.getPipUrl,
         "https://bootstrap.pypa.io/get-pip.py"
     ) -DestinationPath $getPipScriptPath
 
-    Write-Step "Extracting Python embeddable runtime"
-    Expand-Archive -LiteralPath $pythonEmbedArchivePath -DestinationPath $runtimeRootPath -Force
+    if ($null -ne $resolvedBaseRuntimeArchivePath) {
+        if (-not (Test-Path -LiteralPath $resolvedBaseRuntimeArchivePath)) {
+            throw ("The base runtime archive was not found: {0}" -f $resolvedBaseRuntimeArchivePath)
+        }
+
+        Write-Step ("Extracting base runtime archive: {0}" -f $resolvedBaseRuntimeArchivePath)
+        Expand-Archive -LiteralPath $resolvedBaseRuntimeArchivePath -DestinationPath $runtimeRootPath -Force
+    }
+    else {
+        Write-Step ("Downloading Python embeddable runtime {0}" -f $manifest.python.version)
+        Download-FileWithFallback -CandidateUrls @([string]$manifest.python.embedUrl) -DestinationPath $pythonEmbedArchivePath
+
+        Write-Step "Extracting Python embeddable runtime"
+        Expand-Archive -LiteralPath $pythonEmbedArchivePath -DestinationPath $runtimeRootPath -Force
+    }
 
     $pythonExecutablePath = Join-Path $runtimeRootPath "python.exe"
     if (-not (Test-Path -LiteralPath $pythonExecutablePath)) {
         throw "python.exe was not found after extracting the embeddable runtime."
     }
 
-    $pythonPthFile = Get-ChildItem -LiteralPath $runtimeRootPath -Filter "python*._pth" -File | Select-Object -First 1
-    if ($null -eq $pythonPthFile) {
-        throw "The embeddable runtime did not contain a python*._pth file."
-    }
+    if ($null -eq $resolvedBaseRuntimeArchivePath) {
+        $pythonPthFile = Get-ChildItem -LiteralPath $runtimeRootPath -Filter "python*._pth" -File | Select-Object -First 1
+        if ($null -eq $pythonPthFile) {
+            throw "The embeddable runtime did not contain a python*._pth file."
+        }
 
-    $pythonZipFile = Get-ChildItem -LiteralPath $runtimeRootPath -Filter "python*.zip" -File | Select-Object -First 1
-    if ($null -eq $pythonZipFile) {
-        throw "The embeddable runtime did not contain python*.zip."
-    }
+        $pythonZipFile = Get-ChildItem -LiteralPath $runtimeRootPath -Filter "python*.zip" -File | Select-Object -First 1
+        if ($null -eq $pythonZipFile) {
+            throw "The embeddable runtime did not contain python*.zip."
+        }
 
-    Write-Step ("Configuring {0}" -f $pythonPthFile.Name)
-    Set-Content -LiteralPath $pythonPthFile.FullName -Value @(
-        $pythonZipFile.Name
-        "."
-        "Lib\site-packages"
-        "import site"
-    ) -Encoding Ascii
+        Write-Step ("Configuring {0}" -f $pythonPthFile.Name)
+        Set-Content -LiteralPath $pythonPthFile.FullName -Value @(
+            $pythonZipFile.Name
+            "."
+            "Lib\site-packages"
+            "import site"
+        ) -Encoding Ascii
+    }
 
     Write-Step "Bootstrapping pip into the embedded runtime"
-    $bootstrapArgs = @($getPipScriptPath) + @([string[]]$manifest.bootstrapPackages)
+    $bootstrapArgs = @($getPipScriptPath) + @(Get-ManifestStringArray -ManifestObject $manifest -PropertyName "bootstrapPackages")
     Invoke-ExternalCommand -FilePath $pythonExecutablePath -ArgumentList $bootstrapArgs -WorkingDirectory $workingRootPath
+
+    $prefetchedRuntimePackagePaths = @()
+    $prefetchPackageUrls = @(Get-ManifestStringArray -ManifestObject $manifest -PropertyName "prefetchPackageUrls")
+    if ($prefetchPackageUrls.Count -gt 0) {
+        New-Item -ItemType Directory -Path $prefetchedPackagesPath -Force | Out-Null
+
+        foreach ($packageUrl in $prefetchPackageUrls) {
+            $prefetchedPackagePath = Join-Path $prefetchedPackagesPath (Get-UriLeafName -Uri $packageUrl)
+            Download-FileWithFallback -CandidateUrls @($packageUrl) -DestinationPath $prefetchedPackagePath
+            $prefetchedRuntimePackagePaths += $prefetchedPackagePath
+        }
+    }
+
+    $lockedRuntimePackages = @(Get-ManifestStringArray -ManifestObject $manifest -PropertyName "runtimePackages")
+    if (($prefetchedRuntimePackagePaths.Count + $lockedRuntimePackages.Count) -eq 0) {
+        throw "The manifest did not define any runtime packages to install."
+    }
 
     Write-Step "Installing locked runtime packages"
     $pipInstallArgs = @(
@@ -218,7 +315,14 @@ try {
         "--trusted-host",
         "files.pythonhosted.org",
         "--proxy="
-    ) + @([string[]]$manifest.runtimePackages)
+    )
+
+    foreach ($extraIndexUrl in (Get-ManifestStringArray -ManifestObject $manifest -PropertyName "extraIndexUrls")) {
+        $pipInstallArgs += @("--extra-index-url", $extraIndexUrl)
+    }
+
+    $pipInstallArgs += @(Get-ManifestStringArray -ManifestObject $manifest -PropertyName "pipInstallArguments")
+    $pipInstallArgs += $prefetchedRuntimePackagePaths + $lockedRuntimePackages
     Invoke-ExternalCommand -FilePath $pythonExecutablePath -ArgumentList $pipInstallArgs -WorkingDirectory $workingRootPath
 
     Write-Step "Removing build-only tools and Python cache files"
@@ -227,28 +331,35 @@ try {
     Remove-GlobMatches -Pattern (Join-Path $runtimeRootPath "Lib\site-packages\wheel*")
     Remove-PythonCacheArtifacts -RootPath $runtimeRootPath
 
-    Set-Content -LiteralPath $importCheckScriptPath -Encoding Ascii -Value @'
-import demucs
-import soundfile
-import torch
-import torchaudio
+    $importCheckScriptLines = @(Get-ManifestStringArray -ManifestObject $manifest -PropertyName "importCheckScriptLines")
+    if ($importCheckScriptLines.Count -eq 0) {
+        $importCheckScriptLines = @(
+            "import demucs",
+            "import soundfile",
+            "import torch",
+            "import torchaudio",
+            "",
+            "backends = list(getattr(torchaudio, ""list_audio_backends"", lambda: [])())",
+            "if ""soundfile"" not in backends:",
+            "    raise RuntimeError(f""soundfile backend missing: {backends}"")",
+            "",
+            "print(f""demucs={demucs.__version__}"")",
+            "print(f""torch={torch.__version__}"")",
+            "print(f""torchaudio={torchaudio.__version__}"")",
+            "print(f""soundfile={soundfile.__version__}"")"
+        )
+    }
+    else {
+        $importCheckScriptLines = @($importCheckScriptLines)
+    }
 
-backends = list(getattr(torchaudio, "list_audio_backends", lambda: [])())
-if "soundfile" not in backends:
-    raise RuntimeError(f"soundfile backend missing: {backends}")
-
-print(f"demucs={demucs.__version__}")
-print(f"torch={torch.__version__}")
-print(f"torchaudio={torchaudio.__version__}")
-print(f"soundfile={soundfile.__version__}")
-'@
+    Set-Content -LiteralPath $importCheckScriptPath -Encoding Ascii -Value $importCheckScriptLines
 
     Write-Step "Running import verification against the cleaned runtime"
     Invoke-ExternalCommand -FilePath $pythonExecutablePath -ArgumentList @($importCheckScriptPath) -WorkingDirectory $workingRootPath
 
     Write-Step "Compressing runtime payload"
-    Remove-PathIfExists -Path $stagedArchivePath
-    Compress-Archive -Path (Join-Path $runtimeRootPath "*") -DestinationPath $stagedArchivePath -CompressionLevel Optimal
+    Compress-DirectoryWithRetry -SourceDirectoryPath $runtimeRootPath -DestinationArchivePath $stagedArchivePath
 
     Remove-PathIfExists -Path $resolvedOutputZipPath
     Move-Item -LiteralPath $stagedArchivePath -Destination $resolvedOutputZipPath

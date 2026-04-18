@@ -66,16 +66,17 @@ function Invoke-SmokeHarness {
         [Parameter(Mandatory = $true)][string]$InputPath,
         [Parameter(Mandatory = $true)][string]$OutputDirectory,
         [Parameter(Mandatory = $true)][string]$OutputExtension,
+        [Parameter(Mandatory = $true)][string]$AccelerationMode,
         [Parameter(Mandatory = $true)][string]$WorkingDirectory
     )
 
-    Write-Step ("Smoke run for {0} -> {1}" -f (Split-Path -Path $InputPath -Leaf), $OutputExtension)
+    Write-Step ("Smoke run for {0} -> {1} ({2})" -f (Split-Path -Path $InputPath -Leaf), $OutputExtension, $AccelerationMode)
 
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 
     Push-Location $WorkingDirectory
     try {
-        $outputLines = & dotnet $HarnessDllPath $InputPath $OutputDirectory $OutputExtension 2>&1 | Tee-Object -Variable capturedOutput
+        $outputLines = & dotnet $HarnessDllPath $InputPath $OutputDirectory $OutputExtension $AccelerationMode 2>&1 | Tee-Object -Variable capturedOutput
         $exitCode = $LASTEXITCODE
     }
     finally {
@@ -104,6 +105,46 @@ function Assert-StemOutputs {
     }
 }
 
+function Assert-ExecutionPlanOutput {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$CapturedOutput,
+        [Parameter(Mandatory = $true)][string]$ExpectedAccelerationMode
+    )
+
+    $planLine = $CapturedOutput | Where-Object { $_ -like "EXECUTION_PLAN=*" } | Select-Object -Last 1
+    if ([string]::IsNullOrWhiteSpace($planLine)) {
+        throw "Smoke harness did not emit EXECUTION_PLAN."
+    }
+
+    $deviceKindLine = $CapturedOutput | Where-Object { $_ -like "EXECUTION_DEVICE_KIND=*" } | Select-Object -Last 1
+    if ([string]::IsNullOrWhiteSpace($deviceKindLine)) {
+        throw "Smoke harness did not emit EXECUTION_DEVICE_KIND."
+    }
+
+    $runtimeVariantLine = $CapturedOutput | Where-Object { $_ -like "EXECUTION_RUNTIME_VARIANT=*" } | Select-Object -Last 1
+    if ([string]::IsNullOrWhiteSpace($runtimeVariantLine)) {
+        throw "Smoke harness did not emit EXECUTION_RUNTIME_VARIANT."
+    }
+
+    if ($ExpectedAccelerationMode -eq "Cpu" -and $deviceKindLine -ne "EXECUTION_DEVICE_KIND=Cpu") {
+        throw ("Expected CPU execution, but saw: {0}" -f $deviceKindLine)
+    }
+
+    if ($ExpectedAccelerationMode -eq "Cpu" -and $runtimeVariantLine -ne "EXECUTION_RUNTIME_VARIANT=Cpu") {
+        throw ("Expected CPU runtime variant, but saw: {0}" -f $runtimeVariantLine)
+    }
+
+    if ($ExpectedAccelerationMode -eq "GpuPreferred" -and
+        $deviceKindLine -notmatch "^EXECUTION_DEVICE_KIND=(DiscreteGpu|IntegratedGpu|UnknownGpu|Cpu)$") {
+        throw ("Unexpected GPU-preferred execution result: {0}" -f $deviceKindLine)
+    }
+
+    if ($ExpectedAccelerationMode -eq "GpuPreferred" -and
+        $runtimeVariantLine -notmatch "^EXECUTION_RUNTIME_VARIANT=(Cuda|DirectMl|Cpu)$") {
+        throw ("Unexpected GPU-preferred runtime variant: {0}" -f $runtimeVariantLine)
+    }
+}
+
 $scriptRoot = if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
     $PSScriptRoot
 }
@@ -119,9 +160,17 @@ $resolvedRepoRoot = Resolve-FullPath -Path $RepoRoot -BasePath (Get-Location).Pa
 $resolvedProjectPath = Resolve-FullPath -Path $ProjectPath -BasePath $resolvedRepoRoot
 $projectDirectory = Split-Path -Path $resolvedProjectPath -Parent
 $framework = "net8.0-windows10.0.19041.0"
-$harnessOutputDirectory = Join-Path $projectDirectory ("bin\{0}\{1}" -f $Configuration, $framework)
+$harnessOutputDirectory = Join-Path $resolvedRepoRoot ("artifacts\split-audio-offline-smoke\{0}\{1}" -f $Configuration, $framework)
+$buildOutputDirectoryArgument = if ($harnessOutputDirectory.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
+    $harnessOutputDirectory
+}
+else {
+    "{0}{1}" -f $harnessOutputDirectory, [System.IO.Path]::DirectorySeparatorChar
+}
 $harnessDllPath = Join-Path $harnessOutputDirectory "SplitAudioOfflineSmoke.dll"
-$runtimeExtractionPath = Join-Path $harnessOutputDirectory "Tools\Demucs\Current"
+$cpuRuntimeExtractionPath = Join-Path $harnessOutputDirectory "Tools\Demucs\Current"
+$directMlRuntimeExtractionPath = Join-Path $harnessOutputDirectory "Tools\Demucs\CurrentGpu"
+$cudaRuntimeExtractionPath = Join-Path $harnessOutputDirectory "Tools\Demucs\CurrentGpuCuda"
 $repoFfmpegPath = Resolve-FullPath -Path "Tools/ffmpeg/ffmpeg.exe" -BasePath $resolvedRepoRoot
 
 if (-not (Test-Path -LiteralPath $repoFfmpegPath)) {
@@ -129,7 +178,15 @@ if (-not (Test-Path -LiteralPath $repoFfmpegPath)) {
 }
 
 if (-not $SkipBuild) {
-    Invoke-ExternalCommand -FilePath "dotnet" -ArgumentList @("build", $resolvedProjectPath, "-c", $Configuration) -WorkingDirectory $resolvedRepoRoot
+    Remove-PathIfExists -Path $harnessOutputDirectory
+    Invoke-ExternalCommand -FilePath "dotnet" -ArgumentList @(
+        "build",
+        $resolvedProjectPath,
+        "-c",
+        $Configuration,
+        "-p:UseAppHost=false",
+        "-p:OutDir=$buildOutputDirectoryArgument"
+    ) -WorkingDirectory $resolvedRepoRoot
 }
 
 if (-not (Test-Path -LiteralPath $harnessDllPath)) {
@@ -150,7 +207,9 @@ try {
     New-Item -ItemType Directory -Path $tempRootPath -Force | Out-Null
 
     Write-Step "Clearing extracted runtime to force first-run unzip validation"
-    Remove-PathIfExists -Path $runtimeExtractionPath
+    Remove-PathIfExists -Path $cpuRuntimeExtractionPath
+    Remove-PathIfExists -Path $directMlRuntimeExtractionPath
+    Remove-PathIfExists -Path $cudaRuntimeExtractionPath
 
     Write-Step "Generating sample audio input"
     Invoke-ExternalCommand -FilePath $repoFfmpegPath -ArgumentList @(
@@ -165,11 +224,12 @@ try {
         $audioInputPath
     ) -WorkingDirectory $resolvedRepoRoot
 
-    $audioRunOutput = Invoke-SmokeHarness -HarnessDllPath $harnessDllPath -InputPath $audioInputPath -OutputDirectory $audioOutputPath -OutputExtension ".mp3" -WorkingDirectory $resolvedRepoRoot
+    $audioRunOutput = Invoke-SmokeHarness -HarnessDllPath $harnessDllPath -InputPath $audioInputPath -OutputDirectory $audioOutputPath -OutputExtension ".mp3" -AccelerationMode "Cpu" -WorkingDirectory $resolvedRepoRoot
     Assert-StemOutputs -OutputDirectory $audioOutputPath -InputBaseName "sample-audio" -OutputExtension ".mp3"
+    Assert-ExecutionPlanOutput -CapturedOutput $audioRunOutput -ExpectedAccelerationMode "Cpu"
 
-    if (-not (Test-Path -LiteralPath (Join-Path $runtimeExtractionPath "python.exe"))) {
-        throw ("Expected extracted runtime was not found after the first smoke run: {0}" -f $runtimeExtractionPath)
+    if (-not (Test-Path -LiteralPath (Join-Path $cpuRuntimeExtractionPath "python.exe"))) {
+        throw ("Expected extracted CPU runtime was not found after the first smoke run: {0}" -f $cpuRuntimeExtractionPath)
     }
 
     Write-Step "Generating sample video input"
@@ -194,8 +254,15 @@ try {
         $videoInputPath
     ) -WorkingDirectory $resolvedRepoRoot
 
-    $videoRunOutput = Invoke-SmokeHarness -HarnessDllPath $harnessDllPath -InputPath $videoInputPath -OutputDirectory $videoOutputPath -OutputExtension ".flac" -WorkingDirectory $resolvedRepoRoot
+    $videoRunOutput = Invoke-SmokeHarness -HarnessDllPath $harnessDllPath -InputPath $videoInputPath -OutputDirectory $videoOutputPath -OutputExtension ".flac" -AccelerationMode "GpuPreferred" -WorkingDirectory $resolvedRepoRoot
     Assert-StemOutputs -OutputDirectory $videoOutputPath -InputBaseName "sample-video" -OutputExtension ".flac"
+    Assert-ExecutionPlanOutput -CapturedOutput $videoRunOutput -ExpectedAccelerationMode "GpuPreferred"
+
+    if (-not (Test-Path -LiteralPath (Join-Path $directMlRuntimeExtractionPath "python.exe"))) {
+        if (-not (Test-Path -LiteralPath (Join-Path $cudaRuntimeExtractionPath "python.exe"))) {
+            throw ("Expected extracted GPU runtime was not found after the GPU-preferred smoke run: {0} / {1}" -f $directMlRuntimeExtractionPath, $cudaRuntimeExtractionPath)
+        }
+    }
 
     Write-Step "Offline smoke regression passed."
     Write-Host ("AUDIO_OUTPUT_DIR={0}" -f $audioOutputPath)

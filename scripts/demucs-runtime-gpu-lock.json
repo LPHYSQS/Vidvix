@@ -1,0 +1,41 @@
+{
+  "outputZipPath": "Tools/Demucs/Packages/demucs-runtime-win-x64-gpu.zip",
+  "python": {
+    "version": "3.10.11",
+    "embedUrl": "https://www.python.org/ftp/python/3.10.11/python-3.10.11-embed-amd64.zip",
+    "getPipUrl": "https://bootstrap.pypa.io/get-pip.py"
+  },
+  "bootstrapPackages": [
+    "pip==25.0.1",
+    "setuptools==75.8.0",
+    "wheel==0.45.1"
+  ],
+  "prefetchPackageUrls": [
+    "https://files.pythonhosted.org/packages/5d/4c/b2a59ff0e265f5ee154f0d81e948b1518b94f545357731e1a3245ee5d45b/torch-2.4.1-cp310-cp310-win_amd64.whl",
+    "https://files.pythonhosted.org/packages/89/6c/de1d69025456c14c4bc5e1a92967d3343ec95a7d3c9e211f8c01ea1eac5a/torchaudio-2.4.1-cp310-cp310-win_amd64.whl",
+    "https://files.pythonhosted.org/packages/f7/8e/cbae11f8046d433881b478afc9e7589a76158124779cbc3a40163ec716bf/torchvision-0.19.1-cp310-cp310-win_amd64.whl",
+    "https://files.pythonhosted.org/packages/8e/f9/a188cc5e989881b98d3c3d8170ad95c783def75f2d544cebcb98507549fc/torch_directml-0.2.5.dev240914-cp310-cp310-win_amd64.whl"
+  ],
+  "runtimePackages": [
+    "demucs==4.0.1",
+    "soundfile==0.13.1"
+  ],
+  "importCheckScriptLines": [
+    "import demucs",
+    "import soundfile",
+    "import torch",
+    "import torch_directml",
+    "import torchaudio",
+    "",
+    "backends = list(getattr(torchaudio, \"list_audio_backends\", lambda: [])())",
+    "if \"soundfile\" not in backends:",
+    "    raise RuntimeError(f\"soundfile backend missing: {backends}\")",
+    "",
+    "print(f\"demucs={demucs.__version__}\")",
+    "print(f\"torch={torch.__version__}\")",
+    "print(f\"torchaudio={torchaudio.__version__}\")",
+    "print(f\"soundfile={soundfile.__version__}\")",
+    "print(f\"torch_directml_available={torch_directml.is_available()}\")",
+    "print(f\"torch_directml_devices={torch_directml.device_count()}\")"
+  ]
+}

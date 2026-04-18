@@ -61,17 +61,29 @@ public sealed class ApplicationConfiguration
 
     public string DemucsRuntimeDirectoryName { get; init; } = "Current";
 
+    public string DemucsGpuRuntimeDirectoryName { get; init; } = "CurrentGpu";
+
+    public string DemucsCudaRuntimeDirectoryName { get; init; } = "CurrentGpuCuda";
+
     public string DemucsPackagesDirectoryName { get; init; } = "Packages";
 
     public string DemucsModelsDirectoryName { get; init; } = "Models";
 
     public string DemucsRuntimeArchiveFileName { get; init; } = "demucs-runtime-win-x64-cpu.zip";
 
+    public string DemucsGpuRuntimeArchiveFileName { get; init; } = "demucs-runtime-win-x64-gpu.zip";
+
+    public string DemucsCudaRuntimeArchiveFileName { get; init; } = "demucs-runtime-win-x64-gpu-cuda.zip";
+
     public string DemucsModelArchiveFileName { get; init; } = "demucs-model-htdemucs_ft.zip";
 
     public string DemucsPythonExecutableFileName { get; init; } = "python.exe";
 
     public string DemucsModelName { get; init; } = "htdemucs_ft";
+
+    public string DemucsScriptsDirectoryName { get; init; } = "Scripts";
+
+    public string DemucsRunnerScriptFileName { get; init; } = "demucs_runner.py";
 
     public IReadOnlyList<string> DemucsRequiredModelFileNames { get; init; } =
         new[]
@@ -81,6 +93,19 @@ public sealed class ApplicationConfiguration
             "d12395a8-e57c48e6.th",
             "92cfc3b6-ef3bcb9c.th",
             "04573f0d-f3cf25b2.th"
+        };
+
+    public IReadOnlyList<DemucsAccelerationModeOption> SupportedSplitAudioAccelerationModes { get; init; } =
+        new[]
+        {
+            new DemucsAccelerationModeOption(
+                DemucsAccelerationMode.Cpu,
+                "CPU 兼容模式",
+                "固定使用内置 CPU 运行时拆音，兼容性最高，适合所有机器。"),
+            new DemucsAccelerationModeOption(
+                DemucsAccelerationMode.GpuPreferred,
+                "GPU 优先（独显 -> 核显 -> CPU）",
+                "先尝试独立显卡，NVIDIA 独显优先走 CUDA，其它 GPU 再走 DirectML；如果 GPU 不可用，则自动回退到 CPU。")
         };
 
     public Uri FFmpegArchiveUri { get; init; } =

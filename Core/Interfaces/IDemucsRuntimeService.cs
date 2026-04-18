@@ -6,5 +6,7 @@ namespace Vidvix.Core.Interfaces;
 
 public interface IDemucsRuntimeService
 {
-    Task<DemucsRuntimeResolution> EnsureAvailableAsync(CancellationToken cancellationToken = default);
+    Task<DemucsRuntimeResolution> EnsureAvailableAsync(
+        CancellationToken cancellationToken = default,
+        DemucsRuntimeVariant runtimeVariant = DemucsRuntimeVariant.Cpu);
 }

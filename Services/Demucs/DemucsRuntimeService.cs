@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -14,7 +15,7 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
     private readonly ApplicationConfiguration _configuration;
     private readonly ILogger _logger;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
-    private DemucsRuntimeResolution? _cachedResolution;
+    private readonly Dictionary<DemucsRuntimeVariant, DemucsRuntimeResolution> _cachedResolutions = new();
 
     public DemucsRuntimeService(
         ApplicationConfiguration configuration,
@@ -24,9 +25,11 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<DemucsRuntimeResolution> EnsureAvailableAsync(CancellationToken cancellationToken = default)
+    public async Task<DemucsRuntimeResolution> EnsureAvailableAsync(
+        CancellationToken cancellationToken = default,
+        DemucsRuntimeVariant runtimeVariant = DemucsRuntimeVariant.Cpu)
     {
-        if (TryGetCachedResolution(out var cachedResolution))
+        if (TryGetCachedResolution(runtimeVariant, out var cachedResolution))
         {
             return cachedResolution;
         }
@@ -35,7 +38,7 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
 
         try
         {
-            if (TryGetCachedResolution(out cachedResolution))
+            if (TryGetCachedResolution(runtimeVariant, out cachedResolution))
             {
                 return cachedResolution;
             }
@@ -43,22 +46,23 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
             var storageRootPath = ResolveWritableStorageRootPath();
             Directory.CreateDirectory(storageRootPath);
 
-            var runtimeRootPath = FindAvailableRuntimeRootPath(storageRootPath);
+            var runtimeRootPath = FindAvailableRuntimeRootPath(storageRootPath, runtimeVariant);
             var modelRepositoryPath = FindAvailableModelRepositoryPath(storageRootPath);
             var wasExtracted = false;
 
             if (string.IsNullOrWhiteSpace(runtimeRootPath))
             {
-                var runtimeArchivePath = GetBundledRuntimeArchivePath();
+                var runtimeArchivePath = GetBundledRuntimeArchivePath(runtimeVariant);
                 if (!File.Exists(runtimeArchivePath))
                 {
                     throw new InvalidOperationException(
-                        $"未找到离线 Demucs 运行时包，请补齐 {Path.Combine("Tools", _configuration.DemucsDirectoryName, _configuration.DemucsPackagesDirectoryName, _configuration.DemucsRuntimeArchiveFileName)}。");
+                        $"未找到离线 Demucs {GetRuntimeVariantDisplayName(runtimeVariant)} 运行时包，请补齐 {Path.Combine("Tools", _configuration.DemucsDirectoryName, _configuration.DemucsPackagesDirectoryName, GetRuntimeArchiveFileName(runtimeVariant))}。");
                 }
 
                 runtimeRootPath = await ExtractRuntimeArchiveAsync(
                     runtimeArchivePath,
                     storageRootPath,
+                    runtimeVariant,
                     cancellationToken).ConfigureAwait(false);
                 wasExtracted = true;
             }
@@ -83,8 +87,10 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
                 ?? throw new InvalidOperationException("Demucs 运行时目录中缺少 python.exe。");
 
             return CacheResolution(
+                runtimeVariant,
                 new DemucsRuntimeResolution
                 {
+                    RuntimeVariant = runtimeVariant,
                     PythonExecutablePath = pythonExecutablePath,
                     RuntimeRootPath = runtimeRootPath,
                     ModelRepositoryPath = modelRepositoryPath,
@@ -97,13 +103,13 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
         }
     }
 
-    private bool TryGetCachedResolution(out DemucsRuntimeResolution resolution)
+    private bool TryGetCachedResolution(DemucsRuntimeVariant runtimeVariant, out DemucsRuntimeResolution resolution)
     {
-        if (_cachedResolution is not null &&
-            File.Exists(_cachedResolution.PythonExecutablePath) &&
-            IsValidModelRepository(_cachedResolution.ModelRepositoryPath))
+        if (_cachedResolutions.TryGetValue(runtimeVariant, out var cachedResolution) &&
+            File.Exists(cachedResolution.PythonExecutablePath) &&
+            IsValidModelRepository(cachedResolution.ModelRepositoryPath))
         {
-            resolution = _cachedResolution;
+            resolution = cachedResolution;
             return true;
         }
 
@@ -111,21 +117,23 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
         return false;
     }
 
-    private DemucsRuntimeResolution CacheResolution(DemucsRuntimeResolution resolution)
+    private DemucsRuntimeResolution CacheResolution(
+        DemucsRuntimeVariant runtimeVariant,
+        DemucsRuntimeResolution resolution)
     {
-        _cachedResolution = resolution;
+        _cachedResolutions[runtimeVariant] = resolution;
         return resolution;
     }
 
-    private string FindAvailableRuntimeRootPath(string storageRootPath)
+    private string FindAvailableRuntimeRootPath(string storageRootPath, DemucsRuntimeVariant runtimeVariant)
     {
-        var bundledRuntimeRootPath = GetBundledRuntimeRootPath();
+        var bundledRuntimeRootPath = GetBundledRuntimeRootPath(runtimeVariant);
         if (!string.IsNullOrWhiteSpace(FindRuntimeExecutablePath(bundledRuntimeRootPath)))
         {
             return bundledRuntimeRootPath;
         }
 
-        var extractedRuntimeRootPath = GetExtractedRuntimeRootPath(storageRootPath);
+        var extractedRuntimeRootPath = GetExtractedRuntimeRootPath(storageRootPath, runtimeVariant);
         return !string.IsNullOrWhiteSpace(FindRuntimeExecutablePath(extractedRuntimeRootPath))
             ? extractedRuntimeRootPath
             : string.Empty;
@@ -146,9 +154,10 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
     private async Task<string> ExtractRuntimeArchiveAsync(
         string archivePath,
         string storageRootPath,
+        DemucsRuntimeVariant runtimeVariant,
         CancellationToken cancellationToken)
     {
-        _logger.Log(LogLevel.Info, "正在解压 Demucs 离线运行时...");
+        _logger.Log(LogLevel.Info, $"正在解压 Demucs {GetRuntimeVariantDisplayName(runtimeVariant)} 离线运行时...");
 
         var stagingDirectoryPath = Path.Combine(storageRootPath, $".demucs-runtime-staging-{Guid.NewGuid():N}");
         Directory.CreateDirectory(stagingDirectoryPath);
@@ -161,7 +170,7 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
             var extractedRuntimeRootPath = ResolveExtractedRuntimeRootPath(stagingDirectoryPath)
                 ?? throw new InvalidOperationException("Demucs 运行时包中缺少 python.exe。");
 
-            var targetRuntimeRootPath = GetExtractedRuntimeRootPath(storageRootPath);
+            var targetRuntimeRootPath = GetExtractedRuntimeRootPath(storageRootPath, runtimeVariant);
             if (Directory.Exists(targetRuntimeRootPath))
             {
                 Directory.Delete(targetRuntimeRootPath, recursive: true);
@@ -170,12 +179,12 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
             Directory.CreateDirectory(Path.GetDirectoryName(targetRuntimeRootPath)!);
             Directory.Move(extractedRuntimeRootPath, targetRuntimeRootPath);
 
-            _logger.Log(LogLevel.Info, "Demucs 离线运行时已准备完成。");
+            _logger.Log(LogLevel.Info, $"Demucs {GetRuntimeVariantDisplayName(runtimeVariant)} 离线运行时已准备完成。");
             return targetRuntimeRootPath;
         }
         catch
         {
-            TryDeleteDirectory(GetExtractedRuntimeRootPath(storageRootPath));
+            TryDeleteDirectory(GetExtractedRuntimeRootPath(storageRootPath, runtimeVariant));
             throw;
         }
         finally
@@ -247,12 +256,12 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
         return fallbackRootPath;
     }
 
-    private string GetBundledRuntimeRootPath() =>
+    private string GetBundledRuntimeRootPath(DemucsRuntimeVariant runtimeVariant) =>
         Path.Combine(
             AppContext.BaseDirectory,
             _configuration.RuntimeDirectoryName,
             _configuration.DemucsDirectoryName,
-            _configuration.DemucsRuntimeDirectoryName);
+            GetRuntimeDirectoryName(runtimeVariant));
 
     private string GetBundledModelRootPath() =>
         Path.Combine(
@@ -261,13 +270,13 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
             _configuration.DemucsDirectoryName,
             _configuration.DemucsModelsDirectoryName);
 
-    private string GetBundledRuntimeArchivePath() =>
+    private string GetBundledRuntimeArchivePath(DemucsRuntimeVariant runtimeVariant) =>
         Path.Combine(
             AppContext.BaseDirectory,
             _configuration.RuntimeDirectoryName,
             _configuration.DemucsDirectoryName,
             _configuration.DemucsPackagesDirectoryName,
-            _configuration.DemucsRuntimeArchiveFileName);
+            GetRuntimeArchiveFileName(runtimeVariant));
 
     private string GetBundledModelArchivePath() =>
         Path.Combine(
@@ -277,8 +286,8 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
             _configuration.DemucsPackagesDirectoryName,
             _configuration.DemucsModelArchiveFileName);
 
-    private string GetExtractedRuntimeRootPath(string storageRootPath) =>
-        Path.Combine(storageRootPath, _configuration.DemucsRuntimeDirectoryName);
+    private string GetExtractedRuntimeRootPath(string storageRootPath, DemucsRuntimeVariant runtimeVariant) =>
+        Path.Combine(storageRootPath, GetRuntimeDirectoryName(runtimeVariant));
 
     private string GetExtractedModelRootPath(string storageRootPath) =>
         Path.Combine(storageRootPath, _configuration.DemucsModelsDirectoryName);
@@ -382,4 +391,28 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
         {
         }
     }
+
+    private string GetRuntimeDirectoryName(DemucsRuntimeVariant runtimeVariant) =>
+        runtimeVariant switch
+        {
+            DemucsRuntimeVariant.Cuda => _configuration.DemucsCudaRuntimeDirectoryName,
+            DemucsRuntimeVariant.DirectMl => _configuration.DemucsGpuRuntimeDirectoryName,
+            _ => _configuration.DemucsRuntimeDirectoryName
+        };
+
+    private string GetRuntimeArchiveFileName(DemucsRuntimeVariant runtimeVariant) =>
+        runtimeVariant switch
+        {
+            DemucsRuntimeVariant.Cuda => _configuration.DemucsCudaRuntimeArchiveFileName,
+            DemucsRuntimeVariant.DirectMl => _configuration.DemucsGpuRuntimeArchiveFileName,
+            _ => _configuration.DemucsRuntimeArchiveFileName
+        };
+
+    private static string GetRuntimeVariantDisplayName(DemucsRuntimeVariant runtimeVariant) =>
+        runtimeVariant switch
+        {
+            DemucsRuntimeVariant.Cuda => "CUDA",
+            DemucsRuntimeVariant.DirectMl => "DirectML",
+            _ => "CPU"
+        };
 }

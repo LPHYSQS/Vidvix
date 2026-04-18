@@ -351,6 +351,20 @@
                     <StackPanel Spacing="8">
                         <TextBlock
                             FontWeight="SemiBold"
+                            Text="拆音加速模式" />
+                        <ComboBox
+                            DisplayMemberPath="DisplayName"
+                            ItemsSource="{x:Bind ViewModel.AvailableAccelerationModes, Mode=OneWay}"
+                            SelectedItem="{x:Bind ViewModel.SelectedAccelerationMode, Mode=TwoWay}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.SelectedAccelerationModeDescription, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock
+                            FontWeight="SemiBold"
                             Text="当前状态" />
                         <Border
                             Padding="12"

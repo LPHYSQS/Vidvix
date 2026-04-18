@@ -33,6 +33,7 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
     private readonly RelayCommand _revealFileCommand;
 
     private OutputFormatOption? _selectedOutputFormat;
+    private DemucsAccelerationModeOption? _selectedAccelerationMode;
     private string _outputDirectory = string.Empty;
     private string _statusMessage;
     private string _inputPath = string.Empty;
@@ -64,6 +65,7 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
 
         var preferences = _userPreferencesService.Load();
         _selectedOutputFormat = ResolvePreferredOutputFormat(preferences.PreferredSplitAudioOutputFormatExtension);
+        _selectedAccelerationMode = ResolvePreferredAccelerationMode(preferences.PreferredSplitAudioAccelerationMode);
         _outputDirectory = NormalizeOutputDirectory(preferences.PreferredSplitAudioOutputDirectory);
         _statusMessage = "请导入 1 个音频或视频文件，系统会先标准化音频，再调用 Demucs 执行四轨拆分。";
         _inputSummaryText = "支持视频与纯音频输入；如果导入视频，会自动提取主音轨后再开始拆音。";
@@ -80,6 +82,9 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
     public ObservableCollection<SplitAudioResultItemViewModel> ResultItems { get; } = new();
 
     public IReadOnlyList<OutputFormatOption> AvailableOutputFormats => _configuration.SupportedAudioOutputFormats;
+
+    public IReadOnlyList<DemucsAccelerationModeOption> AvailableAccelerationModes =>
+        _configuration.SupportedSplitAudioAccelerationModes;
 
     public ICommand SelectInputCommand => _selectInputCommand;
 
@@ -155,6 +160,33 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
     }
 
     public string SelectedOutputFormatDescription => SelectedOutputFormat.Description;
+
+    public DemucsAccelerationModeOption SelectedAccelerationMode
+    {
+        get => _selectedAccelerationMode ?? AvailableAccelerationModes.First();
+        set
+        {
+            if (value is null)
+            {
+                return;
+            }
+
+            if (SetProperty(ref _selectedAccelerationMode, value))
+            {
+                OnPropertyChanged(nameof(SelectedAccelerationModeDescription));
+                PersistPreferences();
+
+                if (!IsBusy)
+                {
+                    StatusMessage = value.Mode == DemucsAccelerationMode.GpuPreferred
+                        ? "已切换为 GPU 优先模式，将按独显 -> 核显 -> CPU 的顺序尝试拆音。"
+                        : "已切换为 CPU 兼容模式，本次拆音将固定使用 CPU。";
+                }
+            }
+        }
+    }
+
+    public string SelectedAccelerationModeDescription => SelectedAccelerationMode.Description;
 
     public string OutputDirectory
     {
@@ -404,14 +436,15 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
                     InputPath,
                     SelectedOutputFormat,
                     HasCustomOutputDirectory ? OutputDirectory : null,
-                    progressReporter),
+                    progressReporter,
+                    SelectedAccelerationMode.Mode),
                 _executionCancellationSource.Token);
 
             ResultItems.Insert(0, new SplitAudioResultItemViewModel(result));
             OnPropertyChanged(nameof(ResultsVisibility));
             OnPropertyChanged(nameof(EmptyResultsVisibility));
 
-            StatusMessage = $"拆音完成，已生成 4 条 {SelectedOutputFormat.DisplayName} 分轨文件。";
+            StatusMessage = $"{result.ExecutionPlan.ResolutionSummary} 已生成 4 条 {SelectedOutputFormat.DisplayName} 分轨文件。";
             TryRevealOutput(result);
         }
         catch (OperationCanceledException) when (_executionCancellationSource?.IsCancellationRequested == true)
@@ -630,7 +663,8 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
         _userPreferencesService.Update(existingPreferences => existingPreferences with
         {
             PreferredSplitAudioOutputFormatExtension = SelectedOutputFormat.Extension,
-            PreferredSplitAudioOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null
+            PreferredSplitAudioOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null,
+            PreferredSplitAudioAccelerationMode = SelectedAccelerationMode.Mode
         });
     }
 
@@ -647,6 +681,12 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
         }
 
         return AvailableOutputFormats.First();
+    }
+
+    private DemucsAccelerationModeOption ResolvePreferredAccelerationMode(DemucsAccelerationMode preferredMode)
+    {
+        var preferredOption = AvailableAccelerationModes.FirstOrDefault(option => option.Mode == preferredMode);
+        return preferredOption ?? AvailableAccelerationModes.First();
     }
 
     private string NormalizeOutputDirectory(string? outputDirectory)

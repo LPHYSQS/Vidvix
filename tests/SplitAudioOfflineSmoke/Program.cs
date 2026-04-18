@@ -6,13 +6,17 @@ using Vidvix.Services.MediaInfo;
 
 if (args.Length < 2)
 {
-    Console.Error.WriteLine("Usage: SplitAudioOfflineSmoke <inputPath> <outputDirectory> [outputExtension]");
+    Console.Error.WriteLine("Usage: SplitAudioOfflineSmoke <inputPath> <outputDirectory> [outputExtension] [accelerationMode]");
     return 1;
 }
 
 var inputPath = Path.GetFullPath(args[0]);
 var outputDirectory = Path.GetFullPath(args[1]);
 var outputExtension = args.Length >= 3 ? args[2] : ".wav";
+var accelerationMode = args.Length >= 4 &&
+                       Enum.TryParse<DemucsAccelerationMode>(args[3], ignoreCase: true, out var parsedAccelerationMode)
+    ? parsedAccelerationMode
+    : DemucsAccelerationMode.Cpu;
 
 if (!File.Exists(inputPath))
 {
@@ -29,6 +33,7 @@ var mediaInfoService = new MediaInfoService(ffmpegRuntimeService, configuration,
 var commandBuilder = new FFmpegCommandBuilder(configuration.FFmpegExecutableFileName);
 var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(configuration, commandBuilder);
 var demucsRuntimeService = new DemucsRuntimeService(configuration, logger);
+var demucsExecutionPlanner = new DemucsExecutionPlanner(configuration, demucsRuntimeService, logger);
 var workflowService = new AudioSeparationWorkflowService(
     configuration,
     ffmpegRuntimeService,
@@ -36,7 +41,7 @@ var workflowService = new AudioSeparationWorkflowService(
     mediaInfoService,
     mediaProcessingCommandFactory,
     commandBuilder,
-    demucsRuntimeService,
+    demucsExecutionPlanner,
     logger);
 
 var outputFormat = configuration.SupportedAudioOutputFormats.FirstOrDefault(format =>
@@ -61,11 +66,16 @@ var progress = new Progress<AudioSeparationProgress>(update =>
 try
 {
     var result = await workflowService.SeparateAsync(
-        new AudioSeparationRequest(inputPath, outputFormat, outputDirectory, progress));
+        new AudioSeparationRequest(inputPath, outputFormat, outputDirectory, progress, accelerationMode));
 
     Console.WriteLine($"INPUT={result.InputPath}");
     Console.WriteLine($"OUTPUT_DIR={result.OutputDirectory}");
     Console.WriteLine($"DURATION_MS={Math.Round(result.Duration.TotalMilliseconds, 0)}");
+    Console.WriteLine($"EXECUTION_PLAN={result.ExecutionPlan.ResolutionSummary}");
+    Console.WriteLine($"EXECUTION_DEVICE_KIND={result.ExecutionPlan.SelectedDeviceKind}");
+    Console.WriteLine($"EXECUTION_DEVICE_NAME={result.ExecutionPlan.DeviceDisplayName}");
+    Console.WriteLine($"EXECUTION_DEVICE_ARG={result.ExecutionPlan.DeviceArgument}");
+    Console.WriteLine($"EXECUTION_RUNTIME_VARIANT={result.ExecutionPlan.RuntimeResolution.RuntimeVariant}");
 
     foreach (var stem in result.StemOutputs.OrderBy(item => item.StemKind))
     {
