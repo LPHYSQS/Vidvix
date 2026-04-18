@@ -89,9 +89,9 @@
         <Border
             Grid.RowSpan="2"
             Grid.Column="1"
-            Padding="18"
+            Padding="18,18,10,18"
             Style="{StaticResource SurfaceCardBorderStyle}">
-            <Grid RowSpacing="16">
+            <Grid RowSpacing="14">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -103,112 +103,95 @@
                         Text="拆音相关设置" />
                     <TextBlock
                         Opacity="0.72"
-                        Text="右侧只承接拆音模块自身的输出与命名配置，不影响其他工作区。"
+                        Text="设置拆音结果的输出格式与全部导出目录。"
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
 
                 <ScrollViewer
                     Grid.Row="1"
+                    Margin="0,0,-6,0"
+                    Padding="0,0,14,0"
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     VerticalScrollMode="Enabled">
-                    <StackPanel Padding="0,0,4,0" Spacing="16">
-                        <Border
-                            Padding="14"
-                            Style="{StaticResource SplitAudioInsetCardStyle}">
-                            <StackPanel Spacing="8">
-                                <TextBlock
-                                    FontWeight="SemiBold"
-                                    Text="输出格式" />
-                                <ComboBox SelectedIndex="0">
-                                    <ComboBoxItem Content="WAV" />
-                                    <ComboBoxItem Content="FLAC" />
-                                    <ComboBoxItem Content="MP3" />
-                                </ComboBox>
-                                <TextBlock
-                                    Style="{StaticResource CaptionTextStyle}"
-                                    Text="预留为拆分结果的默认导出格式选择。" />
-                            </StackPanel>
-                        </Border>
+                    <StackPanel Spacing="18">
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="输出格式" />
+                            <ComboBox
+                                x:Name="SplitAudioOutputFormatComboBox"
+                                SelectedIndex="0"
+                                SelectionChanged="OnOutputFormatSelectionChanged">
+                                <ComboBoxItem
+                                    Content="MP3"
+                                    Tag="通用音频格式，兼容性高。" />
+                                <ComboBoxItem
+                                    Content="M4A"
+                                    Tag="AAC 封装，音质和体积较平衡。" />
+                                <ComboBoxItem
+                                    Content="AAC"
+                                    Tag="原始 AAC 音频流。" />
+                                <ComboBoxItem
+                                    Content="WAV"
+                                    Tag="无压缩音频，适合继续编辑。" />
+                                <ComboBoxItem
+                                    Content="FLAC"
+                                    Tag="无损压缩音频，适合存档。" />
+                                <ComboBoxItem
+                                    Content="WMA"
+                                    Tag="适合部分 Windows 播放环境和旧式工作流。" />
+                                <ComboBoxItem
+                                    Content="OGG"
+                                    Tag="开放音频容器，适合 Vorbis 音频分发。" />
+                                <ComboBoxItem
+                                    Content="OPUS"
+                                    Tag="现代低码率高音质格式，适合语音和流媒体。" />
+                                <ComboBoxItem
+                                    Content="AIFF"
+                                    Tag="无压缩音频，常见于部分专业音频和 Apple 工作流。" />
+                                <ComboBoxItem
+                                    Content="AIF"
+                                    Tag="AIFF 的常见扩展名，适合需要 .aif 后缀的场景。" />
+                                <ComboBoxItem
+                                    Content="MKA"
+                                    Tag="Matroska Audio 容器，适合保留原始音频编码输出。" />
+                            </ComboBox>
+                            <TextBlock
+                                x:Name="SplitAudioOutputFormatDescriptionText"
+                                Opacity="0.72"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
 
-                        <Border
-                            Padding="14"
-                            Style="{StaticResource SplitAudioInsetCardStyle}">
-                            <StackPanel Spacing="10">
-                                <TextBlock
-                                    FontWeight="SemiBold"
-                                    Text="输出内容" />
-                                <ToggleSwitch
-                                    Header="导出人声轨道"
-                                    IsOn="True"
-                                    OffContent="关闭"
-                                    OnContent="开启" />
-                                <ToggleSwitch
-                                    Header="导出背景音轨道"
-                                    IsOn="True"
-                                    OffContent="关闭"
-                                    OnContent="开启" />
-                                <TextBlock
-                                    Style="{StaticResource CaptionTextStyle}"
-                                    Text="后续可扩展为仅人声、仅伴奏或同时导出。" />
-                            </StackPanel>
-                        </Border>
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="输出目录" />
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
 
-                        <Border
-                            Padding="14"
-                            Style="{StaticResource SplitAudioInsetCardStyle}">
-                            <StackPanel Spacing="8">
-                                <TextBlock
-                                    FontWeight="SemiBold"
-                                    Text="默认保存目录" />
                                 <TextBox
+                                    x:Name="SplitAudioOutputDirectoryTextBox"
                                     IsReadOnly="True"
-                                    PlaceholderText="跟随源文件目录，或在后续逻辑中指定默认位置" />
-                                <Grid ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <Button
-                                        Grid.Column="0"
-                                        IsEnabled="False"
-                                        Content="选择目录" />
-                                    <Button
-                                        Grid.Column="1"
-                                        IsEnabled="False"
-                                        Content="恢复默认" />
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <Border
-                            Padding="14"
-                            Style="{StaticResource SplitAudioInsetCardStyle}">
-                            <StackPanel Spacing="8">
-                                <TextBlock
-                                    FontWeight="SemiBold"
-                                    Text="导出命名规则" />
-                                <TextBox Text="{x:Bind VocalFileNameTemplate, Mode=TwoWay}" />
-                                <TextBox Text="{x:Bind InstrumentalFileNameTemplate, Mode=TwoWay}" />
-                                <TextBlock
-                                    Style="{StaticResource CaptionTextStyle}"
-                                    Text="当前仅为 UI 输入框预留，后续可按模板替换原文件名变量。" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border
-                            Padding="14"
-                            Style="{StaticResource SplitAudioInsetCardStyle}">
-                            <StackPanel Spacing="8">
-                                <TextBlock
-                                    FontWeight="SemiBold"
-                                    Text="试听与导出预留" />
-                                <TextBlock
-                                    Style="{StaticResource CaptionTextStyle}"
-                                    Text="结果列表中的试听、单项导出和一键导出按钮已完成布局预留，待后续接入实际命令。" />
-                            </StackPanel>
-                        </Border>
+                                    PlaceholderText="原文件目录" />
+                                <Button
+                                    Grid.Column="1"
+                                    Click="OnBrowseOutputDirectoryClick"
+                                    Content="选择目录" />
+                                <Button
+                                    Grid.Column="2"
+                                    Click="OnClearOutputDirectoryClick"
+                                    Content="清空" />
+                            </Grid>
+                            <TextBlock
+                                Opacity="0.72"
+                                Text="该目录仅对全部导出生效。"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </Grid>
