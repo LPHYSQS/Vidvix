@@ -8,4 +8,8 @@ public sealed partial class SplitAudioPage : Page
     {
         InitializeComponent();
     }
+
+    public string VocalFileNameTemplate { get; set; } = "{原文件名}_vocal";
+
+    public string InstrumentalFileNameTemplate { get; set; } = "{原文件名}_instrumental";
 }
