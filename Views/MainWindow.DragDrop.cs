@@ -22,7 +22,6 @@ public sealed partial class MainWindow
         }
 
         if (ViewModel.IsMergeWorkspaceSelected ||
-            ViewModel.IsSplitAudioWorkspaceSelected ||
             ViewModel.IsTerminalWorkspaceSelected)
         {
             e.AcceptedOperation = DataPackageOperation.None;
@@ -32,7 +31,9 @@ public sealed partial class MainWindow
         e.AcceptedOperation = DataPackageOperation.Copy;
         e.DragUIOverride.Caption = ViewModel.IsTrimWorkspaceSelected
             ? ViewModel.TrimWorkspace.DragDropCaptionText
-            : ViewModel.DragDropCaptionText;
+            : ViewModel.IsSplitAudioWorkspaceSelected
+                ? ViewModel.SplitAudioWorkspace.DragDropCaptionText
+                : ViewModel.DragDropCaptionText;
         e.DragUIOverride.IsCaptionVisible = true;
         e.DragUIOverride.IsContentVisible = true;
         e.Handled = true;
@@ -57,7 +58,6 @@ public sealed partial class MainWindow
         }
 
         if (ViewModel.IsMergeWorkspaceSelected ||
-            ViewModel.IsSplitAudioWorkspaceSelected ||
             ViewModel.IsTerminalWorkspaceSelected)
         {
             return;
@@ -66,6 +66,12 @@ public sealed partial class MainWindow
         if (ViewModel.IsTrimWorkspaceSelected)
         {
             await ViewModel.TrimWorkspace.ImportPathsAsync(paths);
+            return;
+        }
+
+        if (ViewModel.IsSplitAudioWorkspaceSelected)
+        {
+            await ViewModel.SplitAudioWorkspace.ImportPathsAsync(paths);
             return;
         }
 

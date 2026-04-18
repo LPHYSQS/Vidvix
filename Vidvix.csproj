@@ -25,6 +25,15 @@
   <ItemGroup>
     <None Remove="artifacts\**\*" />
     <Content Remove="artifacts\**\*" />
+    <Compile Remove="artifacts\**\*.cs" />
+    <EmbeddedResource Remove="artifacts\**\*" />
+    <Page Remove="artifacts\**\*.xaml" />
+    <ApplicationDefinition Remove="artifacts\**\*.xaml" />
+    <Compile Remove="tests\**\*.cs" />
+    <EmbeddedResource Remove="tests\**\*" />
+    <None Remove="tests\**\*" />
+    <Page Remove="tests\**\*.xaml" />
+    <ApplicationDefinition Remove="tests\**\*.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -82,6 +91,13 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
     <Content Include="Tools\mpv\LICENSE.txt" Condition="Exists('Tools\mpv\LICENSE.txt')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('Tools\Demucs')">
+    <Content Include="Tools\Demucs\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

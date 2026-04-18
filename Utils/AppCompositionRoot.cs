@@ -8,6 +8,7 @@ using Microsoft.UI.Dispatching;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Services;
+using Vidvix.Services.Demucs;
 using Vidvix.Services.FFmpeg;
 using Vidvix.Services.MediaInfo;
 using Vidvix.Services.VideoPreview;
@@ -38,6 +39,7 @@ public sealed class AppCompositionRoot
         var workflows = CreateWorkflowServices(mediaRuntime);
         var trimWorkspace = CreateTrimWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
         var mergeWorkspace = CreateMergeWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
+        var splitAudioWorkspace = CreateSplitAudioWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
         var terminalWorkspace = CreateTerminalWorkspaceViewModel(mediaRuntime);
         _mainViewModel = CreateMainViewModel(
             infrastructure,
@@ -45,6 +47,7 @@ public sealed class AppCompositionRoot
             workflows,
             trimWorkspace,
             mergeWorkspace,
+            splitAudioWorkspace,
             terminalWorkspace);
     }
 
@@ -89,6 +92,7 @@ public sealed class AppCompositionRoot
         var ffmpegService = new FFmpegService(Logger);
         var terminalService = new FFmpegTerminalService(Configuration, runtimeService, Logger);
         var ffmpegVideoAccelerationService = new FFmpegVideoAccelerationService(ffmpegService, Logger);
+        var demucsRuntimeService = new DemucsRuntimeService(Configuration, Logger);
         var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
         var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
         var videoPreviewService = new MpvVideoPreviewService(Configuration, windowContext, Logger);
@@ -98,6 +102,7 @@ public sealed class AppCompositionRoot
             ffmpegService,
             terminalService,
             ffmpegVideoAccelerationService,
+            demucsRuntimeService,
             mediaInfoService,
             videoThumbnailService,
             videoPreviewService);
@@ -118,6 +123,15 @@ public sealed class AppCompositionRoot
             mediaRuntime.MediaInfoService,
             mediaProcessingCommandFactory,
             transcodingDecisionResolver,
+            Logger);
+        var audioSeparationWorkflowService = new AudioSeparationWorkflowService(
+            Configuration,
+            mediaRuntime.RuntimeService,
+            mediaRuntime.FFmpegService,
+            mediaRuntime.MediaInfoService,
+            mediaProcessingCommandFactory,
+            commandBuilder,
+            mediaRuntime.DemucsRuntimeService,
             Logger);
         var mergeMediaAnalysisService = new MergeMediaAnalysisService(
             mediaRuntime.MediaInfoService,
@@ -157,6 +171,7 @@ public sealed class AppCompositionRoot
         return new AppWorkflowServices(
             new MediaImportDiscoveryService(),
             mediaProcessingWorkflowService,
+            audioSeparationWorkflowService,
             trimWorkflowService,
             mergeMediaAnalysisService,
             videoJoinWorkflowService,
@@ -206,12 +221,32 @@ public sealed class AppCompositionRoot
     private TerminalWorkspaceViewModel CreateTerminalWorkspaceViewModel(AppMediaRuntimeServices mediaRuntime) =>
         new(Configuration, mediaRuntime.TerminalService);
 
+    private SplitAudioWorkspaceViewModel CreateSplitAudioWorkspaceViewModel(
+        AppInfrastructureServices infrastructure,
+        AppMediaRuntimeServices mediaRuntime,
+        AppWorkflowServices workflows)
+    {
+        var dependencies = new SplitAudioWorkspaceDependencies(
+            Configuration,
+            workflows.MediaImportDiscoveryService,
+            mediaRuntime.MediaInfoService,
+            workflows.AudioSeparationWorkflowService,
+            infrastructure.FilePickerService,
+            infrastructure.UserPreferencesService,
+            infrastructure.FileRevealService,
+            infrastructure.DispatcherService,
+            Logger);
+
+        return new SplitAudioWorkspaceViewModel(dependencies);
+    }
+
     private MainViewModel CreateMainViewModel(
         AppInfrastructureServices infrastructure,
         AppMediaRuntimeServices mediaRuntime,
         AppWorkflowServices workflows,
         VideoTrimWorkspaceViewModel trimWorkspace,
         MergeViewModel mergeWorkspace,
+        SplitAudioWorkspaceViewModel splitAudioWorkspace,
         TerminalWorkspaceViewModel terminalWorkspace)
     {
         var dependencies = new MainViewModelDependencies(
@@ -230,6 +265,7 @@ public sealed class AppCompositionRoot
             dependencies,
             trimWorkspace,
             mergeWorkspace,
+            splitAudioWorkspace,
             terminalWorkspace);
     }
 }

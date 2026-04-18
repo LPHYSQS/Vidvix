@@ -22,6 +22,10 @@ public sealed record UserPreferences
 
     public string? PreferredTrimOutputDirectory { get; init; }
 
+    public string? PreferredSplitAudioOutputFormatExtension { get; init; }
+
+    public string? PreferredSplitAudioOutputDirectory { get; init; }
+
     public TranscodingMode PreferredTrimTranscodingMode { get; init; } = TranscodingMode.FastContainerConversion;
 
     public double PreferredTrimPreviewVolumePercent { get; init; } = 80d;

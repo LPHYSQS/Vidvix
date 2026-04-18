@@ -112,6 +112,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         MainViewModelDependencies dependencies,
         VideoTrimWorkspaceViewModel trimWorkspace,
         MergeViewModel mergeWorkspace,
+        SplitAudioWorkspaceViewModel splitAudioWorkspace,
         TerminalWorkspaceViewModel terminalWorkspace)
     {
         ArgumentNullException.ThrowIfNull(dependencies);
@@ -128,6 +129,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _fileRevealService = dependencies.FileRevealService;
         TrimWorkspace = trimWorkspace ?? throw new ArgumentNullException(nameof(trimWorkspace));
         MergeWorkspace = mergeWorkspace ?? throw new ArgumentNullException(nameof(mergeWorkspace));
+        SplitAudioWorkspace = splitAudioWorkspace ?? throw new ArgumentNullException(nameof(splitAudioWorkspace));
         TerminalWorkspace = terminalWorkspace ?? throw new ArgumentNullException(nameof(terminalWorkspace));
         _statusMessage = RuntimePreparingMessage;
 
@@ -184,6 +186,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
         TrimWorkspace.PropertyChanged += OnTrimWorkspacePropertyChanged;
         MergeWorkspace.PropertyChanged += OnMergeWorkspacePropertyChanged;
+        SplitAudioWorkspace.PropertyChanged += OnSplitAudioWorkspacePropertyChanged;
 
         _selectedProcessingMode = ResolveProcessingMode(userPreferences.PreferredProcessingMode);
         ReloadOutputFormats();
@@ -204,6 +207,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public MediaDetailPanelViewModel DetailPanel { get; }
 
     public VideoTrimWorkspaceViewModel TrimWorkspace { get; }
+
+    public SplitAudioWorkspaceViewModel SplitAudioWorkspace { get; }
 
     public ICommand SelectFilesCommand => _selectFilesCommand;
 
@@ -425,7 +430,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    public bool CanModifyInputs => !IsBusy && !TrimWorkspace.IsBusy && !MergeWorkspace.IsVideoJoinProcessing;
+    public bool CanModifyInputs =>
+        !IsBusy &&
+        !TrimWorkspace.IsBusy &&
+        !MergeWorkspace.IsVideoJoinProcessing &&
+        !SplitAudioWorkspace.IsBusy;
 
     public string QueueSummaryText => ImportItems.Count switch
     {
@@ -449,8 +458,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _audioImportItems.CollectionChanged -= OnImportItemsChanged;
         TrimWorkspace.PropertyChanged -= OnTrimWorkspacePropertyChanged;
         MergeWorkspace.PropertyChanged -= OnMergeWorkspacePropertyChanged;
+        SplitAudioWorkspace.PropertyChanged -= OnSplitAudioWorkspacePropertyChanged;
         DetailPanel.PropertyChanged -= OnDetailPanelPropertyChanged;
         TrimWorkspace.Dispose();
+        SplitAudioWorkspace.Dispose();
         TerminalWorkspace.Dispose();
 
         CancelDetailLoad();
@@ -498,6 +509,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private void OnMergeWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MergeViewModel.IsVideoJoinProcessing))
+        {
+            OnPropertyChanged(nameof(CanModifyInputs));
+            NotifyCommandStates();
+        }
+    }
+
+    private void OnSplitAudioWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SplitAudioWorkspaceViewModel.IsBusy))
         {
             OnPropertyChanged(nameof(CanModifyInputs));
             NotifyCommandStates();

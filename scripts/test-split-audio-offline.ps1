@@ -1,0 +1,213 @@
+[CmdletBinding()]
+param(
+    [string]$RepoRoot,
+    [string]$ProjectPath = "tests/SplitAudioOfflineSmoke/SplitAudioOfflineSmoke.csproj",
+    [string]$Configuration = "Debug",
+    [switch]$SkipBuild,
+    [switch]$KeepTemp
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+
+function Write-Step {
+    param([Parameter(Mandatory = $true)][string]$Message)
+    Write-Host "[test-split-audio-offline] $Message"
+}
+
+function Resolve-FullPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$BasePath
+    )
+
+    if ([System.IO.Path]::IsPathRooted($Path)) {
+        return [System.IO.Path]::GetFullPath($Path)
+    }
+
+    return [System.IO.Path]::GetFullPath((Join-Path $BasePath $Path))
+}
+
+function Remove-PathIfExists {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if (Test-Path -LiteralPath $Path) {
+        Remove-Item -LiteralPath $Path -Recurse -Force
+    }
+}
+
+function Invoke-ExternalCommand {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [Parameter(Mandatory = $true)][string[]]$ArgumentList,
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory
+    )
+
+    Write-Step ("Running: {0} {1}" -f $FilePath, ($ArgumentList -join " "))
+
+    Push-Location $WorkingDirectory
+    try {
+        & $FilePath @ArgumentList
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        Pop-Location
+    }
+
+    if ($exitCode -ne 0) {
+        throw ("Command failed with exit code {0}: {1} {2}" -f $exitCode, $FilePath, ($ArgumentList -join " "))
+    }
+}
+
+function Invoke-SmokeHarness {
+    param(
+        [Parameter(Mandatory = $true)][string]$HarnessDllPath,
+        [Parameter(Mandatory = $true)][string]$InputPath,
+        [Parameter(Mandatory = $true)][string]$OutputDirectory,
+        [Parameter(Mandatory = $true)][string]$OutputExtension,
+        [Parameter(Mandatory = $true)][string]$WorkingDirectory
+    )
+
+    Write-Step ("Smoke run for {0} -> {1}" -f (Split-Path -Path $InputPath -Leaf), $OutputExtension)
+
+    New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
+
+    Push-Location $WorkingDirectory
+    try {
+        $outputLines = & dotnet $HarnessDllPath $InputPath $OutputDirectory $OutputExtension 2>&1 | Tee-Object -Variable capturedOutput
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        Pop-Location
+    }
+
+    if ($exitCode -ne 0) {
+        throw ("Smoke harness failed with exit code {0}.{1}{1}{2}" -f $exitCode, [Environment]::NewLine, ($capturedOutput -join [Environment]::NewLine))
+    }
+
+    return @($capturedOutput | ForEach-Object { $_.ToString() })
+}
+
+function Assert-StemOutputs {
+    param(
+        [Parameter(Mandatory = $true)][string]$OutputDirectory,
+        [Parameter(Mandatory = $true)][string]$InputBaseName,
+        [Parameter(Mandatory = $true)][string]$OutputExtension
+    )
+
+    foreach ($stemName in @("vocals", "drums", "bass", "other")) {
+        $expectedPath = Join-Path $OutputDirectory ("{0}_{1}{2}" -f $InputBaseName, $stemName, $OutputExtension)
+        if (-not (Test-Path -LiteralPath $expectedPath)) {
+            throw ("Missing expected stem output: {0}" -f $expectedPath)
+        }
+    }
+}
+
+$scriptRoot = if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+    $PSScriptRoot
+}
+else {
+    Split-Path -Path $PSCommandPath -Parent
+}
+
+if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+    $RepoRoot = Join-Path $scriptRoot ".."
+}
+
+$resolvedRepoRoot = Resolve-FullPath -Path $RepoRoot -BasePath (Get-Location).Path
+$resolvedProjectPath = Resolve-FullPath -Path $ProjectPath -BasePath $resolvedRepoRoot
+$projectDirectory = Split-Path -Path $resolvedProjectPath -Parent
+$framework = "net8.0-windows10.0.19041.0"
+$harnessOutputDirectory = Join-Path $projectDirectory ("bin\{0}\{1}" -f $Configuration, $framework)
+$harnessDllPath = Join-Path $harnessOutputDirectory "SplitAudioOfflineSmoke.dll"
+$runtimeExtractionPath = Join-Path $harnessOutputDirectory "Tools\Demucs\Current"
+$repoFfmpegPath = Resolve-FullPath -Path "Tools/ffmpeg/ffmpeg.exe" -BasePath $resolvedRepoRoot
+
+if (-not (Test-Path -LiteralPath $repoFfmpegPath)) {
+    throw ("FFmpeg executable not found: {0}" -f $repoFfmpegPath)
+}
+
+if (-not $SkipBuild) {
+    Invoke-ExternalCommand -FilePath "dotnet" -ArgumentList @("build", $resolvedProjectPath, "-c", $Configuration) -WorkingDirectory $resolvedRepoRoot
+}
+
+if (-not (Test-Path -LiteralPath $harnessDllPath)) {
+    throw ("Smoke harness DLL not found: {0}" -f $harnessDllPath)
+}
+
+$tempRootPath = Join-Path ([System.IO.Path]::GetTempPath()) ("vidvix-split-audio-offline-smoke-{0}" -f [Guid]::NewGuid().ToString("N"))
+$audioInputPath = Join-Path $tempRootPath "sample-audio.wav"
+$audioOutputPath = Join-Path $tempRootPath "sample-audio-output"
+$videoInputPath = Join-Path $tempRootPath "sample-video.mp4"
+$videoOutputPath = Join-Path $tempRootPath "sample-video-output"
+
+Write-Step ("Repo root: {0}" -f $resolvedRepoRoot)
+Write-Step ("Harness project: {0}" -f $resolvedProjectPath)
+Write-Step ("Temporary workspace: {0}" -f $tempRootPath)
+
+try {
+    New-Item -ItemType Directory -Path $tempRootPath -Force | Out-Null
+
+    Write-Step "Clearing extracted runtime to force first-run unzip validation"
+    Remove-PathIfExists -Path $runtimeExtractionPath
+
+    Write-Step "Generating sample audio input"
+    Invoke-ExternalCommand -FilePath $repoFfmpegPath -ArgumentList @(
+        "-hide_banner",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:duration=4:sample_rate=44100",
+        "-c:a",
+        "pcm_s16le",
+        $audioInputPath
+    ) -WorkingDirectory $resolvedRepoRoot
+
+    $audioRunOutput = Invoke-SmokeHarness -HarnessDllPath $harnessDllPath -InputPath $audioInputPath -OutputDirectory $audioOutputPath -OutputExtension ".mp3" -WorkingDirectory $resolvedRepoRoot
+    Assert-StemOutputs -OutputDirectory $audioOutputPath -InputBaseName "sample-audio" -OutputExtension ".mp3"
+
+    if (-not (Test-Path -LiteralPath (Join-Path $runtimeExtractionPath "python.exe"))) {
+        throw ("Expected extracted runtime was not found after the first smoke run: {0}" -f $runtimeExtractionPath)
+    }
+
+    Write-Step "Generating sample video input"
+    Invoke-ExternalCommand -FilePath $repoFfmpegPath -ArgumentList @(
+        "-hide_banner",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=black:s=1280x720:d=4",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=523:duration=4:sample_rate=44100",
+        "-shortest",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        $videoInputPath
+    ) -WorkingDirectory $resolvedRepoRoot
+
+    $videoRunOutput = Invoke-SmokeHarness -HarnessDllPath $harnessDllPath -InputPath $videoInputPath -OutputDirectory $videoOutputPath -OutputExtension ".flac" -WorkingDirectory $resolvedRepoRoot
+    Assert-StemOutputs -OutputDirectory $videoOutputPath -InputBaseName "sample-video" -OutputExtension ".flac"
+
+    Write-Step "Offline smoke regression passed."
+    Write-Host ("AUDIO_OUTPUT_DIR={0}" -f $audioOutputPath)
+    Write-Host ("VIDEO_OUTPUT_DIR={0}" -f $videoOutputPath)
+    Write-Host ("FIRST_RUN_LOG_LINES={0}" -f $audioRunOutput.Count)
+    Write-Host ("SECOND_RUN_LOG_LINES={0}" -f $videoRunOutput.Count)
+}
+finally {
+    if (-not $KeepTemp) {
+        Remove-PathIfExists -Path $tempRootPath
+    }
+    else {
+        Write-Step ("Temporary workspace preserved at: {0}" -f $tempRootPath)
+    }
+}

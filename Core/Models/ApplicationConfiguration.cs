@@ -19,6 +19,9 @@ public sealed class ApplicationConfiguration
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+    private static readonly IReadOnlyList<string> DefaultSupportedSplitAudioInputFileTypes =
+        DefaultSupportedTrimInputFileTypes;
+
     public string ApplicationTitle { get; init; } = "Vidvix";
 
     public string ApplicationIconRelativePath { get; init; } = Path.Combine("Assets", "logo.ico");
@@ -54,6 +57,32 @@ public sealed class ApplicationConfiguration
 
     public string RuntimeDownloadCacheDirectoryName { get; init; } = "Downloads";
 
+    public string DemucsDirectoryName { get; init; } = "Demucs";
+
+    public string DemucsRuntimeDirectoryName { get; init; } = "Current";
+
+    public string DemucsPackagesDirectoryName { get; init; } = "Packages";
+
+    public string DemucsModelsDirectoryName { get; init; } = "Models";
+
+    public string DemucsRuntimeArchiveFileName { get; init; } = "demucs-runtime-win-x64-cpu.zip";
+
+    public string DemucsModelArchiveFileName { get; init; } = "demucs-model-htdemucs_ft.zip";
+
+    public string DemucsPythonExecutableFileName { get; init; } = "python.exe";
+
+    public string DemucsModelName { get; init; } = "htdemucs_ft";
+
+    public IReadOnlyList<string> DemucsRequiredModelFileNames { get; init; } =
+        new[]
+        {
+            "htdemucs_ft.yaml",
+            "f7e0c4bc-ba3fe64a.th",
+            "d12395a8-e57c48e6.th",
+            "92cfc3b6-ef3bcb9c.th",
+            "04573f0d-f3cf25b2.th"
+        };
+
     public Uri FFmpegArchiveUri { get; init; } =
         new("https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip");
 
@@ -73,6 +102,8 @@ public sealed class ApplicationConfiguration
     public IReadOnlyList<string> SupportedAudioInputFileTypes { get; init; } = DefaultSupportedAudioInputFileTypes;
 
     public IReadOnlyList<string> SupportedTrimInputFileTypes { get; init; } = DefaultSupportedTrimInputFileTypes;
+
+    public IReadOnlyList<string> SupportedSplitAudioInputFileTypes { get; init; } = DefaultSupportedSplitAudioInputFileTypes;
 
     public IReadOnlyDictionary<ProcessingWorkspaceKind, ProcessingWorkspaceProfile> WorkspaceProfiles { get; init; } =
         new Dictionary<ProcessingWorkspaceKind, ProcessingWorkspaceProfile>
@@ -114,12 +145,12 @@ public sealed class ApplicationConfiguration
             [ProcessingWorkspaceKind.SplitAudio] = new(
                 ProcessingWorkspaceKind.SplitAudio,
                 "拆音",
-                "音频文件",
-                Array.Empty<string>(),
+                "音频或视频文件",
+                DefaultSupportedSplitAudioInputFileTypes,
                 fixedProcessingModeDisplayName: "拆音分离",
-                fixedProcessingModeDescription: "预留给人声与背景音分离功能的独立工作区，当前阶段仅提供界面入口。",
+                fixedProcessingModeDescription: "导入一个音频或视频文件，先标准化为临时 WAV，再由 Demucs 分离为 vocals、drums、bass、other 四轨。",
                 headerTitle: "拆音",
-                headerDescription: "预留人声与背景音分离工作区。"),
+                headerDescription: "导入单个媒体并输出 Demucs 四轨结果。"),
             [ProcessingWorkspaceKind.Terminal] = new(
                 ProcessingWorkspaceKind.Terminal,
                 "终端",

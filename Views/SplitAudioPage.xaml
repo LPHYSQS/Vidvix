@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="using:Vidvix.ViewModels"
     Background="Transparent"
     mc:Ignorable="d">
 
@@ -15,6 +16,148 @@
             BasedOn="{StaticResource InsetSurfaceCardBorderStyle}">
             <Setter Property="CornerRadius" Value="18" />
         </Style>
+
+        <DataTemplate
+            x:Key="SplitAudioResultTemplate"
+            x:DataType="viewModels:SplitAudioResultItemViewModel">
+            <Border
+                Margin="0,0,0,12"
+                Padding="16"
+                Style="{StaticResource SplitAudioInsetCardStyle}">
+                <Grid RowSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock
+                                FontSize="15"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind SourceFileName}" />
+                            <TextBlock
+                                Opacity="0.72"
+                                Text="{x:Bind OutputDirectory}"
+                                TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <StackPanel
+                            Grid.Column="1"
+                            HorizontalAlignment="Right"
+                            Spacing="4">
+                            <TextBlock
+                                HorizontalAlignment="Right"
+                                Opacity="0.72"
+                                Text="{x:Bind CompletedAtText}" />
+                            <TextBlock
+                                HorizontalAlignment="Right"
+                                Opacity="0.72"
+                                Text="{x:Bind DurationText}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid
+                        Grid.Row="1"
+                        ColumnSpacing="10"
+                        RowSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Border
+                            Padding="12"
+                            Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                            BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14">
+                            <StackPanel Spacing="8">
+                                <TextBlock FontWeight="SemiBold" Text="人声 · vocals" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Text="{x:Bind VocalsFileName}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <Button
+                                    Command="{Binding ElementName=RootPage, Path=ViewModel.RevealFileCommand}"
+                                    CommandParameter="{x:Bind VocalsPath}"
+                                    Content="定位文件" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border
+                            Grid.Column="1"
+                            Padding="12"
+                            Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                            BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14">
+                            <StackPanel Spacing="8">
+                                <TextBlock FontWeight="SemiBold" Text="鼓组 · drums" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Text="{x:Bind DrumsFileName}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <Button
+                                    Command="{Binding ElementName=RootPage, Path=ViewModel.RevealFileCommand}"
+                                    CommandParameter="{x:Bind DrumsPath}"
+                                    Content="定位文件" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border
+                            Grid.Row="1"
+                            Padding="12"
+                            Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                            BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14">
+                            <StackPanel Spacing="8">
+                                <TextBlock FontWeight="SemiBold" Text="低频 · bass" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Text="{x:Bind BassFileName}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <Button
+                                    Command="{Binding ElementName=RootPage, Path=ViewModel.RevealFileCommand}"
+                                    CommandParameter="{x:Bind BassPath}"
+                                    Content="定位文件" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Padding="12"
+                            Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                            BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14">
+                            <StackPanel Spacing="8">
+                                <TextBlock FontWeight="SemiBold" Text="其他 · other" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Text="{x:Bind OtherFileName}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <Button
+                                    Command="{Binding ElementName=RootPage, Path=ViewModel.RevealFileCommand}"
+                                    CommandParameter="{x:Bind OtherPath}"
+                                    Content="定位文件" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+        </DataTemplate>
     </Page.Resources>
 
     <Grid
@@ -30,170 +173,195 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-            <Border
-                Grid.Column="0"
-                Padding="20"
-                Style="{StaticResource SurfaceCardBorderStyle}">
-                <Grid RowSpacing="12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+        <Border
+            Grid.Column="0"
+            Padding="20"
+            Style="{StaticResource SurfaceCardBorderStyle}">
+            <Grid RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                    <StackPanel Spacing="4">
-                        <TextBlock
-                            Style="{StaticResource SectionTitleTextStyle}"
-                            Text="导入文件" />
-                        <TextBlock
-                            Opacity="0.72"
-                            Text="一次仅支持导入 1 个音频或视频文件；若导入视频，需包含可用音频轨道。"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
+                <StackPanel Spacing="4">
+                    <TextBlock
+                        Style="{StaticResource SectionTitleTextStyle}"
+                        Text="导入文件" />
+                    <TextBlock
+                        Opacity="0.72"
+                        Text="{x:Bind ViewModel.SupportedInputFormatsHint, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
 
+                <Grid Grid.Row="1">
                     <Border
-                        Grid.Row="1"
                         MinHeight="168"
                         Padding="16"
                         Background="{ThemeResource ControlFillColorSecondaryBrush}"
                         BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
                         BorderThickness="1"
-                        CornerRadius="12">
-                        <Grid>
-                            <StackPanel
+                        CornerRadius="12"
+                        Visibility="{x:Bind ViewModel.PlaceholderVisibility, Mode=OneWay}">
+                        <StackPanel
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            MaxWidth="420"
+                            Spacing="12">
+                            <SymbolIcon
                                 HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                MaxWidth="420"
-                                Spacing="12">
-                                <SymbolIcon
-                                    HorizontalAlignment="Center"
-                                    Symbol="OpenFile" />
-                                <TextBlock
-                                    HorizontalAlignment="Center"
-                                    FontWeight="SemiBold"
-                                    Text="请导入文件或拖拽到此处"
-                                    TextAlignment="Center" />
+                                Symbol="OpenFile" />
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="请导入文件或拖拽到此处"
+                                TextAlignment="Center" />
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                Opacity="0.72"
+                                Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                                TextAlignment="Center"
+                                TextWrapping="WrapWholeWords" />
+                            <Button
+                                Command="{x:Bind ViewModel.SelectInputCommand, Mode=OneWay}"
+                                HorizontalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <SymbolIcon Symbol="OpenFile" />
+                                    <TextBlock Text="导入文件" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        MinHeight="168"
+                        Padding="16"
+                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Visibility="{x:Bind ViewModel.InputCardVisibility, Mode=OneWay}">
+                        <Grid RowSpacing="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Spacing="4">
+                                    <TextBlock
+                                        FontSize="16"
+                                        FontWeight="SemiBold"
+                                        Text="{x:Bind ViewModel.InputFileName, Mode=OneWay}" />
+                                    <TextBlock
+                                        Opacity="0.72"
+                                        Text="{x:Bind ViewModel.InputPath, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+
                                 <Button
-                                    HorizontalAlignment="Center"
-                                    IsEnabled="False">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <SymbolIcon Symbol="OpenFile" />
-                                        <TextBlock Text="导入文件" />
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
+                                    Grid.Column="1"
+                                    Command="{x:Bind ViewModel.RemoveInputCommand, Mode=OneWay}"
+                                    Content="移除" />
+                            </Grid>
+
+                            <Border
+                                Grid.Row="1"
+                                Padding="12"
+                                Style="{StaticResource SplitAudioInsetCardStyle}">
+                                <TextBlock
+                                    Text="{x:Bind ViewModel.InputSummaryText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </Border>
                         </Grid>
                     </Border>
                 </Grid>
-            </Border>
+            </Grid>
+        </Border>
 
         <Border
             Grid.RowSpan="2"
             Grid.Column="1"
             Padding="16"
             Style="{StaticResource SurfaceCardBorderStyle}">
-            <Grid RowSpacing="14">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <StackPanel Spacing="4">
-                    <TextBlock
-                        Style="{StaticResource SectionTitleTextStyle}"
-                        Text="拆音相关设置" />
-                    <TextBlock
-                        Opacity="0.72"
-                        Text="设置拆音结果的输出格式与全部导出目录。"
-                        TextWrapping="WrapWholeWords" />
-                </StackPanel>
-
-                <ScrollViewer
-                    Grid.Row="1"
-                    Padding="0,0,14,0"
-                    HorizontalScrollBarVisibility="Disabled"
-                    VerticalScrollBarVisibility="Auto"
-                    VerticalScrollMode="Enabled">
-                    <StackPanel Spacing="18">
-                        <StackPanel Spacing="8">
-                            <TextBlock
-                                FontWeight="SemiBold"
-                                Text="输出格式" />
-                            <ComboBox
-                                x:Name="SplitAudioOutputFormatComboBox"
-                                SelectedIndex="0"
-                                SelectionChanged="OnOutputFormatSelectionChanged">
-                                <ComboBoxItem
-                                    Content="MP3"
-                                    Tag="通用音频格式，兼容性高。" />
-                                <ComboBoxItem
-                                    Content="M4A"
-                                    Tag="AAC 封装，音质和体积较平衡。" />
-                                <ComboBoxItem
-                                    Content="AAC"
-                                    Tag="原始 AAC 音频流。" />
-                                <ComboBoxItem
-                                    Content="WAV"
-                                    Tag="无压缩音频，适合继续编辑。" />
-                                <ComboBoxItem
-                                    Content="FLAC"
-                                    Tag="无损压缩音频，适合存档。" />
-                                <ComboBoxItem
-                                    Content="WMA"
-                                    Tag="适合部分 Windows 播放环境和旧式工作流。" />
-                                <ComboBoxItem
-                                    Content="OGG"
-                                    Tag="开放音频容器，适合 Vorbis 音频分发。" />
-                                <ComboBoxItem
-                                    Content="OPUS"
-                                    Tag="现代低码率高音质格式，适合语音和流媒体。" />
-                                <ComboBoxItem
-                                    Content="AIFF"
-                                    Tag="无压缩音频，常见于部分专业音频和 Apple 工作流。" />
-                                <ComboBoxItem
-                                    Content="AIF"
-                                    Tag="AIFF 的常见扩展名，适合需要 .aif 后缀的场景。" />
-                                <ComboBoxItem
-                                    Content="MKA"
-                                    Tag="Matroska Audio 容器，适合保留原始音频编码输出。" />
-                            </ComboBox>
-                            <TextBlock
-                                x:Name="SplitAudioOutputFormatDescriptionText"
-                                Opacity="0.72"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="8">
-                            <TextBlock
-                                FontWeight="SemiBold"
-                                Text="输出目录" />
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
-                                <TextBox
-                                    x:Name="SplitAudioOutputDirectoryTextBox"
-                                    IsReadOnly="True"
-                                    PlaceholderText="原文件目录" />
-                                <Button
-                                    Grid.Column="1"
-                                    Click="OnBrowseOutputDirectoryClick"
-                                    Content="选择目录" />
-                                <Button
-                                    Grid.Column="2"
-                                    Click="OnClearOutputDirectoryClick"
-                                    Content="清空" />
-                            </Grid>
-                            <TextBlock
-                                Opacity="0.72"
-                                Text="该目录仅对全部导出生效。"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
+            <ScrollViewer
+                Padding="0,0,12,0"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto"
+                VerticalScrollMode="Enabled">
+                <StackPanel Spacing="18">
+                    <StackPanel Spacing="4">
+                        <TextBlock
+                            Style="{StaticResource SectionTitleTextStyle}"
+                            Text="拆音相关设置" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="输出格式仍由 FFmpeg 负责，Demucs 只负责生成中间四轨。"
+                            TextWrapping="WrapWholeWords" />
                     </StackPanel>
-                </ScrollViewer>
-            </Grid>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="输出格式" />
+                        <ComboBox
+                            DisplayMemberPath="DisplayName"
+                            ItemsSource="{x:Bind ViewModel.AvailableOutputFormats, Mode=OneWay}"
+                            SelectedItem="{x:Bind ViewModel.SelectedOutputFormat, Mode=TwoWay}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.SelectedOutputFormatDescription, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="输出目录" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox
+                                IsReadOnly="True"
+                                PlaceholderText="原文件目录"
+                                Text="{x:Bind ViewModel.OutputDirectory, Mode=OneWay}" />
+                            <Button
+                                Grid.Column="1"
+                                Command="{x:Bind ViewModel.BrowseOutputDirectoryCommand, Mode=OneWay}"
+                                Content="选择目录" />
+                            <Button
+                                Grid.Column="2"
+                                Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
+                                Content="清空" />
+                        </Grid>
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.OutputDirectoryHintText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="当前状态" />
+                        <Border
+                            Padding="12"
+                            Style="{StaticResource SplitAudioInsetCardStyle}">
+                            <TextBlock
+                                Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <Border
@@ -207,50 +375,35 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock
-                                Style="{StaticResource SectionTitleTextStyle}"
-                                Text="处理完毕列表" />
-                            <TextBlock
-                                Opacity="0.72"
-                                Text="处理完毕的音频拆音结果展示。"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-
-                        <Button
-                            Grid.Column="1"
-                            IsEnabled="False"
-                            HorizontalAlignment="Right">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <SymbolIcon Symbol="Save" />
-                                <TextBlock Text="全部导出" />
-                            </StackPanel>
-                        </Button>
-                    </Grid>
+                <StackPanel Spacing="4">
+                    <TextBlock
+                        Style="{StaticResource SectionTitleTextStyle}"
+                        Text="处理完毕列表" />
+                    <TextBlock
+                        Opacity="0.72"
+                        Text="每次完成后会按原文件名 + stem 名称输出四个结果文件。"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
 
                 <Border
                     Grid.Row="1"
                     Padding="0"
                     Style="{StaticResource SplitAudioInsetCardStyle}">
                     <Grid>
-                        <ScrollViewer
-                            HorizontalScrollBarVisibility="Disabled"
-                            VerticalScrollBarVisibility="Auto"
-                            VerticalScrollMode="Enabled">
-                            <StackPanel Padding="16" Spacing="12" />
-                        </ScrollViewer>
+                        <ListView
+                            Background="Transparent"
+                            BorderThickness="0"
+                            ItemTemplate="{StaticResource SplitAudioResultTemplate}"
+                            ItemsSource="{x:Bind ViewModel.ResultItems, Mode=OneWay}"
+                            SelectionMode="None"
+                            Visibility="{x:Bind ViewModel.ResultsVisibility, Mode=OneWay}" />
 
                         <TextBlock
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Opacity="0.72"
-                            Text="暂无处理结果" />
+                            Text="暂无处理结果"
+                            Visibility="{x:Bind ViewModel.EmptyResultsVisibility, Mode=OneWay}" />
                     </Grid>
                 </Border>
             </Grid>

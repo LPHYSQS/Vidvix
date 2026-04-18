@@ -138,6 +138,28 @@
                     IsDynamicOverflowEnabled="True"
                     VerticalAlignment="Center"
                     Visibility="{x:Bind ViewModel.SplitAudioWorkspaceVisibility, Mode=OneWay}">
+                    <AppBarButton Command="{x:Bind ViewModel.SplitAudioWorkspace.SelectInputCommand, Mode=OneWay}" Label="导入文件">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="OpenFile" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton Command="{x:Bind ViewModel.SplitAudioWorkspace.RemoveInputCommand, Mode=OneWay}" Label="清空当前">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Delete" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarSeparator />
+                    <AppBarButton Command="{x:Bind ViewModel.SplitAudioWorkspace.StartSeparationCommand, Mode=OneWay}" Label="开始拆音">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Play" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarButton Command="{x:Bind ViewModel.SplitAudioWorkspace.CancelSeparationCommand, Mode=OneWay}" Label="取消任务">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Cancel" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                    <AppBarSeparator />
                     <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />
@@ -299,6 +321,63 @@
                     <TextBlock
                         Style="{StaticResource CaptionTextStyle}"
                         Text="{x:Bind ViewModel.ExecutionProgressDetailText, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border
+            Grid.Row="1"
+            Padding="14,12"
+            Style="{StaticResource SurfaceCardBorderStyle}"
+            Visibility="{x:Bind ViewModel.SplitAudioWorkspace.ProgressVisibility, Mode=OneWay}">
+            <Grid ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border
+                    Width="34"
+                    Height="34"
+                    VerticalAlignment="Top"
+                    Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                    CornerRadius="17">
+                    <SymbolIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Symbol="Audio" />
+                </Border>
+
+                <StackPanel
+                    Grid.Column="1"
+                    Spacing="8">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="{x:Bind ViewModel.SplitAudioWorkspace.ProgressSummaryText, Mode=OneWay}" />
+
+                        <TextBlock
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.SplitAudioWorkspace.ProgressPercentText, Mode=OneWay}" />
+                    </Grid>
+
+                    <ProgressBar
+                        Height="6"
+                        IsIndeterminate="{x:Bind ViewModel.SplitAudioWorkspace.IsProgressIndeterminate, Mode=OneWay}"
+                        Maximum="100"
+                        Value="{x:Bind ViewModel.SplitAudioWorkspace.ProgressValue, Mode=OneWay}" />
+
+                    <TextBlock
+                        Style="{StaticResource CaptionTextStyle}"
+                        Text="{x:Bind ViewModel.SplitAudioWorkspace.ProgressDetailText, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
             </Grid>
@@ -1116,6 +1195,7 @@
                         Grid.Column="1"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Stretch"
+                        ViewModel="{x:Bind ViewModel.SplitAudioWorkspace, Mode=OneWay}"
                         Visibility="{x:Bind ViewModel.SplitAudioWorkspaceVisibility, Mode=OneWay}" />
 
                     <views:TerminalPage

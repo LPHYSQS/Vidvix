@@ -16,6 +16,7 @@ internal sealed record AppMediaRuntimeServices(
     IFFmpegService FFmpegService,
     IFFmpegTerminalService TerminalService,
     IFFmpegVideoAccelerationService VideoAccelerationService,
+    IDemucsRuntimeService DemucsRuntimeService,
     IMediaInfoService MediaInfoService,
     IVideoThumbnailService VideoThumbnailService,
     IVideoPreviewService VideoPreviewService);
@@ -23,6 +24,7 @@ internal sealed record AppMediaRuntimeServices(
 internal sealed record AppWorkflowServices(
     IMediaImportDiscoveryService MediaImportDiscoveryService,
     IMediaProcessingWorkflowService MediaProcessingWorkflowService,
+    IAudioSeparationWorkflowService AudioSeparationWorkflowService,
     ITrimWorkflowService TrimWorkflowService,
     IMergeMediaAnalysisService MergeMediaAnalysisService,
     IVideoJoinWorkflowService VideoJoinWorkflowService,
