@@ -100,7 +100,8 @@ public sealed partial class SplitAudioWorkspaceViewModel
 
     private Task<bool> StartPreviewLoadAsync(bool forceReload, CancellationToken cancellationToken)
     {
-        if (!HasInput || string.IsNullOrWhiteSpace(_inputPath) || !File.Exists(_inputPath))
+        var inputPath = InputPath;
+        if (!HasInput || string.IsNullOrWhiteSpace(inputPath) || !File.Exists(inputPath))
         {
             return ReloadPreviewCoreAsync(cancellationToken);
         }
@@ -142,7 +143,8 @@ public sealed partial class SplitAudioWorkspaceViewModel
 
     private async Task<bool> ReloadPreviewCoreAsync(CancellationToken cancellationToken)
     {
-        if (!HasInput || string.IsNullOrWhiteSpace(_inputPath) || !File.Exists(_inputPath))
+        var inputPath = InputPath;
+        if (!HasInput || string.IsNullOrWhiteSpace(inputPath) || !File.Exists(inputPath))
         {
             ResetPreviewState();
             await _videoPreviewService.UnloadAsync(cancellationToken);
@@ -156,7 +158,7 @@ public sealed partial class SplitAudioWorkspaceViewModel
             await _videoPreviewService.InitializeAsync(cancellationToken);
             await _videoPreviewService
                 .LoadAsync(
-                    _inputPath,
+                    inputPath,
                     DefaultSplitAudioPreviewVolume,
                     enableExternalSubtitleAutoLoad: false,
                     cancellationToken);
@@ -431,7 +433,8 @@ public sealed partial class SplitAudioWorkspaceViewModel
             return true;
         }
 
-        if (!HasInput || string.IsNullOrWhiteSpace(_inputPath) || !File.Exists(_inputPath))
+        var inputPath = InputPath;
+        if (!HasInput || string.IsNullOrWhiteSpace(inputPath) || !File.Exists(inputPath))
         {
             return false;
         }
@@ -607,7 +610,7 @@ public sealed partial class SplitAudioWorkspaceViewModel
 
     private bool IsCurrentPreviewSource(string sourcePath) =>
         !string.IsNullOrWhiteSpace(sourcePath) &&
-        string.Equals(_inputPath, sourcePath, StringComparison.OrdinalIgnoreCase);
+        string.Equals(InputPath, sourcePath, StringComparison.OrdinalIgnoreCase);
 
     private void RunPreviewOnUiThread(Action action)
     {

@@ -194,11 +194,12 @@ Vidvix 现在最大的问题，不是单个 bug，而是以下三类结构性耦
 
 当前仓库已经先落了一步保守切片：
 
+- `SplitAudioInputState`
 - `SplitAudioWorkspacePreferencesState`
 - `SplitAudioProgressState`
 - `SplitAudioResultCollectionState`
 
-也就是说，拆音工作区已经开始把“偏好 / 进度 / 结果集合”从主 ViewModel 中抽离。后续继续拆时，优先顺着这个方向补 `SplitAudioInputState` 与 `SplitAudioExecutionCoordinator`，不要再把新的状态字段塞回 `SplitAudioWorkspaceViewModel`。
+也就是说，拆音工作区已经开始把“输入 / 偏好 / 进度 / 结果集合”从主 ViewModel 中抽离。后续继续拆时，优先顺着这个方向补 `SplitAudioExecutionCoordinator` 与 `SplitAudioPreviewFacade`，不要再把新的状态字段塞回 `SplitAudioWorkspaceViewModel`。
 
 #### `MainViewModel` 推荐拆法
 

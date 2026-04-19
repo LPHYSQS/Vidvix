@@ -27,6 +27,7 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
     private readonly SplitAudioWorkspacePreferencesState _preferencesState;
     private readonly SplitAudioProgressState _progressState;
     private readonly SplitAudioResultCollectionState _resultCollectionState;
+    private readonly SplitAudioInputState _inputState;
     private readonly AsyncRelayCommand _selectInputCommand;
     private readonly RelayCommand _removeInputCommand;
     private readonly AsyncRelayCommand _browseOutputDirectoryCommand;
@@ -37,9 +38,6 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
     private readonly RelayCommand _clearResultsCommand;
 
     private string _statusMessage;
-    private string _inputPath = string.Empty;
-    private string _inputFileName = string.Empty;
-    private string _inputSummaryText;
     private bool _isBusy;
     private CancellationTokenSource? _executionCancellationSource;
     private bool _isDisposed;
@@ -61,9 +59,9 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         _preferencesState = new SplitAudioWorkspacePreferencesState(_configuration, _userPreferencesService, _logger);
         _progressState = new SplitAudioProgressState();
         _resultCollectionState = new SplitAudioResultCollectionState();
+        _inputState = new SplitAudioInputState();
 
         _statusMessage = "请导入 1 个音频或视频文件，系统会先标准化音频，再调用 Demucs 执行四轨拆分。";
-        _inputSummaryText = "支持视频与纯音频输入；如果导入视频，会自动提取主音轨后再开始拆音。";
 
         _selectInputCommand = new AsyncRelayCommand(SelectInputAsync, () => !IsBusy);
         _removeInputCommand = new RelayCommand(RemoveInput, () => HasInput && !IsBusy);
@@ -107,27 +105,24 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
     public string InputPath
     {
-        get => _inputPath;
-        private set => SetProperty(ref _inputPath, value);
+        get => _inputState.InputPath;
     }
 
     public string InputFileName
     {
-        get => _inputFileName;
-        private set => SetProperty(ref _inputFileName, value);
+        get => _inputState.InputFileName;
     }
 
     public string InputSummaryText
     {
-        get => _inputSummaryText;
-        private set => SetProperty(ref _inputSummaryText, value);
+        get => _inputState.InputSummaryText;
     }
 
-    public bool HasInput => !string.IsNullOrWhiteSpace(InputPath);
+    public bool HasInput => _inputState.HasInput;
 
-    public Visibility PlaceholderVisibility => HasInput ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility PlaceholderVisibility => _inputState.PlaceholderVisibility;
 
-    public Visibility InputCardVisibility => HasInput ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility InputCardVisibility => _inputState.InputCardVisibility;
 
     public Visibility ResultsVisibility => _resultCollectionState.ResultsVisibility;
 
@@ -362,12 +357,8 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         ResetPreviewState();
         _ = _videoPreviewService.UnloadAsync();
         OnPropertyChanged(nameof(CanPlayPreview));
-        InputPath = string.Empty;
-        InputFileName = string.Empty;
-        InputSummaryText = "支持视频与纯音频输入；如果导入视频，会自动提取主音轨后再开始拆音。";
-        OnPropertyChanged(nameof(HasInput));
-        OnPropertyChanged(nameof(PlaceholderVisibility));
-        OnPropertyChanged(nameof(InputCardVisibility));
+        _inputState.Clear();
+        NotifyInputStateChanged();
         NotifyCommandStates();
         StatusMessage = "已清空当前拆音输入。";
     }
@@ -578,14 +569,11 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
     {
         var normalizedPath = Path.GetFullPath(inputPath);
         ResetPreviewState();
-        InputPath = normalizedPath;
-        InputFileName = Path.GetFileName(normalizedPath);
-        InputSummaryText = await BuildInputSummaryAsync(normalizedPath);
+        var inputSummary = await BuildInputSummaryAsync(normalizedPath);
+        _inputState.SetSelectedInput(normalizedPath, inputSummary);
         await PrimePreviewTimelineAsync(normalizedPath);
         OnPropertyChanged(nameof(CanPlayPreview));
-        OnPropertyChanged(nameof(HasInput));
-        OnPropertyChanged(nameof(PlaceholderVisibility));
-        OnPropertyChanged(nameof(InputCardVisibility));
+        NotifyInputStateChanged();
         NotifyCommandStates();
     }
 
@@ -670,6 +658,16 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         OnPropertyChanged(nameof(ProgressSummaryText));
         OnPropertyChanged(nameof(ProgressDetailText));
         OnPropertyChanged(nameof(ProgressPercentText));
+    }
+
+    private void NotifyInputStateChanged()
+    {
+        OnPropertyChanged(nameof(InputPath));
+        OnPropertyChanged(nameof(InputFileName));
+        OnPropertyChanged(nameof(InputSummaryText));
+        OnPropertyChanged(nameof(HasInput));
+        OnPropertyChanged(nameof(PlaceholderVisibility));
+        OnPropertyChanged(nameof(InputCardVisibility));
     }
 
     private void NotifyResultStateChanged()
