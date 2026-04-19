@@ -3,6 +3,7 @@ using System.IO;
 using Microsoft.UI.Xaml;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Utils;
 
 namespace Vidvix.Services;
 
@@ -16,7 +17,7 @@ public sealed class WindowIconService : IWindowIconService
         ArgumentNullException.ThrowIfNull(configuration);
 
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _iconPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, configuration.ApplicationIconRelativePath));
+        _iconPath = Path.GetFullPath(Path.Combine(ApplicationPaths.ExecutableDirectoryPath, configuration.ApplicationIconRelativePath));
     }
 
     public void ApplyIcon(Window window)

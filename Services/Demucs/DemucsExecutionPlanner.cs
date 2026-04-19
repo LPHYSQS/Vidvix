@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Utils;
 
 namespace Vidvix.Services.Demucs;
 
@@ -163,7 +164,7 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
     private string ResolveLauncherScriptPath()
     {
         var launcherScriptPath = Path.Combine(
-            AppContext.BaseDirectory,
+            ApplicationPaths.ExecutableDirectoryPath,
             _configuration.RuntimeDirectoryName,
             _configuration.DemucsDirectoryName,
             _configuration.DemucsScriptsDirectoryName,

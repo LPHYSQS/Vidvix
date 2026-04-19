@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Utils;
 
 namespace Vidvix.Services.VideoPreview;
 
@@ -50,6 +51,8 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
     private TaskCompletionSource<TimeSpan>? _seekCompletionSource;
     private TimeSpan _pendingSeekTarget;
     private VideoPreviewHostPlacement _hostPlacement;
+    private IntPtr _runtimeDirectoryCookie;
+    private string? _registeredRuntimeDirectory;
 
     public MpvVideoPreviewService(
         ApplicationConfiguration configuration,
@@ -512,6 +515,12 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
             _mpvHandle = IntPtr.Zero;
             _eventLoopCancellationSource = null;
             _eventLoopTask = null;
+            if (_runtimeDirectoryCookie != IntPtr.Zero)
+            {
+                NativeMethods.RemoveDllDirectory(_runtimeDirectoryCookie);
+                _runtimeDirectoryCookie = IntPtr.Zero;
+                _registeredRuntimeDirectory = null;
+            }
             _commandSemaphore.Dispose();
         }
     }
@@ -627,44 +636,12 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         }
 
         var runtimeDirectory = ResolveRuntimeDirectory();
+        EnsureRuntimeDirectoryRegistered(runtimeDirectory);
         _nativeLibrary = new MpvNativeLibrary(
             runtimeDirectory,
             _configuration.MpvLibraryFileName,
             _configuration.MpvSupportDllFileNames);
-
-        var profiles = new[]
-        {
-            new MpvInitializationProfile(
-                "gpu-next-d3d11",
-                new Dictionary<string, string>(StringComparer.Ordinal)
-                {
-                    ["vo"] = "gpu-next",
-                    ["gpu-api"] = "d3d11",
-                    ["gpu-context"] = "d3d11",
-                    ["hwdec"] = "auto",
-                    ["tone-mapping"] = "auto",
-                    ["target-colorspace-hint"] = "auto",
-                    ["hdr-compute-peak"] = "auto"
-                }),
-            new MpvInitializationProfile(
-                "gpu-d3d11",
-                new Dictionary<string, string>(StringComparer.Ordinal)
-                {
-                    ["vo"] = "gpu",
-                    ["gpu-api"] = "d3d11",
-                    ["gpu-context"] = "d3d11",
-                    ["hwdec"] = "auto",
-                    ["tone-mapping"] = "auto"
-                }),
-            new MpvInitializationProfile(
-                "gpu-auto",
-                new Dictionary<string, string>(StringComparer.Ordinal)
-                {
-                    ["vo"] = "gpu",
-                    ["hwdec"] = "auto",
-                    ["tone-mapping"] = "auto"
-                })
-        };
+        var profiles = BuildInitializationProfiles();
 
         List<string> initializationFailures = new();
         foreach (var profile in profiles)
@@ -679,6 +656,7 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
 
             try
             {
+                _logger.Log(LogLevel.Info, $"MPV 预览正在尝试初始化配置：{profile.Name}");
                 ApplyCommonInitializationOptions();
                 foreach (var option in profile.Options)
                 {
@@ -700,7 +678,7 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
                 RequestEvent(MpvEventId.PlaybackRestart);
                 ObserveProperty(PausePropertyObserverId, "pause", MpvFormat.Flag);
                 ObserveTimePositionProperty();
-                _nativeLibrary.RequestLogMessages(_mpvHandle, MpvUtf8.GetBytes("warn"));
+                _nativeLibrary.RequestLogMessages(_mpvHandle, MpvUtf8.GetBytes("info"));
                 _eventLoopCancellationSource = new CancellationTokenSource();
                 _eventLoopTask = Task.Factory.StartNew(
                     () => RunEventLoop(_eventLoopCancellationSource.Token),
@@ -724,6 +702,85 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         throw new InvalidOperationException("无法初始化 MPV 预览内核：" + string.Join("；", initializationFailures));
     }
 
+    private MpvInitializationProfile[] BuildInitializationProfiles() =>
+    [
+        new(
+            "gpu-next-d3d11",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["vo"] = "gpu-next",
+                ["gpu-api"] = "d3d11",
+                ["gpu-context"] = "d3d11",
+                ["hwdec"] = "auto",
+                ["tone-mapping"] = "auto",
+                ["target-colorspace-hint"] = "auto",
+                ["hdr-compute-peak"] = "auto"
+            }),
+        new(
+            "gpu-next-d3d11-swdec",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["vo"] = "gpu-next",
+                ["gpu-api"] = "d3d11",
+                ["gpu-context"] = "d3d11",
+                ["hwdec"] = "no",
+                ["tone-mapping"] = "auto",
+                ["target-colorspace-hint"] = "auto",
+                ["hdr-compute-peak"] = "auto"
+            }),
+        new(
+            "gpu-d3d11",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["vo"] = "gpu",
+                ["gpu-api"] = "d3d11",
+                ["gpu-context"] = "d3d11",
+                ["hwdec"] = "auto",
+                ["tone-mapping"] = "auto"
+            }),
+        new(
+            "gpu-d3d11-swdec",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["vo"] = "gpu",
+                ["gpu-api"] = "d3d11",
+                ["gpu-context"] = "d3d11",
+                ["hwdec"] = "no",
+                ["tone-mapping"] = "auto"
+            }),
+        new(
+            "gpu-next-auto-swdec",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["vo"] = "gpu-next",
+                ["hwdec"] = "no",
+                ["tone-mapping"] = "auto",
+                ["target-colorspace-hint"] = "auto"
+            }),
+        new(
+            "gpu-auto",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["vo"] = "gpu",
+                ["hwdec"] = "auto",
+                ["tone-mapping"] = "auto"
+            }),
+        new(
+            "gpu-auto-swdec",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["vo"] = "gpu",
+                ["hwdec"] = "no",
+                ["tone-mapping"] = "auto"
+            }),
+        new(
+            "default-swdec",
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["hwdec"] = "no"
+            })
+    ];
+
     private void CleanupFailedInitializationHandle()
     {
         if (_nativeLibrary is null || _mpvHandle == IntPtr.Zero)
@@ -746,7 +803,7 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
     private string ResolveRuntimeDirectory()
     {
         var runtimeDirectory = Path.Combine(
-            AppContext.BaseDirectory,
+            ApplicationPaths.ExecutableDirectoryPath,
             _configuration.RuntimeDirectoryName,
             _configuration.MpvBundledRuntimeDirectoryName);
         if (!Directory.Exists(runtimeDirectory))
@@ -755,6 +812,66 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         }
 
         return runtimeDirectory;
+    }
+
+    private void EnsureRuntimeDirectoryRegistered(string runtimeDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(runtimeDirectory) || !Directory.Exists(runtimeDirectory))
+        {
+            return;
+        }
+
+        if (string.Equals(_registeredRuntimeDirectory, runtimeDirectory, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        PrependProcessPath(runtimeDirectory);
+
+        try
+        {
+            NativeMethods.SetDefaultDllDirectories(
+                NativeMethods.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+                NativeMethods.LOAD_LIBRARY_SEARCH_USER_DIRS);
+            if (_runtimeDirectoryCookie != IntPtr.Zero)
+            {
+                NativeMethods.RemoveDllDirectory(_runtimeDirectoryCookie);
+                _runtimeDirectoryCookie = IntPtr.Zero;
+            }
+
+            _runtimeDirectoryCookie = NativeMethods.AddDllDirectory(runtimeDirectory);
+            if (_runtimeDirectoryCookie == IntPtr.Zero)
+            {
+                var errorCode = Marshal.GetLastWin32Error();
+                _logger.Log(LogLevel.Warning, $"MPV 运行目录注册失败：{runtimeDirectory}，Win32={errorCode}");
+                return;
+            }
+
+            _registeredRuntimeDirectory = runtimeDirectory;
+            _logger.Log(LogLevel.Info, $"MPV 运行目录已注册：{runtimeDirectory}");
+        }
+        catch (EntryPointNotFoundException)
+        {
+            _logger.Log(LogLevel.Warning, $"当前系统不支持 AddDllDirectory，已退回到 PATH 预热：{runtimeDirectory}");
+        }
+    }
+
+    private static void PrependProcessPath(string directory)
+    {
+        var currentPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        var segments = currentPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var segment in segments)
+        {
+            if (string.Equals(segment, directory, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+        }
+
+        var updatedPath = string.IsNullOrWhiteSpace(currentPath)
+            ? directory
+            : string.Concat(directory, Path.PathSeparator, currentPath);
+        Environment.SetEnvironmentVariable("PATH", updatedPath);
     }
 
     private void ApplyCommonInitializationOptions()
@@ -1428,6 +1545,8 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
         public const uint WS_CHILD = 0x40000000;
         public const uint WS_CLIPSIBLINGS = 0x04000000;
         public const uint WS_CLIPCHILDREN = 0x02000000;
+        public const uint LOAD_LIBRARY_SEARCH_DEFAULT_DIRS = 0x00001000;
+        public const uint LOAD_LIBRARY_SEARCH_USER_DIRS = 0x00000400;
         public static readonly IntPtr HWND_TOP = IntPtr.Zero;
         public static readonly IntPtr HWND_BOTTOM = new(1);
 
@@ -1511,6 +1630,17 @@ public sealed class MpvVideoPreviewService : IVideoPreviewService
 
         [DllImport("kernel32.dll")]
         public static extern IntPtr GetModuleHandleW(IntPtr moduleName);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern IntPtr AddDllDirectory(string newDirectory);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool RemoveDllDirectory(IntPtr cookie);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetDefaultDllDirectories(uint directoryFlags);
     }
 
     private sealed class UnmanagedValue<T> : IDisposable

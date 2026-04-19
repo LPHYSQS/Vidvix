@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Utils;
 
 namespace Vidvix.Services.FFmpeg;
 
@@ -222,13 +223,13 @@ public sealed class FFmpegRuntimeService : IFFmpegRuntimeService
 
     private string GetBundledRuntimeRootPath() =>
         Path.Combine(
-            AppContext.BaseDirectory,
+            ApplicationPaths.ExecutableDirectoryPath,
             _configuration.RuntimeDirectoryName,
             _configuration.BundledRuntimeDirectoryName);
 
     private string GetApplicationRuntimeRootPath() =>
         Path.Combine(
-            AppContext.BaseDirectory,
+            ApplicationPaths.ExecutableDirectoryPath,
             _configuration.RuntimeDirectoryName,
             _configuration.RuntimeVendorDirectoryName);
 
@@ -345,4 +346,3 @@ public sealed class FFmpegRuntimeService : IFFmpegRuntimeService
         }
     }
 }
-

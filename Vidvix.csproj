@@ -22,6 +22,11 @@
     <OfflinePackageDir>$(MSBuildProjectDirectory)\artifacts\publish-offline\</OfflinePackageDir>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <AutoIncludeCopyToPublishDirectoryItems>false</AutoIncludeCopyToPublishDirectoryItems>
+  </PropertyGroup>
+
   <ItemGroup>
     <None Remove="artifacts\**\*" />
     <Content Remove="artifacts\**\*" />
@@ -36,6 +41,16 @@
     <ApplicationDefinition Remove="tests\**\*.xaml" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <None Remove="Tools\**\*;docs\**\*;scripts\**\*;Properties\PublishProfiles\**\*;Properties\launchSettings.json;AppData\**\*;.editorconfig;.gitignore;**\*.log;app.manifest" />
+    <Page Update="Views\**\*.xaml">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Page>
+    <ApplicationDefinition Update="App.xaml">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </ApplicationDefinition>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260209005" />
   </ItemGroup>
@@ -44,6 +59,7 @@
     <Content Include="Assets\logo.ico">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <Content Include="Assets\logo.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -62,14 +78,17 @@
     <Content Include="Tools\ffmpeg\ffmpeg.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <Content Include="Tools\ffmpeg\ffprobe.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <Content Include="Tools\ffmpeg\LICENSE.txt" Condition="Exists('Tools\ffmpeg\LICENSE.txt')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
   </ItemGroup>
 
@@ -78,6 +97,7 @@
       <TargetPath>Tools\ffmpeg\ffplay.exe</TargetPath>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
   </ItemGroup>
 
@@ -85,14 +105,17 @@
     <Content Include="Tools\mpv\mpv-1.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <Content Include="Tools\mpv\d3dcompiler_43.dll" Condition="Exists('Tools\mpv\d3dcompiler_43.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <Content Include="Tools\mpv\LICENSE.txt" Condition="Exists('Tools\mpv\LICENSE.txt')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
   </ItemGroup>
 
@@ -100,8 +123,28 @@
     <Content Include="Tools\Demucs\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
   </ItemGroup>
+
+  <ItemGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <Content Update="Tools\**\*">
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="ExcludeExternalToolsFromSingleFileBundle" AfterTargets="ComputeResolvedFilesToPublishList" BeforeTargets="_ComputeFilesToBundle" Condition="'$(PublishSingleFile)' == 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish
+        Update="@(ResolvedFileToPublish)"
+        Condition="
+          $([System.String]::Copy('%(ResolvedFileToPublish.RelativePath)').Replace('/','\\').StartsWith('Tools\\'))
+          Or
+          $([System.String]::Copy('%(ResolvedFileToPublish.Identity)').Replace('/','\\').Contains('\\Tools\\'))">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 
   <Target Name="EnsureOfflineRuntimeForPublish" BeforeTargets="Publish">
     <Error
@@ -122,6 +165,14 @@
     <Copy
       SourceFiles="$(TargetDir)$(AssemblyName).pri"
       DestinationFiles="$(PublishDir)$(AssemblyName).pri"
+      SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyWindowIconToPublish" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="Exists('$(MSBuildProjectDirectory)\Assets\logo.ico') and Exists('$(PublishDir)$(AssemblyName).exe')">
+    <MakeDir Directories="$(PublishDir)Assets" />
+    <Copy
+      SourceFiles="$(MSBuildProjectDirectory)\Assets\logo.ico"
+      DestinationFiles="$(PublishDir)Assets\logo.ico"
       SkipUnchangedFiles="true" />
   </Target>
 

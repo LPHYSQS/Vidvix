@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Utils;
 
 namespace Vidvix.Services.FFmpeg;
 
@@ -249,9 +250,9 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
             yield return executableDirectory;
         }
 
-        yield return Path.Combine(AppContext.BaseDirectory, _configuration.RuntimeDirectoryName, _configuration.BundledRuntimeDirectoryName);
+        yield return Path.Combine(ApplicationPaths.ExecutableDirectoryPath, _configuration.RuntimeDirectoryName, _configuration.BundledRuntimeDirectoryName);
         yield return Path.Combine(
-            AppContext.BaseDirectory,
+            ApplicationPaths.ExecutableDirectoryPath,
             _configuration.RuntimeDirectoryName,
             _configuration.RuntimeVendorDirectoryName,
             _configuration.RuntimeCurrentVersionDirectoryName);

@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Utils;
 
 namespace Vidvix.Services.Demucs;
 
@@ -237,7 +238,7 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
     private string ResolveWritableStorageRootPath()
     {
         var applicationLocalRootPath = Path.Combine(
-            AppContext.BaseDirectory,
+            ApplicationPaths.ExecutableDirectoryPath,
             _configuration.RuntimeDirectoryName,
             _configuration.DemucsDirectoryName);
 
@@ -258,21 +259,21 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
 
     private string GetBundledRuntimeRootPath(DemucsRuntimeVariant runtimeVariant) =>
         Path.Combine(
-            AppContext.BaseDirectory,
+            ApplicationPaths.ExecutableDirectoryPath,
             _configuration.RuntimeDirectoryName,
             _configuration.DemucsDirectoryName,
             GetRuntimeDirectoryName(runtimeVariant));
 
     private string GetBundledModelRootPath() =>
         Path.Combine(
-            AppContext.BaseDirectory,
+            ApplicationPaths.ExecutableDirectoryPath,
             _configuration.RuntimeDirectoryName,
             _configuration.DemucsDirectoryName,
             _configuration.DemucsModelsDirectoryName);
 
     private string GetBundledRuntimeArchivePath(DemucsRuntimeVariant runtimeVariant) =>
         Path.Combine(
-            AppContext.BaseDirectory,
+            ApplicationPaths.ExecutableDirectoryPath,
             _configuration.RuntimeDirectoryName,
             _configuration.DemucsDirectoryName,
             _configuration.DemucsPackagesDirectoryName,
@@ -280,7 +281,7 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
 
     private string GetBundledModelArchivePath() =>
         Path.Combine(
-            AppContext.BaseDirectory,
+            ApplicationPaths.ExecutableDirectoryPath,
             _configuration.RuntimeDirectoryName,
             _configuration.DemucsDirectoryName,
             _configuration.DemucsPackagesDirectoryName,
