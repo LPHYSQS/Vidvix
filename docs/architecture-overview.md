@@ -35,6 +35,8 @@
 - `AppCompositionRoot` 改为按“基础设施 / 运行时 / 工作流”分组装配，入口类不再承载一整条线性 `new` 链。
 - 新增 `MainViewModelDependencies`、`VideoTrimWorkspaceDependencies` 与 `MergeWorkspaceDependencies`，把重量级 ViewModel 的服务依赖收口为显式依赖包，降低组合根与构造器签名的同步修改成本。
 - `MergeViewModel` 继续按职责拆成 `MergeViewModel.TrackState.cs` 与 `MergeViewModel.MediaMetadata.cs`，分别承载轨道集合协调 / 模式状态刷新与素材元数据辅助逻辑，避免合并工作区继续回到单文件膨胀。
+- `SplitAudioWorkspaceViewModel` 新增 `SplitAudioWorkspacePreferencesState`、`SplitAudioProgressState` 与 `SplitAudioResultCollectionState`。
+  拆音工作区的“偏好持久化 / 输出目录解析、进度展示状态、结果集合可见性”已经从主 ViewModel 中收口为独立状态对象，后续继续拆输入状态、执行协调器与预览门面时不必反复改动同一批字段。
 - 新增标准 `Vidvix.sln`，并保留原有 `Vidvix.slnx`，提升不同 IDE / 工具链下的解决方案兼容性。
 
 ## 仍需长期坚持的约束

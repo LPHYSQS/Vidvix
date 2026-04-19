@@ -22,6 +22,8 @@
   入口继续保持手动组合根，不引入额外 DI 依赖，但已经把基础设施、媒体运行时和业务工作流分层整理，降低新增服务时的接线成本。
 - 为合并模块新增 `MergeWorkspaceModeProfile` 与 `MergeWorkspaceModeState`。
   现在“视频拼接 / 音频拼接 / 音视频合成”的轨道能力、时间轴显示和模式提示不再散落在 ViewModel 的条件分支里，而是统一通过模式配置与模式状态装配。
+- 为拆音模块新增 `SplitAudioWorkspacePreferencesState`、`SplitAudioProgressState` 与 `SplitAudioResultCollectionState`。
+  `SplitAudioWorkspaceViewModel` 现在不再同时持有偏好解析、输出目录归一化、进度显示字段和结果集合可见性判断；这一轮先把最稳定的状态职责抽离出来，为下一轮继续拆输入状态与执行协调器打基础。
 - 新增 `IMergeMediaAnalysisService / MergeMediaAnalysisService`，承接合并模块的媒体探测与分段准备。
   `MergeViewModel` 现在更接近“界面协调层”，不再同时承担分辨率解析、采样率推导、时长探测和导出前素材分析。
 - 新增 `MainViewModelDependencies`、`VideoTrimWorkspaceDependencies` 与 `MergeWorkspaceDependencies`，把 ViewModel 构造器从长参数列表改为显式依赖包。

@@ -192,6 +192,14 @@ Vidvix 现在最大的问题，不是单个 bug，而是以下三类结构性耦
 
 这块很适合作为“统一工作区拆法”的模板，因为它比合并模块简单，但又比普通导出更完整。
 
+当前仓库已经先落了一步保守切片：
+
+- `SplitAudioWorkspacePreferencesState`
+- `SplitAudioProgressState`
+- `SplitAudioResultCollectionState`
+
+也就是说，拆音工作区已经开始把“偏好 / 进度 / 结果集合”从主 ViewModel 中抽离。后续继续拆时，优先顺着这个方向补 `SplitAudioInputState` 与 `SplitAudioExecutionCoordinator`，不要再把新的状态字段塞回 `SplitAudioWorkspaceViewModel`。
+
 #### `MainViewModel` 推荐拆法
 
 `MainViewModel` 后续应该尽量收缩成“主壳层”：

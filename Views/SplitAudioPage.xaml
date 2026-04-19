@@ -598,7 +598,7 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Spacing="4">
+                <StackPanel Margin="0,0,108,0" Spacing="4">
                     <TextBlock
                         Style="{StaticResource SectionTitleTextStyle}"
                         Text="处理完毕列表" />
@@ -607,6 +607,12 @@
                         Text="每次完成后会按原文件名 + stem 名称输出四个结果文件。"
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
+
+                <Button
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Command="{x:Bind ViewModel.ClearResultsCommand, Mode=OneWay}"
+                    Content="全部清空" />
 
                 <Border
                     Grid.Row="1"

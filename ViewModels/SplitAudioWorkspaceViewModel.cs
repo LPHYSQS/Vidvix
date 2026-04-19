@@ -24,6 +24,9 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
     private readonly IFileRevealService _fileRevealService;
     private readonly IDispatcherService _dispatcherService;
     private readonly ILogger _logger;
+    private readonly SplitAudioWorkspacePreferencesState _preferencesState;
+    private readonly SplitAudioProgressState _progressState;
+    private readonly SplitAudioResultCollectionState _resultCollectionState;
     private readonly AsyncRelayCommand _selectInputCommand;
     private readonly RelayCommand _removeInputCommand;
     private readonly AsyncRelayCommand _browseOutputDirectoryCommand;
@@ -31,22 +34,14 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
     private readonly AsyncRelayCommand _startSeparationCommand;
     private readonly RelayCommand _cancelSeparationCommand;
     private readonly RelayCommand _revealFileCommand;
+    private readonly RelayCommand _clearResultsCommand;
 
-    private OutputFormatOption? _selectedOutputFormat;
-    private DemucsAccelerationModeOption? _selectedAccelerationMode;
-    private string _outputDirectory = string.Empty;
     private string _statusMessage;
     private string _inputPath = string.Empty;
     private string _inputFileName = string.Empty;
     private string _inputSummaryText;
     private bool _isBusy;
     private CancellationTokenSource? _executionCancellationSource;
-    private Visibility _progressVisibility = Visibility.Collapsed;
-    private bool _isProgressIndeterminate;
-    private double _progressValue;
-    private string _progressSummaryText = string.Empty;
-    private string _progressDetailText = string.Empty;
-    private string _progressPercentText = string.Empty;
     private bool _isDisposed;
 
     internal SplitAudioWorkspaceViewModel(SplitAudioWorkspaceDependencies dependencies)
@@ -63,11 +58,10 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         _videoPreviewService = dependencies.VideoPreviewService;
         _dispatcherService = dependencies.DispatcherService;
         _logger = dependencies.Logger;
+        _preferencesState = new SplitAudioWorkspacePreferencesState(_configuration, _userPreferencesService, _logger);
+        _progressState = new SplitAudioProgressState();
+        _resultCollectionState = new SplitAudioResultCollectionState();
 
-        var preferences = _userPreferencesService.Load();
-        _selectedOutputFormat = ResolvePreferredOutputFormat(preferences.PreferredSplitAudioOutputFormatExtension);
-        _selectedAccelerationMode = ResolvePreferredAccelerationMode(preferences.PreferredSplitAudioAccelerationMode);
-        _outputDirectory = NormalizeOutputDirectory(preferences.PreferredSplitAudioOutputDirectory);
         _statusMessage = "请导入 1 个音频或视频文件，系统会先标准化音频，再调用 Demucs 执行四轨拆分。";
         _inputSummaryText = "支持视频与纯音频输入；如果导入视频，会自动提取主音轨后再开始拆音。";
 
@@ -78,15 +72,16 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         _startSeparationCommand = new AsyncRelayCommand(StartSeparationAsync, () => HasInput && !IsBusy);
         _cancelSeparationCommand = new RelayCommand(CancelSeparation, () => IsBusy);
         _revealFileCommand = new RelayCommand(RevealFile, CanRevealFile);
+        _clearResultsCommand = new RelayCommand(ClearResults, CanClearResults);
         InitializePreview();
     }
 
-    public ObservableCollection<SplitAudioResultItemViewModel> ResultItems { get; } = new();
+    public ObservableCollection<SplitAudioResultItemViewModel> ResultItems => _resultCollectionState.Items;
 
-    public IReadOnlyList<OutputFormatOption> AvailableOutputFormats => _configuration.SupportedAudioOutputFormats;
+    public IReadOnlyList<OutputFormatOption> AvailableOutputFormats => _preferencesState.AvailableOutputFormats;
 
     public IReadOnlyList<DemucsAccelerationModeOption> AvailableAccelerationModes =>
-        _configuration.SupportedSplitAudioAccelerationModes;
+        _preferencesState.AvailableAccelerationModes;
 
     public ICommand SelectInputCommand => _selectInputCommand;
 
@@ -101,6 +96,8 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
     public ICommand CancelSeparationCommand => _cancelSeparationCommand;
 
     public ICommand RevealFileCommand => _revealFileCommand;
+
+    public ICommand ClearResultsCommand => _clearResultsCommand;
 
     public string StatusMessage
     {
@@ -132,9 +129,9 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
     public Visibility InputCardVisibility => HasInput ? Visibility.Visible : Visibility.Collapsed;
 
-    public Visibility ResultsVisibility => ResultItems.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ResultsVisibility => _resultCollectionState.ResultsVisibility;
 
-    public Visibility EmptyResultsVisibility => ResultItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility EmptyResultsVisibility => _resultCollectionState.EmptyResultsVisibility;
 
     public string SupportedInputFormatsHint =>
         "支持导入格式（" +
@@ -145,7 +142,7 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
     public OutputFormatOption SelectedOutputFormat
     {
-        get => _selectedOutputFormat ?? AvailableOutputFormats.First();
+        get => _preferencesState.SelectedOutputFormat;
         set
         {
             if (value is null)
@@ -153,10 +150,10 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
                 return;
             }
 
-            if (SetProperty(ref _selectedOutputFormat, value))
+            if (_preferencesState.TrySetSelectedOutputFormat(value))
             {
+                OnPropertyChanged(nameof(SelectedOutputFormat));
                 OnPropertyChanged(nameof(SelectedOutputFormatDescription));
-                PersistPreferences();
             }
         }
     }
@@ -165,7 +162,7 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
     public DemucsAccelerationModeOption SelectedAccelerationMode
     {
-        get => _selectedAccelerationMode ?? AvailableAccelerationModes.First();
+        get => _preferencesState.SelectedAccelerationMode;
         set
         {
             if (value is null)
@@ -173,16 +170,14 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
                 return;
             }
 
-            if (SetProperty(ref _selectedAccelerationMode, value))
+            if (_preferencesState.TrySetSelectedAccelerationMode(value))
             {
+                OnPropertyChanged(nameof(SelectedAccelerationMode));
                 OnPropertyChanged(nameof(SelectedAccelerationModeDescription));
-                PersistPreferences();
 
                 if (!IsBusy)
                 {
-                    StatusMessage = value.Mode == DemucsAccelerationMode.GpuPreferred
-                        ? "已切换为 GPU 优先模式，将按独显 -> 核显 -> CPU 的顺序尝试拆音。"
-                        : "已切换为 CPU 兼容模式，本次拆音将固定使用 CPU。";
+                    StatusMessage = _preferencesState.GetAccelerationModeStatusMessage();
                 }
             }
         }
@@ -192,20 +187,19 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
     public string OutputDirectory
     {
-        get => _outputDirectory;
+        get => _preferencesState.OutputDirectory;
         set
         {
-            var normalized = NormalizeOutputDirectory(value);
-            if (SetProperty(ref _outputDirectory, normalized))
+            if (_preferencesState.TrySetOutputDirectory(value))
             {
+                OnPropertyChanged(nameof(OutputDirectory));
                 OnPropertyChanged(nameof(HasCustomOutputDirectory));
-                PersistPreferences();
                 NotifyCommandStates();
             }
         }
     }
 
-    public bool HasCustomOutputDirectory => !string.IsNullOrWhiteSpace(OutputDirectory);
+    public bool HasCustomOutputDirectory => _preferencesState.HasCustomOutputDirectory;
 
     public string OutputDirectoryHintText => "留空时默认导出到原文件所在文件夹。";
 
@@ -224,38 +218,32 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
     public Visibility ProgressVisibility
     {
-        get => _progressVisibility;
-        private set => SetProperty(ref _progressVisibility, value);
+        get => _progressState.ProgressVisibility;
     }
 
     public bool IsProgressIndeterminate
     {
-        get => _isProgressIndeterminate;
-        private set => SetProperty(ref _isProgressIndeterminate, value);
+        get => _progressState.IsProgressIndeterminate;
     }
 
     public double ProgressValue
     {
-        get => _progressValue;
-        private set => SetProperty(ref _progressValue, value);
+        get => _progressState.ProgressValue;
     }
 
     public string ProgressSummaryText
     {
-        get => _progressSummaryText;
-        private set => SetProperty(ref _progressSummaryText, value);
+        get => _progressState.ProgressSummaryText;
     }
 
     public string ProgressDetailText
     {
-        get => _progressDetailText;
-        private set => SetProperty(ref _progressDetailText, value);
+        get => _progressState.ProgressDetailText;
     }
 
     public string ProgressPercentText
     {
-        get => _progressPercentText;
-        private set => SetProperty(ref _progressPercentText, value);
+        get => _progressState.ProgressPercentText;
     }
 
     public void Dispose()
@@ -449,9 +437,8 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
                     SelectedAccelerationMode.Mode),
                 _executionCancellationSource.Token);
 
-            ResultItems.Insert(0, new SplitAudioResultItemViewModel(result));
-            OnPropertyChanged(nameof(ResultsVisibility));
-            OnPropertyChanged(nameof(EmptyResultsVisibility));
+            _resultCollectionState.Prepend(result);
+            NotifyResultStateChanged();
 
             StatusMessage = $"{result.ExecutionPlan.ResolutionSummary} 已生成 4 条 {SelectedOutputFormat.DisplayName} 分轨文件。";
             TryRevealOutput(result);
@@ -507,6 +494,21 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         parameter is string filePath &&
         !string.IsNullOrWhiteSpace(filePath);
 
+    private void ClearResults()
+    {
+        if (!_resultCollectionState.HasResults)
+        {
+            return;
+        }
+
+        var clearedCount = ResultItems.Count;
+        _resultCollectionState.Clear();
+        NotifyResultStateChanged();
+        StatusMessage = $"已清空处理完毕列表，共移除 {clearedCount} 条记录。";
+    }
+
+    private bool CanClearResults() => _resultCollectionState.HasResults;
+
     private void UpdateProgress(AudioSeparationProgress progress)
     {
         if (_dispatcherService.HasThreadAccess)
@@ -520,31 +522,14 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
     private void ApplyProgress(AudioSeparationProgress progress)
     {
-        ProgressVisibility = Visibility.Visible;
-        ProgressSummaryText = progress.StageTitle;
-        ProgressDetailText = progress.DetailText;
-
-        if (progress.ProgressRatio is double ratio)
-        {
-            var normalized = Math.Clamp(ratio, 0d, 1d);
-            IsProgressIndeterminate = false;
-            ProgressValue = Math.Round(normalized * 100d, 1);
-            ProgressPercentText = $"{Math.Round(normalized * 100d):0}%";
-            return;
-        }
-
-        IsProgressIndeterminate = true;
-        ProgressPercentText = "处理中";
+        _progressState.Apply(progress);
+        NotifyProgressStateChanged();
     }
 
     private void ShowPreparationProgress()
     {
-        ProgressVisibility = Visibility.Visible;
-        IsProgressIndeterminate = true;
-        ProgressValue = 0d;
-        ProgressSummaryText = "准备开始";
-        ProgressDetailText = "正在校验输入并准备拆音运行环境...";
-        ProgressPercentText = "准备中";
+        _progressState.ShowPreparation();
+        NotifyProgressStateChanged();
     }
 
     private void ResetProgress()
@@ -560,12 +545,8 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
     private void HideProgressCore()
     {
-        ProgressVisibility = Visibility.Collapsed;
-        IsProgressIndeterminate = false;
-        ProgressValue = 0d;
-        ProgressSummaryText = string.Empty;
-        ProgressDetailText = string.Empty;
-        ProgressPercentText = string.Empty;
+        _progressState.Reset();
+        NotifyProgressStateChanged();
     }
 
     private async Task<InputValidationResult> ValidateInputCandidateAsync(string inputPath)
@@ -670,48 +651,6 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         }
     }
 
-    private void PersistPreferences()
-    {
-        _userPreferencesService.Update(existingPreferences => existingPreferences with
-        {
-            PreferredSplitAudioOutputFormatExtension = SelectedOutputFormat.Extension,
-            PreferredSplitAudioOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null,
-            PreferredSplitAudioAccelerationMode = SelectedAccelerationMode.Mode
-        });
-    }
-
-    private OutputFormatOption ResolvePreferredOutputFormat(string? preferredExtension)
-    {
-        if (!string.IsNullOrWhiteSpace(preferredExtension))
-        {
-            var preferredFormat = AvailableOutputFormats.FirstOrDefault(format =>
-                string.Equals(format.Extension, preferredExtension, StringComparison.OrdinalIgnoreCase));
-            if (preferredFormat is not null)
-            {
-                return preferredFormat;
-            }
-        }
-
-        return AvailableOutputFormats.First();
-    }
-
-    private DemucsAccelerationModeOption ResolvePreferredAccelerationMode(DemucsAccelerationMode preferredMode)
-    {
-        var preferredOption = AvailableAccelerationModes.FirstOrDefault(option => option.Mode == preferredMode);
-        return preferredOption ?? AvailableAccelerationModes.First();
-    }
-
-    private string NormalizeOutputDirectory(string? outputDirectory)
-    {
-        if (MediaPathResolver.TryNormalizeOutputDirectory(outputDirectory, out var normalizedDirectory))
-        {
-            return normalizedDirectory;
-        }
-
-        _logger.Log(LogLevel.Warning, "检测到无效的拆音输出目录配置，已回退为原文件夹输出。");
-        return string.Empty;
-    }
-
     private void NotifyCommandStates()
     {
         _selectInputCommand.NotifyCanExecuteChanged();
@@ -721,6 +660,23 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         _startSeparationCommand.NotifyCanExecuteChanged();
         _cancelSeparationCommand.NotifyCanExecuteChanged();
         _revealFileCommand.NotifyCanExecuteChanged();
+    }
+
+    private void NotifyProgressStateChanged()
+    {
+        OnPropertyChanged(nameof(ProgressVisibility));
+        OnPropertyChanged(nameof(IsProgressIndeterminate));
+        OnPropertyChanged(nameof(ProgressValue));
+        OnPropertyChanged(nameof(ProgressSummaryText));
+        OnPropertyChanged(nameof(ProgressDetailText));
+        OnPropertyChanged(nameof(ProgressPercentText));
+    }
+
+    private void NotifyResultStateChanged()
+    {
+        OnPropertyChanged(nameof(ResultsVisibility));
+        OnPropertyChanged(nameof(EmptyResultsVisibility));
+        _clearResultsCommand.NotifyCanExecuteChanged();
     }
 
     private readonly record struct InputValidationResult(bool IsAccepted, string? Reason)
