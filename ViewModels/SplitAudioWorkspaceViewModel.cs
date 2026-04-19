@@ -13,7 +13,7 @@ using Vidvix.Utils;
 
 namespace Vidvix.ViewModels;
 
-public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
+public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable, ISplitAudioPlaybackParticipant
 {
     private readonly ApplicationConfiguration _configuration;
     private readonly IMediaImportDiscoveryService _mediaImportDiscoveryService;
@@ -60,6 +60,7 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
         _filePickerService = dependencies.FilePickerService;
         _userPreferencesService = dependencies.UserPreferencesService;
         _fileRevealService = dependencies.FileRevealService;
+        _videoPreviewService = dependencies.VideoPreviewService;
         _dispatcherService = dependencies.DispatcherService;
         _logger = dependencies.Logger;
 
@@ -77,6 +78,7 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
         _startSeparationCommand = new AsyncRelayCommand(StartSeparationAsync, () => HasInput && !IsBusy);
         _cancelSeparationCommand = new RelayCommand(CancelSeparation, () => IsBusy);
         _revealFileCommand = new RelayCommand(RevealFile, CanRevealFile);
+        InitializePreview();
     }
 
     public ObservableCollection<SplitAudioResultItemViewModel> ResultItems { get; } = new();
@@ -214,6 +216,7 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
         {
             if (SetProperty(ref _isBusy, value))
             {
+                OnPropertyChanged(nameof(CanPlayPreview));
                 NotifyCommandStates();
             }
         }
@@ -266,6 +269,7 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
         _executionCancellationSource?.Cancel();
         _executionCancellationSource?.Dispose();
         _executionCancellationSource = null;
+        DisposePreview();
     }
 
     public async Task ImportPathsAsync(IEnumerable<string> inputPaths)
@@ -367,6 +371,9 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
             return;
         }
 
+        ResetPreviewState();
+        _ = _videoPreviewService.UnloadAsync();
+        OnPropertyChanged(nameof(CanPlayPreview));
         InputPath = string.Empty;
         InputFileName = string.Empty;
         InputSummaryText = "支持视频与纯音频输入；如果导入视频，会自动提取主音轨后再开始拆音。";
@@ -420,6 +427,8 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
             StatusMessage = "请先导入一个可拆音文件。";
             return;
         }
+
+        await PausePreviewForDeactivationAsync();
 
         _executionCancellationSource?.Dispose();
         _executionCancellationSource = new CancellationTokenSource();
@@ -587,9 +596,12 @@ public sealed class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable
     private async Task ApplySelectedInputAsync(string inputPath)
     {
         var normalizedPath = Path.GetFullPath(inputPath);
+        ResetPreviewState();
         InputPath = normalizedPath;
         InputFileName = Path.GetFileName(normalizedPath);
         InputSummaryText = await BuildInputSummaryAsync(normalizedPath);
+        await PrimePreviewTimelineAsync(normalizedPath);
+        OnPropertyChanged(nameof(CanPlayPreview));
         OnPropertyChanged(nameof(HasInput));
         OnPropertyChanged(nameof(PlaceholderVisibility));
         OnPropertyChanged(nameof(InputCardVisibility));

@@ -19,7 +19,8 @@ internal sealed record AppMediaRuntimeServices(
     IDemucsRuntimeService DemucsRuntimeService,
     IMediaInfoService MediaInfoService,
     IVideoThumbnailService VideoThumbnailService,
-    IVideoPreviewService VideoPreviewService);
+    IVideoPreviewService TrimVideoPreviewService,
+    IVideoPreviewService SplitAudioPreviewService);
 
 internal sealed record AppWorkflowServices(
     IMediaImportDiscoveryService MediaImportDiscoveryService,

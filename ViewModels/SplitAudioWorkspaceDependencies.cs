@@ -14,6 +14,7 @@ internal sealed class SplitAudioWorkspaceDependencies
         IFilePickerService filePickerService,
         IUserPreferencesService userPreferencesService,
         IFileRevealService fileRevealService,
+        IVideoPreviewService videoPreviewService,
         IDispatcherService dispatcherService,
         ILogger logger)
     {
@@ -24,6 +25,7 @@ internal sealed class SplitAudioWorkspaceDependencies
         FilePickerService = filePickerService ?? throw new ArgumentNullException(nameof(filePickerService));
         UserPreferencesService = userPreferencesService ?? throw new ArgumentNullException(nameof(userPreferencesService));
         FileRevealService = fileRevealService ?? throw new ArgumentNullException(nameof(fileRevealService));
+        VideoPreviewService = videoPreviewService ?? throw new ArgumentNullException(nameof(videoPreviewService));
         DispatcherService = dispatcherService ?? throw new ArgumentNullException(nameof(dispatcherService));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -41,6 +43,8 @@ internal sealed class SplitAudioWorkspaceDependencies
     public IUserPreferencesService UserPreferencesService { get; }
 
     public IFileRevealService FileRevealService { get; }
+
+    public IVideoPreviewService VideoPreviewService { get; }
 
     public IDispatcherService DispatcherService { get; }
 

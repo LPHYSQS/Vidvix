@@ -197,6 +197,19 @@ public sealed partial class MainViewModel
             }
         }
 
+        if (_selectedWorkspaceKind == ProcessingWorkspaceKind.SplitAudio &&
+            workspaceKind != ProcessingWorkspaceKind.SplitAudio)
+        {
+            try
+            {
+                await SplitAudioWorkspace.PausePreviewForDeactivationAsync();
+            }
+            catch (Exception exception)
+            {
+                _logger.Log(LogLevel.Warning, "Failed to pause split-audio preview while switching workspace.", exception);
+            }
+        }
+
         _selectedWorkspaceKind = workspaceKind;
         _pendingDetailItem = null;
         CloseMediaDetails();

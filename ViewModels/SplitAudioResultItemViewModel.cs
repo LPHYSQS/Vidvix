@@ -17,6 +17,7 @@ public sealed class SplitAudioResultItemViewModel
         SourceFileName = Path.GetFileName(result.InputPath);
         OutputDirectory = result.OutputDirectory;
         DurationText = FormatDuration(result.Duration);
+        DurationMilliseconds = Math.Max(0d, result.Duration.TotalMilliseconds);
         CompletedAtText = DateTimeOffset.Now.ToLocalTime().ToString("HH:mm:ss");
         _stemPaths = CreateStemPathMap(result);
     }
@@ -28,6 +29,8 @@ public sealed class SplitAudioResultItemViewModel
     public string OutputDirectory { get; }
 
     public string DurationText { get; }
+
+    public double DurationMilliseconds { get; }
 
     public string CompletedAtText { get; }
 

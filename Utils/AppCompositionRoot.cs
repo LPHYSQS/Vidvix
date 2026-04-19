@@ -95,7 +95,8 @@ public sealed class AppCompositionRoot
         var demucsRuntimeService = new DemucsRuntimeService(Configuration, Logger);
         var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
         var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
-        var videoPreviewService = new MpvVideoPreviewService(Configuration, windowContext, Logger);
+        var trimVideoPreviewService = new MpvVideoPreviewService(Configuration, windowContext, Logger);
+        var splitAudioPreviewService = new MpvVideoPreviewService(Configuration, windowContext, Logger);
 
         return new AppMediaRuntimeServices(
             runtimeService,
@@ -105,7 +106,8 @@ public sealed class AppCompositionRoot
             demucsRuntimeService,
             mediaInfoService,
             videoThumbnailService,
-            videoPreviewService);
+            trimVideoPreviewService,
+            splitAudioPreviewService);
     }
 
     private AppWorkflowServices CreateWorkflowServices(AppMediaRuntimeServices mediaRuntime)
@@ -194,7 +196,7 @@ public sealed class AppCompositionRoot
             infrastructure.FilePickerService,
             infrastructure.UserPreferencesService,
             infrastructure.FileRevealService,
-            mediaRuntime.VideoPreviewService,
+            mediaRuntime.TrimVideoPreviewService,
             infrastructure.DispatcherService,
             Logger);
 
@@ -238,6 +240,7 @@ public sealed class AppCompositionRoot
             infrastructure.FilePickerService,
             infrastructure.UserPreferencesService,
             infrastructure.FileRevealService,
+            mediaRuntime.SplitAudioPreviewService,
             infrastructure.DispatcherService,
             Logger);
 
