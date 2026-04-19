@@ -18,9 +18,7 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
     private readonly ApplicationConfiguration _configuration;
     private readonly IMediaImportDiscoveryService _mediaImportDiscoveryService;
     private readonly IMediaInfoService _mediaInfoService;
-    private readonly IAudioSeparationWorkflowService _audioSeparationWorkflowService;
     private readonly IFilePickerService _filePickerService;
-    private readonly IUserPreferencesService _userPreferencesService;
     private readonly IFileRevealService _fileRevealService;
     private readonly IDispatcherService _dispatcherService;
     private readonly ILogger _logger;
@@ -28,6 +26,7 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
     private readonly SplitAudioProgressState _progressState;
     private readonly SplitAudioResultCollectionState _resultCollectionState;
     private readonly SplitAudioInputState _inputState;
+    private readonly SplitAudioExecutionCoordinator _executionCoordinator;
     private readonly AsyncRelayCommand _selectInputCommand;
     private readonly RelayCommand _removeInputCommand;
     private readonly AsyncRelayCommand _browseOutputDirectoryCommand;
@@ -49,17 +48,20 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         _configuration = dependencies.Configuration;
         _mediaImportDiscoveryService = dependencies.MediaImportDiscoveryService;
         _mediaInfoService = dependencies.MediaInfoService;
-        _audioSeparationWorkflowService = dependencies.AudioSeparationWorkflowService;
         _filePickerService = dependencies.FilePickerService;
-        _userPreferencesService = dependencies.UserPreferencesService;
         _fileRevealService = dependencies.FileRevealService;
         _videoPreviewService = dependencies.VideoPreviewService;
         _dispatcherService = dependencies.DispatcherService;
         _logger = dependencies.Logger;
-        _preferencesState = new SplitAudioWorkspacePreferencesState(_configuration, _userPreferencesService, _logger);
+        _preferencesState = new SplitAudioWorkspacePreferencesState(_configuration, dependencies.UserPreferencesService, _logger);
         _progressState = new SplitAudioProgressState();
         _resultCollectionState = new SplitAudioResultCollectionState();
         _inputState = new SplitAudioInputState();
+        _executionCoordinator = new SplitAudioExecutionCoordinator(
+            dependencies.AudioSeparationWorkflowService,
+            dependencies.UserPreferencesService,
+            dependencies.FileRevealService,
+            _logger);
 
         _statusMessage = "请导入 1 个音频或视频文件，系统会先标准化音频，再调用 Demucs 执行四轨拆分。";
 
@@ -418,30 +420,21 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
             ShowPreparationProgress();
             StatusMessage = "正在执行拆音，请稍候...";
 
-            var progressReporter = new Progress<AudioSeparationProgress>(UpdateProgress);
-            var result = await _audioSeparationWorkflowService.SeparateAsync(
-                new AudioSeparationRequest(
-                    InputPath,
-                    SelectedOutputFormat,
-                    HasCustomOutputDirectory ? OutputDirectory : null,
-                    progressReporter,
-                    SelectedAccelerationMode.Mode),
+            var outcome = await _executionCoordinator.ExecuteAsync(
+                InputPath,
+                SelectedOutputFormat,
+                HasCustomOutputDirectory ? OutputDirectory : null,
+                SelectedAccelerationMode.Mode,
+                new Progress<AudioSeparationProgress>(UpdateProgress),
                 _executionCancellationSource.Token);
 
-            _resultCollectionState.Prepend(result);
-            NotifyResultStateChanged();
+            if (outcome.Result is not null)
+            {
+                _resultCollectionState.Prepend(outcome.Result);
+                NotifyResultStateChanged();
+            }
 
-            StatusMessage = $"{result.ExecutionPlan.ResolutionSummary} 已生成 4 条 {SelectedOutputFormat.DisplayName} 分轨文件。";
-            TryRevealOutput(result);
-        }
-        catch (OperationCanceledException) when (_executionCancellationSource?.IsCancellationRequested == true)
-        {
-            StatusMessage = "拆音任务已取消。";
-        }
-        catch (Exception exception)
-        {
-            StatusMessage = $"拆音失败：{exception.Message}";
-            _logger.Log(LogLevel.Error, "执行拆音任务时发生异常。", exception);
+            StatusMessage = outcome.StatusMessage;
         }
         finally
         {
@@ -615,27 +608,6 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         {
             _logger.Log(LogLevel.Warning, "读取拆音输入摘要失败，将继续使用简化说明。", exception);
             return "已导入文件；开始拆音时会再次校验音轨并标准化为 WAV。";
-        }
-    }
-
-    private void TryRevealOutput(AudioSeparationResult result)
-    {
-        try
-        {
-            if (!_userPreferencesService.Load().RevealOutputFileAfterProcessing)
-            {
-                return;
-            }
-
-            var preferredOutput = result.StemOutputs.FirstOrDefault()?.FilePath;
-            if (!string.IsNullOrWhiteSpace(preferredOutput))
-            {
-                _fileRevealService.RevealFile(preferredOutput);
-            }
-        }
-        catch (Exception exception)
-        {
-            _logger.Log(LogLevel.Warning, "拆音完成后定位输出文件失败。", exception);
         }
     }
 
