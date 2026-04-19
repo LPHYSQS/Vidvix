@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Services;
 using Vidvix.Utils;
 
 namespace Vidvix.Services.FFmpeg;
@@ -120,6 +121,7 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
             StartInfo = CreateStartInfo(executablePath, tokens),
             EnableRaisingEvents = true
         };
+        var processId = 0;
 
         var standardOutputClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var standardErrorClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -153,10 +155,11 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
                 return TerminalCommandExecutionResult.Failed(displayCommandText, "内置 FF 命令进程无法启动。");
             }
 
+            processId = process.Id;
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            using var cancellationRegistration = cancellationToken.Register(() => TryTerminateProcess(process));
+            using var cancellationRegistration = ExternalProcessTermination.RegisterTermination(process, cancellationToken);
 
             try
             {
@@ -164,6 +167,12 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                await ExternalProcessTermination.WaitForTerminationAsync(
+                        process,
+                        processId,
+                        _logger,
+                        "终端模块取消命令后，FF 进程在宽限时间内仍未完全退出，已继续返回结果。")
+                    .ConfigureAwait(false);
                 await AwaitOutputCompletionAsync(standardOutputClosed.Task, standardErrorClosed.Task).ConfigureAwait(false);
                 return TerminalCommandExecutionResult.Cancelled(displayCommandText);
             }
@@ -316,20 +325,6 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
 
     private static async Task AwaitOutputCompletionAsync(Task standardOutputTask, Task standardErrorTask) =>
         await Task.WhenAll(standardOutputTask, standardErrorTask).ConfigureAwait(false);
-
-    private static void TryTerminateProcess(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-        }
-        catch
-        {
-        }
-    }
 
     [DllImport("shell32.dll", SetLastError = true)]
     private static extern IntPtr CommandLineToArgvW(

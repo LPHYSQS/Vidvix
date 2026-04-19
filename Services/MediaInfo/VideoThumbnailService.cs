@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -10,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Services;
 
 namespace Vidvix.Services.MediaInfo;
 
@@ -33,7 +35,7 @@ public sealed class VideoThumbnailService : IVideoThumbnailService
     private readonly ApplicationConfiguration _configuration;
     private readonly ILogger _logger;
     private readonly ConcurrentDictionary<string, Uri> _cache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, Task<Uri?>> _inFlightRequests = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, SharedCancelableTask<Uri?>> _inFlightRequests = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _generationLimiter = new(2, 2);
 
     public VideoThumbnailService(
@@ -60,21 +62,60 @@ public sealed class VideoThumbnailService : IVideoThumbnailService
             return cachedThumbnailUri;
         }
 
-        var loadTask = _inFlightRequests.GetOrAdd(
+        var inFlightRequest = _inFlightRequests.GetOrAdd(
             cacheContext.CacheKey,
-            _ => GenerateThumbnailCoreAsync(cacheContext));
+            _ => CreateInFlightRequest(cacheContext));
+        inFlightRequest.AddWaiter();
 
         try
         {
-            return await loadTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return await inFlightRequest.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            if (loadTask.IsCompleted)
-            {
-                _inFlightRequests.TryRemove(cacheContext.CacheKey, out _);
-            }
+            ReleaseInFlightRequest(cacheContext.CacheKey, inFlightRequest);
         }
+    }
+
+    private SharedCancelableTask<Uri?> CreateInFlightRequest(ThumbnailCacheContext cacheContext)
+    {
+        var inFlightRequest = new SharedCancelableTask<Uri?>(
+            token => GenerateThumbnailCoreAsync(cacheContext, token));
+
+        _ = inFlightRequest.Task.ContinueWith(
+            _ => CleanupInFlightRequest(cacheContext.CacheKey, inFlightRequest),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
+        return inFlightRequest;
+    }
+
+    private void ReleaseInFlightRequest(string cacheKey, SharedCancelableTask<Uri?> inFlightRequest)
+    {
+        var waiterCount = inFlightRequest.ReleaseWaiter();
+        if (waiterCount > 0)
+        {
+            return;
+        }
+
+        if (!inFlightRequest.Task.IsCompleted &&
+            _inFlightRequests.TryRemove(new KeyValuePair<string, SharedCancelableTask<Uri?>>(cacheKey, inFlightRequest)))
+        {
+            inFlightRequest.Cancel();
+            return;
+        }
+
+        if (inFlightRequest.Task.IsCompleted)
+        {
+            CleanupInFlightRequest(cacheKey, inFlightRequest);
+        }
+    }
+
+    private void CleanupInFlightRequest(string cacheKey, SharedCancelableTask<Uri?> inFlightRequest)
+    {
+        _inFlightRequests.TryRemove(new KeyValuePair<string, SharedCancelableTask<Uri?>>(cacheKey, inFlightRequest));
+        inFlightRequest.Dispose();
     }
 
     private bool TryGetCachedThumbnail(string cacheKey, out Uri thumbnailUri)
@@ -92,11 +133,11 @@ public sealed class VideoThumbnailService : IVideoThumbnailService
         return false;
     }
 
-    private async Task<Uri?> GenerateThumbnailCoreAsync(ThumbnailCacheContext cacheContext)
+    private async Task<Uri?> GenerateThumbnailCoreAsync(ThumbnailCacheContext cacheContext, CancellationToken cancellationToken)
     {
         try
         {
-            var runtimeResolution = await _ffmpegRuntimeService.EnsureAvailableAsync().ConfigureAwait(false);
+            var runtimeResolution = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
             var ffmpegPath = runtimeResolution.ExecutablePath;
             var ffprobePath = ResolveFfprobePath(ffmpegPath);
             if (!File.Exists(ffmpegPath) || !File.Exists(ffprobePath))
@@ -104,7 +145,7 @@ public sealed class VideoThumbnailService : IVideoThumbnailService
                 return null;
             }
 
-            var probeInfo = await ProbeVideoInfoAsync(ffprobePath, cacheContext.InputPath).ConfigureAwait(false);
+            var probeInfo = await ProbeVideoInfoAsync(ffprobePath, cacheContext.InputPath, cancellationToken).ConfigureAwait(false);
             if (!probeInfo.HasVideoStream)
             {
                 return null;
@@ -116,7 +157,7 @@ public sealed class VideoThumbnailService : IVideoThumbnailService
                 return CacheThumbnail(cacheContext.CacheKey, outputPath);
             }
 
-            await _generationLimiter.WaitAsync().ConfigureAwait(false);
+            await _generationLimiter.WaitAsync(cancellationToken).ConfigureAwait(false);
 
             try
             {
@@ -129,7 +170,8 @@ public sealed class VideoThumbnailService : IVideoThumbnailService
                     ffmpegPath,
                     cacheContext,
                     outputPath,
-                    probeInfo.DurationSeconds).ConfigureAwait(false);
+                    probeInfo.DurationSeconds,
+                    cancellationToken).ConfigureAwait(false);
 
                 return generatedThumbnailPath is null
                     ? null
@@ -147,7 +189,7 @@ public sealed class VideoThumbnailService : IVideoThumbnailService
         }
     }
 
-    private async Task<VideoProbeInfo> ProbeVideoInfoAsync(string ffprobePath, string inputPath)
+    private async Task<VideoProbeInfo> ProbeVideoInfoAsync(string ffprobePath, string inputPath, CancellationToken cancellationToken)
     {
         var command = new FFmpegCommand(
             ffprobePath,
@@ -167,7 +209,8 @@ public sealed class VideoThumbnailService : IVideoThumbnailService
             new FFmpegExecutionOptions
             {
                 Timeout = TimeSpan.FromSeconds(10)
-            }).ConfigureAwait(false);
+            },
+            cancellationToken).ConfigureAwait(false);
 
         if (!result.WasSuccessful || string.IsNullOrWhiteSpace(result.StandardOutput))
         {
@@ -184,7 +227,8 @@ public sealed class VideoThumbnailService : IVideoThumbnailService
         string ffmpegPath,
         ThumbnailCacheContext cacheContext,
         string outputPath,
-        double? durationSeconds)
+        double? durationSeconds,
+        CancellationToken cancellationToken)
     {
         var cacheDirectoryPath = Path.GetDirectoryName(outputPath)
             ?? throw new InvalidOperationException("\u7f29\u7565\u56fe\u7f13\u5b58\u76ee\u5f55\u65e0\u6548\u3002");
@@ -197,7 +241,8 @@ public sealed class VideoThumbnailService : IVideoThumbnailService
         var representativeSeekSeconds = CalculateSeekSeconds(durationSeconds);
         if (await TryCreateThumbnailAsync(
                 CreateRepresentativeThumbnailCommand(ffmpegPath, cacheContext.InputPath, representativeSeekSeconds, temporaryPath),
-                temporaryPath).ConfigureAwait(false))
+                temporaryPath,
+                cancellationToken).ConfigureAwait(false))
         {
             FinalizeGeneratedThumbnail(cacheContext, temporaryPath, outputPath);
             return outputPath;
@@ -207,7 +252,8 @@ public sealed class VideoThumbnailService : IVideoThumbnailService
 
         if (await TryCreateThumbnailAsync(
                 CreateFallbackThumbnailCommand(ffmpegPath, cacheContext.InputPath, temporaryPath),
-                temporaryPath).ConfigureAwait(false))
+                temporaryPath,
+                cancellationToken).ConfigureAwait(false))
         {
             FinalizeGeneratedThumbnail(cacheContext, temporaryPath, outputPath);
             return outputPath;
@@ -217,14 +263,15 @@ public sealed class VideoThumbnailService : IVideoThumbnailService
         return null;
     }
 
-    private async Task<bool> TryCreateThumbnailAsync(FFmpegCommand command, string outputPath)
+    private async Task<bool> TryCreateThumbnailAsync(FFmpegCommand command, string outputPath, CancellationToken cancellationToken)
     {
         var result = await _ffmpegService.ExecuteAsync(
             command,
             new FFmpegExecutionOptions
             {
                 Timeout = TimeSpan.FromSeconds(20)
-            }).ConfigureAwait(false);
+            },
+            cancellationToken).ConfigureAwait(false);
 
         if (result.WasSuccessful && IsUsableThumbnailFile(outputPath))
         {

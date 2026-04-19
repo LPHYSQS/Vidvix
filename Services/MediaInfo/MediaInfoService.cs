@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -8,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Services;
 
 namespace Vidvix.Services.MediaInfo;
 
@@ -33,7 +35,7 @@ public sealed partial class MediaInfoService : IMediaInfoService
     private readonly ApplicationConfiguration _configuration;
     private readonly ILogger _logger;
     private readonly ConcurrentDictionary<string, MediaDetailsSnapshot> _cache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, Task<MediaDetailsLoadResult>> _inFlightRequests = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, SharedCancelableTask<MediaDetailsLoadResult>> _inFlightRequests = new(StringComparer.OrdinalIgnoreCase);
 
     public MediaInfoService(
         IFFmpegRuntimeService ffmpegRuntimeService,
@@ -68,31 +70,70 @@ public sealed partial class MediaInfoService : IMediaInfoService
             return MediaDetailsLoadResult.Success(cachedSnapshot);
         }
 
-        var loadTask = _inFlightRequests.GetOrAdd(
+        var inFlightLoad = _inFlightRequests.GetOrAdd(
             cacheContext.CacheKey,
-            _ => LoadMediaDetailsCoreAsync(cacheContext));
+            _ => CreateInFlightMediaLoad(cacheContext));
+        inFlightLoad.AddWaiter();
 
         try
         {
-            return await loadTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return await inFlightLoad.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            if (loadTask.IsCompleted)
-            {
-                _inFlightRequests.TryRemove(cacheContext.CacheKey, out _);
-            }
+            ReleaseInFlightMediaLoad(cacheContext.CacheKey, inFlightLoad);
         }
     }
 
-    private async Task<MediaDetailsLoadResult> LoadMediaDetailsCoreAsync(MediaCacheContext cacheContext)
+    private SharedCancelableTask<MediaDetailsLoadResult> CreateInFlightMediaLoad(MediaCacheContext cacheContext)
+    {
+        var inFlightLoad = new SharedCancelableTask<MediaDetailsLoadResult>(
+            token => LoadMediaDetailsCoreAsync(cacheContext, token));
+
+        _ = inFlightLoad.Task.ContinueWith(
+            _ => CleanupInFlightMediaLoad(cacheContext.CacheKey, inFlightLoad),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
+        return inFlightLoad;
+    }
+
+    private void ReleaseInFlightMediaLoad(string cacheKey, SharedCancelableTask<MediaDetailsLoadResult> inFlightLoad)
+    {
+        var waiterCount = inFlightLoad.ReleaseWaiter();
+        if (waiterCount > 0)
+        {
+            return;
+        }
+
+        if (!inFlightLoad.Task.IsCompleted &&
+            _inFlightRequests.TryRemove(new KeyValuePair<string, SharedCancelableTask<MediaDetailsLoadResult>>(cacheKey, inFlightLoad)))
+        {
+            inFlightLoad.Cancel();
+            return;
+        }
+
+        if (inFlightLoad.Task.IsCompleted)
+        {
+            CleanupInFlightMediaLoad(cacheKey, inFlightLoad);
+        }
+    }
+
+    private void CleanupInFlightMediaLoad(string cacheKey, SharedCancelableTask<MediaDetailsLoadResult> inFlightLoad)
+    {
+        _inFlightRequests.TryRemove(new KeyValuePair<string, SharedCancelableTask<MediaDetailsLoadResult>>(cacheKey, inFlightLoad));
+        inFlightLoad.Dispose();
+    }
+
+    private async Task<MediaDetailsLoadResult> LoadMediaDetailsCoreAsync(MediaCacheContext cacheContext, CancellationToken cancellationToken)
     {
         string? ffprobePath = null;
         FfprobeExecutionResult? executionResult = null;
 
         try
         {
-            var runtimeResolution = await _ffmpegRuntimeService.EnsureAvailableAsync().ConfigureAwait(false);
+            var runtimeResolution = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
             ffprobePath = ResolveFfprobePath(runtimeResolution.ExecutablePath);
 
             if (!File.Exists(ffprobePath))
@@ -108,7 +149,7 @@ public sealed partial class MediaInfoService : IMediaInfoService
                     isToolMissing: true);
             }
 
-            executionResult = await ExecuteFfprobeAsync(ffprobePath, cacheContext.InputPath).ConfigureAwait(false);
+            executionResult = await ExecuteFfprobeAsync(ffprobePath, cacheContext.InputPath, cancellationToken).ConfigureAwait(false);
             var probeExecutionResult = executionResult.Value;
             if (probeExecutionResult.ExitCode != 0)
             {
@@ -172,23 +213,36 @@ public sealed partial class MediaInfoService : IMediaInfoService
         return Path.Combine(executableDirectory, _configuration.FFprobeExecutableFileName);
     }
 
-    private static async Task<FfprobeExecutionResult> ExecuteFfprobeAsync(string ffprobePath, string inputPath)
+    private static async Task<FfprobeExecutionResult> ExecuteFfprobeAsync(string ffprobePath, string inputPath, CancellationToken cancellationToken)
     {
         using var process = new Process
         {
             StartInfo = CreateStartInfo(ffprobePath, inputPath),
             EnableRaisingEvents = true
         };
+        var processId = 0;
 
         if (!process.Start())
         {
             return new FfprobeExecutionResult(-1, string.Empty, "ffprobe \u8fdb\u7a0b\u65e0\u6cd5\u542f\u52a8\u3002");
         }
 
+        processId = process.Id;
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();
 
-        await process.WaitForExitAsync().ConfigureAwait(false);
+        using var cancellationRegistration = ExternalProcessTermination.RegisterTermination(process, cancellationToken);
+
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await ExternalProcessTermination.WaitForTerminationAsync(process, processId).ConfigureAwait(false);
+            await Task.WhenAll(outputTask, errorTask).ConfigureAwait(false);
+            throw;
+        }
 
         return new FfprobeExecutionResult(
             process.ExitCode,

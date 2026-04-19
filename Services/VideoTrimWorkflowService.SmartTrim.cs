@@ -142,30 +142,36 @@ public sealed partial class VideoTrimWorkflowService
             StartInfo = CreateKeyframeProbeStartInfo(ffprobePath, inputPath),
             EnableRaisingEvents = true
         };
+        var processId = 0;
 
         if (!process.Start())
         {
             return Array.Empty<TimeSpan>();
         }
 
+        processId = process.Id;
+
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();
 
-        using var registration = cancellationToken.Register(() =>
-        {
-            try
-            {
-                if (!process.HasExited)
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-            }
-            catch
-            {
-            }
-        });
+        using var registration = ExternalProcessTermination.RegisterTermination(process, cancellationToken);
 
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await ExternalProcessTermination.WaitForTerminationAsync(
+                    process,
+                    processId,
+                    null,
+                    null)
+                .ConfigureAwait(false);
+            await Task.WhenAll(outputTask, errorTask).ConfigureAwait(false);
+            throw;
+        }
+
         await Task.WhenAll(outputTask, errorTask).ConfigureAwait(false);
 
         if (process.ExitCode != 0)

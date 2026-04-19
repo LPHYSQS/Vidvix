@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -7,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Services;
 
 namespace Vidvix.Services.MediaInfo;
 
@@ -20,7 +22,7 @@ public sealed class AudioWaveformService : IAudioWaveformService
     private readonly ApplicationConfiguration _configuration;
     private readonly ILogger _logger;
     private readonly ConcurrentDictionary<string, Uri> _cache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, Task<Uri?>> _inFlightRequests = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, SharedCancelableTask<Uri?>> _inFlightRequests = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _generationLimiter = new(1, 1);
 
     public AudioWaveformService(
@@ -47,21 +49,60 @@ public sealed class AudioWaveformService : IAudioWaveformService
             return cachedUri;
         }
 
-        var loadTask = _inFlightRequests.GetOrAdd(
+        var inFlightRequest = _inFlightRequests.GetOrAdd(
             cacheContext.CacheKey,
-            _ => GenerateWaveformCoreAsync(cacheContext));
+            _ => CreateInFlightRequest(cacheContext));
+        inFlightRequest.AddWaiter();
 
         try
         {
-            return await loadTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return await inFlightRequest.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            if (loadTask.IsCompleted)
-            {
-                _inFlightRequests.TryRemove(cacheContext.CacheKey, out _);
-            }
+            ReleaseInFlightRequest(cacheContext.CacheKey, inFlightRequest);
         }
+    }
+
+    private SharedCancelableTask<Uri?> CreateInFlightRequest(WaveformCacheContext cacheContext)
+    {
+        var inFlightRequest = new SharedCancelableTask<Uri?>(
+            token => GenerateWaveformCoreAsync(cacheContext, token));
+
+        _ = inFlightRequest.Task.ContinueWith(
+            _ => CleanupInFlightRequest(cacheContext.CacheKey, inFlightRequest),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
+        return inFlightRequest;
+    }
+
+    private void ReleaseInFlightRequest(string cacheKey, SharedCancelableTask<Uri?> inFlightRequest)
+    {
+        var waiterCount = inFlightRequest.ReleaseWaiter();
+        if (waiterCount > 0)
+        {
+            return;
+        }
+
+        if (!inFlightRequest.Task.IsCompleted &&
+            _inFlightRequests.TryRemove(new KeyValuePair<string, SharedCancelableTask<Uri?>>(cacheKey, inFlightRequest)))
+        {
+            inFlightRequest.Cancel();
+            return;
+        }
+
+        if (inFlightRequest.Task.IsCompleted)
+        {
+            CleanupInFlightRequest(cacheKey, inFlightRequest);
+        }
+    }
+
+    private void CleanupInFlightRequest(string cacheKey, SharedCancelableTask<Uri?> inFlightRequest)
+    {
+        _inFlightRequests.TryRemove(new KeyValuePair<string, SharedCancelableTask<Uri?>>(cacheKey, inFlightRequest));
+        inFlightRequest.Dispose();
     }
 
     private bool TryGetCachedWaveform(string cacheKey, out Uri waveformUri)
@@ -79,11 +120,11 @@ public sealed class AudioWaveformService : IAudioWaveformService
         return false;
     }
 
-    private async Task<Uri?> GenerateWaveformCoreAsync(WaveformCacheContext cacheContext)
+    private async Task<Uri?> GenerateWaveformCoreAsync(WaveformCacheContext cacheContext, CancellationToken cancellationToken)
     {
         try
         {
-            var runtimeResolution = await _ffmpegRuntimeService.EnsureAvailableAsync().ConfigureAwait(false);
+            var runtimeResolution = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
             if (!File.Exists(runtimeResolution.ExecutablePath))
             {
                 return null;
@@ -94,7 +135,7 @@ public sealed class AudioWaveformService : IAudioWaveformService
                 return CacheWaveform(cacheContext.CacheKey, cacheContext.OutputPath);
             }
 
-            await _generationLimiter.WaitAsync().ConfigureAwait(false);
+            await _generationLimiter.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 if (IsUsableWaveformFile(cacheContext.OutputPath))
@@ -115,7 +156,8 @@ public sealed class AudioWaveformService : IAudioWaveformService
                     new FFmpegExecutionOptions
                     {
                         Timeout = TimeSpan.FromSeconds(45)
-                    }).ConfigureAwait(false);
+                    },
+                    cancellationToken).ConfigureAwait(false);
 
                 if (!result.WasSuccessful || !IsUsableWaveformFile(temporaryPath))
                 {

@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Services;
 
 namespace Vidvix.Services.FFmpeg;
 
@@ -39,6 +40,7 @@ public sealed class FFmpegService : IFFmpegService
             StartInfo = CreateStartInfo(command, executionOptions),
             EnableRaisingEvents = true
         };
+        var processId = 0;
 
         var standardOutputClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var standardErrorClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -79,11 +81,13 @@ public sealed class FFmpegService : IFFmpegService
                     "FFmpeg \u8fdb\u7a0b\u65e0\u6cd5\u542f\u52a8\u3002");
             }
 
+            processId = process.Id;
+
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
             using var executionCancellationSource = CreateExecutionCancellationSource(executionOptions, cancellationToken);
-            using var cancellationRegistration = executionCancellationSource.Token.Register(() => TryTerminateProcess(process));
+            using var cancellationRegistration = ExternalProcessTermination.RegisterTermination(process, executionCancellationSource.Token);
 
             try
             {
@@ -91,6 +95,12 @@ public sealed class FFmpegService : IFFmpegService
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                await ExternalProcessTermination.WaitForTerminationAsync(
+                        process,
+                        processId,
+                        _logger,
+                        "FFmpeg 取消后在宽限时间内仍未完全退出，已继续返回结果。")
+                    .ConfigureAwait(false);
                 await AwaitOutputCompletionAsync(standardOutputClosed.Task, standardErrorClosed.Task).ConfigureAwait(false);
 
                 return FFmpegExecutionResult.Cancelled(
@@ -101,6 +111,12 @@ public sealed class FFmpegService : IFFmpegService
             }
             catch (OperationCanceledException)
             {
+                await ExternalProcessTermination.WaitForTerminationAsync(
+                        process,
+                        processId,
+                        _logger,
+                        "FFmpeg 超时后在宽限时间内仍未完全退出，已继续返回结果。")
+                    .ConfigureAwait(false);
                 await AwaitOutputCompletionAsync(standardOutputClosed.Task, standardErrorClosed.Task).ConfigureAwait(false);
 
                 return FFmpegExecutionResult.TimeoutFailure(
@@ -258,20 +274,6 @@ public sealed class FFmpegService : IFFmpegService
         }
 
         return false;
-    }
-
-    private static void TryTerminateProcess(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-        }
-        catch
-        {
-        }
     }
 
     private sealed class FFmpegProgressParser

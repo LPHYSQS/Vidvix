@@ -4,8 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Models;
+using Vidvix.Services;
 
 namespace Vidvix.Services.MediaInfo;
 
@@ -97,7 +99,13 @@ public sealed partial class MediaInfoService
             ?? throw new JsonException("ffprobe 输出为空。");
     }
 
-    private async Task<string?> ProbeMappedStreamBitrateAsync(string ffmpegPath, string inputPath, string mapSelector, string mediaLabel, double? durationSeconds)
+    private async Task<string?> ProbeMappedStreamBitrateAsync(
+        string ffmpegPath,
+        string inputPath,
+        string mapSelector,
+        string mediaLabel,
+        double? durationSeconds,
+        CancellationToken cancellationToken = default)
     {
         if (durationSeconds is not > 0)
         {
@@ -109,16 +117,30 @@ public sealed partial class MediaInfoService
             StartInfo = CreateBitrateProbeStartInfo(ffmpegPath, inputPath, mapSelector),
             EnableRaisingEvents = true
         };
+        var processId = 0;
 
         if (!process.Start())
         {
             return null;
         }
 
+        processId = process.Id;
         var standardOutputTask = process.StandardOutput.ReadToEndAsync();
         var standardErrorTask = process.StandardError.ReadToEndAsync();
 
-        await process.WaitForExitAsync().ConfigureAwait(false);
+        using var cancellationRegistration = ExternalProcessTermination.RegisterTermination(process, cancellationToken);
+
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await ExternalProcessTermination.WaitForTerminationAsync(process, processId).ConfigureAwait(false);
+            await Task.WhenAll(standardOutputTask, standardErrorTask).ConfigureAwait(false);
+            throw;
+        }
+
         await Task.WhenAll(standardOutputTask, standardErrorTask).ConfigureAwait(false);
 
         var standardError = standardErrorTask.Result;

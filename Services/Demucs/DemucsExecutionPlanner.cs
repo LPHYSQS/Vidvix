@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Services;
 using Vidvix.Utils;
 
 namespace Vidvix.Services.Demucs;
@@ -199,6 +200,7 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
                 StandardErrorEncoding = Encoding.UTF8
             }
         };
+        var processId = 0;
 
         process.StartInfo.Environment["PYTHONUTF8"] = "1";
         process.StartInfo.ArgumentList.Add(launcherScriptPath);
@@ -209,12 +211,27 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
             throw new InvalidOperationException($"Demucs probe process could not be started: {probeCommand}");
         }
 
-        using var cancellationRegistration = cancellationToken.Register(() => TryTerminateProcess(process));
+        processId = process.Id;
+        using var cancellationRegistration = ExternalProcessTermination.RegisterTermination(process, cancellationToken);
 
         var standardOutputTask = process.StandardOutput.ReadToEndAsync();
         var standardErrorTask = process.StandardError.ReadToEndAsync();
 
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await ExternalProcessTermination.WaitForTerminationAsync(
+                    process,
+                    processId,
+                    _logger,
+                    $"Demucs 设备探测取消后，探测进程在宽限时间内仍未完全退出：{probeCommand}")
+                .ConfigureAwait(false);
+            await Task.WhenAll(standardOutputTask, standardErrorTask).ConfigureAwait(false);
+            throw;
+        }
 
         var standardOutput = await standardOutputTask.ConfigureAwait(false);
         var standardError = await standardErrorTask.ConfigureAwait(false);
@@ -419,20 +436,6 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
             ResolutionSummary = resolutionSummary,
             RuntimeResolution = runtimeResolution
         };
-
-    private static void TryTerminateProcess(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-        }
-        catch
-        {
-        }
-    }
 
     private sealed class GenericProbeResult
     {

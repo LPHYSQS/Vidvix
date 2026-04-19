@@ -265,6 +265,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
                 demucsOutputRootPath),
             EnableRaisingEvents = true
         };
+        var processId = 0;
 
         var standardOutputBuilder = new StringBuilder();
         var standardErrorBuilder = new StringBuilder();
@@ -301,6 +302,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
             {
                 throw new InvalidOperationException("Demucs 进程未能成功启动。");
             }
+            processId = process.Id;
         }
         catch (Win32Exception exception)
         {
@@ -310,7 +312,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        using var cancellationRegistration = cancellationToken.Register(() => TryTerminateProcess(process));
+        using var cancellationRegistration = ExternalProcessTermination.RegisterTermination(process, cancellationToken);
 
         try
         {
@@ -318,6 +320,12 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            await ExternalProcessTermination.WaitForTerminationAsync(
+                    process,
+                    processId,
+                    _logger,
+                    "拆音任务取消后，Demucs 进程在宽限时间内仍未完全退出，已继续返回结果。")
+                .ConfigureAwait(false);
             await Task.WhenAll(standardOutputClosed.Task, standardErrorClosed.Task).ConfigureAwait(false);
             throw;
         }
@@ -601,20 +609,6 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
             .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         return lines.LastOrDefault() ?? "FFmpeg 未返回可用错误信息。";
-    }
-
-    private static void TryTerminateProcess(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-        }
-        catch
-        {
-        }
     }
 
     private static void ReportProgress(
