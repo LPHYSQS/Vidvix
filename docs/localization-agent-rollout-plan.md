@@ -7,27 +7,27 @@
 - 计划版本：`v2`
 - 项目：`Vidvix`
 - 当前阶段：`Stage 1`
-- 当前轮次：`R0`
-- 当前状态：`Pending`
-- 当前执行 Agent：`Unassigned`
-- 最近完成轮次：`None`
-- 最近完成时间：`Not Recorded`
-- 构建验证：`Not Run`
-- 热切换验证：`Not Run`
-- 字符串盘点产物：`Not Created`
-- 验证日志产物：`Not Created`
+- 当前轮次：`R3`
+- 当前状态：`Completed`
+- 当前执行 Agent：`Codex`
+- 最近完成轮次：`R3`
+- 最近完成时间：`2026-04-20 18:28`
+- 构建验证：`Passed`
+- 热切换验证：`Passed`
+- 字符串盘点产物：`docs/localization-string-inventory.csv`
+- 验证日志产物：`docs/localization-validation-log.md`
 
 ## 顶部交接区
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：
-- 本轮修改文件：
-- 本轮新增文件：
-- 本轮验证结果：
-- 当前遗留问题：
-- 下一轮必须处理：
-- 下一轮禁止扩展：
+- 本轮完成项：已在 `Views/Controls/ApplicationSettingsPane.xaml` / `.xaml.cs` 接入语言下拉、当前语言展示与即时刷新；`ViewModels/MainViewModel.Localization.cs` 负责 `LocalizationRefreshRequested`、语言持久化与 `zh-CN -> en-US -> zh-CN` 热切换；并修复了 `SelectedLanguageOption` 双向绑定在启动阶段反复写回导致的 `System.StackOverflowException`、白屏卡死与闪退问题，以及语言下拉在 `zh-CN -> en-US -> zh-CN` 往返切换后选中框显示空白的问题；`Views/MainWindow.xaml` / `.xaml.cs` 试点刷新了页头 caption、设置按钮与处理进度标题。
+- 本轮修改文件：`Utils/AppCompositionRoot.cs`、`ViewModels/MainViewModel.cs`、`ViewModels/MainViewModel.Workspace.cs`、`ViewModels/MainViewModel.Shortcuts.cs`、`ViewModels/MainViewModelDependencies.cs`、`Views/Controls/ApplicationSettingsPane.xaml`、`Views/Controls/ApplicationSettingsPane.xaml.cs`、`Views/MainWindow.xaml`、`Views/MainWindow.xaml.cs`、`Resources/Localization/zh-CN/common.json`、`Resources/Localization/en-US/common.json`、`Resources/Localization/zh-CN/settings.json`、`Resources/Localization/en-US/settings.json`、`Resources/Localization/zh-CN/main-window.json`、`Resources/Localization/en-US/main-window.json`、`docs/localization-key-registry.md`、`docs/localization-agent-rollout-plan.md`、`docs/localization-validation-log.md`
+- 本轮新增文件：`ViewModels/MainViewModel.Localization.cs`
+- 本轮验证结果：`dotnet build .\\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；修复递归后启动 `bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\Vidvix.exe` 持续运行超过 `15` 秒，`MainWindowHandle` 非 `0`，未再出现白屏后闪退；设置页语言下拉已改为基于 `Code` 的 `SelectedValue` 选中模式，避免语言列表重建后 `SelectedItem` 引用失配导致的空白显示；输出目录中的 `Resources/Localization` 已包含本轮新增 key；通过临时专用 `DispatcherQueue` 烟测验证 `zh-CN -> en-US -> zh-CN` 热切换链路，`SettingsPaneTitleText`、`WorkspaceHeaderCaption`、`MainWindowSettingsButtonLabel` 与偏好持久化均按预期往返刷新，刷新事件计数为 `3`。
+- 当前遗留问题：`ApplicationConfiguration` 中的工作区标题、描述和模式展示文案仍是集中式硬编码显示值；主窗口其余常驻 shell 文案尚未进入 `R5` 的正式迁移范围。
+- 下一轮必须处理：执行 `R4`，把 `Core/Models/ApplicationConfiguration.cs` 及其集中式显示文本迁移为稳定 key + 语言包读取方式，给后续 `R5` 复用。
+- 下一轮禁止扩展：不要提前展开 `Views/MainWindow.xaml` 的整面 shell 迁移，也不要触碰 `trim`、`split-audio`、`merge`、`terminal`、`media-details` 的成片文案；`R4` 只处理集中式配置与公共显示文本。
 
 ## 执行协议
 
@@ -223,9 +223,9 @@ splitAudio.progress.step = 正在处理第 {index} / {total} 项
 
 | 轮次 | 阶段 | 标题 | 状态 | 最近执行人 | 最近更新 | 摘要 |
 | --- | --- | --- | --- | --- | --- | --- |
-| R1 | Stage 1 | 字符串盘点与任务分桶 | Pending | Unassigned | Not Recorded | 未开始 |
-| R2 | Stage 1 | 本地化基础设施与资源目录 | Pending | Unassigned | Not Recorded | 未开始 |
-| R3 | Stage 1 | 设置页语言切换与热切换打通 | Pending | Unassigned | Not Recorded | 未开始 |
+| R1 | Stage 1 | 字符串盘点与任务分桶 | Completed | Codex | 2026-04-20 | 已生成 1220 条字符串盘点与验证日志，热点排序为 merge > common > main-window > split-audio。 |
+| R2 | Stage 1 | 本地化基础设施与资源目录 | Completed | Codex | 2026-04-20 | ~~未开始~~ 已建立 JSON 语言包目录、本地化服务、`CurrentUiLanguage` 偏好字段与 key 注册表，回退语言固定为 `zh-CN`。 |
+| R3 | Stage 1 | 设置页语言切换与热切换打通 | Completed | Codex | 2026-04-20 | ~~未开始~~ 已接入设置页语言下拉、当前语言持久化与 `LocalizationRefreshRequested` 刷新链路；修复 `SelectedLanguageOption` 递归导致的启动白屏/闪退，并将语言下拉改为按 `Code` 选中以消除往返切换后的空白显示；`zh-CN -> en-US -> zh-CN` 热切换烟测通过，主窗口试点覆盖页头 caption、设置按钮与处理进度标题。 |
 | R4 | Stage 2 | 公共配置与集中式文案迁移 | Pending | Unassigned | Not Recorded | 未开始 |
 | R5 | Stage 2 | 主窗口外壳与公共进度区迁移 | Pending | Unassigned | Not Recorded | 未开始 |
 | R6 | Stage 2 | 裁剪模块迁移 | Pending | Unassigned | Not Recorded | 未开始 |

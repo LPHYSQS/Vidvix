@@ -7,9 +7,13 @@ namespace Vidvix.Views.Controls;
 
 public sealed partial class ApplicationSettingsPane : UserControl
 {
+    private MainViewModel? _registeredViewModel;
+
     public ApplicationSettingsPane()
     {
         InitializeComponent();
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
     }
 
     public MainViewModel? ViewModel
@@ -22,7 +26,7 @@ public sealed partial class ApplicationSettingsPane : UserControl
         nameof(ViewModel),
         typeof(MainViewModel),
         typeof(ApplicationSettingsPane),
-        new PropertyMetadata(null));
+        new PropertyMetadata(null, OnViewModelChanged));
 
     public ICommand? CloseCommand
     {
@@ -35,4 +39,54 @@ public sealed partial class ApplicationSettingsPane : UserControl
         typeof(ICommand),
         typeof(ApplicationSettingsPane),
         new PropertyMetadata(null));
+
+    private static void OnViewModelChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        if (dependencyObject is not ApplicationSettingsPane pane)
+        {
+            return;
+        }
+
+        pane.UnregisterLocalizationRefresh(args.OldValue as MainViewModel);
+        pane.RegisterLocalizationRefresh(args.NewValue as MainViewModel);
+        pane.Bindings.Update();
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs args)
+    {
+        RegisterLocalizationRefresh(ViewModel);
+        Bindings.Update();
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs args) =>
+        UnregisterLocalizationRefresh(_registeredViewModel);
+
+    private void RegisterLocalizationRefresh(MainViewModel? viewModel)
+    {
+        if (viewModel is null || ReferenceEquals(_registeredViewModel, viewModel))
+        {
+            return;
+        }
+
+        _registeredViewModel = viewModel;
+        _registeredViewModel.LocalizationRefreshRequested += OnLocalizationRefreshRequested;
+    }
+
+    private void UnregisterLocalizationRefresh(MainViewModel? viewModel)
+    {
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        viewModel.LocalizationRefreshRequested -= OnLocalizationRefreshRequested;
+
+        if (ReferenceEquals(_registeredViewModel, viewModel))
+        {
+            _registeredViewModel = null;
+        }
+    }
+
+    private void OnLocalizationRefreshRequested() =>
+        Bindings.Update();
 }

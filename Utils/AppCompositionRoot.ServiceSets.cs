@@ -8,6 +8,7 @@ internal sealed record AppInfrastructureServices(
     IWindowIconService WindowIconService,
     IDispatcherService DispatcherService,
     IFilePickerService FilePickerService,
+    ILocalizationService LocalizationService,
     IUserPreferencesService UserPreferencesService,
     IFileRevealService FileRevealService,
     IDesktopShortcutService DesktopShortcutService,

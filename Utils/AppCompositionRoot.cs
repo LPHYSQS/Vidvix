@@ -20,6 +20,7 @@ namespace Vidvix.Utils;
 public sealed class AppCompositionRoot
 {
     private readonly MainViewModel _mainViewModel;
+    private readonly ILocalizationService _localizationService;
     private readonly IUserPreferencesService _userPreferencesService;
     private readonly IWindowContext _windowContext;
     private readonly IWindowIconService _windowIconService;
@@ -34,6 +35,7 @@ public sealed class AppCompositionRoot
         var infrastructure = CreateInfrastructureServices(dispatcherQueue);
         _windowContext = infrastructure.WindowContext;
         _windowIconService = infrastructure.WindowIconService;
+        _localizationService = infrastructure.LocalizationService;
         _userPreferencesService = infrastructure.UserPreferencesService;
         _systemTrayService = infrastructure.SystemTrayService;
 
@@ -57,6 +59,8 @@ public sealed class AppCompositionRoot
 
     public ILogger Logger { get; }
 
+    public ILocalizationService LocalizationService => _localizationService;
+
     public MainWindow CreateMainWindow()
     {
         var window = new MainWindow(_mainViewModel, _userPreferencesService, _systemTrayService, Logger)
@@ -69,20 +73,25 @@ public sealed class AppCompositionRoot
         return window;
     }
 
-    public Task InitializeAsync(CancellationToken cancellationToken = default) =>
-        _mainViewModel.InitializeAsync(cancellationToken);
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        await _localizationService.InitializeAsync(cancellationToken);
+        await _mainViewModel.InitializeAsync(cancellationToken);
+    }
 
     private AppInfrastructureServices CreateInfrastructureServices(DispatcherQueue dispatcherQueue)
     {
         var windowContext = new WindowContext();
         var dispatcherService = new DispatcherService(dispatcherQueue);
         var userPreferencesService = new UserPreferencesService(Configuration, Logger);
+        var localizationService = new LocalizationService(Configuration, userPreferencesService, Logger);
 
         return new AppInfrastructureServices(
             windowContext,
             new WindowIconService(Configuration, Logger),
             dispatcherService,
             new FilePickerService(windowContext),
+            localizationService,
             userPreferencesService,
             new FileRevealService(),
             new DesktopShortcutService(Configuration, Logger),
@@ -266,6 +275,7 @@ public sealed class AppCompositionRoot
             mediaRuntime.VideoThumbnailService,
             workflows.MediaProcessingWorkflowService,
             workflows.MediaImportDiscoveryService,
+            infrastructure.LocalizationService,
             Logger,
             infrastructure.FilePickerService,
             infrastructure.DispatcherService,

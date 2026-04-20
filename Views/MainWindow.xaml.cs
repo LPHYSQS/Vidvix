@@ -68,6 +68,7 @@ public sealed partial class MainWindow : Window
         _systemTrayService = systemTrayService ?? throw new ArgumentNullException(nameof(systemTrayService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         InitializeComponent();
+        ApplyLocalizedWindowText();
         _windowHandle = WindowNative.GetWindowHandle(this);
         _appWindow = GetAppWindow();
         _showDetailOverlayStoryboard = CreateDetailOverlayStoryboard(isShowing: true);
@@ -87,6 +88,7 @@ public sealed partial class MainWindow : Window
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         ViewModel.DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
         ViewModel.TransientNotificationRequested += OnTransientNotificationRequested;
+        ViewModel.LocalizationRefreshRequested += OnLocalizationRefreshRequested;
         _hideDetailOverlayStoryboard.Completed += OnHideDetailOverlayCompleted;
         _hideCopyToastStoryboard.Completed += OnHideCopyToastCompleted;
         _copyToastTimer.Tick += OnCopyToastTimerTick;
@@ -105,6 +107,7 @@ public sealed partial class MainWindow : Window
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         ViewModel.DetailPanel.PropertyChanged -= OnDetailPanelPropertyChanged;
         ViewModel.TransientNotificationRequested -= OnTransientNotificationRequested;
+        ViewModel.LocalizationRefreshRequested -= OnLocalizationRefreshRequested;
         _hideDetailOverlayStoryboard.Completed -= OnHideDetailOverlayCompleted;
         _hideCopyToastStoryboard.Completed -= OnHideCopyToastCompleted;
         _copyToastTimer.Tick -= OnCopyToastTimerTick;
@@ -132,6 +135,12 @@ public sealed partial class MainWindow : Window
         }
 
         ShowCopyToast(message);
+    }
+
+    private void OnLocalizationRefreshRequested()
+    {
+        ApplyLocalizedWindowText();
+        Bindings.Update();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -188,5 +197,8 @@ public sealed partial class MainWindow : Window
         var windowId = Win32Interop.GetWindowIdFromWindow(_windowHandle);
         return AppWindow.GetFromWindowId(windowId);
     }
+
+    private void ApplyLocalizedWindowText() =>
+        Title = ViewModel.MainWindowTitleText;
 
 }

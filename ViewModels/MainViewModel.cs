@@ -28,32 +28,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private const string RuntimePreparationCancelledMessage = "运行环境准备已取消。";
     private const string RuntimePreparationFailedMessage = "运行环境准备失败，请检查网络或运行目录。";
 
-    private static readonly IReadOnlyList<ThemePreferenceOption> ThemePreferenceOptions =
-        new[]
-        {
-            new ThemePreferenceOption(ThemePreference.UseSystem, "跟随系统", "根据 Windows 当前主题自动切换明亮和暗黑外观。"),
-            new ThemePreferenceOption(ThemePreference.Light, "明亮主题", "始终使用明亮外观，适合高亮环境。"),
-            new ThemePreferenceOption(ThemePreference.Dark, "暗黑主题", "始终使用暗黑外观，适合低亮环境。")
-        };
-
-    private static readonly IReadOnlyList<TranscodingModeOption> TranscodingModeOptions =
-        new[]
-        {
-            new TranscodingModeOption(
-                TranscodingMode.FastContainerConversion,
-                "快速换封装（默认）",
-                "保持当前默认行为：优先直接复用原始流，必要时沿用现有的兼容编码策略，速度更快。"),
-            new TranscodingModeOption(
-                TranscodingMode.FullTranscode,
-                "真正转码（重新编码）",
-                "先解码再编码，重新生成音视频数据；更适合需要统一编码格式、兼容性或后续编辑的场景。")
-        };
-
     private readonly ApplicationConfiguration _configuration;
     private readonly IMediaInfoService _mediaInfoService;
     private readonly IVideoThumbnailService _videoThumbnailService;
     private readonly IMediaProcessingWorkflowService _mediaProcessingWorkflowService;
     private readonly IMediaImportDiscoveryService _mediaImportDiscoveryService;
+    private readonly ILocalizationService _localizationService;
     private readonly ILogger _logger;
     private readonly IFilePickerService _filePickerService;
     private readonly IDispatcherService _dispatcherService;
@@ -129,6 +109,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _videoThumbnailService = dependencies.VideoThumbnailService;
         _mediaProcessingWorkflowService = dependencies.MediaProcessingWorkflowService;
         _mediaImportDiscoveryService = dependencies.MediaImportDiscoveryService;
+        _localizationService = dependencies.LocalizationService;
         _logger = dependencies.Logger;
         _filePickerService = dependencies.FilePickerService;
         _dispatcherService = dependencies.DispatcherService;
@@ -141,8 +122,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         TerminalWorkspace = terminalWorkspace ?? throw new ArgumentNullException(nameof(terminalWorkspace));
         _statusMessage = RuntimePreparingMessage;
 
-        ThemeOptions = ThemePreferenceOptions;
-        TranscodingOptions = TranscodingModeOptions;
         _videoLogEntries = new ObservableCollection<LogEntry>();
         _audioLogEntries = new ObservableCollection<LogEntry>();
         _trimLogEntries = new ObservableCollection<LogEntry>();
@@ -159,6 +138,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         ProcessingModes = _configuration.SupportedProcessingModes;
 
         var userPreferences = _userPreferencesService.Load();
+        InitializeLocalizationState(userPreferences.CurrentUiLanguage);
         _selectedWorkspaceKind = ResolvePreferredWorkspaceKind(userPreferences.PreferredWorkspaceKind);
         InitializePreferredOutputFormatSelections(userPreferences);
         _selectedThemeOption = ThemeOptions.FirstOrDefault(option => option.Preference == userPreferences.ThemePreference) ?? ThemeOptions[0];
@@ -193,6 +173,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _switchToSplitAudioWorkspaceCommand = new AsyncRelayCommand(SwitchToSplitAudioWorkspaceAsync, () => CanModifyInputs);
         _switchToTerminalWorkspaceCommand = new AsyncRelayCommand(SwitchToTerminalWorkspaceAsync, () => CanModifyInputs);
 
+        _localizationService.LanguageChanged += OnLocalizationLanguageChanged;
         DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
         TrimWorkspace.PropertyChanged += OnTrimWorkspacePropertyChanged;
         MergeWorkspace.PropertyChanged += OnMergeWorkspacePropertyChanged;
@@ -210,9 +191,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public IReadOnlyList<ProcessingModeOption> ProcessingModes { get; }
 
-    public IReadOnlyList<ThemePreferenceOption> ThemeOptions { get; }
+    public IReadOnlyList<ThemePreferenceOption> ThemeOptions
+    {
+        get => _themeOptions;
+        private set => SetProperty(ref _themeOptions, value);
+    }
 
-    public IReadOnlyList<TranscodingModeOption> TranscodingOptions { get; }
+    public IReadOnlyList<TranscodingModeOption> TranscodingOptions
+    {
+        get => _transcodingOptions;
+        private set => SetProperty(ref _transcodingOptions, value);
+    }
 
     public MediaDetailPanelViewModel DetailPanel { get; }
 
@@ -436,8 +425,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public string GpuAccelerationDescription =>
         EnableGpuAccelerationForTranscoding
-            ? "开启后，会先检测当前电脑是否存在可用的 GPU 视频硬件编码能力；若不适用或不可用，会自动回退为 CPU 转码，不会影响任务继续执行。音频任务、字幕任务与部分旧式视频格式仍会继续使用 CPU。"
-            : "关闭后，真正转码会始终使用 CPU 重新编码，速度更稳定，也不会额外检测显卡能力。";
+            ? GetLocalizedText(
+                "settings.transcoding.gpu.description.enabled",
+                "开启后，会先检测当前电脑是否存在可用的 GPU 视频硬件编码能力；若不适用或不可用，会自动回退为 CPU 转码，不会影响任务继续执行。音频任务、字幕任务与部分旧式视频格式仍会继续使用 CPU。")
+            : GetLocalizedText(
+                "settings.transcoding.gpu.description.disabled",
+                "关闭后，真正转码会始终使用 CPU 重新编码，速度更稳定，也不会额外检测显卡能力。");
 
     public ElementTheme RequestedTheme => ConvertThemePreferenceToElementTheme(SelectedThemeOption.Preference);
 
@@ -484,6 +477,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
 
         _isDisposed = true;
+        _localizationService.LanguageChanged -= OnLocalizationLanguageChanged;
         _videoImportItems.CollectionChanged -= OnImportItemsChanged;
         _audioImportItems.CollectionChanged -= OnImportItemsChanged;
         TrimWorkspace.PropertyChanged -= OnTrimWorkspacePropertyChanged;
@@ -505,6 +499,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
+        SynchronizeLocalizationStateWithService();
         await EnsureRuntimeReadyAsync(cancellationToken);
 
         if (!IsBusy && !string.IsNullOrWhiteSpace(_runtimeExecutablePath))
@@ -554,8 +549,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             {
                 PersistUserPreferences();
                 StatusMessage = value
-                    ? "已启用系统托盘，点击关闭按钮后会隐藏到托盘中继续运行。"
-                    : "已关闭系统托盘，点击关闭按钮将直接退出应用。";
+                    ? GetLocalizedText(
+                        "settings.systemTray.status.enabled",
+                        "已启用系统托盘，点击关闭按钮后会隐藏到托盘中继续运行。")
+                    : GetLocalizedText(
+                        "settings.systemTray.status.disabled",
+                        "已关闭系统托盘，点击关闭按钮将直接退出应用。");
             }
         }
     }

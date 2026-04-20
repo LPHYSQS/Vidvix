@@ -18,22 +18,30 @@ public sealed partial class MainViewModel
             DesktopShortcutNotificationSeverity = result.CreatedNewShortcut
                 ? InfoBarSeverity.Success
                 : InfoBarSeverity.Informational;
-            DesktopShortcutNotificationMessage = result.CreatedNewShortcut
-                ? "已在桌面创建应用快捷方式。"
-                : "桌面快捷方式已存在。";
+            SetDesktopShortcutNotificationState(
+                result.CreatedNewShortcut
+                    ? DesktopShortcutNotificationState.Created
+                    : DesktopShortcutNotificationState.Exists);
             IsDesktopShortcutNotificationOpen = true;
 
             StatusMessage = result.CreatedNewShortcut
-                ? $"已创建桌面快捷方式：{result.ShortcutPath}"
-                : "桌面快捷方式已存在，无需重复创建。";
+                ? FormatLocalizedText(
+                    "settings.desktopShortcut.status.created",
+                    $"已创建桌面快捷方式：{result.ShortcutPath}",
+                    ("path", result.ShortcutPath))
+                : GetLocalizedText(
+                    "settings.desktopShortcut.status.exists",
+                    "桌面快捷方式已存在，无需重复创建。");
         }
         catch (Exception exception)
         {
             _logger.Log(LogLevel.Warning, "创建桌面快捷方式失败。", exception);
             DesktopShortcutNotificationSeverity = InfoBarSeverity.Error;
-            DesktopShortcutNotificationMessage = "创建桌面快捷方式失败，请稍后重试。";
+            SetDesktopShortcutNotificationState(DesktopShortcutNotificationState.Failed);
             IsDesktopShortcutNotificationOpen = true;
-            StatusMessage = "创建桌面快捷方式失败，请稍后重试。";
+            StatusMessage = GetLocalizedText(
+                "settings.desktopShortcut.status.failed",
+                "创建桌面快捷方式失败，请稍后重试。");
         }
     }
 }

@@ -17,8 +17,9 @@
 
                 <StackPanel Spacing="4">
                     <TextBlock
+                        AutomationProperties.AutomationId="SettingsPaneTitleText"
                         Style="{StaticResource SectionTitleTextStyle}"
-                        Text="应用设置" />
+                        Text="{x:Bind ViewModel.SettingsPaneTitleText, Mode=OneWay}" />
                     <TextBlock
                         Opacity="0.72"
                         Text="{x:Bind ViewModel.SettingsPaneDescription, Mode=OneWay}"
@@ -31,7 +32,7 @@
                     VerticalAlignment="Top">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <SymbolIcon Symbol="Cancel" />
-                        <TextBlock Text="关闭" />
+                        <TextBlock Text="{x:Bind ViewModel.SettingsPaneCloseButtonText, Mode=OneWay}" />
                     </StackPanel>
                 </Button>
             </Grid>
@@ -51,10 +52,10 @@
                     <TextBlock
                         FontSize="14"
                         FontWeight="SemiBold"
-                        Text="外观" />
+                        Text="{x:Bind ViewModel.SettingsAppearanceTitleText, Mode=OneWay}" />
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="软件主题" />
+                        <TextBlock Text="{x:Bind ViewModel.SettingsThemeLabelText, Mode=OneWay}" />
                         <ComboBox
                             DisplayMemberPath="DisplayName"
                             ItemsSource="{x:Bind ViewModel.ThemeOptions, Mode=OneWay}"
@@ -62,7 +63,7 @@
                         <TextBlock
                             Opacity="0.72"
                             Text="{x:Bind ViewModel.SelectedThemeOption.Description, Mode=OneWay}"
-                            TextWrapping="WrapWholeWords" />
+                        TextWrapping="WrapWholeWords" />
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -75,17 +76,24 @@
                     <TextBlock
                         FontSize="14"
                         FontWeight="SemiBold"
-                        Text="系统托盘" />
+                        Text="{x:Bind ViewModel.SettingsLanguageSectionTitleText, Mode=OneWay}" />
 
-                    <ToggleSwitch
-                        Header="关闭窗口时保留在系统托盘"
-                        IsOn="{x:Bind ViewModel.EnableSystemTray, Mode=TwoWay}"
-                        OffContent="关闭"
-                        OnContent="开启" />
+                    <ComboBox
+                        AutomationProperties.AutomationId="SettingsLanguageComboBox"
+                        DisplayMemberPath="DisplayName"
+                        ItemsSource="{x:Bind ViewModel.AvailableLanguages, Mode=OneWay}"
+                        SelectedValuePath="Code"
+                        SelectedValue="{x:Bind ViewModel.SelectedLanguageCode, Mode=TwoWay}" />
 
                     <TextBlock
                         Opacity="0.72"
-                        Text="开启后，点击右上角关闭按钮不会退出应用，而是隐藏到系统托盘继续运行。右键托盘图标可选择“显示窗口”或“退出”。"
+                        Text="{x:Bind ViewModel.SettingsLanguageDescriptionText, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+
+                    <TextBlock
+                        AutomationProperties.AutomationId="SettingsCurrentLanguageText"
+                        Opacity="0.72"
+                        Text="{x:Bind ViewModel.CurrentLanguageDisplayText, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
             </Border>
@@ -98,11 +106,34 @@
                     <TextBlock
                         FontSize="14"
                         FontWeight="SemiBold"
-                        Text="桌面快捷方式" />
+                        Text="{x:Bind ViewModel.SettingsSystemTrayTitleText, Mode=OneWay}" />
+
+                    <ToggleSwitch
+                        Header="{x:Bind ViewModel.SettingsSystemTrayToggleHeaderText, Mode=OneWay}"
+                        IsOn="{x:Bind ViewModel.EnableSystemTray, Mode=TwoWay}"
+                        OffContent="{x:Bind ViewModel.CommonToggleOffText, Mode=OneWay}"
+                        OnContent="{x:Bind ViewModel.CommonToggleOnText, Mode=OneWay}" />
 
                     <TextBlock
                         Opacity="0.72"
-                        Text="检测桌面是否已存在当前应用快捷方式；如果不存在，会自动为你创建。"
+                        Text="{x:Bind ViewModel.SettingsSystemTrayDescriptionText, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+            </Border>
+
+            <Border
+                Padding="14"
+                Background="{ThemeResource SettingsPaneSectionBrush}"
+                CornerRadius="16">
+                <StackPanel Spacing="12">
+                    <TextBlock
+                        FontSize="14"
+                        FontWeight="SemiBold"
+                        Text="{x:Bind ViewModel.SettingsDesktopShortcutTitleText, Mode=OneWay}" />
+
+                    <TextBlock
+                        Opacity="0.72"
+                        Text="{x:Bind ViewModel.SettingsDesktopShortcutDescriptionText, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
 
                     <Button
@@ -110,7 +141,7 @@
                         HorizontalAlignment="Left">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <SymbolIcon Symbol="Add" />
-                            <TextBlock Text="生成桌面快捷方式" />
+                            <TextBlock Text="{x:Bind ViewModel.SettingsDesktopShortcutButtonText, Mode=OneWay}" />
                         </StackPanel>
                     </Button>
                 </StackPanel>
@@ -126,7 +157,7 @@
                         <TextBlock
                             FontSize="14"
                             FontWeight="SemiBold"
-                            Text="处理完成行为" />
+                            Text="{x:Bind ViewModel.SettingsProcessingBehaviorTitleText, Mode=OneWay}" />
                         <Border
                             Width="18"
                             Height="18"
@@ -152,14 +183,14 @@
                     </StackPanel>
 
                     <ToggleSwitch
-                        Header="处理完成后定位输出文件"
+                        Header="{x:Bind ViewModel.SettingsProcessingBehaviorToggleHeaderText, Mode=OneWay}"
                         IsOn="{x:Bind ViewModel.RevealOutputFileAfterProcessing, Mode=TwoWay}"
-                        OffContent="关闭"
-                        OnContent="开启" />
+                        OffContent="{x:Bind ViewModel.CommonToggleOffText, Mode=OneWay}"
+                        OnContent="{x:Bind ViewModel.CommonToggleOnText, Mode=OneWay}" />
 
                     <TextBlock
                         Opacity="0.72"
-                        Text="开启后，处理完成时会打开输出文件所在文件夹，并自动选中对应文件。批量任务会定位最后一个成功输出的文件。"
+                        Text="{x:Bind ViewModel.SettingsProcessingBehaviorDescriptionText, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
             </Border>
@@ -174,7 +205,7 @@
                         <TextBlock
                             FontSize="14"
                             FontWeight="SemiBold"
-                            Text="转码方式" />
+                            Text="{x:Bind ViewModel.SettingsTranscodingTitleText, Mode=OneWay}" />
                         <Border
                             Width="18"
                             Height="18"
@@ -200,7 +231,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="默认转码策略" />
+                        <TextBlock Text="{x:Bind ViewModel.SettingsTranscodingLabelText, Mode=OneWay}" />
                         <ComboBox
                             DisplayMemberPath="DisplayName"
                             ItemsSource="{x:Bind ViewModel.TranscodingOptions, Mode=OneWay}"
@@ -219,14 +250,14 @@
                             <TextBlock
                                 FontSize="13"
                                 FontWeight="SemiBold"
-                                Text="GPU 加速" />
+                                Text="{x:Bind ViewModel.SettingsGpuAccelerationTitleText, Mode=OneWay}" />
                         </StackPanel>
 
                         <ToggleSwitch
-                            Header="是否开启 GPU 加速"
+                            Header="{x:Bind ViewModel.SettingsGpuAccelerationToggleHeaderText, Mode=OneWay}"
                             IsOn="{x:Bind ViewModel.EnableGpuAccelerationForTranscoding, Mode=TwoWay}"
-                            OffContent="关闭"
-                            OnContent="开启" />
+                            OffContent="{x:Bind ViewModel.CommonToggleOffText, Mode=OneWay}"
+                            OnContent="{x:Bind ViewModel.CommonToggleOnText, Mode=OneWay}" />
 
                         <TextBlock
                             Opacity="0.72"

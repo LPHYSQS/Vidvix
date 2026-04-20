@@ -1,0 +1,6 @@
+{
+  "mainWindow.header.caption": "Current module",
+  "mainWindow.progress.title": "Processing progress",
+  "mainWindow.title.application": "Vidvix",
+  "mainWindow.toolbar.applicationSettings": "App settings"
+}

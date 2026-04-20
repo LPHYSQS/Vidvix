@@ -76,6 +76,8 @@ public sealed record UserPreferences
 
     public ThemePreference ThemePreference { get; init; } = ThemePreference.UseSystem;
 
+    public string CurrentUiLanguage { get; init; } = "zh-CN";
+
     public bool RevealOutputFileAfterProcessing { get; init; } = true;
 
     public bool EnableSystemTray { get; init; }

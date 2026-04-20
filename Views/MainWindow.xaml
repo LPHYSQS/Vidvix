@@ -58,6 +58,7 @@
                         VerticalAlignment="Center"
                         Spacing="2">
                         <TextBlock
+                            AutomationProperties.AutomationId="MainWindowWorkspaceHeaderCaption"
                             Style="{StaticResource CaptionTextStyle}"
                             Text="{x:Bind ViewModel.WorkspaceHeaderCaption, Mode=OneWay}" />
                         <TextBlock
@@ -110,7 +111,7 @@
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarSeparator />
-                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="{x:Bind ViewModel.MainWindowSettingsButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />
                         </AppBarButton.Icon>
@@ -124,7 +125,7 @@
                     IsDynamicOverflowEnabled="True"
                     VerticalAlignment="Center"
                     Visibility="Collapsed">
-                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="{x:Bind ViewModel.MainWindowSettingsButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />
                         </AppBarButton.Icon>
@@ -160,7 +161,7 @@
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarSeparator />
-                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="{x:Bind ViewModel.MainWindowSettingsButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />
                         </AppBarButton.Icon>
@@ -174,7 +175,7 @@
                     IsDynamicOverflowEnabled="True"
                     VerticalAlignment="Center"
                     Visibility="Collapsed">
-                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="{x:Bind ViewModel.MainWindowSettingsButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />
                         </AppBarButton.Icon>
@@ -210,7 +211,7 @@
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarSeparator />
-                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="{x:Bind ViewModel.MainWindowSettingsButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />
                         </AppBarButton.Icon>
@@ -235,7 +236,7 @@
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarSeparator />
-                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="{x:Bind ViewModel.MainWindowSettingsButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />
                         </AppBarButton.Icon>
@@ -249,7 +250,7 @@
                     IsDynamicOverflowEnabled="True"
                     VerticalAlignment="Center"
                     Visibility="{x:Bind ViewModel.TerminalWorkspaceVisibility, Mode=OneWay}">
-                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="应用设置">
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="{x:Bind ViewModel.MainWindowSettingsButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />
                         </AppBarButton.Icon>
@@ -294,7 +295,7 @@
                         <StackPanel Spacing="2">
                             <TextBlock
                                 Style="{StaticResource CaptionTextStyle}"
-                                Text="处理进度" />
+                                Text="{x:Bind ViewModel.ExecutionProgressTitleText, Mode=OneWay}" />
                             <TextBlock
                                 FontWeight="SemiBold"
                                 Text="{x:Bind ViewModel.ExecutionProgressSummaryText, Mode=OneWay}" />

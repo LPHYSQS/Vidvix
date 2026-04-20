@@ -36,6 +36,16 @@ public sealed class ApplicationConfiguration
 
     public string UserPreferencesFileName { get; init; } = "user-preferences.json";
 
+    public string DefaultUiLanguage { get; init; } = "zh-CN";
+
+    public string FallbackUiLanguage { get; init; } = "zh-CN";
+
+    public string SecondaryUiLanguage { get; init; } = "en-US";
+
+    public string LocalizationResourceRelativePath { get; init; } = Path.Combine("Resources", "Localization");
+
+    public string LocalizationManifestFileName { get; init; } = "manifest.json";
+
     public string RuntimeDirectoryName { get; init; } = "Tools";
 
     public string BundledRuntimeDirectoryName { get; init; } = "ffmpeg";

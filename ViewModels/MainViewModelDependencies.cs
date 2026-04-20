@@ -12,6 +12,7 @@ internal sealed class MainViewModelDependencies
         IVideoThumbnailService videoThumbnailService,
         IMediaProcessingWorkflowService mediaProcessingWorkflowService,
         IMediaImportDiscoveryService mediaImportDiscoveryService,
+        ILocalizationService localizationService,
         ILogger logger,
         IFilePickerService filePickerService,
         IDispatcherService dispatcherService,
@@ -24,6 +25,7 @@ internal sealed class MainViewModelDependencies
         VideoThumbnailService = videoThumbnailService ?? throw new ArgumentNullException(nameof(videoThumbnailService));
         MediaProcessingWorkflowService = mediaProcessingWorkflowService ?? throw new ArgumentNullException(nameof(mediaProcessingWorkflowService));
         MediaImportDiscoveryService = mediaImportDiscoveryService ?? throw new ArgumentNullException(nameof(mediaImportDiscoveryService));
+        LocalizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         FilePickerService = filePickerService ?? throw new ArgumentNullException(nameof(filePickerService));
         DispatcherService = dispatcherService ?? throw new ArgumentNullException(nameof(dispatcherService));
@@ -41,6 +43,8 @@ internal sealed class MainViewModelDependencies
     public IMediaProcessingWorkflowService MediaProcessingWorkflowService { get; }
 
     public IMediaImportDiscoveryService MediaImportDiscoveryService { get; }
+
+    public ILocalizationService LocalizationService { get; }
 
     public ILogger Logger { get; }
 
