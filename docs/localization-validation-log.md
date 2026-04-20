@@ -43,3 +43,14 @@
 - 回归修复验证：主窗口输出格式下拉继续使用 `SelectedItem`，本轮补充保证 `MainViewModel.SelectedOutputFormat` 始终返回当前 `AvailableOutputFormats` 快照中的同一实例；通过 UI 自动化烟测验证视频工作区显示 `视频格式转换 / MP4`，音频工作区目标格式显示 `MP3`，首次启动不再为空白。
 - 资源验证：`Resources/Localization/zh-CN/common.json` 与 `Resources/Localization/en-US/common.json` 已补齐 `common.workspace.*`、`common.processingMode.*`、`common.outputFormat.*`、`common.mergeMode.*`、`common.splitAudio.acceleration.*`。
 - 备注：主窗口按钮标签、占位符、输出目录按钮等非集中式 shell 文案仍留给 `R5`；裁剪 / 拆音 / 合并页面内的私有交互文案仍分别留给 `R6`、`R7`、`R9` / `R10`。
+
+## R5 · 2026-04-20 23:08
+
+- 轮次范围：主窗口外壳与公共进度区迁移，仅处理 `Views/MainWindow.xaml`、`MainViewModel` 公共消息 / 进度链路、队列项状态与直接映射到主窗口的服务层提示，不扩展到 `trim`、`split-audio`、`merge`、`terminal`、`media-details` 的私有页面文案。
+- 构建命令：`dotnet build .\Vidvix.sln -c Debug -v minimal`
+- 构建结果：通过，`0` 警告，`0` 错误。
+- 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行超过 `8` 秒，`MainWindowHandle` 为 `3016856`，进程保持响应，未出现黑屏或闪退；UI 自动化采样可见 `Vidvix`、`当前模块`、`视频处理`、`批量处理视频，支持提取轨道。`、`导入文件`、`导入文件夹`、`清空列表`。
+- 资源验证：`Resources/Localization/zh-CN/main-window.json` 与 `Resources/Localization/en-US/main-window.json` 已补齐 `mainWindow.queue.*`、`mainWindow.settings.*`、`mainWindow.results.*`、`mainWindow.message.*`、`mainWindow.processingContext.*`、`mainWindow.transcoding.*`，并扩展 `mainWindow.toolbar.*`、`mainWindow.progress.*` 为主窗口完整壳层与公共进度区 key。
+- 刷新链路验证：`MainViewModel.RefreshLocalizedTextProperties()` 已联动 `RefreshWorkspaceLocalization()`、`RefreshExecutionProgressLocalization()` 与队列项 `RefreshLocalization()`，保证主窗口外壳、当前进度摘要、队列项状态与输出目录文案在语言切换后按当前语言重建。
+- 热切换验证：通过 UI 自动化采样确认运行态主窗口壳层文案可见；本轮启动冒烟时观察到中文壳层文本，前序采样中曾观察到英文 `Current module`；用户已确认“本质修改没有任何问题”。完整 UI 自动化往返脚本因控件定位间歇性失败未保留单次整链路日志，但未发现功能性回退、黑屏或崩溃。
+- 备注：主窗口中与 `media-details` 浮层相关的私有文案仍留给 `R8`，裁剪模块私有交互文案留给 `R6`。

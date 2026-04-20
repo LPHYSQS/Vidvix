@@ -67,7 +67,7 @@ public sealed partial class MainViewModel
                 AddUiLog(
                     executionWorkspaceKind,
                     LogLevel.Info,
-                    $"本次仅处理当前{GetMediaLabel(executionWorkspaceKind)}模块中的 {executionItems.Count} 个文件；另一模块暂存的 {standbyItemCount} 个文件会保留，不会参与本次处理。",
+                    CreateStandbyWorkspaceRetainedMessage(executionWorkspaceKind, executionItems.Count, standbyItemCount),
                     clearExisting: false);
             }
 
@@ -84,20 +84,18 @@ public sealed partial class MainViewModel
 
             if (processableCount == 0)
             {
-                StatusMessage = preflightFailedCount == 1
-                    ? "当前队列中没有可执行的文件，请检查媒体轨道后重试。"
-                    : "当前队列中的文件都不满足所选处理模式，未执行处理。";
+                StatusMessage = CreateNoExecutableMessage(preflightFailedCount);
                 AddUiLog(executionWorkspaceKind, LogLevel.Warning, StatusMessage, clearExisting: false);
                 return;
             }
 
-            StatusMessage = $"开始处理当前{GetMediaLabel(executionWorkspaceKind)}模块中的 {executionItems.Count} 个文件...";
-            AddUiLog(executionWorkspaceKind, LogLevel.Info, $"开始处理当前{GetMediaLabel(executionWorkspaceKind)}模块中的 {executionItems.Count} 个文件。", clearExisting: false);
+            StatusMessage = CreateProcessingStartedMessage(executionWorkspaceKind, executionItems.Count);
+            AddUiLog(executionWorkspaceKind, LogLevel.Info, StatusMessage, clearExisting: false);
 
             if (preflightFailedCount > 0)
             {
-                StatusMessage = $"开始处理 {processableCount} 个文件，已提前跳过 {preflightFailedCount} 个不符合当前模式的文件。";
-                AddUiLog(executionWorkspaceKind, LogLevel.Warning, $"开始处理 {processableCount} 个文件，已提前跳过 {preflightFailedCount} 个不符合当前模式的文件。", clearExisting: false);
+                StatusMessage = CreateProcessingStartedAfterSkipMessage(processableCount, preflightFailedCount);
+                AddUiLog(executionWorkspaceKind, LogLevel.Warning, StatusMessage, clearExisting: false);
             }
 
             ShowExecutionPreparationProgress(totalProcessableCount);
@@ -125,8 +123,8 @@ public sealed partial class MainViewModel
                 item.MarkRunning(
                     inputDuration.HasValue
                         ? CreateRunningItemProgressDetail(TimeSpan.Zero, inputDuration.Value, 0d)
-                        : "正在处理，正在估算总进度...");
-                StatusMessage = $"正在处理第 {currentItemOrdinal} / {totalProcessableCount} 个文件：{item.InputFileName}";
+                        : GetLocalizedText("mainWindow.progress.itemDetail.processingNoEstimate", "正在处理，暂时无法估算总进度。"));
+                StatusMessage = CreateProcessingCurrentItemMessage(currentItemOrdinal, totalProcessableCount, item.InputFileName);
                 UpdateExecutionProgress(
                     totalProcessableCount,
                     completedBeforeCurrent,
@@ -135,8 +133,16 @@ public sealed partial class MainViewModel
                     TimeSpan.Zero,
                     inputDuration,
                     inputDuration is null
-                        ? "正在处理当前文件，暂时无法估算总进度。"
-                        : "等待 FFmpeg 返回实时进度...");
+                        ? LocalizedProgressText.Create(
+                            "mainWindow.progress.detail.processingNoEstimate",
+                            "正在处理当前文件，暂时无法估算总进度。",
+                            "mainWindow.progress.itemDetail.processingNoEstimate",
+                            "正在处理，暂时无法估算总进度。")
+                        : LocalizedProgressText.Create(
+                            "mainWindow.progress.detail.waitingRealtime",
+                            "等待 FFmpeg 返回实时进度...",
+                            "mainWindow.progress.detail.waitingRealtime",
+                            "等待 FFmpeg 返回实时进度..."));
 
                 var progressReporter = new Progress<FFmpegProgressUpdate>(update =>
                     UpdateExecutionProgress(
@@ -147,7 +153,11 @@ public sealed partial class MainViewModel
                         update.ProcessedDuration,
                         update.TotalDuration ?? inputDuration,
                         update.ProgressRatio is null && !update.IsCompleted
-                            ? "正在处理当前文件，暂时无法估算总进度。"
+                            ? LocalizedProgressText.Create(
+                                "mainWindow.progress.detail.processingNoEstimate",
+                                "正在处理当前文件，暂时无法估算总进度。",
+                                "mainWindow.progress.itemDetail.processingNoEstimate",
+                                "正在处理，暂时无法估算总进度。")
                             : null));
 
                 var executionResult = await _mediaProcessingWorkflowService.ExecuteAsync(
@@ -164,7 +174,7 @@ public sealed partial class MainViewModel
                             AddUiLog(
                                 executionWorkspaceKind,
                                 LogLevel.Warning,
-                                $"{item.InputFileName} 的 GPU 转码未成功，已自动回退为 CPU 重新尝试一次。",
+                                CreateGpuFallbackMessage(item.InputFileName),
                                 clearExisting: false);
 
                             UpdateExecutionProgress(
@@ -175,8 +185,16 @@ public sealed partial class MainViewModel
                                 TimeSpan.Zero,
                                 inputDuration,
                                 inputDuration is null
-                                    ? "已回退为 CPU，正在重新尝试并估算进度。"
-                                    : "已回退为 CPU，正在重新尝试...");
+                                    ? LocalizedProgressText.Create(
+                                        "mainWindow.progress.detail.cpuFallbackRetryNoEstimate",
+                                        "已回退为 CPU，正在重新尝试并估算进度...",
+                                        "mainWindow.progress.detail.cpuFallbackRetryNoEstimate",
+                                        "已回退为 CPU，正在重新尝试并估算进度...")
+                                    : LocalizedProgressText.Create(
+                                        "mainWindow.progress.detail.cpuFallbackRetry",
+                                        "已回退为 CPU，正在重新尝试...",
+                                        "mainWindow.progress.detail.cpuFallbackRetry",
+                                        "已回退为 CPU，正在重新尝试..."));
                         }
                     },
                     _executionCancellationSource.Token);
@@ -187,16 +205,14 @@ public sealed partial class MainViewModel
 
                 if (result.WasSuccessful && File.Exists(item.PlannedOutputPath))
                 {
-                    item.MarkSucceeded(usedCpuFallback ? $"用时 {elapsedText}（已自动回退 CPU）" : $"用时 {elapsedText}");
+                    item.MarkSucceeded(CreateElapsedDetail(elapsedText, usedCpuFallback));
                     successCount++;
                     completedProcessCount++;
                     lastSuccessfulOutputPath = item.PlannedOutputPath;
                     AddUiLog(
                         executionWorkspaceKind,
                         LogLevel.Info,
-                        usedCpuFallback
-                            ? $"{item.InputFileName} 已在回退到 CPU 后处理成功，用时 {elapsedText}。"
-                            : $"{item.InputFileName} 处理成功，用时 {elapsedText}。",
+                        CreateSucceededLogMessage(item.InputFileName, elapsedText, usedCpuFallback),
                         clearExisting: false);
                     continue;
                 }
@@ -206,15 +222,15 @@ public sealed partial class MainViewModel
                     item.MarkCancelled();
                     cancelledCount++;
                     cancelledCount += MarkRemainingItemsCancelled(executionItems, index + 1);
-                    AddUiLog(executionWorkspaceKind, LogLevel.Warning, "任务已取消，未完成的文件已停止处理。", clearExisting: false);
+                    AddUiLog(executionWorkspaceKind, LogLevel.Warning, GetProcessingCancelledPendingMessage(), clearExisting: false);
                     break;
                 }
 
                 var failureMessage = CreateFriendlyFailureMessage(result, executionContext);
-                item.MarkFailed($"原因：{failureMessage}");
+                item.MarkFailed(CreateReasonDetail(failureMessage));
                 failedCount++;
                 completedProcessCount++;
-                AddUiLog(executionWorkspaceKind, LogLevel.Error, $"{item.InputFileName} 处理失败，用时 {elapsedText}。原因：{failureMessage}", clearExisting: false);
+                AddUiLog(executionWorkspaceKind, LogLevel.Error, CreateFailedLogMessage(item.InputFileName, elapsedText, failureMessage), clearExisting: false);
             }
 
             var wasCancelled = _executionCancellationSource.IsCancellationRequested;
@@ -226,14 +242,16 @@ public sealed partial class MainViewModel
                 processedDuration: null,
                 totalDuration: null,
                 detailOverride: wasCancelled
-                    ? "任务已取消，正在整理当前结果..."
-                    : "处理完成，正在整理结果...");
+                    ? LocalizedProgressText.Create(
+                        "mainWindow.progress.detail.organizingCancelled",
+                        "任务已取消，正在整理当前结果...")
+                    : LocalizedProgressText.Create(
+                        "mainWindow.progress.detail.organizingCompleted",
+                        "处理完成，正在整理结果..."));
 
             StatusMessage = wasCancelled
-                ? $"任务已取消，成功 {successCount} 个，失败 {failedCount} 个，取消 {cancelledCount} 个。"
-                : failedCount == 0
-                    ? $"全部处理完成，共成功 {successCount} 个文件。"
-                    : $"处理完成，成功 {successCount} 个，失败 {failedCount} 个。";
+                ? CreateCancelledSummaryMessage(successCount, failedCount, cancelledCount)
+                : CreateCompletedSummaryMessage(successCount, failedCount);
 
             AddUiLog(
                 executionWorkspaceKind,
@@ -246,16 +264,14 @@ public sealed partial class MainViewModel
         catch (OperationCanceledException) when (_executionCancellationSource?.IsCancellationRequested == true)
         {
             var cancelledCount = MarkRemainingItemsCancelled(executionItems, 0);
-            StatusMessage = cancelledCount > 0
-                ? $"任务已取消，已取消 {cancelledCount} 个未完成文件。"
-                : "任务已取消。";
-            AddUiLog(executionWorkspaceKind, LogLevel.Warning, "任务已取消，未完成的文件已停止处理。", clearExisting: false);
+            StatusMessage = CreateCancelledCountStatusMessage(cancelledCount);
+            AddUiLog(executionWorkspaceKind, LogLevel.Warning, GetProcessingCancelledPendingMessage(), clearExisting: false);
         }
         catch (Exception exception)
         {
-            StatusMessage = "处理过程中发生异常。";
+            StatusMessage = GetProcessingUnexpectedErrorMessage();
             _logger.Log(LogLevel.Error, "批量处理流程被异常中断。", exception);
-            AddUiLog(executionWorkspaceKind, LogLevel.Error, $"批量处理被中断。原因：{exception.Message}", clearExisting: false);
+            AddUiLog(executionWorkspaceKind, LogLevel.Error, CreateProcessingInterruptedMessage(exception.Message), clearExisting: false);
         }
         finally
         {
@@ -273,7 +289,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        StatusMessage = "正在取消当前任务...";
+        StatusMessage = GetProcessingCancellingMessage();
         _executionCancellationSource?.Cancel();
     }
 
@@ -311,9 +327,9 @@ public sealed partial class MainViewModel
                 continue;
             }
 
-            item.MarkFailed($"原因：{issue.FailureMessage}");
+            item.MarkFailed(CreateReasonDetail(issue.FailureMessage));
             failedCount++;
-            AddUiLog(executionContext.WorkspaceKind, LogLevel.Warning, $"{item.InputFileName} {issue.FailureMessage}", clearExisting: false);
+            AddUiLog(executionContext.WorkspaceKind, LogLevel.Warning, CreatePreflightBlockedLogMessage(item.InputFileName, issue.FailureMessage), clearExisting: false);
         }
 
         return failedCount;
@@ -351,7 +367,7 @@ public sealed partial class MainViewModel
         try
         {
             IsBusy = true;
-            StatusMessage = RuntimePreparingMessage;
+            StatusMessage = GetRuntimePreparingMessage();
 
             var resolution = await _mediaProcessingWorkflowService.EnsureRuntimeReadyAsync(cancellationToken);
             _runtimeExecutablePath = resolution.ExecutablePath;
@@ -361,24 +377,24 @@ public sealed partial class MainViewModel
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            StatusMessage = RuntimePreparationCancelledMessage;
+            StatusMessage = GetRuntimePreparationCancelledMessage();
 
             if (logUiFailure)
             {
-                AddUiLog(LogLevel.Warning, RuntimePreparationCancelledMessage, clearExisting: false);
+                AddUiLog(LogLevel.Warning, StatusMessage, clearExisting: false);
             }
 
             return false;
         }
         catch (Exception exception)
         {
-            StatusMessage = RuntimePreparationFailedMessage;
+            StatusMessage = GetRuntimePreparationFailedMessage();
             _logger.Log(LogLevel.Error, "准备本地 FFmpeg 时发生异常。", exception);
 
             if (logUiFailure)
             {
                 var reason = ExtractFriendlyExceptionMessage(exception);
-                AddUiLog(LogLevel.Error, $"运行环境未就绪，无法开始处理。原因：{reason}", clearExisting: false);
+                AddUiLog(LogLevel.Error, CreateRuntimeNotReadyLogMessage(reason), clearExisting: false);
             }
 
             return false;

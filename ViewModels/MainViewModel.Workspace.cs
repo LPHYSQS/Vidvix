@@ -84,6 +84,86 @@ public sealed partial class MainViewModel
 
     public string WorkspaceHeaderDescription => GetCurrentWorkspaceProfile().HeaderDescription;
 
+    public string VideoWorkspaceButtonText => GetWorkspaceProfile(ProcessingWorkspaceKind.Video).MediaLabel;
+
+    public string AudioWorkspaceButtonText => GetWorkspaceProfile(ProcessingWorkspaceKind.Audio).MediaLabel;
+
+    public string TrimWorkspaceButtonText => GetWorkspaceProfile(ProcessingWorkspaceKind.Trim).MediaLabel;
+
+    public string MergeWorkspaceButtonText => GetWorkspaceProfile(ProcessingWorkspaceKind.Merge).MediaLabel;
+
+    public string SplitAudioWorkspaceButtonText => GetWorkspaceProfile(ProcessingWorkspaceKind.SplitAudio).MediaLabel;
+
+    public string TerminalWorkspaceButtonText => GetWorkspaceProfile(ProcessingWorkspaceKind.Terminal).MediaLabel;
+
+    public string MainWindowImportFilesButtonLabel =>
+        GetLocalizedText("mainWindow.toolbar.importFiles", "导入文件");
+
+    public string MainWindowImportFolderButtonLabel =>
+        GetLocalizedText("mainWindow.toolbar.importFolder", "导入文件夹");
+
+    public string MainWindowClearQueueButtonLabel =>
+        GetLocalizedText("mainWindow.toolbar.clearQueue", "清空列表");
+
+    public string MainWindowStartProcessingButtonLabel =>
+        GetLocalizedText("mainWindow.toolbar.startProcessing", "开始处理");
+
+    public string MainWindowCancelTaskButtonLabel =>
+        GetLocalizedText("mainWindow.toolbar.cancelTask", "取消任务");
+
+    public string MainWindowClearCurrentButtonLabel =>
+        GetLocalizedText("mainWindow.toolbar.clearCurrent", "清空当前");
+
+    public string MainWindowStartSplitAudioButtonLabel =>
+        GetLocalizedText("mainWindow.toolbar.startSplitAudio", "开始拆音");
+
+    public string MainWindowExportTrimSegmentButtonLabel =>
+        GetLocalizedText("mainWindow.toolbar.exportTrimSegment", "导出片段");
+
+    public string MainWindowCancelExportButtonLabel =>
+        GetLocalizedText("mainWindow.toolbar.cancelExport", "取消导出");
+
+    public string QueueSectionTitleText =>
+        GetLocalizedText("mainWindow.queue.title", "待处理队列");
+
+    public string QueueStatusTitleText =>
+        GetLocalizedText("mainWindow.queue.statusTitle", "队列状态");
+
+    public string QueueItemDetailsButtonText =>
+        GetLocalizedText("mainWindow.queue.item.details", "详情");
+
+    public string QueueItemRemoveButtonText =>
+        GetLocalizedText("mainWindow.queue.item.remove", "移除");
+
+    public string ProcessingSettingsTitleText =>
+        GetLocalizedText("mainWindow.settings.title", "处理设置");
+
+    public string ProcessingModeLabelText =>
+        GetLocalizedText("mainWindow.settings.processingMode", "处理模式");
+
+    public string OutputFormatLabelText =>
+        GetLocalizedText("mainWindow.settings.outputFormat", "目标格式");
+
+    public string OutputDirectoryLabelText =>
+        GetLocalizedText("mainWindow.settings.outputDirectory", "输出目录");
+
+    public string OutputDirectoryPlaceholderText =>
+        GetLocalizedText("mainWindow.settings.outputDirectory.placeholder", "留空时使用原文件夹输出");
+
+    public string SelectOutputDirectoryButtonText =>
+        GetLocalizedText("mainWindow.settings.outputDirectory.selectFolder", "选择文件夹");
+
+    public string ClearOutputDirectoryButtonText =>
+        GetLocalizedText("mainWindow.settings.outputDirectory.clear", "清空");
+
+    public string OutputDirectoryHintText =>
+        GetLocalizedText(
+            "mainWindow.settings.outputDirectory.description",
+            "留空时使用原文件夹输出；设置后，处理结果会统一输出到所选文件夹。");
+
+    public string ProcessingResultsTitleText =>
+        GetLocalizedText("mainWindow.results.title", "处理结果");
+
     public string QueueDragDropHintText => GetCurrentWorkspaceProfile().QueueDragDropHintText;
 
     public string DragDropCaptionText => GetCurrentWorkspaceProfile().DragDropCaptionText;
@@ -108,11 +188,41 @@ public sealed partial class MainViewModel
     {
         OnPropertyChanged(nameof(WorkspaceHeaderTitle));
         OnPropertyChanged(nameof(WorkspaceHeaderDescription));
+        OnPropertyChanged(nameof(VideoWorkspaceButtonText));
+        OnPropertyChanged(nameof(AudioWorkspaceButtonText));
+        OnPropertyChanged(nameof(TrimWorkspaceButtonText));
+        OnPropertyChanged(nameof(MergeWorkspaceButtonText));
+        OnPropertyChanged(nameof(SplitAudioWorkspaceButtonText));
+        OnPropertyChanged(nameof(TerminalWorkspaceButtonText));
+        OnPropertyChanged(nameof(MainWindowImportFilesButtonLabel));
+        OnPropertyChanged(nameof(MainWindowImportFolderButtonLabel));
+        OnPropertyChanged(nameof(MainWindowClearQueueButtonLabel));
+        OnPropertyChanged(nameof(MainWindowStartProcessingButtonLabel));
+        OnPropertyChanged(nameof(MainWindowCancelTaskButtonLabel));
+        OnPropertyChanged(nameof(MainWindowClearCurrentButtonLabel));
+        OnPropertyChanged(nameof(MainWindowStartSplitAudioButtonLabel));
+        OnPropertyChanged(nameof(MainWindowExportTrimSegmentButtonLabel));
+        OnPropertyChanged(nameof(MainWindowCancelExportButtonLabel));
+        OnPropertyChanged(nameof(QueueSectionTitleText));
+        OnPropertyChanged(nameof(QueueStatusTitleText));
+        OnPropertyChanged(nameof(QueueItemDetailsButtonText));
+        OnPropertyChanged(nameof(QueueItemRemoveButtonText));
+        OnPropertyChanged(nameof(ProcessingSettingsTitleText));
+        OnPropertyChanged(nameof(ProcessingModeLabelText));
+        OnPropertyChanged(nameof(OutputFormatLabelText));
+        OnPropertyChanged(nameof(OutputDirectoryLabelText));
+        OnPropertyChanged(nameof(OutputDirectoryPlaceholderText));
+        OnPropertyChanged(nameof(SelectOutputDirectoryButtonText));
+        OnPropertyChanged(nameof(ClearOutputDirectoryButtonText));
+        OnPropertyChanged(nameof(OutputDirectoryHintText));
+        OnPropertyChanged(nameof(ProcessingResultsTitleText));
+        OnPropertyChanged(nameof(QueueSummaryText));
         OnPropertyChanged(nameof(QueueDragDropHintText));
         OnPropertyChanged(nameof(DragDropCaptionText));
         OnPropertyChanged(nameof(FixedProcessingModeDisplayName));
         OnPropertyChanged(nameof(FixedProcessingModeDescription));
         OnPropertyChanged(nameof(SupportedInputFormatsHint));
+        RefreshProcessingImportItemLocalization();
     }
 
     private ProcessingWorkspaceProfile GetCurrentWorkspaceProfile() =>
@@ -212,7 +322,7 @@ public sealed partial class MainViewModel
 
         if (IsBusy || TrimWorkspace.IsBusy || MergeWorkspace.IsVideoJoinProcessing || SplitAudioWorkspace.IsBusy)
         {
-            StatusMessage = "当前任务处理中，暂不支持切换模块。";
+            StatusMessage = GetLocalizedText("mainWindow.message.workspaceSwitchBusy", "当前任务处理中，暂不支持切换模块。");
             return;
         }
 
@@ -285,6 +395,19 @@ public sealed partial class MainViewModel
         if (!IsBusy && !string.IsNullOrWhiteSpace(_runtimeExecutablePath) && File.Exists(_runtimeExecutablePath))
         {
             SetReadyStatusMessage();
+        }
+    }
+
+    private void RefreshProcessingImportItemLocalization()
+    {
+        foreach (var item in _videoImportItems)
+        {
+            item.RefreshLocalization();
+        }
+
+        foreach (var item in _audioImportItems)
+        {
+            item.RefreshLocalization();
         }
     }
 }

@@ -39,8 +39,8 @@ public sealed class AppCompositionRoot
         _userPreferencesService = infrastructure.UserPreferencesService;
         _systemTrayService = infrastructure.SystemTrayService;
 
-        var mediaRuntime = CreateMediaRuntimeServices(infrastructure.WindowContext);
-        var workflows = CreateWorkflowServices(mediaRuntime);
+        var mediaRuntime = CreateMediaRuntimeServices(infrastructure.WindowContext, infrastructure.LocalizationService);
+        var workflows = CreateWorkflowServices(mediaRuntime, infrastructure.LocalizationService);
         var trimWorkspace = CreateTrimWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
         var mergeWorkspace = CreateMergeWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
         var splitAudioWorkspace = CreateSplitAudioWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
@@ -98,13 +98,15 @@ public sealed class AppCompositionRoot
             new SystemTrayService(Configuration, dispatcherService, Logger));
     }
 
-    private AppMediaRuntimeServices CreateMediaRuntimeServices(IWindowContext windowContext)
+    private AppMediaRuntimeServices CreateMediaRuntimeServices(
+        IWindowContext windowContext,
+        ILocalizationService localizationService)
     {
         var packageSource = new FFmpegPackageSource(Configuration, Logger);
         var runtimeService = new FFmpegRuntimeService(Configuration, packageSource, Logger);
         var ffmpegService = new FFmpegService(Logger);
         var terminalService = new FFmpegTerminalService(Configuration, runtimeService, Logger);
-        var ffmpegVideoAccelerationService = new FFmpegVideoAccelerationService(ffmpegService, Logger);
+        var ffmpegVideoAccelerationService = new FFmpegVideoAccelerationService(ffmpegService, localizationService, Logger);
         var demucsRuntimeService = new DemucsRuntimeService(Configuration, Logger);
         var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
         var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
@@ -123,13 +125,15 @@ public sealed class AppCompositionRoot
             splitAudioPreviewService);
     }
 
-    private AppWorkflowServices CreateWorkflowServices(AppMediaRuntimeServices mediaRuntime)
+    private AppWorkflowServices CreateWorkflowServices(
+        AppMediaRuntimeServices mediaRuntime,
+        ILocalizationService localizationService)
     {
         var commandBuilder = new FFmpegCommandBuilder(Configuration.FFmpegExecutableFileName);
         var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(Configuration, commandBuilder);
         var videoTrimCommandFactory = new VideoTrimCommandFactory(Configuration, commandBuilder);
         var audioTrimCommandFactory = new AudioTrimCommandFactory(Configuration, commandBuilder);
-        var transcodingDecisionResolver = new TranscodingDecisionResolver(mediaRuntime.VideoAccelerationService);
+        var transcodingDecisionResolver = new TranscodingDecisionResolver(mediaRuntime.VideoAccelerationService, localizationService);
         var demucsExecutionPlanner = new DemucsExecutionPlanner(
             Configuration,
             mediaRuntime.DemucsRuntimeService,
@@ -142,6 +146,7 @@ public sealed class AppCompositionRoot
             mediaRuntime.MediaInfoService,
             mediaProcessingCommandFactory,
             transcodingDecisionResolver,
+            localizationService,
             Logger);
         var audioSeparationWorkflowService = new AudioSeparationWorkflowService(
             Configuration,

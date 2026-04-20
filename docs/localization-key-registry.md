@@ -40,9 +40,15 @@
 | `settings.processingBehavior.*` | `settings.json` | 处理完成行为与说明 | `R3` |
 | `settings.transcoding.*` | `settings.json` | 转码策略、GPU 加速与说明 | `R3` |
 | `mainWindow.title.*` | `main-window.json` | 主窗口与应用标题试点文案 | `R2` |
-| `mainWindow.header.*` | `main-window.json` | 主窗口页头试点 caption | `R3` |
-| `mainWindow.toolbar.*` | `main-window.json` | 主窗口工具栏试点按钮 | `R3` |
-| `mainWindow.progress.*` | `main-window.json` | 主窗口公共进度标题试点 | `R3` |
+| `mainWindow.header.*` | `main-window.json` | 主窗口页头 caption | `R3` |
+| `mainWindow.toolbar.*` | `main-window.json` | 主窗口工具栏按钮与主操作 | `R3` |
+| `mainWindow.progress.*` | `main-window.json` | 主窗口公共进度区标题、摘要、当前项与细节状态 | `R3` |
+| `mainWindow.queue.*` | `main-window.json` | 主窗口待处理队列标题、摘要、队列项动作与状态 | `R5` |
+| `mainWindow.settings.*` | `main-window.json` | 主窗口处理设置区、输出目录与选择器文案 | `R5` |
+| `mainWindow.results.*` | `main-window.json` | 主窗口处理结果区标题 | `R5` |
+| `mainWindow.message.*` | `main-window.json` | 主窗口常驻状态、批量结果、异常与反馈消息 | `R5` |
+| `mainWindow.processingContext.*` | `main-window.json` | 主窗口处理前预检与模式上下文提示 | `R5` |
+| `mainWindow.transcoding.*` | `main-window.json` | 主窗口转码策略、GPU 检测与回退说明 | `R5` |
 
 ## 已注册 Key
 
@@ -142,8 +148,38 @@
 | `common.outputFormat.audio.mp3.description` | `common` | `common.json` | `通用音频格式，兼容性高。` | `A general-purpose audio format with broad compatibility.` | `Active` | `R4` |
 | `common.outputFormat.subtitle.srt.description` | `common` | `common.json` | `通用文本字幕格式，兼容性最好，适合常见播放器和字幕平台。` | `A general-purpose text subtitle format with the broadest compatibility for common players and subtitle platforms.` | `Active` | `R4` |
 
+## R5 批量登记
+
+- 本轮把主窗口常驻外壳、待处理队列、处理设置区、输出目录、处理结果区，以及直接展示到主窗口的公共进度 / 批量消息 / 预检提示 / 转码说明统一收敛到 `Resources/Localization/zh-CN/main-window.json` 与 `Resources/Localization/en-US/main-window.json`。
+- 已登记的 R5 key family：
+  - `mainWindow.toolbar.*`
+  - `mainWindow.queue.*`
+  - `mainWindow.settings.*`
+  - `mainWindow.results.*`
+  - `mainWindow.progress.*`
+  - `mainWindow.message.*`
+  - `mainWindow.processingContext.*`
+  - `mainWindow.transcoding.*`
+- R5 刷新补记：
+  - 主窗口运行态文本不再只刷新静态标题；`MainViewModel.RefreshLocalizedTextProperties()` 现在会同时重建工作区 shell、执行进度快照与队列项状态，避免语言切换后保留旧语言缓存。
+  - `MediaJobViewModel` 的队列状态与缩略图占位文本也已使用 `ILocalizationService`，因此队列项不再需要依赖初始化时的单次中文快照。
+- R5 代表性 key：
+
+| Key | 模块 | 资源文件 | `zh-CN` | `en-US` | 状态 | 首次建立轮次 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `mainWindow.toolbar.importFiles` | `mainWindow` | `main-window.json` | `导入文件` | `Import files` | `Active` | `R5` |
+| `mainWindow.queue.title` | `mainWindow` | `main-window.json` | `待处理队列` | `Queue` | `Active` | `R5` |
+| `mainWindow.settings.outputDirectory.placeholder` | `mainWindow` | `main-window.json` | `留空时使用原文件夹输出` | `Leave empty to use the source folder` | `Active` | `R5` |
+| `mainWindow.results.title` | `mainWindow` | `main-window.json` | `处理结果` | `Results` | `Active` | `R5` |
+| `mainWindow.progress.detail.processedTotal` | `mainWindow` | `main-window.json` | `当前文件进度 {percent} · 已处理 {processed} / {total}` | `Current item {percent} · Processed {processed} / {total}` | `Active` | `R5` |
+| `mainWindow.message.processingItemFailed` | `mainWindow` | `main-window.json` | `{fileName} 处理失败，用时 {duration}。原因：{reason}` | `{fileName} failed after {duration}. Reason: {reason}` | `Active` | `R5` |
+| `mainWindow.message.runtimePreparing` | `mainWindow` | `main-window.json` | `正在准备运行环境...` | `Preparing the runtime environment...` | `Active` | `R5` |
+| `mainWindow.processingContext.preflightUnableToInspect` | `mainWindow` | `main-window.json` | `{fileName} 未能完成轨道预检，将继续尝试处理。原因：{reason}` | `{fileName} could not complete media-track preflight inspection and will still be attempted. Reason: {reason}` | `Active` | `R5` |
+| `mainWindow.transcoding.gpuDetected` | `mainWindow` | `main-window.json` | `检测到 {gpuName} 可用，本次可启用视频硬件编码。` | `{gpuName} is available, so hardware video encoding can be used for this run.` | `Active` | `R5` |
+| `mainWindow.queue.item.status.running` | `mainWindow` | `main-window.json` | `处理中` | `Processing` | `Active` | `R5` |
+
 ## 下一轮接入提示
 
-- `R5` 直接复用 `common.workspace.*`、`common.processingMode.*` 与 `common.outputFormat.*` 的集中式配置读取结果，不再回到 `ApplicationConfiguration` 重写展示文案。
-- `R5` 开始迁移主窗口 shell 时，继续复用 `mainWindow.header.*`、`mainWindow.toolbar.*`、`mainWindow.progress.*` 的绑定模式与 `LocalizationRefreshRequested + Bindings.Update()` 刷新机制。
-- `R5` 如果需要把按钮、标签、Placeholder 等非集中式 shell 文案搬入语言包，应优先落到 `main-window.json`，不要再把页面私有文案塞回 `common.json`。
+- `R6` 直接复用 `common.workspace.trim.*`、`common.outputFormat.trim.*` 的集中式配置结果，以及本轮已经稳定的主窗口刷新模式，不要回头重写 `main-window.json` 的既有职责。
+- `R6` 新增裁剪页私有文案时，优先落到 `trim.json`，不要再把裁剪页面内部提示塞进 `main-window.json`。
+- `R6` 只处理裁剪模块 `P0 / P1` 文案，不要回头扩大主窗口范围，也不要提前触碰 `split-audio`、`merge`、`terminal`、`media-details`。

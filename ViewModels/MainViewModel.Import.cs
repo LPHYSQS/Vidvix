@@ -48,7 +48,7 @@ public sealed partial class MainViewModel
                 continue;
             }
 
-            var item = new MediaJobViewModel(filePath, supportsThumbnail: !IsAudioWorkspace);
+            var item = new MediaJobViewModel(filePath, supportsThumbnail: !IsAudioWorkspace, _localizationService);
             item.UpdatePlannedOutputPath(CreateOutputPath(filePath));
             ImportItems.Add(item);
             _ = LoadQueueThumbnailAsync(item);
@@ -118,7 +118,8 @@ public sealed partial class MainViewModel
     {
         try
         {
-            var selectedFolder = await _filePickerService.PickFolderAsync("选择输出目录");
+            var selectedFolder = await _filePickerService.PickFolderAsync(
+                GetLocalizedText("mainWindow.settings.outputDirectory.dialogTitle", "选择输出目录"));
 
             if (string.IsNullOrWhiteSpace(selectedFolder))
             {

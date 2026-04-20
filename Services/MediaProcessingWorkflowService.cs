@@ -21,6 +21,7 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
     private readonly IMediaInfoService _mediaInfoService;
     private readonly IMediaProcessingCommandFactory _mediaProcessingCommandFactory;
     private readonly TranscodingDecisionResolver _transcodingDecisionResolver;
+    private readonly ILocalizationService _localizationService;
     private readonly ILogger _logger;
 
     public MediaProcessingWorkflowService(
@@ -31,6 +32,7 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
         IMediaInfoService mediaInfoService,
         IMediaProcessingCommandFactory mediaProcessingCommandFactory,
         TranscodingDecisionResolver transcodingDecisionResolver,
+        ILocalizationService localizationService,
         ILogger logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -40,6 +42,7 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
         _mediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
         _mediaProcessingCommandFactory = mediaProcessingCommandFactory ?? throw new ArgumentNullException(nameof(mediaProcessingCommandFactory));
         _transcodingDecisionResolver = transcodingDecisionResolver ?? throw new ArgumentNullException(nameof(transcodingDecisionResolver));
+        _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -60,8 +63,12 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
             messages.Add(new MediaProcessingLogMessage(
                 LogLevel.Info,
                 executionContext.OutputFormat.Extension.Equals(".mks", StringComparison.OrdinalIgnoreCase)
-                    ? "当前为字幕轨道提取：MKS 会优先保留原始字幕编码输出，不使用 GPU。"
-                    : "当前为字幕轨道提取：会按所选字幕格式输出，必要时自动转换字幕编码，不使用 GPU。"));
+                    ? GetLocalizedText(
+                        "mainWindow.processingContext.subtitleExtractMks",
+                        "当前为字幕轨道提取：MKS 会优先保留原始字幕编码输出，不使用 GPU。")
+                    : GetLocalizedText(
+                        "mainWindow.processingContext.subtitleExtractText",
+                        "当前为字幕轨道提取：会按所选字幕格式输出，必要时自动转换字幕编码，不使用 GPU。")));
 
             return new MediaProcessingContextResolutionResult(
                 executionContext with { VideoAccelerationKind = VideoAccelerationKind.None },
@@ -116,11 +123,17 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
                 var result = await _mediaInfoService.GetMediaDetailsAsync(inputPath, cancellationToken).ConfigureAwait(false);
                 if (!result.IsSuccess || result.Snapshot is null)
                 {
-                    var reason = result.ErrorMessage ?? "无法提前检测该文件的媒体轨道。";
+                    var reason = result.ErrorMessage ?? GetLocalizedText(
+                        "mainWindow.processingContext.preflightUnableToInspectFallback",
+                        "无法提前检测该文件的媒体轨道。");
                     _logger.Log(LogLevel.Warning, $"处理前预检失败，将继续尝试处理：{inputPath}，原因：{reason}");
                     messages.Add(new MediaProcessingLogMessage(
                         LogLevel.Warning,
-                        $"{Path.GetFileName(inputPath)} 未能完成轨道预检，将继续尝试处理。原因：{reason}"));
+                        FormatLocalizedText(
+                            "mainWindow.processingContext.preflightUnableToInspect",
+                            $"{Path.GetFileName(inputPath)} 未能完成轨道预检，将继续尝试处理。原因：{reason}",
+                            ("fileName", Path.GetFileName(inputPath)),
+                            ("reason", reason))));
                     continue;
                 }
 
@@ -270,7 +283,7 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
             _ => false
         };
 
-    private static bool TryCreateSubtitleCompatibilityFailureMessage(
+    private bool TryCreateSubtitleCompatibilityFailureMessage(
         MediaDetailsSnapshot snapshot,
         MediaProcessingContext executionContext,
         out string failureMessage)
@@ -289,7 +302,10 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
             return false;
         }
 
-        failureMessage = $"检测到图形字幕轨道，无法直接转换为 {executionContext.OutputFormat.DisplayName} 文本字幕；请改用 MKS 保留原字幕轨道。";
+        failureMessage = FormatLocalizedText(
+            "mainWindow.processingContext.graphicalSubtitleBlocked",
+            $"检测到图形字幕轨道，无法直接转换为 {executionContext.OutputFormat.DisplayName} 文本字幕；请改用 MKS 保留原字幕轨道。",
+            ("format", executionContext.OutputFormat.DisplayName));
         return true;
     }
 
@@ -297,7 +313,7 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
         !string.IsNullOrWhiteSpace(codecName) &&
         codecName.ToLowerInvariant() is "hdmv_pgs_subtitle" or "dvd_subtitle" or "dvb_subtitle" or "xsub";
 
-    private static string CreateMissingRequiredTrackMessage(
+    private string CreateMissingRequiredTrackMessage(
         RequiredTrackType requiredTrackType,
         MediaProcessingContext executionContext)
     {
@@ -305,16 +321,46 @@ public sealed class MediaProcessingWorkflowService : IMediaProcessingWorkflowSer
 
         if (executionContext.WorkspaceKind == ProcessingWorkspaceKind.Audio)
         {
-            return $"未检测到音频流，无法转换为 {outputFormatName}。";
+            return FormatLocalizedText(
+                "mainWindow.processingContext.missingAudioForOutput",
+                $"未检测到音频流，无法转换为 {outputFormatName}。",
+                ("format", outputFormatName));
         }
 
         return requiredTrackType switch
         {
-            RequiredTrackType.Video => $"未检测到视频轨道，无法提取为 {outputFormatName}。",
-            RequiredTrackType.Audio => $"未检测到音频轨道，无法提取为 {outputFormatName}。",
-            RequiredTrackType.Subtitle => $"未检测到字幕轨道，无法提取为 {outputFormatName}。",
-            _ => "当前文件不满足所选处理模式。"
+            RequiredTrackType.Video => FormatLocalizedText(
+                "mainWindow.processingContext.missingVideoTrackForOutput",
+                $"未检测到视频轨道，无法提取为 {outputFormatName}。",
+                ("format", outputFormatName)),
+            RequiredTrackType.Audio => FormatLocalizedText(
+                "mainWindow.processingContext.missingAudioTrackForOutput",
+                $"未检测到音频轨道，无法提取为 {outputFormatName}。",
+                ("format", outputFormatName)),
+            RequiredTrackType.Subtitle => FormatLocalizedText(
+                "mainWindow.processingContext.missingSubtitleTrackForOutput",
+                $"未检测到字幕轨道，无法提取为 {outputFormatName}。",
+                ("format", outputFormatName)),
+            _ => GetLocalizedText("mainWindow.processingContext.modeMismatch", "当前文件不满足所选处理模式。")
         };
+    }
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
+
+    private string FormatLocalizedText(string key, string fallback, params (string Name, object? Value)[] arguments)
+    {
+        Dictionary<string, object?>? localizedArguments = null;
+        if (arguments.Length > 0)
+        {
+            localizedArguments = new Dictionary<string, object?>(arguments.Length, StringComparer.Ordinal);
+            foreach (var argument in arguments)
+            {
+                localizedArguments[argument.Name] = argument.Value;
+            }
+        }
+
+        return _localizationService.Format(key, localizedArguments, fallback);
     }
 
     private static bool ShouldRetryWithCpuFallback(MediaProcessingContext executionContext, FFmpegExecutionResult result) =>

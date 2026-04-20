@@ -373,6 +373,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(SelectedOutputFormat));
         OnPropertyChanged(nameof(SelectedOutputFormatDescription));
         OnPropertyChanged(nameof(SupportedInputFormatsHint));
+        RefreshExecutionProgressLocalization();
     }
 
     private void SetDesktopShortcutNotificationState(

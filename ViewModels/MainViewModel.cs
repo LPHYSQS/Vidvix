@@ -23,10 +23,10 @@ namespace Vidvix.ViewModels;
 /// </summary>
 public sealed partial class MainViewModel : ObservableObject, IDisposable
 {
-    private const string RuntimePreparingMessage = "正在准备运行环境...";
-    private const string ReadyForProcessingMessage = "文件已准备完成，可以开始处理。";
-    private const string RuntimePreparationCancelledMessage = "运行环境准备已取消。";
-    private const string RuntimePreparationFailedMessage = "运行环境准备失败，请检查网络或运行目录。";
+    private const string RuntimePreparingMessageFallback = "正在准备运行环境...";
+    private const string ReadyForProcessingMessageFallback = "文件已准备完成，可以开始处理。";
+    private const string RuntimePreparationCancelledMessageFallback = "运行环境准备已取消。";
+    private const string RuntimePreparationFailedMessageFallback = "运行环境准备失败，请检查网络或运行目录。";
 
     private readonly ApplicationConfiguration _configuration;
     private readonly IMediaInfoService _mediaInfoService;
@@ -120,7 +120,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         MergeWorkspace = mergeWorkspace ?? throw new ArgumentNullException(nameof(mergeWorkspace));
         SplitAudioWorkspace = splitAudioWorkspace ?? throw new ArgumentNullException(nameof(splitAudioWorkspace));
         TerminalWorkspace = terminalWorkspace ?? throw new ArgumentNullException(nameof(terminalWorkspace));
-        _statusMessage = RuntimePreparingMessage;
+        _statusMessage = GetRuntimePreparingMessage();
 
         _videoLogEntries = new ObservableCollection<LogEntry>();
         _audioLogEntries = new ObservableCollection<LogEntry>();
@@ -466,12 +466,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         !MergeWorkspace.IsVideoJoinProcessing &&
         !SplitAudioWorkspace.IsBusy;
 
-    public string QueueSummaryText => ImportItems.Count switch
-    {
-        0 => "等待导入",
-        1 => "1 个文件",
-        _ => $"{ImportItems.Count} 个文件"
-    };
+    public string QueueSummaryText => CreateQueueSummaryText(ImportItems.Count);
 
     public string SupportedInputFormatsHint =>
         GetCurrentWorkspaceProfile().SupportedInputFormatsHint;

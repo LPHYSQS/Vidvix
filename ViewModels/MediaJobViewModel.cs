@@ -3,6 +3,7 @@ using System.IO;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Utils;
 
@@ -10,18 +11,21 @@ namespace Vidvix.ViewModels;
 
 public sealed class MediaJobViewModel : ObservableObject
 {
+    private readonly ILocalizationService _localizationService;
     private MediaJobState _state = MediaJobState.Pending;
     private string _plannedOutputPath = string.Empty;
-    private string _statusDetail = "\u7b49\u5f85\u5f00\u59cb";
+    private string _statusDetail;
     private BitmapImage? _thumbnailSource;
     private bool _isThumbnailLoading;
 
-    public MediaJobViewModel(string inputPath, bool supportsThumbnail)
+    public MediaJobViewModel(string inputPath, bool supportsThumbnail, ILocalizationService localizationService)
     {
         InputPath = Path.GetFullPath(inputPath);
         InputFileName = Path.GetFileName(InputPath);
         InputDirectory = Path.GetDirectoryName(InputPath) ?? string.Empty;
         SupportsThumbnail = supportsThumbnail;
+        _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
+        _statusDetail = GetLocalizedText("mainWindow.queue.item.status.waiting", "\u7b49\u5f85\u5f00\u59cb");
         _isThumbnailLoading = supportsThumbnail;
     }
 
@@ -58,11 +62,11 @@ public sealed class MediaJobViewModel : ObservableObject
 
     public string StatusText => State switch
     {
-        MediaJobState.Running => "\u5904\u7406\u4e2d",
-        MediaJobState.Succeeded => "\u5df2\u5b8c\u6210",
-        MediaJobState.Failed => "\u5931\u8d25",
-        MediaJobState.Cancelled => "\u5df2\u53d6\u6d88",
-        _ => "\u5f85\u5904\u7406"
+        MediaJobState.Running => GetLocalizedText("mainWindow.queue.item.status.running", "\u5904\u7406\u4e2d"),
+        MediaJobState.Succeeded => GetLocalizedText("mainWindow.queue.item.status.succeeded", "\u5df2\u5b8c\u6210"),
+        MediaJobState.Failed => GetLocalizedText("mainWindow.queue.item.status.failed", "\u5931\u8d25"),
+        MediaJobState.Cancelled => GetLocalizedText("mainWindow.queue.item.status.cancelled", "\u5df2\u53d6\u6d88"),
+        _ => GetLocalizedText("mainWindow.queue.item.status.pending", "\u5f85\u5904\u7406")
     };
 
     public string StatusDetail
@@ -131,17 +135,21 @@ public sealed class MediaJobViewModel : ObservableObject
     public Symbol ThumbnailPlaceholderSymbol => SupportsThumbnail ? Symbol.Video : Symbol.Audio;
 
     public string ThumbnailPlaceholderText => SupportsThumbnail
-        ? (IsThumbnailLoading ? "\u6b63\u5728\u751f\u6210\u9884\u89c8\u56fe" : "\u6682\u65e0\u9884\u89c8\u56fe")
-        : "\u97f3\u9891\u6587\u4ef6";
+        ? (IsThumbnailLoading
+            ? GetLocalizedText("mainWindow.queue.item.thumbnail.loading", "\u6b63\u5728\u751f\u6210\u9884\u89c8\u56fe")
+            : GetLocalizedText("mainWindow.queue.item.thumbnail.unavailable", "\u6682\u65e0\u9884\u89c8\u56fe"))
+        : GetLocalizedText("mainWindow.queue.item.thumbnail.audio", "\u97f3\u9891\u6587\u4ef6");
 
     public void UpdatePlannedOutputPath(string outputPath) =>
         PlannedOutputPath = outputPath;
 
     public void ResetStatus() =>
-        SetStatus(MediaJobState.Pending, "\u7b49\u5f85\u5f00\u59cb");
+        SetStatus(MediaJobState.Pending, GetLocalizedText("mainWindow.queue.item.status.waiting", "\u7b49\u5f85\u5f00\u59cb"));
 
-    public void MarkRunning(string detail = "\u6b63\u5728\u5904\u7406") =>
-        SetStatus(MediaJobState.Running, detail);
+    public void MarkRunning(string? detail = null) =>
+        SetStatus(
+            MediaJobState.Running,
+            detail ?? GetLocalizedText("mainWindow.queue.item.status.runningDefault", "\u6b63\u5728\u5904\u7406"));
 
     public void UpdateRunningDetail(string detail)
     {
@@ -160,7 +168,9 @@ public sealed class MediaJobViewModel : ObservableObject
         SetStatus(MediaJobState.Failed, detail);
 
     public void MarkCancelled() =>
-        SetStatus(MediaJobState.Cancelled, "\u4efb\u52a1\u5df2\u53d6\u6d88");
+        SetStatus(
+            MediaJobState.Cancelled,
+            GetLocalizedText("mainWindow.queue.item.status.cancelledDetail", "\u4efb\u52a1\u5df2\u53d6\u6d88"));
 
     public void MarkThumbnailLoading()
     {
@@ -193,9 +203,19 @@ public sealed class MediaJobViewModel : ObservableObject
         IsThumbnailLoading = false;
     }
 
+    public void RefreshLocalization()
+    {
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(StatusSummary));
+        OnPropertyChanged(nameof(ThumbnailPlaceholderText));
+    }
+
     private void SetStatus(MediaJobState state, string statusDetail)
     {
         State = state;
         StatusDetail = statusDetail;
     }
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
 }

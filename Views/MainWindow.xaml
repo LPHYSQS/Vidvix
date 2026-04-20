@@ -84,28 +84,28 @@
                     IsDynamicOverflowEnabled="True"
                     VerticalAlignment="Center"
                     Visibility="{x:Bind ViewModel.ProcessingWorkspaceVisibility, Mode=OneWay}">
-                    <AppBarButton Command="{x:Bind ViewModel.SelectFilesCommand}" Label="导入文件">
+                    <AppBarButton Command="{x:Bind ViewModel.SelectFilesCommand}" Label="{x:Bind ViewModel.MainWindowImportFilesButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="OpenFile" />
                         </AppBarButton.Icon>
                     </AppBarButton>
-                    <AppBarButton Command="{x:Bind ViewModel.SelectFolderCommand}" Label="导入文件夹">
+                    <AppBarButton Command="{x:Bind ViewModel.SelectFolderCommand}" Label="{x:Bind ViewModel.MainWindowImportFolderButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Folder" />
                         </AppBarButton.Icon>
                     </AppBarButton>
-                    <AppBarButton Command="{x:Bind ViewModel.ClearQueueCommand}" Label="清空列表">
+                    <AppBarButton Command="{x:Bind ViewModel.ClearQueueCommand}" Label="{x:Bind ViewModel.MainWindowClearQueueButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Delete" />
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarSeparator />
-                    <AppBarButton Command="{x:Bind ViewModel.ExecuteProcessingCommand}" Label="开始处理">
+                    <AppBarButton Command="{x:Bind ViewModel.ExecuteProcessingCommand}" Label="{x:Bind ViewModel.MainWindowStartProcessingButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Play" />
                         </AppBarButton.Icon>
                     </AppBarButton>
-                    <AppBarButton Command="{x:Bind ViewModel.CancelExecutionCommand}" Label="取消任务">
+                    <AppBarButton Command="{x:Bind ViewModel.CancelExecutionCommand}" Label="{x:Bind ViewModel.MainWindowCancelTaskButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Cancel" />
                         </AppBarButton.Icon>
@@ -139,23 +139,23 @@
                     IsDynamicOverflowEnabled="True"
                     VerticalAlignment="Center"
                     Visibility="{x:Bind ViewModel.SplitAudioWorkspaceVisibility, Mode=OneWay}">
-                    <AppBarButton Command="{x:Bind ViewModel.SplitAudioWorkspace.SelectInputCommand, Mode=OneWay}" Label="导入文件">
+                    <AppBarButton Command="{x:Bind ViewModel.SplitAudioWorkspace.SelectInputCommand, Mode=OneWay}" Label="{x:Bind ViewModel.MainWindowImportFilesButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="OpenFile" />
                         </AppBarButton.Icon>
                     </AppBarButton>
-                    <AppBarButton Command="{x:Bind ViewModel.SplitAudioWorkspace.RemoveInputCommand, Mode=OneWay}" Label="清空当前">
+                    <AppBarButton Command="{x:Bind ViewModel.SplitAudioWorkspace.RemoveInputCommand, Mode=OneWay}" Label="{x:Bind ViewModel.MainWindowClearCurrentButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Delete" />
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarSeparator />
-                    <AppBarButton Command="{x:Bind ViewModel.SplitAudioWorkspace.StartSeparationCommand, Mode=OneWay}" Label="开始拆音">
+                    <AppBarButton Command="{x:Bind ViewModel.SplitAudioWorkspace.StartSeparationCommand, Mode=OneWay}" Label="{x:Bind ViewModel.MainWindowStartSplitAudioButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Play" />
                         </AppBarButton.Icon>
                     </AppBarButton>
-                    <AppBarButton Command="{x:Bind ViewModel.SplitAudioWorkspace.CancelSeparationCommand, Mode=OneWay}" Label="取消任务">
+                    <AppBarButton Command="{x:Bind ViewModel.SplitAudioWorkspace.CancelSeparationCommand, Mode=OneWay}" Label="{x:Bind ViewModel.MainWindowCancelTaskButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Cancel" />
                         </AppBarButton.Icon>
@@ -189,7 +189,7 @@
                     IsDynamicOverflowEnabled="True"
                     VerticalAlignment="Center"
                     Visibility="{x:Bind ViewModel.TrimWorkspaceVisibility, Mode=OneWay}">
-                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.SelectVideoCommand}" Label="导入文件">
+                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.SelectVideoCommand}" Label="{x:Bind ViewModel.MainWindowImportFilesButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="OpenFile" />
                         </AppBarButton.Icon>
@@ -200,12 +200,12 @@
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarSeparator />
-                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.ExportTrimCommand}" Label="导出片段">
+                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.ExportTrimCommand}" Label="{x:Bind ViewModel.MainWindowExportTrimSegmentButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Save" />
                         </AppBarButton.Icon>
                     </AppBarButton>
-                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.CancelExportCommand}" Label="取消导出">
+                    <AppBarButton Command="{x:Bind ViewModel.TrimWorkspace.CancelExportCommand}" Label="{x:Bind ViewModel.MainWindowCancelExportButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Cancel" />
                         </AppBarButton.Icon>
@@ -225,12 +225,12 @@
                     IsDynamicOverflowEnabled="True"
                     VerticalAlignment="Center"
                     Visibility="{x:Bind ViewModel.MergeWorkspaceVisibility, Mode=OneWay}">
-                    <AppBarButton Command="{x:Bind ViewModel.MergeWorkspace.StartVideoJoinProcessingCommand, Mode=OneWay}" Label="开始处理">
+                    <AppBarButton Command="{x:Bind ViewModel.MergeWorkspace.StartVideoJoinProcessingCommand, Mode=OneWay}" Label="{x:Bind ViewModel.MainWindowStartProcessingButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Play" />
                         </AppBarButton.Icon>
                     </AppBarButton>
-                    <AppBarButton Command="{x:Bind ViewModel.MergeWorkspace.CancelVideoJoinProcessingCommand, Mode=OneWay}" Label="取消任务">
+                    <AppBarButton Command="{x:Bind ViewModel.MergeWorkspace.CancelVideoJoinProcessingCommand, Mode=OneWay}" Label="{x:Bind ViewModel.MainWindowCancelTaskButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Cancel" />
                         </AppBarButton.Icon>
@@ -563,7 +563,7 @@
                                         HorizontalAlignment="Center"
                                         FontSize="12"
                                         FontWeight="SemiBold"
-                                        Text="视频" />
+                                        Text="{x:Bind ViewModel.VideoWorkspaceButtonText, Mode=OneWay}" />
                                 </StackPanel>
                             </ToggleButton>
 
@@ -585,7 +585,7 @@
                                         HorizontalAlignment="Center"
                                         FontSize="12"
                                         FontWeight="SemiBold"
-                                        Text="音频" />
+                                        Text="{x:Bind ViewModel.AudioWorkspaceButtonText, Mode=OneWay}" />
                                 </StackPanel>
                             </ToggleButton>
 
@@ -607,7 +607,7 @@
                                         HorizontalAlignment="Center"
                                         FontSize="12"
                                         FontWeight="SemiBold"
-                                        Text="裁剪" />
+                                        Text="{x:Bind ViewModel.TrimWorkspaceButtonText, Mode=OneWay}" />
                                 </StackPanel>
                             </ToggleButton>
 
@@ -637,7 +637,7 @@
                                         HorizontalAlignment="Center"
                                         FontSize="12"
                                         FontWeight="SemiBold"
-                                        Text="合并" />
+                                        Text="{x:Bind ViewModel.MergeWorkspaceButtonText, Mode=OneWay}" />
                                 </StackPanel>
                             </ToggleButton>
 
@@ -667,7 +667,7 @@
                                         HorizontalAlignment="Center"
                                         FontSize="12"
                                         FontWeight="SemiBold"
-                                        Text="拆音" />
+                                        Text="{x:Bind ViewModel.SplitAudioWorkspaceButtonText, Mode=OneWay}" />
                                 </StackPanel>
                             </ToggleButton>
 
@@ -697,7 +697,7 @@
                                         HorizontalAlignment="Center"
                                         FontSize="12"
                                         FontWeight="SemiBold"
-                                        Text="终端" />
+                                        Text="{x:Bind ViewModel.TerminalWorkspaceButtonText, Mode=OneWay}" />
                                 </StackPanel>
                             </ToggleButton>
                         </StackPanel>
@@ -731,7 +731,7 @@
                                 <StackPanel Spacing="4">
                                     <TextBlock
                                         Style="{StaticResource SectionTitleTextStyle}"
-                                        Text="待处理队列" />
+                                        Text="{x:Bind ViewModel.QueueSectionTitleText, Mode=OneWay}" />
                                     <TextBlock
                                         Opacity="0.72"
                                         Text="{x:Bind ViewModel.QueueDragDropHintText, Mode=OneWay}"
@@ -770,7 +770,7 @@
                                             Spacing="0">
                                             <TextBlock
                                                 Style="{StaticResource CaptionTextStyle}"
-                                                Text="队列状态" />
+                                                Text="{x:Bind ViewModel.QueueStatusTitleText, Mode=OneWay}" />
                                             <TextBlock
                                                 FontWeight="SemiBold"
                                                 Text="{x:Bind ViewModel.QueueSummaryText, Mode=OneWay}" />
@@ -878,8 +878,8 @@
                                                             Opacity="0.72"
                                                             Text="{x:Bind StatusText, Mode=OneWay}" />
                                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                                                            <Button MinWidth="68" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.ShowMediaDetailsCommand}" CommandParameter="{x:Bind}" Content="详情" />
-                                                            <Button MinWidth="68" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.RemoveImportItemCommand}" CommandParameter="{x:Bind}" Content="移除" />
+                                                            <Button MinWidth="68" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.ShowMediaDetailsCommand}" CommandParameter="{x:Bind}" Content="{Binding ElementName=RootWindow, Path=ViewModel.QueueItemDetailsButtonText}" />
+                                                            <Button MinWidth="68" Padding="10,4" Command="{Binding ElementName=RootWindow, Path=ViewModel.RemoveImportItemCommand}" CommandParameter="{x:Bind}" Content="{Binding ElementName=RootWindow, Path=ViewModel.QueueItemRemoveButtonText}" />
                                                         </StackPanel>
                                                     </Grid>
                                                     <TextBlock
@@ -915,12 +915,12 @@
                             <StackPanel Spacing="12">
                                 <TextBlock
                                     Style="{StaticResource SectionTitleTextStyle}"
-                                    Text="处理设置" />
+                                    Text="{x:Bind ViewModel.ProcessingSettingsTitleText, Mode=OneWay}" />
 
                                 <StackPanel
                                     Spacing="6"
                                     Visibility="{x:Bind ViewModel.VideoProcessingModeVisibility, Mode=OneWay}">
-                                    <TextBlock Text="处理模式" />
+                                    <TextBlock Text="{x:Bind ViewModel.ProcessingModeLabelText, Mode=OneWay}" />
                                     <ComboBox
                                         DisplayMemberPath="DisplayName"
                                         IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
@@ -931,7 +931,7 @@
                                 <StackPanel
                                     Spacing="6"
                                     Visibility="{x:Bind ViewModel.AudioProcessingModeVisibility, Mode=OneWay}">
-                                    <TextBlock Text="处理模式" />
+                                    <TextBlock Text="{x:Bind ViewModel.ProcessingModeLabelText, Mode=OneWay}" />
                                     <Border
                                         Padding="12,10"
                                         Background="{ThemeResource ControlFillColorSecondaryBrush}"
@@ -949,7 +949,7 @@
                                 </StackPanel>
 
                                 <StackPanel Spacing="6">
-                                    <TextBlock Text="目标格式" />
+                                    <TextBlock Text="{x:Bind ViewModel.OutputFormatLabelText, Mode=OneWay}" />
                                     <ComboBox
                                         DisplayMemberPath="DisplayName"
                                         IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
@@ -962,7 +962,7 @@
                                 </StackPanel>
 
                                 <StackPanel Spacing="6">
-                                    <TextBlock Text="输出目录" />
+                                    <TextBlock Text="{x:Bind ViewModel.OutputDirectoryLabelText, Mode=OneWay}" />
                                     <Grid ColumnSpacing="8">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -972,20 +972,20 @@
 
                                         <TextBox
                                             IsReadOnly="True"
-                                            PlaceholderText="留空时使用原文件夹输出"
+                                            PlaceholderText="{x:Bind ViewModel.OutputDirectoryPlaceholderText, Mode=OneWay}"
                                             Text="{x:Bind ViewModel.OutputDirectory, Mode=OneWay}" />
                                         <Button
                                             Grid.Column="1"
                                             Command="{x:Bind ViewModel.SelectOutputDirectoryCommand, Mode=OneWay}"
-                                            Content="选择文件夹" />
+                                            Content="{x:Bind ViewModel.SelectOutputDirectoryButtonText, Mode=OneWay}" />
                                         <Button
                                             Grid.Column="2"
                                             Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
-                                            Content="清空" />
+                                            Content="{x:Bind ViewModel.ClearOutputDirectoryButtonText, Mode=OneWay}" />
                                     </Grid>
                                     <TextBlock
                                         Style="{StaticResource CaptionTextStyle}"
-                                        Text="留空时使用原文件夹输出；设置后，处理结果会统一输出到所选文件夹。"
+                                        Text="{x:Bind ViewModel.OutputDirectoryHintText, Mode=OneWay}"
                                         TextWrapping="WrapWholeWords" />
                                 </StackPanel>
                             </StackPanel>
@@ -1004,7 +1004,7 @@
 
                                 <TextBlock
                                     Style="{StaticResource SectionTitleTextStyle}"
-                                    Text="处理结果" />
+                                    Text="{x:Bind ViewModel.ProcessingResultsTitleText, Mode=OneWay}" />
 
                                 <ListView
                                     Grid.Row="1"

@@ -33,7 +33,7 @@ public sealed partial class MainViewModel
     {
         StatusMessage = ImportItems.Count == 0
             ? GetReadyForImportMessage()
-            : ReadyForProcessingMessage;
+            : GetReadyForProcessingMessage();
     }
 
     private void OnImportItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)

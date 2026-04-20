@@ -18,15 +18,20 @@ public sealed class FFmpegVideoAccelerationService : IFFmpegVideoAccelerationSer
         };
 
     private readonly IFFmpegService _ffmpegService;
+    private readonly ILocalizationService _localizationService;
     private readonly ILogger _logger;
     private readonly SemaphoreSlim _probeLock = new(1, 1);
     private string? _cachedExecutablePath;
     private VideoAccelerationProbeResult? _cachedResult;
 
-    public FFmpegVideoAccelerationService(IFFmpegService ffmpegService, ILogger logger)
+    public FFmpegVideoAccelerationService(
+        IFFmpegService ffmpegService,
+        ILocalizationService localizationService,
+        ILogger logger)
     {
-        _ffmpegService = ffmpegService;
-        _logger = logger;
+        _ffmpegService = ffmpegService ?? throw new ArgumentNullException(nameof(ffmpegService));
+        _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<VideoAccelerationProbeResult> ProbeBestEncoderAsync(
@@ -68,7 +73,10 @@ public sealed class FFmpegVideoAccelerationService : IFFmpegVideoAccelerationSer
                         Kind = candidate.Kind,
                         DisplayName = candidate.DisplayName,
                         EncoderName = candidate.EncoderName,
-                        Message = $"检测到 {candidate.DisplayName} 可用，本次可启用视频硬件编码。"
+                        Message = FormatLocalizedText(
+                            "mainWindow.transcoding.gpuDetected",
+                            $"检测到 {candidate.DisplayName} 可用，本次可启用视频硬件编码。",
+                            ("gpuName", candidate.DisplayName))
                     };
 
                     _logger.Log(LogLevel.Info, $"视频硬件加速检测成功：{candidate.DisplayName}。");
@@ -82,7 +90,9 @@ public sealed class FFmpegVideoAccelerationService : IFFmpegVideoAccelerationSer
                 Kind = VideoAccelerationKind.None,
                 DisplayName = "CPU",
                 EncoderName = string.Empty,
-                Message = "未检测到可用的 NVIDIA、Intel 或 AMD 视频硬件编码能力，将自动回退为 CPU 转码。"
+                Message = GetLocalizedText(
+                    "mainWindow.transcoding.gpuUnavailable",
+                    "未检测到可用的 NVIDIA、Intel 或 AMD 视频硬件编码能力，将自动回退为 CPU 转码。")
             };
 
             _logger.Log(LogLevel.Warning, "未检测到可用的视频硬件加速编码器，将继续使用 CPU 转码。");
@@ -112,6 +122,24 @@ public sealed class FFmpegVideoAccelerationService : IFFmpegVideoAccelerationSer
     {
         _cachedExecutablePath = ffmpegExecutablePath;
         _cachedResult = result;
+    }
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
+
+    private string FormatLocalizedText(string key, string fallback, params (string Name, object? Value)[] arguments)
+    {
+        Dictionary<string, object?>? localizedArguments = null;
+        if (arguments.Length > 0)
+        {
+            localizedArguments = new Dictionary<string, object?>(arguments.Length, StringComparer.Ordinal);
+            foreach (var argument in arguments)
+            {
+                localizedArguments[argument.Name] = argument.Value;
+            }
+        }
+
+        return _localizationService.Format(key, localizedArguments, fallback);
     }
 
     private static FFmpegCommand CreateProbeCommand(string ffmpegExecutablePath, ProbeCandidate candidate)

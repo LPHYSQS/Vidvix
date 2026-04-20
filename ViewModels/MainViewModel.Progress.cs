@@ -17,6 +17,7 @@ public sealed partial class MainViewModel
     private string _executionProgressCurrentItemText = string.Empty;
     private string _executionProgressDetailText = string.Empty;
     private string _executionProgressPercentText = string.Empty;
+    private ExecutionProgressSnapshot _executionProgressSnapshot = ExecutionProgressSnapshot.Hidden;
 
     public Visibility ExecutionProgressVisibility
     {
@@ -68,7 +69,9 @@ public sealed partial class MainViewModel
             currentItemProgressRatio: null,
             processedDuration: null,
             totalDuration: null,
-            detailOverride: "\u6b63\u5728\u68c0\u67e5\u5a92\u4f53\u8f68\u9053\u4e0e\u8f93\u51fa\u53c2\u6570...");
+            detailOverride: LocalizedProgressText.Create(
+                "mainWindow.progress.detail.validating",
+                "正在检查媒体轨道与输出参数..."));
 
     private void UpdateExecutionProgress(
         int totalCount,
@@ -77,60 +80,23 @@ public sealed partial class MainViewModel
         double? currentItemProgressRatio,
         TimeSpan? processedDuration,
         TimeSpan? totalDuration,
-        string? detailOverride = null)
+        LocalizedProgressText? detailOverride = null)
     {
         void ApplyUpdate()
         {
-            if (totalCount <= 0)
-            {
-                HideExecutionProgressCore();
-                return;
-            }
+            var snapshot = totalCount <= 0
+                ? ExecutionProgressSnapshot.Hidden
+                : new ExecutionProgressSnapshot(
+                    totalCount,
+                    completedCount,
+                    currentItem,
+                    currentItemProgressRatio,
+                    processedDuration,
+                    totalDuration,
+                    detailOverride);
 
-            var normalizedCompleted = Math.Clamp(completedCount, 0, totalCount);
-            ExecutionProgressVisibility = Visibility.Visible;
-            ExecutionProgressSummaryText = $"\u5df2\u5b8c\u6210 {normalizedCompleted} / {totalCount}";
-
-            if (currentItem is null)
-            {
-                ExecutionProgressCurrentItemText = normalizedCompleted >= totalCount
-                    ? "\u5f53\u524d\u6587\u4ef6\uff1a\u5df2\u5b8c\u6210"
-                    : "\u5f53\u524d\u6587\u4ef6\uff1a\u6b63\u5728\u51c6\u5907...";
-                ExecutionProgressValue = Math.Round((normalizedCompleted / (double)totalCount) * 100d, 1);
-
-                if (normalizedCompleted >= totalCount)
-                {
-                    IsExecutionProgressIndeterminate = false;
-                    ExecutionProgressPercentText = "100%";
-                    ExecutionProgressDetailText = detailOverride ?? "\u5904\u7406\u5b8c\u6210\uff0c\u6b63\u5728\u6574\u7406\u7ed3\u679c...";
-                    return;
-                }
-
-                IsExecutionProgressIndeterminate = true;
-                ExecutionProgressPercentText = "\u51c6\u5907\u4e2d";
-                ExecutionProgressDetailText = detailOverride ?? "\u6b63\u5728\u51c6\u5907\u5904\u7406\u4efb\u52a1...";
-                return;
-            }
-
-            ExecutionProgressCurrentItemText = $"\u5f53\u524d\u6587\u4ef6\uff1a{currentItem.InputFileName}";
-
-            if (currentItemProgressRatio is double progressRatio)
-            {
-                var normalizedRatio = Math.Clamp(progressRatio, 0d, 1d);
-                var overallProgress = (normalizedCompleted + normalizedRatio) / totalCount;
-                IsExecutionProgressIndeterminate = false;
-                ExecutionProgressValue = Math.Round(overallProgress * 100d, 1);
-                ExecutionProgressPercentText = $"{Math.Round(normalizedRatio * 100d):0}%";
-                ExecutionProgressDetailText = detailOverride ?? CreateExecutionProgressDetail(processedDuration, totalDuration, normalizedRatio);
-                currentItem.UpdateRunningDetail(CreateRunningItemProgressDetail(processedDuration, totalDuration, normalizedRatio));
-                return;
-            }
-
-            IsExecutionProgressIndeterminate = true;
-            ExecutionProgressValue = Math.Round((normalizedCompleted / (double)totalCount) * 100d, 1);
-            ExecutionProgressPercentText = "\u5904\u7406\u4e2d";
-            ExecutionProgressDetailText = detailOverride ?? "\u6b63\u5728\u5904\u7406\u5f53\u524d\u6587\u4ef6\uff0c\u6682\u65f6\u65e0\u6cd5\u4f30\u7b97\u603b\u8fdb\u5ea6\u3002";
-            currentItem.UpdateRunningDetail(detailOverride ?? "\u6b63\u5728\u5904\u7406\uff0c\u6682\u65f6\u65e0\u6cd5\u4f30\u7b97\u603b\u8fdb\u5ea6\u3002");
+            _executionProgressSnapshot = snapshot;
+            ApplyExecutionProgressSnapshot(snapshot);
         }
 
         if (_dispatcherService.HasThreadAccess)
@@ -146,15 +112,99 @@ public sealed partial class MainViewModel
     {
         if (_dispatcherService.HasThreadAccess)
         {
+            _executionProgressSnapshot = ExecutionProgressSnapshot.Hidden;
             HideExecutionProgressCore();
             return;
         }
 
-        _dispatcherService.TryEnqueue(HideExecutionProgressCore);
+        _dispatcherService.TryEnqueue(() =>
+        {
+            _executionProgressSnapshot = ExecutionProgressSnapshot.Hidden;
+            HideExecutionProgressCore();
+        });
+    }
+
+    private void RefreshExecutionProgressLocalization()
+    {
+        if (_executionProgressSnapshot == ExecutionProgressSnapshot.Hidden)
+        {
+            return;
+        }
+
+        ApplyExecutionProgressSnapshot(_executionProgressSnapshot);
     }
 
     private Task<TimeSpan?> TryGetMediaDurationAsync(string inputPath, CancellationToken cancellationToken) =>
         _mediaProcessingWorkflowService.GetMediaDurationAsync(inputPath, cancellationToken);
+
+    private void ApplyExecutionProgressSnapshot(ExecutionProgressSnapshot snapshot)
+    {
+        if (snapshot.TotalCount <= 0)
+        {
+            HideExecutionProgressCore();
+            return;
+        }
+
+        var normalizedCompleted = Math.Clamp(snapshot.CompletedCount, 0, snapshot.TotalCount);
+        ExecutionProgressVisibility = Visibility.Visible;
+        ExecutionProgressSummaryText = FormatLocalizedText(
+            "mainWindow.progress.summary",
+            $"已完成 {normalizedCompleted} / {snapshot.TotalCount}",
+            ("completed", normalizedCompleted),
+            ("total", snapshot.TotalCount));
+
+        if (snapshot.CurrentItem is null)
+        {
+            ExecutionProgressCurrentItemText = normalizedCompleted >= snapshot.TotalCount
+                ? GetLocalizedText("mainWindow.progress.currentItem.completed", "当前文件：已完成")
+                : GetLocalizedText("mainWindow.progress.currentItem.preparing", "当前文件：正在准备...");
+            ExecutionProgressValue = Math.Round((normalizedCompleted / (double)snapshot.TotalCount) * 100d, 1);
+
+            if (normalizedCompleted >= snapshot.TotalCount)
+            {
+                IsExecutionProgressIndeterminate = false;
+                ExecutionProgressPercentText = "100%";
+                ExecutionProgressDetailText = snapshot.DetailOverride?.ResolveMain(this)
+                    ?? GetLocalizedText("mainWindow.progress.detail.organizingCompleted", "处理完成，正在整理结果...");
+                return;
+            }
+
+            IsExecutionProgressIndeterminate = true;
+            ExecutionProgressPercentText = GetLocalizedText("mainWindow.progress.percent.preparing", "准备中");
+            ExecutionProgressDetailText = snapshot.DetailOverride?.ResolveMain(this)
+                ?? GetLocalizedText("mainWindow.progress.detail.preparing", "正在准备处理任务...");
+            return;
+        }
+
+        ExecutionProgressCurrentItemText = FormatLocalizedText(
+            "mainWindow.progress.currentItem.active",
+            $"当前文件：{snapshot.CurrentItem.InputFileName}",
+            ("fileName", snapshot.CurrentItem.InputFileName));
+
+        if (snapshot.CurrentItemProgressRatio is double progressRatio)
+        {
+            var normalizedRatio = Math.Clamp(progressRatio, 0d, 1d);
+            var overallProgress = (normalizedCompleted + normalizedRatio) / snapshot.TotalCount;
+            IsExecutionProgressIndeterminate = false;
+            ExecutionProgressValue = Math.Round(overallProgress * 100d, 1);
+            ExecutionProgressPercentText = $"{Math.Round(normalizedRatio * 100d):0}%";
+            ExecutionProgressDetailText = snapshot.DetailOverride?.ResolveMain(this)
+                ?? CreateExecutionProgressDetail(snapshot.ProcessedDuration, snapshot.TotalDuration, normalizedRatio);
+            snapshot.CurrentItem.UpdateRunningDetail(
+                snapshot.DetailOverride?.ResolveRunning(this)
+                ?? CreateRunningItemProgressDetail(snapshot.ProcessedDuration, snapshot.TotalDuration, normalizedRatio));
+            return;
+        }
+
+        IsExecutionProgressIndeterminate = true;
+        ExecutionProgressValue = Math.Round((normalizedCompleted / (double)snapshot.TotalCount) * 100d, 1);
+        ExecutionProgressPercentText = GetLocalizedText("mainWindow.progress.percent.processing", "处理中");
+        ExecutionProgressDetailText = snapshot.DetailOverride?.ResolveMain(this)
+            ?? GetLocalizedText("mainWindow.progress.detail.processingNoEstimate", "正在处理当前文件，暂时无法估算总进度。");
+        snapshot.CurrentItem.UpdateRunningDetail(
+            snapshot.DetailOverride?.ResolveRunning(this)
+            ?? GetLocalizedText("mainWindow.progress.itemDetail.processingNoEstimate", "正在处理，暂时无法估算总进度。"));
+    }
 
     private void HideExecutionProgressCore()
     {
@@ -167,7 +217,7 @@ public sealed partial class MainViewModel
         ExecutionProgressPercentText = string.Empty;
     }
 
-    private static string CreateExecutionProgressDetail(
+    private string CreateExecutionProgressDetail(
         TimeSpan? processedDuration,
         TimeSpan? totalDuration,
         double progressRatio)
@@ -176,18 +226,30 @@ public sealed partial class MainViewModel
 
         if (processedDuration is { } processed && totalDuration is { } total && total > TimeSpan.Zero)
         {
-            return $"\u5f53\u524d\u6587\u4ef6\u8fdb\u5ea6 {percentText} \u00b7 \u5df2\u5904\u7406 {FormatClockDuration(processed)} / {FormatClockDuration(total)}";
+            return FormatLocalizedText(
+                "mainWindow.progress.detail.processedTotal",
+                $"当前文件进度 {percentText} · 已处理 {FormatClockDuration(processed)} / {FormatClockDuration(total)}",
+                ("percent", percentText),
+                ("processed", FormatClockDuration(processed)),
+                ("total", FormatClockDuration(total)));
         }
 
         if (processedDuration is { } processedOnly)
         {
-            return $"\u5f53\u524d\u6587\u4ef6\u8fdb\u5ea6 {percentText} \u00b7 \u5df2\u5904\u7406 {FormatClockDuration(processedOnly)}";
+            return FormatLocalizedText(
+                "mainWindow.progress.detail.processedOnly",
+                $"当前文件进度 {percentText} · 已处理 {FormatClockDuration(processedOnly)}",
+                ("percent", percentText),
+                ("processed", FormatClockDuration(processedOnly)));
         }
 
-        return $"\u5f53\u524d\u6587\u4ef6\u8fdb\u5ea6 {percentText}";
+        return FormatLocalizedText(
+            "mainWindow.progress.detail.percentOnly",
+            $"当前文件进度 {percentText}",
+            ("percent", percentText));
     }
 
-    private static string CreateRunningItemProgressDetail(
+    private string CreateRunningItemProgressDetail(
         TimeSpan? processedDuration,
         TimeSpan? totalDuration,
         double progressRatio)
@@ -196,19 +258,104 @@ public sealed partial class MainViewModel
 
         if (processedDuration is { } processed && totalDuration is { } total && total > TimeSpan.Zero)
         {
-            return $"\u5df2\u5904\u7406 {FormatClockDuration(processed)} / {FormatClockDuration(total)}\uff08{percentText}\uff09";
+            return FormatLocalizedText(
+                "mainWindow.progress.itemDetail.processedTotal",
+                $"已处理 {FormatClockDuration(processed)} / {FormatClockDuration(total)}（{percentText}）",
+                ("processed", FormatClockDuration(processed)),
+                ("total", FormatClockDuration(total)),
+                ("percent", percentText));
         }
 
         if (processedDuration is { } processedOnly)
         {
-            return $"\u5df2\u5904\u7406 {FormatClockDuration(processedOnly)}\uff08{percentText}\uff09";
+            return FormatLocalizedText(
+                "mainWindow.progress.itemDetail.processedOnly",
+                $"已处理 {FormatClockDuration(processedOnly)}（{percentText}）",
+                ("processed", FormatClockDuration(processedOnly)),
+                ("percent", percentText));
         }
 
-        return $"\u6b63\u5728\u5904\u7406\uff08{percentText}\uff09";
+        return FormatLocalizedText(
+            "mainWindow.progress.itemDetail.percentOnly",
+            $"正在处理（{percentText}）",
+            ("percent", percentText));
     }
 
     private static string FormatClockDuration(TimeSpan duration) =>
         duration.TotalHours >= 1
             ? duration.ToString(@"hh\:mm\:ss")
             : duration.ToString(@"mm\:ss");
+
+    private sealed class ExecutionProgressSnapshot
+    {
+        public static readonly ExecutionProgressSnapshot Hidden = new(0, 0, null, null, null, null, null);
+
+        public ExecutionProgressSnapshot(
+            int totalCount,
+            int completedCount,
+            MediaJobViewModel? currentItem,
+            double? currentItemProgressRatio,
+            TimeSpan? processedDuration,
+            TimeSpan? totalDuration,
+            LocalizedProgressText? detailOverride)
+        {
+            TotalCount = totalCount;
+            CompletedCount = completedCount;
+            CurrentItem = currentItem;
+            CurrentItemProgressRatio = currentItemProgressRatio;
+            ProcessedDuration = processedDuration;
+            TotalDuration = totalDuration;
+            DetailOverride = detailOverride;
+        }
+
+        public int TotalCount { get; }
+
+        public int CompletedCount { get; }
+
+        public MediaJobViewModel? CurrentItem { get; }
+
+        public double? CurrentItemProgressRatio { get; }
+
+        public TimeSpan? ProcessedDuration { get; }
+
+        public TimeSpan? TotalDuration { get; }
+
+        public LocalizedProgressText? DetailOverride { get; }
+    }
+
+    private sealed class LocalizedProgressText
+    {
+        private LocalizedProgressText(
+            string mainKey,
+            string mainFallback,
+            string? runningKey,
+            string? runningFallback)
+        {
+            MainKey = mainKey;
+            MainFallback = mainFallback;
+            RunningKey = runningKey;
+            RunningFallback = runningFallback;
+        }
+
+        public string MainKey { get; }
+
+        public string MainFallback { get; }
+
+        public string? RunningKey { get; }
+
+        public string? RunningFallback { get; }
+
+        public static LocalizedProgressText Create(
+            string mainKey,
+            string mainFallback,
+            string? runningKey = null,
+            string? runningFallback = null) =>
+            new(mainKey, mainFallback, runningKey, runningFallback);
+
+        public string ResolveMain(MainViewModel owner) =>
+            owner.GetLocalizedText(MainKey, MainFallback);
+
+        public string ResolveRunning(MainViewModel owner) =>
+            owner.GetLocalizedText(RunningKey ?? MainKey, RunningFallback ?? MainFallback);
+    }
 }
