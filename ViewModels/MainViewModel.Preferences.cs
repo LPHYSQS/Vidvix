@@ -28,6 +28,7 @@ public sealed partial class MainViewModel
             PreferredOutputDirectory = HasCustomOutputDirectory ? OutputDirectory : null,
             ThemePreference = SelectedThemeOption.Preference,
             RevealOutputFileAfterProcessing = RevealOutputFileAfterProcessing,
+            EnableSystemTray = EnableSystemTray,
             PreferredTranscodingMode = SelectedTranscodingModeOption.Mode,
             EnableGpuAccelerationForTranscoding = EnableGpuAccelerationForTranscoding
         });

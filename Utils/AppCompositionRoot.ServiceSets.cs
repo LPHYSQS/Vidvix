@@ -10,7 +10,8 @@ internal sealed record AppInfrastructureServices(
     IFilePickerService FilePickerService,
     IUserPreferencesService UserPreferencesService,
     IFileRevealService FileRevealService,
-    IDesktopShortcutService DesktopShortcutService);
+    IDesktopShortcutService DesktopShortcutService,
+    ISystemTrayService SystemTrayService);
 
 internal sealed record AppMediaRuntimeServices(
     IFFmpegRuntimeService RuntimeService,

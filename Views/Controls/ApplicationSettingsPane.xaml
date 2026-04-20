@@ -75,6 +75,29 @@
                     <TextBlock
                         FontSize="14"
                         FontWeight="SemiBold"
+                        Text="系统托盘" />
+
+                    <ToggleSwitch
+                        Header="关闭窗口时保留在系统托盘"
+                        IsOn="{x:Bind ViewModel.EnableSystemTray, Mode=TwoWay}"
+                        OffContent="关闭"
+                        OnContent="开启" />
+
+                    <TextBlock
+                        Opacity="0.72"
+                        Text="开启后，点击右上角关闭按钮不会退出应用，而是隐藏到系统托盘继续运行。右键托盘图标可选择“显示窗口”或“退出”。"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+            </Border>
+
+            <Border
+                Padding="14"
+                Background="{ThemeResource SettingsPaneSectionBrush}"
+                CornerRadius="16">
+                <StackPanel Spacing="12">
+                    <TextBlock
+                        FontSize="14"
+                        FontWeight="SemiBold"
                         Text="桌面快捷方式" />
 
                     <TextBlock

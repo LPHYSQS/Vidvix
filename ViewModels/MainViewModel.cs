@@ -105,6 +105,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private string _outputDirectory = string.Empty;
     private ThemePreferenceOption? _selectedThemeOption;
     private bool _revealOutputFileAfterProcessing;
+    private bool _enableSystemTray;
     private TranscodingModeOption? _selectedTranscodingModeOption;
     private bool _enableGpuAccelerationForTranscoding;
     private bool _isSettingsPaneOpen;
@@ -163,6 +164,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _selectedThemeOption = ThemeOptions.FirstOrDefault(option => option.Preference == userPreferences.ThemePreference) ?? ThemeOptions[0];
         _outputDirectory = NormalizeOutputDirectory(userPreferences.PreferredOutputDirectory);
         _revealOutputFileAfterProcessing = userPreferences.RevealOutputFileAfterProcessing;
+        _enableSystemTray = userPreferences.EnableSystemTray;
         _selectedTranscodingModeOption = ResolveTranscodingMode(userPreferences.PreferredTranscodingMode);
         _enableGpuAccelerationForTranscoding = userPreferences.EnableGpuAccelerationForTranscoding;
 
@@ -540,6 +542,21 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         {
             OnPropertyChanged(nameof(CanModifyInputs));
             NotifyCommandStates();
+        }
+    }
+
+    public bool EnableSystemTray
+    {
+        get => _enableSystemTray;
+        set
+        {
+            if (SetProperty(ref _enableSystemTray, value))
+            {
+                PersistUserPreferences();
+                StatusMessage = value
+                    ? "已启用系统托盘，点击关闭按钮后会隐藏到托盘中继续运行。"
+                    : "已关闭系统托盘，点击关闭按钮将直接退出应用。";
+            }
         }
     }
 

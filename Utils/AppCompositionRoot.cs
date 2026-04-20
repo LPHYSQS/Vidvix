@@ -23,6 +23,7 @@ public sealed class AppCompositionRoot
     private readonly IUserPreferencesService _userPreferencesService;
     private readonly IWindowContext _windowContext;
     private readonly IWindowIconService _windowIconService;
+    private readonly ISystemTrayService _systemTrayService;
 
     public AppCompositionRoot(DispatcherQueue dispatcherQueue)
     {
@@ -34,6 +35,7 @@ public sealed class AppCompositionRoot
         _windowContext = infrastructure.WindowContext;
         _windowIconService = infrastructure.WindowIconService;
         _userPreferencesService = infrastructure.UserPreferencesService;
+        _systemTrayService = infrastructure.SystemTrayService;
 
         var mediaRuntime = CreateMediaRuntimeServices(infrastructure.WindowContext);
         var workflows = CreateWorkflowServices(mediaRuntime);
@@ -57,7 +59,7 @@ public sealed class AppCompositionRoot
 
     public MainWindow CreateMainWindow()
     {
-        var window = new MainWindow(_mainViewModel, _userPreferencesService, Logger)
+        var window = new MainWindow(_mainViewModel, _userPreferencesService, _systemTrayService, Logger)
         {
             Title = Configuration.ApplicationTitle
         };
@@ -83,7 +85,8 @@ public sealed class AppCompositionRoot
             new FilePickerService(windowContext),
             userPreferencesService,
             new FileRevealService(),
-            new DesktopShortcutService(Configuration, Logger));
+            new DesktopShortcutService(Configuration, Logger),
+            new SystemTrayService(Configuration, dispatcherService, Logger));
     }
 
     private AppMediaRuntimeServices CreateMediaRuntimeServices(IWindowContext windowContext)

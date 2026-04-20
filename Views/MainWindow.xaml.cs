@@ -42,6 +42,7 @@ public sealed partial class MainWindow : Window
 
     private readonly AppWindow _appWindow;
     private readonly ILogger _logger;
+    private readonly ISystemTrayService _systemTrayService;
     private readonly IUserPreferencesService _userPreferencesService;
     private readonly IntPtr _windowHandle;
     private readonly Storyboard _showDetailOverlayStoryboard;
@@ -54,11 +55,17 @@ public sealed partial class MainWindow : Window
     private bool _hasAppliedInitialWindowPlacement;
     private bool _isDetailOverlayVisible;
     private bool _isCopyToastVisible;
+    private bool _isExitRequested;
 
-    public MainWindow(MainViewModel viewModel, IUserPreferencesService userPreferencesService, ILogger logger)
+    public MainWindow(
+        MainViewModel viewModel,
+        IUserPreferencesService userPreferencesService,
+        ISystemTrayService systemTrayService,
+        ILogger logger)
     {
         ViewModel = viewModel;
         _userPreferencesService = userPreferencesService ?? throw new ArgumentNullException(nameof(userPreferencesService));
+        _systemTrayService = systemTrayService ?? throw new ArgumentNullException(nameof(systemTrayService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         InitializeComponent();
         _windowHandle = WindowNative.GetWindowHandle(this);
@@ -75,6 +82,7 @@ public sealed partial class MainWindow : Window
         ConfigureWindowConstraints();
         _pendingInitialWindowPlacement = LoadPendingInitialWindowPlacement();
         _appWindow.Changed += OnAppWindowChanged;
+        _appWindow.Closing += OnAppWindowClosing;
         RootLayout.ActualThemeChanged += OnRootLayoutActualThemeChanged;
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         ViewModel.DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
@@ -82,6 +90,7 @@ public sealed partial class MainWindow : Window
         _hideDetailOverlayStoryboard.Completed += OnHideDetailOverlayCompleted;
         _hideCopyToastStoryboard.Completed += OnHideCopyToastCompleted;
         _copyToastTimer.Tick += OnCopyToastTimerTick;
+        InitializeSystemTray();
         Closed += OnClosed;
     }
 
@@ -90,6 +99,7 @@ public sealed partial class MainWindow : Window
     private void OnClosed(object sender, WindowEventArgs args)
     {
         SaveWindowPlacement();
+        _appWindow.Closing -= OnAppWindowClosing;
         _appWindow.Changed -= OnAppWindowChanged;
         RootLayout.ActualThemeChanged -= OnRootLayoutActualThemeChanged;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
@@ -99,6 +109,7 @@ public sealed partial class MainWindow : Window
         _hideCopyToastStoryboard.Completed -= OnHideCopyToastCompleted;
         _copyToastTimer.Tick -= OnCopyToastTimerTick;
         _copyToastTimer.Stop();
+        _systemTrayService.Dispose();
         Closed -= OnClosed;
         ViewModel.Dispose();
     }
@@ -128,6 +139,12 @@ public sealed partial class MainWindow : Window
         if (e.PropertyName == nameof(MainViewModel.RequestedTheme))
         {
             UpdateWindowChrome();
+            return;
+        }
+
+        if (e.PropertyName == nameof(MainViewModel.EnableSystemTray))
+        {
+            UpdateSystemTrayState();
             return;
         }
 

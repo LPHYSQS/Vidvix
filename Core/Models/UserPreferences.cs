@@ -78,6 +78,8 @@ public sealed record UserPreferences
 
     public bool RevealOutputFileAfterProcessing { get; init; } = true;
 
+    public bool EnableSystemTray { get; init; }
+
     public TranscodingMode PreferredTranscodingMode { get; init; } = TranscodingMode.FastContainerConversion;
 
     public bool EnableGpuAccelerationForTranscoding { get; init; }
