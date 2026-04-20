@@ -82,7 +82,8 @@ public sealed class AppCompositionRoot
             dispatcherService,
             new FilePickerService(windowContext),
             userPreferencesService,
-            new FileRevealService());
+            new FileRevealService(),
+            new DesktopShortcutService(Configuration, Logger));
     }
 
     private AppMediaRuntimeServices CreateMediaRuntimeServices(IWindowContext windowContext)
@@ -266,7 +267,8 @@ public sealed class AppCompositionRoot
             infrastructure.FilePickerService,
             infrastructure.DispatcherService,
             infrastructure.UserPreferencesService,
-            infrastructure.FileRevealService);
+            infrastructure.FileRevealService,
+            infrastructure.DesktopShortcutService);
 
         return new MainViewModel(
             dependencies,

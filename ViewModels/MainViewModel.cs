@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Utils;
@@ -58,6 +59,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly IDispatcherService _dispatcherService;
     private readonly IUserPreferencesService _userPreferencesService;
     private readonly IFileRevealService _fileRevealService;
+    private readonly IDesktopShortcutService _desktopShortcutService;
     private readonly ObservableCollection<LogEntry> _videoLogEntries;
     private readonly ObservableCollection<LogEntry> _audioLogEntries;
     private readonly ObservableCollection<LogEntry> _trimLogEntries;
@@ -80,6 +82,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly RelayCommand _cancelExecutionCommand;
     private readonly RelayCommand _toggleSettingsPaneCommand;
     private readonly RelayCommand _closeSettingsPaneCommand;
+    private readonly AsyncRelayCommand _createDesktopShortcutCommand;
     private readonly RelayCommand _showMediaDetailsCommand;
     private readonly RelayCommand _closeMediaDetailsCommand;
     private readonly RelayCommand _copyAllMediaDetailsCommand;
@@ -105,6 +108,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private TranscodingModeOption? _selectedTranscodingModeOption;
     private bool _enableGpuAccelerationForTranscoding;
     private bool _isSettingsPaneOpen;
+    private string _desktopShortcutNotificationMessage = string.Empty;
+    private InfoBarSeverity _desktopShortcutNotificationSeverity = InfoBarSeverity.Informational;
+    private bool _isDesktopShortcutNotificationOpen;
     private bool _isDisposed;
     private ProcessingWorkspaceKind _selectedWorkspaceKind;
 
@@ -127,6 +133,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _dispatcherService = dependencies.DispatcherService;
         _userPreferencesService = dependencies.UserPreferencesService;
         _fileRevealService = dependencies.FileRevealService;
+        _desktopShortcutService = dependencies.DesktopShortcutService;
         TrimWorkspace = trimWorkspace ?? throw new ArgumentNullException(nameof(trimWorkspace));
         MergeWorkspace = mergeWorkspace ?? throw new ArgumentNullException(nameof(mergeWorkspace));
         SplitAudioWorkspace = splitAudioWorkspace ?? throw new ArgumentNullException(nameof(splitAudioWorkspace));
@@ -172,6 +179,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _cancelExecutionCommand = new RelayCommand(CancelExecution, () => IsBusy);
         _toggleSettingsPaneCommand = new RelayCommand(ToggleSettingsPane);
         _closeSettingsPaneCommand = new RelayCommand(CloseSettingsPane, () => IsSettingsPaneOpen);
+        _createDesktopShortcutCommand = new AsyncRelayCommand(CreateDesktopShortcutAsync);
         _showMediaDetailsCommand = new RelayCommand(OpenMediaDetails, CanOpenMediaDetails);
         _closeMediaDetailsCommand = new RelayCommand(CloseMediaDetails, CanCloseMediaDetails);
         _copyAllMediaDetailsCommand = new RelayCommand(CopyAllMediaDetails, CanCopyAllMediaDetails);
@@ -229,6 +237,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public ICommand ToggleSettingsPaneCommand => _toggleSettingsPaneCommand;
 
     public ICommand CloseSettingsPaneCommand => _closeSettingsPaneCommand;
+
+    public ICommand CreateDesktopShortcutCommand => _createDesktopShortcutCommand;
 
     public ICommand ShowMediaDetailsCommand => _showMediaDetailsCommand;
 
@@ -400,6 +410,24 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
     public bool IsFullTranscodingModeSelected => SelectedTranscodingModeOption.Mode == TranscodingMode.FullTranscode;
+
+    public string DesktopShortcutNotificationMessage
+    {
+        get => _desktopShortcutNotificationMessage;
+        private set => SetProperty(ref _desktopShortcutNotificationMessage, value);
+    }
+
+    public InfoBarSeverity DesktopShortcutNotificationSeverity
+    {
+        get => _desktopShortcutNotificationSeverity;
+        private set => SetProperty(ref _desktopShortcutNotificationSeverity, value);
+    }
+
+    public bool IsDesktopShortcutNotificationOpen
+    {
+        get => _isDesktopShortcutNotificationOpen;
+        set => SetProperty(ref _isDesktopShortcutNotificationOpen, value);
+    }
 
     public Visibility GpuAccelerationSettingVisibility =>
         IsFullTranscodingModeSelected ? Visibility.Visible : Visibility.Collapsed;

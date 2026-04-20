@@ -16,7 +16,8 @@ internal sealed class MainViewModelDependencies
         IFilePickerService filePickerService,
         IDispatcherService dispatcherService,
         IUserPreferencesService userPreferencesService,
-        IFileRevealService fileRevealService)
+        IFileRevealService fileRevealService,
+        IDesktopShortcutService desktopShortcutService)
     {
         Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         MediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
@@ -28,6 +29,7 @@ internal sealed class MainViewModelDependencies
         DispatcherService = dispatcherService ?? throw new ArgumentNullException(nameof(dispatcherService));
         UserPreferencesService = userPreferencesService ?? throw new ArgumentNullException(nameof(userPreferencesService));
         FileRevealService = fileRevealService ?? throw new ArgumentNullException(nameof(fileRevealService));
+        DesktopShortcutService = desktopShortcutService ?? throw new ArgumentNullException(nameof(desktopShortcutService));
     }
 
     public ApplicationConfiguration Configuration { get; }
@@ -49,4 +51,6 @@ internal sealed class MainViewModelDependencies
     public IUserPreferencesService UserPreferencesService { get; }
 
     public IFileRevealService FileRevealService { get; }
+
+    public IDesktopShortcutService DesktopShortcutService { get; }
 }
