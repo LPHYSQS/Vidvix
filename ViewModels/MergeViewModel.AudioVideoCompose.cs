@@ -479,7 +479,7 @@ public sealed partial class MergeViewModel
     private void InitializeAudioVideoComposeState(UserPreferences preferences)
     {
         _selectedAudioVideoComposeOutputFormat =
-            ResolvePreferredVideoJoinOutputFormat(preferences.PreferredMergeAudioVideoComposeOutputFormatExtension);
+            ResolvePreferredAudioVideoComposeOutputFormat(preferences.PreferredMergeAudioVideoComposeOutputFormatExtension);
         _audioVideoComposeOutputDirectory = NormalizeOutputDirectory(preferences.PreferredMergeAudioVideoComposeOutputDirectory);
         _audioVideoComposeOutputFileName = string.Empty;
         _selectedAudioVideoComposeReferenceMode =
@@ -496,6 +496,9 @@ public sealed partial class MergeViewModel
         _isAudioVideoComposeFadeOutEnabled = preferences.PreferredMergeAudioVideoComposeEnableFadeOut;
         _audioVideoComposeFadeOutSeconds = NormalizeAudioVideoComposeFadeSeconds(preferences.PreferredMergeAudioVideoComposeFadeOutSeconds);
     }
+
+    private OutputFormatOption ResolvePreferredAudioVideoComposeOutputFormat(string? extension) =>
+        ResolvePreferredVideoJoinOutputFormat(extension);
 
     private async Task StartAudioVideoComposeProcessingAsync()
     {

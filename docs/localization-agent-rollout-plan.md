@@ -223,7 +223,7 @@ splitAudio.progress.step = 正在处理第 {index} / {total} 项
 
 | 轮次 | 阶段 | 标题 | 状态 | 最近执行人 | 最近更新 | 摘要 |
 | --- | --- | --- | --- | --- | --- | --- |
-| R1 | Stage 1 | 字符串盘点与任务分桶 | Completed | Codex | 2026-04-20 | 已生成 1220 条字符串盘点与验证日志，热点排序为 merge > common > main-window > split-audio。 |
+| R1 | Stage 1 | 字符串盘点与任务分桶 | Completed | Codex | 2026-04-20 | ~~未开始~~ 已生成 1220 条字符串盘点与验证日志，热点排序为 merge > common > main-window > split-audio。 |
 | R2 | Stage 1 | 本地化基础设施与资源目录 | Completed | Codex | 2026-04-20 | ~~未开始~~ 已建立 JSON 语言包目录、本地化服务、`CurrentUiLanguage` 偏好字段与 key 注册表，回退语言固定为 `zh-CN`。 |
 | R3 | Stage 1 | 设置页语言切换与热切换打通 | Completed | Codex | 2026-04-20 | ~~未开始~~ 已接入设置页语言下拉、当前语言持久化与 `LocalizationRefreshRequested` 刷新链路；修复 `SelectedLanguageOption` 递归导致的启动白屏/闪退，并将语言下拉改为按 `Code` 选中以消除往返切换后的空白显示；`zh-CN -> en-US -> zh-CN` 热切换烟测通过，主窗口试点覆盖页头 caption、设置按钮与处理进度标题。 |
 | R4 | Stage 2 | 公共配置与集中式文案迁移 | Completed | Codex | 2026-04-20 | ~~未开始~~ 已完成集中式配置文案迁移，并修复主窗口视频 / 音频目标格式首次启动空白显示。 |

@@ -10,6 +10,7 @@ public sealed partial class MergeViewModel
     {
         var selectedVideoJoinExtension = _selectedVideoJoinOutputFormat?.Extension;
         var selectedAudioJoinExtension = _selectedAudioJoinOutputFormat?.Extension;
+        var selectedAudioVideoComposeExtension = _selectedAudioVideoComposeOutputFormat?.Extension;
 
         _videoJoinOutputFormats = BuildVideoJoinOutputFormats();
         _audioJoinOutputFormats = BuildAudioJoinOutputFormats();
@@ -17,13 +18,20 @@ public sealed partial class MergeViewModel
 
         _selectedVideoJoinOutputFormat = ResolvePreferredVideoJoinOutputFormat(selectedVideoJoinExtension);
         _selectedAudioJoinOutputFormat = ResolvePreferredAudioJoinOutputFormat(selectedAudioJoinExtension);
+        _selectedAudioVideoComposeOutputFormat =
+            ResolvePreferredAudioVideoComposeOutputFormat(selectedAudioVideoComposeExtension);
 
         OnPropertyChanged(nameof(VideoJoinOutputFormats));
         OnPropertyChanged(nameof(AudioJoinOutputFormats));
+        OnPropertyChanged(nameof(AudioVideoComposeOutputFormats));
         OnPropertyChanged(nameof(SelectedOutputFormat));
         OnPropertyChanged(nameof(SelectedOutputFormatDescription));
         OnPropertyChanged(nameof(SelectedAudioJoinOutputFormat));
         OnPropertyChanged(nameof(SelectedAudioJoinOutputFormatDescription));
+        OnPropertyChanged(nameof(SelectedAudioVideoComposeOutputFormat));
+        OnPropertyChanged(nameof(SelectedAudioVideoComposeOutputFormatDescription));
+        OnPropertyChanged(nameof(AudioVideoComposeResolvedOutputFileName));
+        OnPropertyChanged(nameof(AudioVideoComposeOutputNameHintText));
         OnPropertyChanged(nameof(TimelineHintText));
         OnPropertyChanged(nameof(VideoTrackEmptyText));
         OnPropertyChanged(nameof(AudioTrackEmptyText));
