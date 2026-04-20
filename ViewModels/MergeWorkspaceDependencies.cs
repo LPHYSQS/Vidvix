@@ -7,6 +7,7 @@ internal sealed class MergeWorkspaceDependencies
 {
     public MergeWorkspaceDependencies(
         IFilePickerService? filePickerService = null,
+        ILocalizationService? localizationService = null,
         IMediaInfoService? mediaInfoService = null,
         IUserPreferencesService? userPreferencesService = null,
         IMediaImportDiscoveryService? mediaImportDiscoveryService = null,
@@ -19,6 +20,7 @@ internal sealed class MergeWorkspaceDependencies
         ILogger? logger = null)
     {
         FilePickerService = filePickerService;
+        LocalizationService = localizationService;
         MediaInfoService = mediaInfoService;
         UserPreferencesService = userPreferencesService;
         MediaImportDiscoveryService = mediaImportDiscoveryService;
@@ -32,6 +34,8 @@ internal sealed class MergeWorkspaceDependencies
     }
 
     public IFilePickerService? FilePickerService { get; }
+
+    public ILocalizationService? LocalizationService { get; }
 
     public IMediaInfoService? MediaInfoService { get; }
 

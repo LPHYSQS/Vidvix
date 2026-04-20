@@ -10,6 +10,7 @@ public sealed partial class MainViewModel
 {
     private IReadOnlyList<ThemePreferenceOption> _themeOptions = Array.Empty<ThemePreferenceOption>();
     private IReadOnlyList<TranscodingModeOption> _transcodingOptions = Array.Empty<TranscodingModeOption>();
+    private IReadOnlyList<ProcessingModeOption> _processingModes = Array.Empty<ProcessingModeOption>();
     private IReadOnlyList<LocalizationLanguageOption> _availableLanguages = Array.Empty<LocalizationLanguageOption>();
     private string _selectedLanguageCode = string.Empty;
     private DesktopShortcutNotificationState _desktopShortcutNotificationState;
@@ -146,6 +147,8 @@ public sealed partial class MainViewModel
     {
         ThemeOptions = BuildThemeOptions();
         TranscodingOptions = BuildTranscodingOptions();
+        ProcessingModes = BuildProcessingModes();
+        RebuildWorkspaceProfiles();
         AvailableLanguages = BuildLanguageOptions();
         SynchronizeLocalizationSelection(preferredLanguageCode);
     }
@@ -160,9 +163,13 @@ public sealed partial class MainViewModel
     {
         var themePreference = SelectedThemeOption.Preference;
         var transcodingMode = SelectedTranscodingModeOption.Mode;
+        var processingMode = _selectedProcessingMode?.Mode;
+        var outputFormatExtension = _selectedOutputFormat?.Extension;
 
         ThemeOptions = BuildThemeOptions();
         TranscodingOptions = BuildTranscodingOptions();
+        ProcessingModes = BuildProcessingModes();
+        RebuildWorkspaceProfiles();
         AvailableLanguages = BuildLanguageOptions();
 
         _selectedThemeOption = ResolveThemePreference(themePreference);
@@ -171,9 +178,18 @@ public sealed partial class MainViewModel
         _selectedTranscodingModeOption = ResolveTranscodingMode(transcodingMode);
         OnPropertyChanged(nameof(SelectedTranscodingModeOption));
 
+        _selectedProcessingMode = ResolveProcessingMode(processingMode);
+        OnPropertyChanged(nameof(SelectedProcessingMode));
+
+        ReloadOutputFormats(outputFormatExtension);
+
         SynchronizeLocalizationSelection(languageCode);
         RefreshLocalizedTextProperties();
         RefreshDesktopShortcutNotificationText();
+        RefreshWorkspaceLocalization();
+        TrimWorkspace.RefreshLocalization();
+        MergeWorkspace.RefreshLocalization();
+        SplitAudioWorkspace.RefreshLocalization();
         LocalizationRefreshRequested?.Invoke();
     }
 
@@ -245,6 +261,11 @@ public sealed partial class MainViewModel
                     "settings.transcoding.option.fullDescription",
                     "先解码再编码，重新生成音视频数据；更适合需要统一编码格式、兼容性或后续编辑的场景。"))
         };
+
+    private IReadOnlyList<ProcessingModeOption> BuildProcessingModes() =>
+        _configuration.SupportedProcessingModes
+            .Select(option => option.Localize(_localizationService))
+            .ToArray();
 
     private IReadOnlyList<LocalizationLanguageOption> BuildLanguageOptions() =>
         _localizationService.AvailableLanguages
@@ -339,7 +360,19 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(SettingsGpuAccelerationTitleText));
         OnPropertyChanged(nameof(SettingsGpuAccelerationToggleHeaderText));
         OnPropertyChanged(nameof(GpuAccelerationDescription));
+        OnPropertyChanged(nameof(CurrentLanguageDisplayText));
         OnPropertyChanged(nameof(WorkspaceHeaderCaption));
+        OnPropertyChanged(nameof(WorkspaceHeaderTitle));
+        OnPropertyChanged(nameof(WorkspaceHeaderDescription));
+        OnPropertyChanged(nameof(QueueDragDropHintText));
+        OnPropertyChanged(nameof(DragDropCaptionText));
+        OnPropertyChanged(nameof(FixedProcessingModeDisplayName));
+        OnPropertyChanged(nameof(FixedProcessingModeDescription));
+        OnPropertyChanged(nameof(ProcessingModes));
+        OnPropertyChanged(nameof(AvailableOutputFormats));
+        OnPropertyChanged(nameof(SelectedOutputFormat));
+        OnPropertyChanged(nameof(SelectedOutputFormatDescription));
+        OnPropertyChanged(nameof(SupportedInputFormatsHint));
     }
 
     private void SetDesktopShortcutNotificationState(

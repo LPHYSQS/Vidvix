@@ -8,6 +8,7 @@ internal sealed class SplitAudioWorkspaceDependencies
 {
     public SplitAudioWorkspaceDependencies(
         ApplicationConfiguration configuration,
+        ILocalizationService localizationService,
         IMediaImportDiscoveryService mediaImportDiscoveryService,
         IMediaInfoService mediaInfoService,
         IAudioSeparationWorkflowService audioSeparationWorkflowService,
@@ -19,6 +20,7 @@ internal sealed class SplitAudioWorkspaceDependencies
         ILogger logger)
     {
         Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        LocalizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
         MediaImportDiscoveryService = mediaImportDiscoveryService ?? throw new ArgumentNullException(nameof(mediaImportDiscoveryService));
         MediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
         AudioSeparationWorkflowService = audioSeparationWorkflowService ?? throw new ArgumentNullException(nameof(audioSeparationWorkflowService));
@@ -31,6 +33,8 @@ internal sealed class SplitAudioWorkspaceDependencies
     }
 
     public ApplicationConfiguration Configuration { get; }
+
+    public ILocalizationService LocalizationService { get; }
 
     public IMediaImportDiscoveryService MediaImportDiscoveryService { get; }
 

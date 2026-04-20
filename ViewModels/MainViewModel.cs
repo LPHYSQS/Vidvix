@@ -135,7 +135,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _splitAudioImportItems = new ObservableCollection<MediaJobViewModel>();
         _terminalImportItems = new ObservableCollection<MediaJobViewModel>();
         DetailPanel = new MediaDetailPanelViewModel();
-        ProcessingModes = _configuration.SupportedProcessingModes;
+        ProcessingModes = BuildProcessingModes();
 
         var userPreferences = _userPreferencesService.Load();
         InitializeLocalizationState(userPreferences.CurrentUiLanguage);
@@ -189,7 +189,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         private set => SetProperty(ref _availableOutputFormats, value);
     }
 
-    public IReadOnlyList<ProcessingModeOption> ProcessingModes { get; }
+    public IReadOnlyList<ProcessingModeOption> ProcessingModes
+    {
+        get => _processingModes;
+        private set => SetProperty(ref _processingModes, value);
+    }
 
     public IReadOnlyList<ThemePreferenceOption> ThemeOptions
     {
@@ -287,7 +291,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         get
         {
             var outputPreferenceMode = GetCurrentOutputFormatPreferenceMode();
-            var formats = GetOutputFormatsForMode(outputPreferenceMode);
+            // ComboBox.SelectedItem must point at the exact instance in the current ItemsSource.
+            var formats = AvailableOutputFormats.Count > 0
+                ? AvailableOutputFormats
+                : GetOutputFormatsForMode(outputPreferenceMode);
             if (_selectedOutputFormat is not null)
             {
                 var matchingFormat = formats.FirstOrDefault(format => string.Equals(format.Extension, _selectedOutputFormat.Extension, StringComparison.OrdinalIgnoreCase));
@@ -297,7 +304,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 }
             }
 
-            return ResolvePreferredOutputFormat(outputPreferenceMode);
+            return ResolvePreferredOutputFormat(outputPreferenceMode, formats, preferredExtension: null);
         }
         set
         {

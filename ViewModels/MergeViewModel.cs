@@ -18,15 +18,16 @@ namespace Vidvix.ViewModels;
 
 public sealed partial class MergeViewModel : ObservableObject
 {
+    private readonly ApplicationConfiguration _configuration;
     private readonly ObservableCollection<MediaItem> _mediaItems;
     private readonly ObservableCollection<TrackItem> _videoJoinVideoTrackItems;
     private readonly ObservableCollection<TrackItem> _audioJoinAudioTrackItems;
     private readonly ObservableCollection<TrackItem> _audioVideoComposeVideoTrackItems;
     private readonly ObservableCollection<TrackItem> _audioVideoComposeAudioTrackItems;
     private readonly ObservableCollection<TrackItem> _emptyTrackItems;
-    private readonly IReadOnlyDictionary<MergeWorkspaceMode, MergeWorkspaceModeState> _modeStates;
-    private readonly IReadOnlyList<OutputFormatOption> _videoJoinOutputFormats;
-    private readonly IReadOnlyList<OutputFormatOption> _audioJoinOutputFormats;
+    private IReadOnlyDictionary<MergeWorkspaceMode, MergeWorkspaceModeState> _modeStates;
+    private IReadOnlyList<OutputFormatOption> _videoJoinOutputFormats;
+    private IReadOnlyList<OutputFormatOption> _audioJoinOutputFormats;
     private readonly AsyncRelayCommand _importFilesCommand;
     private readonly AsyncRelayCommand _browseOutputDirectoryCommand;
     private readonly RelayCommand _clearOutputDirectoryCommand;
@@ -39,6 +40,7 @@ public sealed partial class MergeViewModel : ObservableObject
     private readonly IAudioJoinWorkflowService? _audioJoinWorkflowService;
     private readonly IFileRevealService? _fileRevealService;
     private readonly IMediaInfoService? _mediaInfoService;
+    private readonly ILocalizationService? _localizationService;
     private readonly IUserPreferencesService? _userPreferencesService;
     private readonly ILogger? _logger;
     private readonly HashSet<string> _supportedVideoInputFileTypes;
@@ -69,9 +71,11 @@ public sealed partial class MergeViewModel : ObservableObject
         dependencies ??= new MergeWorkspaceDependencies();
 
         var effectiveConfiguration = dependencies.Configuration ?? new ApplicationConfiguration();
+        _configuration = effectiveConfiguration;
         var preferences = dependencies.UserPreferencesService?.Load() ?? new UserPreferences();
 
         _filePickerService = dependencies.FilePickerService;
+        _localizationService = dependencies.LocalizationService;
         _mediaImportDiscoveryService = dependencies.MediaImportDiscoveryService;
         _mergeMediaAnalysisService = dependencies.MergeMediaAnalysisService;
         _videoJoinWorkflowService = dependencies.VideoJoinWorkflowService;
@@ -93,8 +97,8 @@ public sealed partial class MergeViewModel : ObservableObject
         _audioVideoComposeVideoTrackItems = new ObservableCollection<TrackItem>();
         _audioVideoComposeAudioTrackItems = new ObservableCollection<TrackItem>();
         _emptyTrackItems = new ObservableCollection<TrackItem>();
-        _videoJoinOutputFormats = effectiveConfiguration.SupportedVideoOutputFormats;
-        _audioJoinOutputFormats = effectiveConfiguration.SupportedAudioOutputFormats;
+        _videoJoinOutputFormats = BuildVideoJoinOutputFormats();
+        _audioJoinOutputFormats = BuildAudioJoinOutputFormats();
         _modeStates = CreateModeStates(effectiveConfiguration);
 
         _selectedVideoJoinOutputFormat = ResolvePreferredVideoJoinOutputFormat(preferences.PreferredMergeVideoJoinOutputFormatExtension);

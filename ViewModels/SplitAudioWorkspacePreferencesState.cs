@@ -10,36 +10,60 @@ namespace Vidvix.ViewModels;
 internal sealed class SplitAudioWorkspacePreferencesState
 {
     private readonly ApplicationConfiguration _configuration;
+    private readonly ILocalizationService _localizationService;
     private readonly IUserPreferencesService _userPreferencesService;
     private readonly ILogger _logger;
 
     public SplitAudioWorkspacePreferencesState(
         ApplicationConfiguration configuration,
+        ILocalizationService localizationService,
         IUserPreferencesService userPreferencesService,
         ILogger logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
         _userPreferencesService = userPreferencesService ?? throw new ArgumentNullException(nameof(userPreferencesService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
+        AvailableOutputFormats = Array.Empty<OutputFormatOption>();
+        AvailableAccelerationModes = Array.Empty<DemucsAccelerationModeOption>();
+
         var preferences = _userPreferencesService.Load();
-        SelectedOutputFormat = ResolvePreferredOutputFormat(preferences.PreferredSplitAudioOutputFormatExtension);
-        SelectedAccelerationMode = ResolvePreferredAccelerationMode(preferences.PreferredSplitAudioAccelerationMode);
+        ReloadLocalization(
+            preferences.PreferredSplitAudioOutputFormatExtension,
+            preferences.PreferredSplitAudioAccelerationMode);
         OutputDirectory = NormalizeOutputDirectory(preferences.PreferredSplitAudioOutputDirectory);
     }
 
-    public IReadOnlyList<OutputFormatOption> AvailableOutputFormats => _configuration.SupportedAudioOutputFormats;
+    public IReadOnlyList<OutputFormatOption> AvailableOutputFormats { get; private set; }
 
-    public IReadOnlyList<DemucsAccelerationModeOption> AvailableAccelerationModes =>
-        _configuration.SupportedSplitAudioAccelerationModes;
+    public IReadOnlyList<DemucsAccelerationModeOption> AvailableAccelerationModes { get; private set; }
 
-    public OutputFormatOption SelectedOutputFormat { get; private set; }
+    public OutputFormatOption SelectedOutputFormat { get; private set; } = null!;
 
-    public DemucsAccelerationModeOption SelectedAccelerationMode { get; private set; }
+    public DemucsAccelerationModeOption SelectedAccelerationMode { get; private set; } = null!;
 
-    public string OutputDirectory { get; private set; }
+    public string OutputDirectory { get; private set; } = string.Empty;
 
     public bool HasCustomOutputDirectory => !string.IsNullOrWhiteSpace(OutputDirectory);
+
+    public void ReloadLocalization(
+        string? preferredOutputFormatExtension = null,
+        DemucsAccelerationMode? preferredAccelerationMode = null)
+    {
+        var currentOutputExtension = preferredOutputFormatExtension ?? SelectedOutputFormat?.Extension;
+        var currentAccelerationMode = preferredAccelerationMode ?? SelectedAccelerationMode?.Mode;
+
+        AvailableOutputFormats = _configuration.SupportedAudioOutputFormats
+            .Select(option => option.Localize(_localizationService))
+            .ToArray();
+        AvailableAccelerationModes = _configuration.SupportedSplitAudioAccelerationModes
+            .Select(option => option.Localize(_localizationService))
+            .ToArray();
+
+        SelectedOutputFormat = ResolvePreferredOutputFormat(currentOutputExtension);
+        SelectedAccelerationMode = ResolvePreferredAccelerationMode(currentAccelerationMode);
+    }
 
     public bool TrySetSelectedOutputFormat(OutputFormatOption value)
     {
@@ -112,10 +136,18 @@ internal sealed class SplitAudioWorkspacePreferencesState
         return AvailableOutputFormats.First();
     }
 
-    private DemucsAccelerationModeOption ResolvePreferredAccelerationMode(DemucsAccelerationMode preferredMode)
+    private DemucsAccelerationModeOption ResolvePreferredAccelerationMode(DemucsAccelerationMode? preferredMode)
     {
-        var preferredOption = AvailableAccelerationModes.FirstOrDefault(option => option.Mode == preferredMode);
-        return preferredOption ?? AvailableAccelerationModes.First();
+        if (preferredMode is DemucsAccelerationMode accelerationMode)
+        {
+            var preferredOption = AvailableAccelerationModes.FirstOrDefault(option => option.Mode == accelerationMode);
+            if (preferredOption is not null)
+            {
+                return preferredOption;
+            }
+        }
+
+        return AvailableAccelerationModes.First();
     }
 
     private string NormalizeOutputDirectory(string? outputDirectory)

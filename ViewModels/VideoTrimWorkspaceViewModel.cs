@@ -35,6 +35,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private const double DefaultTrimPreviewVolumePercent = 80d;
 
     private readonly ApplicationConfiguration _configuration;
+    private readonly ILocalizationService _localizationService;
     private readonly ITrimWorkflowService _trimWorkflowService;
     private readonly IFilePickerService _filePickerService;
     private readonly IUserPreferencesService _userPreferencesService;
@@ -88,6 +89,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         ArgumentNullException.ThrowIfNull(dependencies);
 
         _configuration = dependencies.Configuration;
+        _localizationService = dependencies.LocalizationService;
         _trimWorkflowService = dependencies.TrimWorkflowService;
         _filePickerService = dependencies.FilePickerService;
         _userPreferencesService = dependencies.UserPreferencesService;
@@ -327,6 +329,16 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     }
 
     public string SelectedOutputFormatDescription => SelectedOutputFormat.Description;
+
+    public void RefreshLocalization()
+    {
+        var selectedExtension = _selectedOutputFormat?.Extension;
+        _availableOutputFormats = ResolveOutputFormats(_currentMediaKind);
+        _selectedOutputFormat = ResolvePreferredOutputFormat(selectedExtension);
+        OnPropertyChanged(nameof(AvailableOutputFormats));
+        OnPropertyChanged(nameof(SelectedOutputFormat));
+        OnPropertyChanged(nameof(SelectedOutputFormatDescription));
+    }
 
     public TranscodingModeOption SelectedTranscodingModeOption
     {
@@ -1559,8 +1571,8 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     private IReadOnlyList<OutputFormatOption> ResolveOutputFormats(TrimMediaKind mediaKind) =>
         mediaKind == TrimMediaKind.Audio
-            ? _configuration.SupportedAudioOutputFormats
-            : _configuration.SupportedTrimOutputFormats;
+            ? _configuration.SupportedAudioOutputFormats.Select(option => option.Localize(_localizationService)).ToArray()
+            : _configuration.SupportedTrimOutputFormats.Select(option => option.Localize(_localizationService)).ToArray();
 
     private string GetDefaultPreviewPreparingMessage() =>
         IsAudioTrim

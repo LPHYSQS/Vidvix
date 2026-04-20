@@ -205,6 +205,7 @@ public sealed class AppCompositionRoot
     {
         var dependencies = new VideoTrimWorkspaceDependencies(
             Configuration,
+            infrastructure.LocalizationService,
             workflows.TrimWorkflowService,
             infrastructure.FilePickerService,
             infrastructure.UserPreferencesService,
@@ -223,6 +224,7 @@ public sealed class AppCompositionRoot
     {
         var dependencies = new MergeWorkspaceDependencies(
             infrastructure.FilePickerService,
+            infrastructure.LocalizationService,
             mediaRuntime.MediaInfoService,
             infrastructure.UserPreferencesService,
             workflows.MediaImportDiscoveryService,
@@ -247,6 +249,7 @@ public sealed class AppCompositionRoot
     {
         var dependencies = new SplitAudioWorkspaceDependencies(
             Configuration,
+            infrastructure.LocalizationService,
             workflows.MediaImportDiscoveryService,
             mediaRuntime.MediaInfoService,
             workflows.AudioSeparationWorkflowService,

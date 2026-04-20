@@ -31,3 +31,15 @@
 - 热切换验证：通过临时专用 `DispatcherQueue` 烟测在运行时验证 `zh-CN -> en-US -> zh-CN` 往返切换；`SettingsPaneTitleText`、`WorkspaceHeaderCaption`、`MainWindowSettingsButtonLabel` 和 `CurrentUiLanguage` 偏好字段均在往返切换后回到预期值，刷新事件计数为 `3`。
 - 资源验证：`bin/x64/Debug/net8.0-windows10.0.19041.0/Resources/Localization` 已包含 `common.json`、`settings.json`、`main-window.json` 中本轮新增 key。
 - 备注：本轮主窗口仅试点页头 caption、设置按钮和处理进度标题，集中式配置显示文案留给 `R4`，整面主窗口 shell 留给 `R5`。
+
+## R4 · 2026-04-20 19:28
+
+- 轮次范围：集中式配置与公共显示文案迁移，仅处理 `ApplicationConfiguration` 及其派生的工作区配置、处理模式、输出格式描述、合并模式和拆音加速模式，不提前展开主窗口整面 shell 文案。
+- 构建命令：`dotnet build .\Vidvix.sln -c Debug -v minimal`
+- 构建结果：通过，`0` 警告，`0` 错误。
+- 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行超过 `8` 秒，`MainWindowHandle` 为 `5638648`，进程保持响应，未出现黑屏或闪退。
+- 热切换验证：通过临时独立控制台烟测验证 `ApplicationConfiguration + LocalizationService` 的 `zh-CN -> en-US -> zh-CN` 往返链路；`WorkspaceProfiles`、`SupportedProcessingModes`、`SupportedAudioOutputFormats`、`MergeModeProfiles`、`SupportedSplitAudioAccelerationModes` 在往返切换后均命中预期双语值。
+- 刷新链路验证：`MainViewModel` 已在 `ApplyLocalizationState` 中重建本轮涉及的配置型工作区快照、处理模式和输出格式列表，并联动 `VideoTrimWorkspaceViewModel`、`MergeViewModel`、`SplitAudioWorkspaceViewModel` 刷新其配置型选项列表，避免语言切换后继续持有旧对象引用。
+- 回归修复验证：主窗口输出格式下拉继续使用 `SelectedItem`，本轮补充保证 `MainViewModel.SelectedOutputFormat` 始终返回当前 `AvailableOutputFormats` 快照中的同一实例；通过 UI 自动化烟测验证视频工作区显示 `视频格式转换 / MP4`，音频工作区目标格式显示 `MP3`，首次启动不再为空白。
+- 资源验证：`Resources/Localization/zh-CN/common.json` 与 `Resources/Localization/en-US/common.json` 已补齐 `common.workspace.*`、`common.processingMode.*`、`common.outputFormat.*`、`common.mergeMode.*`、`common.splitAudio.acceleration.*`。
+- 备注：主窗口按钮标签、占位符、输出目录按钮等非集中式 shell 文案仍留给 `R5`；裁剪 / 拆音 / 合并页面内的私有交互文案仍分别留给 `R6`、`R7`、`R9` / `R10`。

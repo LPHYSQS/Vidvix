@@ -8,6 +8,7 @@ internal sealed class VideoTrimWorkspaceDependencies
 {
     public VideoTrimWorkspaceDependencies(
         ApplicationConfiguration configuration,
+        ILocalizationService localizationService,
         ITrimWorkflowService trimWorkflowService,
         IFilePickerService filePickerService,
         IUserPreferencesService userPreferencesService,
@@ -17,6 +18,7 @@ internal sealed class VideoTrimWorkspaceDependencies
         ILogger logger)
     {
         Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        LocalizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
         TrimWorkflowService = trimWorkflowService ?? throw new ArgumentNullException(nameof(trimWorkflowService));
         FilePickerService = filePickerService ?? throw new ArgumentNullException(nameof(filePickerService));
         UserPreferencesService = userPreferencesService ?? throw new ArgumentNullException(nameof(userPreferencesService));
@@ -27,6 +29,8 @@ internal sealed class VideoTrimWorkspaceDependencies
     }
 
     public ApplicationConfiguration Configuration { get; }
+
+    public ILocalizationService LocalizationService { get; }
 
     public ITrimWorkflowService TrimWorkflowService { get; }
 

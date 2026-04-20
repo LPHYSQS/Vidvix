@@ -27,6 +27,11 @@
 | `common.language.*` | `common.json` | 语言显示名与语言列表项 | `R2` |
 | `common.action.*` | `common.json` | 通用操作文案（关闭、应用设置） | `R3` |
 | `common.toggle.*` | `common.json` | 通用开关状态文案（开 / 关） | `R3` |
+| `common.workspace.*` | `common.json` | 集中式工作区标题、描述、导入提示、空态与批量导入反馈 | `R4` |
+| `common.processingMode.*` | `common.json` | 主工作区集中式处理模式名称与说明 | `R4` |
+| `common.outputFormat.*` | `common.json` | 视频 / 裁剪 / 音频 / 字幕输出格式说明 | `R4` |
+| `common.mergeMode.*` | `common.json` | 合并模式名称、时间线提示与空轨提示 | `R4` |
+| `common.splitAudio.acceleration.*` | `common.json` | 拆音加速模式名称与说明 | `R4` |
 | `settings.language.*` | `settings.json` | 设置页语言切换试点文案 | `R2` |
 | `settings.pane.*` | `settings.json` | 设置页标题与说明 | `R3` |
 | `settings.appearance.*` | `settings.json` | 外观与主题选项文案 | `R3` |
@@ -96,8 +101,49 @@
 | `mainWindow.toolbar.applicationSettings` | `mainWindow` | `main-window.json` | `应用设置` | `App settings` | `Active` | `R3` |
 | `mainWindow.progress.title` | `mainWindow` | `main-window.json` | `处理进度` | `Processing progress` | `Active` | `R3` |
 
+## R4 批量登记
+
+- 本轮把集中式配置显示文本批量收敛到 `Resources/Localization/zh-CN/common.json` 与 `Resources/Localization/en-US/common.json`，并由 `ApplicationConfiguration` 中的稳定 key / key-prefix 驱动。
+- 已登记的 R4 key family：
+  - `common.workspace.video.*`
+  - `common.workspace.audio.*`
+  - `common.workspace.trim.*`
+  - `common.workspace.merge.*`
+  - `common.workspace.splitAudio.*`
+  - `common.workspace.terminal.*`
+  - `common.processingMode.videoConvert.*`
+  - `common.processingMode.videoTrackExtract.*`
+  - `common.processingMode.audioTrackExtract.*`
+  - `common.processingMode.subtitleTrackExtract.*`
+  - `common.mergeMode.videoJoin.*`
+  - `common.mergeMode.audioJoin.*`
+  - `common.mergeMode.audioVideoCompose.*`
+  - `common.splitAudio.acceleration.cpu.*`
+  - `common.splitAudio.acceleration.gpuPreferred.*`
+  - `common.outputFormat.video.*`
+  - `common.outputFormat.trim.*`
+  - `common.outputFormat.audio.*`
+  - `common.outputFormat.subtitle.*`
+- R4 绑定补记：
+  - 主窗口视频 / 音频输出格式的 `ComboBox` 仍使用 `SelectedItem`，因此 `MainViewModel.SelectedOutputFormat` 必须始终返回 `AvailableOutputFormats` 当前快照中的对象实例，不能在 getter 中重新生成另一份本地化对象，否则首次启动或热切换后会出现空白选中框。
+- R4 代表性 key：
+
+| Key | 模块 | 资源文件 | `zh-CN` | `en-US` | 状态 | 首次建立轮次 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `common.workspace.video.headerTitle` | `common` | `common.json` | `视频处理` | `Video processing` | `Active` | `R4` |
+| `common.workspace.audio.fixedProcessingModeDisplayName` | `common` | `common.json` | `音频格式转换` | `Audio format conversion` | `Active` | `R4` |
+| `common.workspace.merge.headerDescription` | `common` | `common.json` | `拼接音视频并完成合成。` | `Join audio and video, then complete the composition.` | `Active` | `R4` |
+| `common.processingMode.videoConvert.displayName` | `common` | `common.json` | `视频格式转换` | `Video format conversion` | `Active` | `R4` |
+| `common.processingMode.subtitleTrackExtract.description` | `common` | `common.json` | `默认提取第一条字幕轨道；文本字幕会按目标格式输出，图形字幕建议导出为 MKS 以保留原始字幕编码。` | `Extracts the first subtitle track by default. Text subtitles are exported in the target format, while image subtitles are best exported as MKS to preserve the original encoding.` | `Active` | `R4` |
+| `common.mergeMode.audioVideoCompose.timelineHintText` | `common` | `common.json` | `当前为音视频合成模式，请分别添加 1 个视频和 1 个音频。` | `Audio-video compose mode is active. Add one video and one audio file separately.` | `Active` | `R4` |
+| `common.splitAudio.acceleration.gpuPreferred.displayName` | `common` | `common.json` | `GPU 优先（独显 -> 核显 -> CPU）` | `GPU preferred (discrete -> integrated -> CPU)` | `Active` | `R4` |
+| `common.outputFormat.video.mp4.description` | `common` | `common.json` | `兼容性最好，适合常见播放器和移动设备。` | `Best compatibility for common players and mobile devices.` | `Active` | `R4` |
+| `common.outputFormat.trim.mkv.description` | `common` | `common.json` | `封装更宽松，更适合保留高质量剪辑片段。` | `A more flexible container that is better for preserving high-quality trimmed clips.` | `Active` | `R4` |
+| `common.outputFormat.audio.mp3.description` | `common` | `common.json` | `通用音频格式，兼容性高。` | `A general-purpose audio format with broad compatibility.` | `Active` | `R4` |
+| `common.outputFormat.subtitle.srt.description` | `common` | `common.json` | `通用文本字幕格式，兼容性最好，适合常见播放器和字幕平台。` | `A general-purpose text subtitle format with the broadest compatibility for common players and subtitle platforms.` | `Active` | `R4` |
+
 ## 下一轮接入提示
 
-- `R4` 优先消费集中式显示配置相关 key，尽量复用 `mainWindow.*` 与 `settings.*` 的既有分层，不新增模糊前缀。
-- `R4` 新增 key 时，先补齐 `zh-CN`，再为 `en-US` 提供可运行值，保持回退链完整。
-- `R5` 开始迁移主窗口 shell 时，复用 `mainWindow.header.*`、`mainWindow.toolbar.*`、`mainWindow.progress.*` 的绑定模式与 `LocalizationRefreshRequested + Bindings.Update()` 刷新机制。
+- `R5` 直接复用 `common.workspace.*`、`common.processingMode.*` 与 `common.outputFormat.*` 的集中式配置读取结果，不再回到 `ApplicationConfiguration` 重写展示文案。
+- `R5` 开始迁移主窗口 shell 时，继续复用 `mainWindow.header.*`、`mainWindow.toolbar.*`、`mainWindow.progress.*` 的绑定模式与 `LocalizationRefreshRequested + Bindings.Update()` 刷新机制。
+- `R5` 如果需要把按钮、标签、Placeholder 等非集中式 shell 文案搬入语言包，应优先落到 `main-window.json`，不要再把页面私有文案塞回 `common.json`。

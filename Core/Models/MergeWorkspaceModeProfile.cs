@@ -1,4 +1,5 @@
 using System;
+using Vidvix.Core.Interfaces;
 
 namespace Vidvix.Core.Models;
 
@@ -22,7 +23,8 @@ public sealed class MergeWorkspaceModeProfile
         bool showsAudioJoinTimeline,
         bool showsStandardTimeline,
         string? rejectVideoInputMessage = null,
-        string? rejectAudioInputMessage = null)
+        string? rejectAudioInputMessage = null,
+        string? localizationKeyPrefix = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
         ArgumentException.ThrowIfNullOrWhiteSpace(selectionMessage);
@@ -45,6 +47,7 @@ public sealed class MergeWorkspaceModeProfile
         ShowsStandardTimeline = showsStandardTimeline;
         RejectVideoInputMessage = rejectVideoInputMessage ?? string.Empty;
         RejectAudioInputMessage = rejectAudioInputMessage ?? string.Empty;
+        LocalizationKeyPrefix = localizationKeyPrefix ?? string.Empty;
     }
 
     public MergeWorkspaceMode Mode { get; }
@@ -76,4 +79,42 @@ public sealed class MergeWorkspaceModeProfile
     public string RejectVideoInputMessage { get; }
 
     public string RejectAudioInputMessage { get; }
+
+    public string LocalizationKeyPrefix { get; }
+
+    public MergeWorkspaceModeProfile Localize(ILocalizationService localizationService)
+    {
+        ArgumentNullException.ThrowIfNull(localizationService);
+
+        if (string.IsNullOrWhiteSpace(LocalizationKeyPrefix))
+        {
+            return this;
+        }
+
+        return new MergeWorkspaceModeProfile(
+            Mode,
+            localizationService.GetString($"{LocalizationKeyPrefix}.displayName", DisplayName),
+            localizationService.GetString($"{LocalizationKeyPrefix}.selectionMessage", SelectionMessage),
+            localizationService.GetString($"{LocalizationKeyPrefix}.timelineHintText", TimelineHintText),
+            localizationService.GetString($"{LocalizationKeyPrefix}.videoTrackEmptyText", VideoTrackEmptyText),
+            localizationService.GetString($"{LocalizationKeyPrefix}.audioTrackEmptyText", AudioTrackEmptyText),
+            SupportsVideoTrackInput,
+            SupportsAudioTrackInput,
+            ReplaceVideoTrackOnAdd,
+            ReplaceAudioTrackOnAdd,
+            ShowsVideoJoinTimeline,
+            ShowsAudioJoinTimeline,
+            ShowsStandardTimeline,
+            LocalizeOptionalText(localizationService, $"{LocalizationKeyPrefix}.rejectVideoInputMessage", RejectVideoInputMessage),
+            LocalizeOptionalText(localizationService, $"{LocalizationKeyPrefix}.rejectAudioInputMessage", RejectAudioInputMessage),
+            LocalizationKeyPrefix);
+    }
+
+    private static string LocalizeOptionalText(
+        ILocalizationService localizationService,
+        string key,
+        string fallback) =>
+        string.IsNullOrWhiteSpace(fallback)
+            ? string.Empty
+            : localizationService.GetString(key, fallback);
 }

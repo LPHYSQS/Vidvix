@@ -241,7 +241,11 @@ public sealed partial class MergeViewModel
     private IReadOnlyDictionary<MergeWorkspaceMode, MergeWorkspaceModeState> CreateModeStates(
         ApplicationConfiguration configuration)
     {
-        var profiles = configuration.MergeModeProfiles;
+        var profiles = configuration.MergeModeProfiles.ToDictionary(
+            pair => pair.Key,
+            pair => _localizationService is null
+                ? pair.Value
+                : pair.Value.Localize(_localizationService));
 
         return new Dictionary<MergeWorkspaceMode, MergeWorkspaceModeState>
         {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Vidvix.Core.Models;
@@ -10,6 +11,9 @@ namespace Vidvix.ViewModels;
 
 public sealed partial class MainViewModel
 {
+    private IReadOnlyDictionary<ProcessingWorkspaceKind, ProcessingWorkspaceProfile> _workspaceProfiles =
+        new Dictionary<ProcessingWorkspaceKind, ProcessingWorkspaceProfile>();
+
     public ObservableCollection<LogEntry> LogEntries => GetCurrentLogEntries();
 
     public ObservableCollection<MediaJobViewModel> ImportItems => GetCurrentImportItems();
@@ -92,13 +96,34 @@ public sealed partial class MainViewModel
 
     private bool IsTrimWorkspace => _selectedWorkspaceKind == ProcessingWorkspaceKind.Trim;
 
+    private void RebuildWorkspaceProfiles()
+    {
+        _workspaceProfiles = _configuration.WorkspaceProfiles
+            .ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.Localize(_localizationService));
+    }
+
+    private void RefreshWorkspaceLocalization()
+    {
+        OnPropertyChanged(nameof(WorkspaceHeaderTitle));
+        OnPropertyChanged(nameof(WorkspaceHeaderDescription));
+        OnPropertyChanged(nameof(QueueDragDropHintText));
+        OnPropertyChanged(nameof(DragDropCaptionText));
+        OnPropertyChanged(nameof(FixedProcessingModeDisplayName));
+        OnPropertyChanged(nameof(FixedProcessingModeDescription));
+        OnPropertyChanged(nameof(SupportedInputFormatsHint));
+    }
+
     private ProcessingWorkspaceProfile GetCurrentWorkspaceProfile() =>
         GetWorkspaceProfile(_selectedWorkspaceKind);
 
     private ProcessingWorkspaceProfile GetWorkspaceProfile(ProcessingWorkspaceKind workspaceKind) =>
-        _configuration.WorkspaceProfiles.TryGetValue(workspaceKind, out var profile)
+        _workspaceProfiles.TryGetValue(workspaceKind, out var profile)
             ? profile
-            : _configuration.WorkspaceProfiles[ProcessingWorkspaceKind.Video];
+            : _workspaceProfiles.TryGetValue(ProcessingWorkspaceKind.Video, out var fallbackProfile)
+                ? fallbackProfile
+                : _configuration.WorkspaceProfiles[ProcessingWorkspaceKind.Video].Localize(_localizationService);
 
     private ObservableCollection<MediaJobViewModel> GetCurrentImportItems() =>
         GetImportItems(_selectedWorkspaceKind);

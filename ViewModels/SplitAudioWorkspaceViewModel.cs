@@ -53,7 +53,11 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         _videoPreviewService = dependencies.VideoPreviewService;
         _dispatcherService = dependencies.DispatcherService;
         _logger = dependencies.Logger;
-        _preferencesState = new SplitAudioWorkspacePreferencesState(_configuration, dependencies.UserPreferencesService, _logger);
+        _preferencesState = new SplitAudioWorkspacePreferencesState(
+            _configuration,
+            dependencies.LocalizationService,
+            dependencies.UserPreferencesService,
+            _logger);
         _progressState = new SplitAudioProgressState();
         _resultCollectionState = new SplitAudioResultCollectionState();
         _inputState = new SplitAudioInputState();
@@ -82,6 +86,17 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
     public IReadOnlyList<DemucsAccelerationModeOption> AvailableAccelerationModes =>
         _preferencesState.AvailableAccelerationModes;
+
+    public void RefreshLocalization()
+    {
+        _preferencesState.ReloadLocalization();
+        OnPropertyChanged(nameof(AvailableOutputFormats));
+        OnPropertyChanged(nameof(SelectedOutputFormat));
+        OnPropertyChanged(nameof(SelectedOutputFormatDescription));
+        OnPropertyChanged(nameof(AvailableAccelerationModes));
+        OnPropertyChanged(nameof(SelectedAccelerationMode));
+        OnPropertyChanged(nameof(SelectedAccelerationModeDescription));
+    }
 
     public ICommand SelectInputCommand => _selectInputCommand;
 

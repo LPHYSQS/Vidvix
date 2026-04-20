@@ -44,10 +44,7 @@ public sealed partial class MainViewModel
 
         AvailableOutputFormats = formats;
 
-        var preferredFormat = desiredExtension is null
-            ? null
-            : formats.FirstOrDefault(format => string.Equals(format.Extension, desiredExtension, StringComparison.OrdinalIgnoreCase));
-        var resolvedFormat = preferredFormat ?? formats.FirstOrDefault();
+        var resolvedFormat = ResolvePreferredOutputFormat(preferenceMode, formats, desiredExtension);
 
         if (resolvedFormat is not null)
         {
@@ -101,26 +98,39 @@ public sealed partial class MainViewModel
     private IReadOnlyList<OutputFormatOption> GetOutputFormatsForMode(ProcessingMode processingMode) =>
         processingMode switch
         {
-            ProcessingMode.AudioTrackExtract => _configuration.SupportedAudioOutputFormats,
-            ProcessingMode.SubtitleTrackExtract => _configuration.SupportedSubtitleOutputFormats,
-            _ => _configuration.SupportedVideoOutputFormats
+            ProcessingMode.AudioTrackExtract => LocalizeOutputFormats(_configuration.SupportedAudioOutputFormats),
+            ProcessingMode.SubtitleTrackExtract => LocalizeOutputFormats(_configuration.SupportedSubtitleOutputFormats),
+            _ => LocalizeOutputFormats(_configuration.SupportedVideoOutputFormats)
         };
 
     private OutputFormatOption ResolvePreferredOutputFormat(ProcessingMode processingMode)
     {
-        var formats = GetOutputFormatsForMode(processingMode);
-        var rememberedExtension = GetRememberedOutputFormatExtension(processingMode);
+        return ResolvePreferredOutputFormat(processingMode, formats: null, preferredExtension: null);
+    }
+
+    private OutputFormatOption ResolvePreferredOutputFormat(
+        ProcessingMode processingMode,
+        IReadOnlyList<OutputFormatOption>? formats,
+        string? preferredExtension)
+    {
+        var candidateFormats = formats is { Count: > 0 }
+            ? formats
+            : GetOutputFormatsForMode(processingMode);
+        var rememberedExtension = preferredExtension ?? GetRememberedOutputFormatExtension(processingMode);
         var preferredFormat = rememberedExtension is null
             ? null
-            : formats.FirstOrDefault(format => string.Equals(format.Extension, rememberedExtension, StringComparison.OrdinalIgnoreCase));
+            : candidateFormats.FirstOrDefault(format => string.Equals(format.Extension, rememberedExtension, StringComparison.OrdinalIgnoreCase));
 
-        return preferredFormat ?? formats.First();
+        return preferredFormat ?? candidateFormats.First();
     }
 
     private string? GetRememberedOutputFormatExtension(ProcessingMode processingMode) =>
         _preferredOutputFormatExtensionsByMode.TryGetValue(processingMode, out var extension)
             ? extension
             : null;
+
+    private IReadOnlyList<OutputFormatOption> LocalizeOutputFormats(IReadOnlyList<OutputFormatOption> options) =>
+        options.Select(option => option.Localize(_localizationService)).ToArray();
 
     private void RememberOutputFormatSelection(ProcessingMode processingMode, string? extension)
     {
