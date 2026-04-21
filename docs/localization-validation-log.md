@@ -54,3 +54,14 @@
 - 刷新链路验证：`MainViewModel.RefreshLocalizedTextProperties()` 已联动 `RefreshWorkspaceLocalization()`、`RefreshExecutionProgressLocalization()` 与队列项 `RefreshLocalization()`，保证主窗口外壳、当前进度摘要、队列项状态与输出目录文案在语言切换后按当前语言重建。
 - 热切换验证：通过 UI 自动化采样确认运行态主窗口壳层文案可见；本轮启动冒烟时观察到中文壳层文本，前序采样中曾观察到英文 `Current module`；用户已确认“本质修改没有任何问题”。完整 UI 自动化往返脚本因控件定位间歇性失败未保留单次整链路日志，但未发现功能性回退、黑屏或崩溃。
 - 备注：主窗口中与 `media-details` 浮层相关的私有文案仍留给 `R8`，裁剪模块私有交互文案留给 `R6`。
+
+## R6 · 2026-04-21 13:26
+
+- 轮次范围：裁剪模块迁移，仅处理 `Views/Controls/VideoTrimWorkspaceView.xaml`、`VideoTrimWorkspaceViewModel`、裁剪预览子流程与 `TrimWorkflowService` / `VideoTrimWorkflowService` 直接暴露到裁剪页的私有文案，不扩展到 `split-audio`、`merge`、`terminal`、`media-details`。
+- 构建命令：`dotnet build .\Vidvix.sln -c Debug -v minimal`
+- 构建结果：通过，`0` 警告，`0` 错误。
+- 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行超过 `10` 秒，`MainWindowHandle` 为 `6227994`，进程保持响应，未出现黑屏、白屏或闪退。
+- 资源验证：`Resources/Localization/zh-CN/trim.json` 与 `Resources/Localization/en-US/trim.json` 已补齐 `trim.editor.*`、`trim.placeholder.*`、`trim.preview.*`、`trim.selection.*`、`trim.settings.*`、`trim.mediaInfo.*`、`trim.status.*`、`trim.progress.*`、`trim.import.*`、`trim.export.*`、`trim.smartTrim.*`、`trim.log.*`。
+- 刷新链路验证：`VideoTrimWorkspaceViewModel.RefreshLocalization()` 现已联动重建裁剪策略选项、媒体信息字段、预览覆盖文案与导出进度状态；`TrimWorkflowService` / `VideoTrimWorkflowService` 已直接注入 `ILocalizationService`，因此服务层导入 / 导出消息不会继续保留单语言缓存。
+- 热切换验证：通过 UI 自动化在 `TrimWorkspaceToggle` 与 `SettingsLanguageComboBox` 上完成裁剪页占位文案往返采样，确认 `请导入文件或拖拽到此处开始裁剪 -> Import a file or drag it here to start trimming -> 请导入文件或拖拽到此处开始裁剪` 可在运行时即时刷新，无需重启应用。
+- 回归补记：本轮顺带修复了裁剪导出进度实现中遗漏的 `ShowExportFinishingProgress()` 缺口，并为“空导入请求”补上安全拒绝消息，避免异常路径再次触发隐藏崩溃点。

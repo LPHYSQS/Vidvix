@@ -20,18 +20,6 @@ namespace Vidvix.ViewModels;
 public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDisposable
 {
     private static readonly TimeSpan MinimumSelectionLength = TimeSpan.FromMilliseconds(1);
-    private static readonly IReadOnlyList<TranscodingModeOption> TrimTranscodingModeOptions =
-        new[]
-        {
-            new TranscodingModeOption(
-                TranscodingMode.FastContainerConversion,
-                "速度优先",
-                "保留当前快速导出路径：当输入与输出容器兼容时优先直接复用原始流，整体速度更快。"),
-            new TranscodingModeOption(
-                TranscodingMode.FullTranscode,
-                "精确度优先",
-                "统一使用精确裁剪路径；视频会优先尝试智能裁剪，必要时回退为整段精确重编码。")
-        };
     private const double DefaultTrimPreviewVolumePercent = 80d;
 
     private readonly ApplicationConfiguration _configuration;
@@ -48,9 +36,10 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private readonly AsyncRelayCommand _exportTrimCommand;
     private readonly RelayCommand _cancelExportCommand;
 
-    private string _statusMessage;
-    private string _previewStateMessage;
+    private string _statusMessage = string.Empty;
+    private string _previewStateMessage = string.Empty;
     private IReadOnlyList<OutputFormatOption> _availableOutputFormats = Array.Empty<OutputFormatOption>();
+    private IReadOnlyList<TranscodingModeOption> _transcodingOptions = Array.Empty<TranscodingModeOption>();
     private OutputFormatOption? _selectedOutputFormat;
     private TranscodingModeOption? _selectedTranscodingModeOption;
     private string _inputPath = string.Empty;
@@ -82,6 +71,9 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private string _exportProgressSummaryText = string.Empty;
     private string _exportProgressDetailText = string.Empty;
     private string _exportProgressPercentText = string.Empty;
+    private Func<string>? _statusMessageResolver;
+    private Func<string>? _previewStateMessageResolver;
+    private Action? _exportProgressStateApplier;
     private bool _isDisposed;
 
     internal VideoTrimWorkspaceViewModel(VideoTrimWorkspaceDependencies dependencies)
@@ -100,12 +92,17 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
         var preferences = _userPreferencesService.Load();
         _availableOutputFormats = ResolveOutputFormats(_currentMediaKind);
+        _transcodingOptions = BuildTranscodingOptions();
         _selectedOutputFormat = ResolvePreferredOutputFormat(preferences.PreferredTrimOutputFormatExtension);
         _selectedTranscodingModeOption = ResolvePreferredTranscodingMode(preferences.PreferredTrimTranscodingMode);
         _outputDirectory = NormalizeOutputDirectory(preferences.PreferredTrimOutputDirectory);
         _volume = ResolvePreferredVolumePercent(preferences.PreferredTrimPreviewVolumePercent) / 100d;
-        _statusMessage = "\u8bf7\u5bfc\u5165\u97f3\u9891\u6216\u89c6\u9891\u6587\u4ef6\uff0c\u4e5f\u53ef\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002";
-        _previewStateMessage = "\u8bf7\u5148\u5bfc\u5165\u4e00\u4e2a\u6587\u4ef6\u3002";
+        SetStatusMessage(() => GetLocalizedText(
+            "trim.status.ready",
+            "\u8bf7\u5bfc\u5165\u97f3\u9891\u6216\u89c6\u9891\u6587\u4ef6\uff0c\u4e5f\u53ef\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002"));
+        SetPreviewStateMessage(() => GetLocalizedText(
+            "trim.status.needsInput",
+            "\u8bf7\u5148\u5bfc\u5165\u4e00\u4e2a\u6587\u4ef6\u3002"));
 
         _selectVideoCommand = new AsyncRelayCommand(SelectVideoAsync, () => !HasInput && !IsBusy);
         _removeVideoCommand = new RelayCommand(RemoveVideo, () => HasInput && !IsBusy);
@@ -118,7 +115,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public IReadOnlyList<OutputFormatOption> AvailableOutputFormats => _availableOutputFormats;
 
-    public IReadOnlyList<TranscodingModeOption> TranscodingOptions => TrimTranscodingModeOptions;
+    public IReadOnlyList<TranscodingModeOption> TranscodingOptions => _transcodingOptions;
 
     public ICommand SelectVideoCommand => _selectVideoCommand;
 
@@ -136,30 +133,52 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public bool IsVideoTrim => HasInput && _currentMediaKind == TrimMediaKind.Video;
 
-    public string EditorTitle => IsAudioTrim ? "\u97f3\u9891\u88c1\u526a" : "\u89c6\u9891\u88c1\u526a";
+    public string EditorTitle => IsAudioTrim
+        ? GetLocalizedText("trim.editor.title.audio", "\u97f3\u9891\u88c1\u526a")
+        : GetLocalizedText("trim.editor.title.video", "\u89c6\u9891\u88c1\u526a");
 
-    public string EditorDescription => "\u5bfc\u5165\u540e\u4f1a\u5728\u540c\u4e00\u5f20\u4e3b\u5361\u7247\u4e2d\u663e\u793a\u9884\u89c8\u3001\u65f6\u95f4\u8f74\u3001\u88c1\u526a\u8303\u56f4\u4e0e\u5bfc\u51fa\u8bbe\u7f6e\u3002";
+    public string EditorDescription => GetLocalizedText(
+        "trim.editor.description",
+        "\u5bfc\u5165\u540e\u4f1a\u5728\u540c\u4e00\u5f20\u4e3b\u5361\u7247\u4e2d\u663e\u793a\u9884\u89c8\u3001\u65f6\u95f4\u8f74\u3001\u88c1\u526a\u8303\u56f4\u4e0e\u5bfc\u51fa\u8bbe\u7f6e\u3002");
 
-    public string CurrentFileCaptionText => "\u5f53\u524d\u6587\u4ef6";
+    public string CurrentFileCaptionText => GetLocalizedText(
+        "trim.editor.currentFileCaption",
+        "\u5f53\u524d\u6587\u4ef6");
 
     public Symbol PlaceholderIconSymbol => Symbol.OpenFile;
 
-    public string PlaceholderTitleText => "\u8bf7\u5bfc\u5165\u6587\u4ef6\u6216\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a";
+    public string PlaceholderTitleText => GetLocalizedText(
+        "trim.placeholder.title",
+        "\u8bf7\u5bfc\u5165\u6587\u4ef6\u6216\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a");
 
-    public string PlaceholderDescriptionText => "\u5bfc\u5165\u540e\u4f1a\u5728\u540c\u4e00\u5f20\u4e3b\u5361\u7247\u4e2d\u663e\u793a\u6587\u4ef6\u9884\u89c8\u3001\u64ad\u653e\u63a7\u5236\u3001\u65f6\u95f4\u8f74\u3001\u53cc\u6ed1\u5757\u88c1\u526a\u548c\u8f93\u51fa\u683c\u5f0f\u9009\u62e9\u3002";
+    public string PlaceholderDescriptionText => GetLocalizedText(
+        "trim.placeholder.description",
+        "\u5bfc\u5165\u540e\u4f1a\u5728\u540c\u4e00\u5f20\u4e3b\u5361\u7247\u4e2d\u663e\u793a\u6587\u4ef6\u9884\u89c8\u3001\u64ad\u653e\u63a7\u5236\u3001\u65f6\u95f4\u8f74\u3001\u53cc\u6ed1\u5757\u88c1\u526a\u548c\u8f93\u51fa\u683c\u5f0f\u9009\u62e9\u3002");
 
-    public string ImportErrorDetailsTitle => "\u5bfc\u5165\u5931\u8d25\u8be6\u60c5";
+    public string ImportErrorDetailsTitle => GetLocalizedText(
+        "trim.placeholder.importErrorTitle",
+        "\u5bfc\u5165\u5931\u8d25\u8be6\u60c5");
 
-    public string RemoveInputCommandText => "\u79fb\u9664\u6587\u4ef6";
+    public string RemoveInputCommandText => GetLocalizedText(
+        "trim.action.removeInput",
+        "\u79fb\u9664\u6587\u4ef6");
 
     public string SelectionRuleDescription =>
         SelectedTranscodingModeOption.Mode == TranscodingMode.FullTranscode
-            ? "\u7cbe\u786e\u5ea6\u4f18\u5148\u4f1a\u4e25\u683c\u6309\u5165\u70b9\u548c\u51fa\u70b9\u5bfc\u51fa\uff1b\u89c6\u9891\u4f1a\u4f18\u5148\u5c1d\u8bd5\u667a\u80fd\u88c1\u526a\uff0c\u5fc5\u8981\u65f6\u81ea\u52a8\u56de\u9000\u4e3a\u6574\u6bb5\u7cbe\u786e\u91cd\u7f16\u7801\u3002"
-            : "\u901f\u5ea6\u4f18\u5148\u4f1a\u5728\u5bb9\u5668\u517c\u5bb9\u65f6\u4f18\u5148\u590d\u7528\u539f\u59cb\u6d41\uff0c\u5bfc\u51fa\u66f4\u5feb\uff0c\u4f46\u975e\u5173\u952e\u5e27\u8fb9\u754c\u53ef\u80fd\u4e0e\u9884\u89c8\u5b58\u5728\u8f7b\u5fae\u504f\u5dee\u3002";
+            ? GetLocalizedText(
+                "trim.selection.rule.accurate",
+                "\u7cbe\u786e\u5ea6\u4f18\u5148\u4f1a\u4e25\u683c\u6309\u5165\u70b9\u548c\u51fa\u70b9\u5bfc\u51fa\uff1b\u89c6\u9891\u4f1a\u4f18\u5148\u5c1d\u8bd5\u667a\u80fd\u88c1\u526a\uff0c\u5fc5\u8981\u65f6\u81ea\u52a8\u56de\u9000\u4e3a\u6574\u6bb5\u7cbe\u786e\u91cd\u7f16\u7801\u3002")
+            : GetLocalizedText(
+                "trim.selection.rule.fast",
+                "\u901f\u5ea6\u4f18\u5148\u4f1a\u5728\u5bb9\u5668\u517c\u5bb9\u65f6\u4f18\u5148\u590d\u7528\u539f\u59cb\u6d41\uff0c\u5bfc\u51fa\u66f4\u5feb\uff0c\u4f46\u975e\u5173\u952e\u5e27\u8fb9\u754c\u53ef\u80fd\u4e0e\u9884\u89c8\u5b58\u5728\u8f7b\u5fae\u504f\u5dee\u3002");
 
-    public string OutputDirectoryHintText => "\u7559\u7a7a\u65f6\u9ed8\u8ba4\u5bfc\u51fa\u5230\u539f\u6587\u4ef6\u6240\u5728\u6587\u4ef6\u5939";
+    public string OutputDirectoryHintText => GetLocalizedText(
+        "trim.settings.outputDirectoryHint",
+        "\u7559\u7a7a\u65f6\u9ed8\u8ba4\u5bfc\u51fa\u5230\u539f\u6587\u4ef6\u6240\u5728\u6587\u4ef6\u5939");
 
-    public string MediaInfoPanelTitle => IsAudioTrim ? "\u97f3\u9891\u4fe1\u606f" : "\u89c6\u9891\u4fe1\u606f";
+    public string MediaInfoPanelTitle => IsAudioTrim
+        ? GetLocalizedText("trim.mediaInfo.title.audio", "\u97f3\u9891\u4fe1\u606f")
+        : GetLocalizedText("trim.mediaInfo.title.video", "\u89c6\u9891\u4fe1\u606f");
 
     public Visibility AudioPreviewSurfaceVisibility => HasInput &&
         IsAudioTrim &&
@@ -173,7 +192,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         {
             if (string.IsNullOrWhiteSpace(_inputFileName))
             {
-                return "\u672a\u547d\u540d\u97f3\u9891";
+                return GetLocalizedText("trim.preview.audioUntitled", "\u672a\u547d\u540d\u97f3\u9891");
             }
 
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(_inputFileName);
@@ -184,7 +203,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     }
 
     public string AudioPreviewSubtitleText => string.IsNullOrWhiteSpace(_inputFileName)
-        ? "\u97f3\u9891\u6587\u4ef6"
+        ? GetLocalizedText("trim.preview.audioFileType", "\u97f3\u9891\u6587\u4ef6")
         : _inputFileName;
 
     public string AudioPreviewFormatBadgeText
@@ -193,7 +212,7 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         {
             var extension = Path.GetExtension(_inputFileName);
             return string.IsNullOrWhiteSpace(extension)
-                ? "AUDIO"
+                ? GetLocalizedText("trim.preview.audioBadgeFallback", "AUDIO")
                 : extension.TrimStart('.').ToUpperInvariant();
         }
     }
@@ -271,7 +290,9 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public Symbol PreviewOverlaySymbol => IsAudioTrim ? Symbol.Audio : Symbol.Video;
 
-    public string PlayPauseButtonText => IsPlaying ? "\u6682\u505c" : "\u64ad\u653e";
+    public string PlayPauseButtonText => IsPlaying
+        ? GetLocalizedText("trim.preview.pause", "\u6682\u505c")
+        : GetLocalizedText("trim.preview.play", "\u64ad\u653e");
 
     public Symbol PlayPauseButtonSymbol => IsPlaying ? Symbol.Pause : Symbol.Play;
 
@@ -292,11 +313,16 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     public Visibility AudioInfoVisibility => AudioInfoFields.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
 
     public string SupportedInputFormatsHint =>
-        "\u652f\u6301\u5bfc\u5165\u683c\u5f0f\uff08" +
-        string.Join("\u3001", _configuration.SupportedTrimInputFileTypes.Select(item => item.TrimStart('.').ToUpperInvariant())) +
-        "\uff09";
+        FormatLocalizedText(
+            "trim.placeholder.supportedFormatsHint",
+            "\u652f\u6301\u5bfc\u5165\u683c\u5f0f\uff08{formats}\uff09",
+            ("formats", string.Join(
+                GetLocalizedText("trim.common.listSeparator", "\u3001"),
+                _configuration.SupportedTrimInputFileTypes.Select(item => item.TrimStart('.').ToUpperInvariant()))));
 
-    public string DragDropCaptionText => "\u5bfc\u5165\u97f3\u9891\u6216\u89c6\u9891\u6587\u4ef6";
+    public string DragDropCaptionText => GetLocalizedText(
+        "trim.placeholder.dragDropCaption",
+        "\u5bfc\u5165\u97f3\u9891\u6216\u89c6\u9891\u6587\u4ef6");
 
     public string LastImportErrorDetails
     {
@@ -333,16 +359,25 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     public void RefreshLocalization()
     {
         var selectedExtension = _selectedOutputFormat?.Extension;
+        var selectedTranscodingMode = _selectedTranscodingModeOption?.Mode ?? TranscodingMode.FastContainerConversion;
         _availableOutputFormats = ResolveOutputFormats(_currentMediaKind);
+        _transcodingOptions = BuildTranscodingOptions();
         _selectedOutputFormat = ResolvePreferredOutputFormat(selectedExtension);
+        _selectedTranscodingModeOption = ResolvePreferredTranscodingMode(selectedTranscodingMode);
         OnPropertyChanged(nameof(AvailableOutputFormats));
         OnPropertyChanged(nameof(SelectedOutputFormat));
         OnPropertyChanged(nameof(SelectedOutputFormatDescription));
+        OnPropertyChanged(nameof(TranscodingOptions));
+        OnPropertyChanged(nameof(SelectedTranscodingModeOption));
+        OnPropertyChanged(nameof(SelectedTranscodingModeDescription));
+        RefreshMediaInfoFields();
+        RaiseTrimStateChanged();
+        RefreshLocalizedRuntimeText();
     }
 
     public TranscodingModeOption SelectedTranscodingModeOption
     {
-        get => _selectedTranscodingModeOption ?? TrimTranscodingModeOptions[0];
+        get => _selectedTranscodingModeOption ?? _transcodingOptions[0];
         set
         {
             if (value is not null && SetProperty(ref _selectedTranscodingModeOption, value))
@@ -436,11 +471,16 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public Symbol VolumeButtonSymbol => IsMuted ? Symbol.Mute : Symbol.Volume;
 
-    public string VolumeButtonText => IsMuted ? "静音" : VolumePercentText;
+    public string VolumeButtonText => IsMuted
+        ? GetLocalizedText("trim.preview.muted", "\u9759\u97f3")
+        : VolumePercentText;
 
     public string VolumePercentText => $"{Math.Round(VolumePercent):0}%";
 
-    public string VolumeToolTipText => "\u97f3\u91cf\uff1a" + VolumePercentText;
+    public string VolumeToolTipText => FormatLocalizedText(
+        "trim.preview.volumeTooltip",
+        "\u97f3\u91cf\uff1a{percent}",
+        ("percent", VolumePercentText));
 
     public string SelectionTimeInputFormatHint => GetSelectionInputFormatPattern();
 
@@ -448,7 +488,10 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     public double SelectionTimeInputBoxWidth => GetSelectionTimeInputBoxWidth();
 
-    public string SelectionTimeInputAssistText => "格式：" + SelectionTimeInputFormatHint;
+    public string SelectionTimeInputAssistText => FormatLocalizedText(
+        "trim.selection.inputAssist",
+        "\u683c\u5f0f\uff1a{pattern}",
+        ("pattern", SelectionTimeInputFormatHint));
 
     public string SelectionStartInputText
     {
@@ -477,8 +520,111 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     public string SelectedDurationText => FormatSelectionTime(SelectedDuration);
 
     public string SelectionSummaryText => HasInput
-        ? $"\u88c1\u526a\u533a\u95f4\uff1a{SelectionStartText} - {SelectionEndText}\uff08\u5171 {SelectedDurationText}\uff09"
-        : "\u5bfc\u5165\u6587\u4ef6\u540e\u5373\u53ef\u8bbe\u7f6e\u88c1\u526a\u533a\u95f4\u3002";
+        ? FormatLocalizedText(
+            "trim.selection.summary",
+            "\u88c1\u526a\u533a\u95f4\uff1a{start} - {end}\uff08\u5171 {duration}\uff09",
+            ("start", SelectionStartText),
+            ("end", SelectionEndText),
+            ("duration", SelectedDurationText))
+        : GetLocalizedText(
+            "trim.selection.summaryPlaceholder",
+            "\u5bfc\u5165\u6587\u4ef6\u540e\u5373\u53ef\u8bbe\u7f6e\u88c1\u526a\u533a\u95f4\u3002");
+
+    public string PlaceholderImportButtonText => GetLocalizedText(
+        "trim.placeholder.importButton",
+        "\u5bfc\u5165\u6587\u4ef6");
+
+    public string JumpToSelectionStartText => GetLocalizedText(
+        "trim.preview.jumpToStart",
+        "\u8df3\u8f6c\u5230\u88c1\u526a\u5165\u70b9");
+
+    public string JumpToSelectionEndText => GetLocalizedText(
+        "trim.preview.jumpToEnd",
+        "\u8df3\u8f6c\u5230\u88c1\u526a\u51fa\u70b9");
+
+    public string TimelineSliderAutomationName => GetLocalizedText(
+        "trim.preview.timelineAutomation",
+        "\u65f6\u95f4\u8f74\u5b9a\u4f4d");
+
+    public string VolumeTitleText => GetLocalizedText(
+        "trim.preview.volume",
+        "\u97f3\u91cf");
+
+    public string SelectionRangeSectionTitle => GetLocalizedText(
+        "trim.selection.sectionTitle",
+        "\u88c1\u526a\u533a\u95f4");
+
+    public string SelectionStartLabelText => GetLocalizedText(
+        "trim.selection.startLabel",
+        "\u5165\u70b9");
+
+    public string SelectionEndLabelText => GetLocalizedText(
+        "trim.selection.endLabel",
+        "\u51fa\u70b9");
+
+    public string SelectionDurationLabelText => GetLocalizedText(
+        "trim.selection.durationLabel",
+        "\u7247\u6bb5\u65f6\u957f");
+
+    public string SelectionStartInputAutomationName => GetLocalizedText(
+        "trim.selection.startInputAutomation",
+        "\u88c1\u526a\u5165\u70b9\u65f6\u95f4\u8f93\u5165");
+
+    public string SelectionEndInputAutomationName => GetLocalizedText(
+        "trim.selection.endInputAutomation",
+        "\u88c1\u526a\u51fa\u70b9\u65f6\u95f4\u8f93\u5165");
+
+    public string CurrentSelectionTitleText => GetLocalizedText(
+        "trim.selection.currentTitle",
+        "\u5f53\u524d\u9009\u533a");
+
+    public string OutputSettingsTitleText => GetLocalizedText(
+        "trim.settings.sectionTitle",
+        "\u8f93\u51fa\u8bbe\u7f6e");
+
+    public string OutputFormatLabelText => GetLocalizedText(
+        "trim.settings.outputFormatLabel",
+        "\u8f93\u51fa\u683c\u5f0f");
+
+    public string TrimStrategyLabelText => GetLocalizedText(
+        "trim.settings.strategyLabel",
+        "\u88c1\u526a\u7b56\u7565");
+
+    public string OutputDirectoryLabelText => GetLocalizedText(
+        "trim.settings.outputDirectoryLabel",
+        "\u8f93\u51fa\u76ee\u5f55");
+
+    public string SelectOutputDirectoryButtonText => GetLocalizedText(
+        "trim.settings.selectDirectory",
+        "\u9009\u62e9\u76ee\u5f55");
+
+    public string ClearOutputDirectoryButtonText => GetLocalizedText(
+        "trim.settings.clearDirectory",
+        "\u6e05\u7a7a");
+
+    public string PlannedOutputPathLabelText => GetLocalizedText(
+        "trim.settings.plannedOutputPathLabel",
+        "\u8ba1\u5212\u8f93\u51fa\u8def\u5f84");
+
+    public string BasicInfoSectionTitleText => GetLocalizedText(
+        "trim.mediaInfo.section.basic",
+        "\u57fa\u7840\u4fe1\u606f");
+
+    public string VideoInfoSectionTitleText => GetLocalizedText(
+        "trim.mediaInfo.section.video",
+        "\u89c6\u9891\u4fe1\u606f");
+
+    public string AudioInfoSectionTitleText => GetLocalizedText(
+        "trim.mediaInfo.section.audio",
+        "\u97f3\u9891\u4fe1\u606f");
+
+    internal string PreviewUnavailableMessage => IsAudioTrim
+        ? GetLocalizedText(
+            "trim.preview.failed.audioUnavailable",
+            "\u5f53\u524d\u97f3\u9891\u65e0\u6cd5\u9884\u89c8\uff0c\u4f46\u4ecd\u53ef\u5c1d\u8bd5\u76f4\u63a5\u5bfc\u51fa\u3002")
+        : GetLocalizedText(
+            "trim.preview.failed.videoUnavailable",
+            "\u5f53\u524d\u89c6\u9891\u65e0\u6cd5\u9884\u89c8\uff0c\u4f46\u4ecd\u53ef\u5c1d\u8bd5\u76f4\u63a5\u5bfc\u51fa\u3002");
 
     public Visibility ExportProgressVisibility
     {
@@ -522,13 +668,17 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
         if (IsBusy)
         {
-            StatusMessage = "\u5f53\u524d\u6b63\u5728\u5bfc\u51fa\u7247\u6bb5\uff0c\u8bf7\u7b49\u5f85\u5b8c\u6210\u6216\u5148\u53d6\u6d88\u3002";
+            SetStatusMessage(() => GetLocalizedText(
+                "trim.status.busy",
+                "\u5f53\u524d\u6b63\u5728\u5bfc\u51fa\u7247\u6bb5\uff0c\u8bf7\u7b49\u5f85\u5b8c\u6210\u6216\u5148\u53d6\u6d88\u3002"));
             return;
         }
 
         if (HasInput)
         {
-            StatusMessage = "\u5f53\u524d\u5df2\u6709\u6587\u4ef6\uff0c\u8bf7\u5148\u79fb\u9664\u540e\u518d\u5bfc\u5165\u65b0\u7684\u6587\u4ef6\u3002";
+            SetStatusMessage(() => GetLocalizedText(
+                "trim.status.hasInputAlready",
+                "\u5f53\u524d\u5df2\u6709\u6587\u4ef6\uff0c\u8bf7\u5148\u79fb\u9664\u540e\u518d\u5bfc\u5165\u65b0\u7684\u6587\u4ef6\u3002"));
             return;
         }
 
@@ -543,14 +693,16 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
             return;
         }
 
-        StatusMessage = "\u6b63\u5728\u89e3\u6790\u5a92\u4f53\u4fe1\u606f...";
+        SetStatusMessage(() => GetLocalizedText(
+            "trim.status.importingMediaInfo",
+            "\u6b63\u5728\u89e3\u6790\u5a92\u4f53\u4fe1\u606f..."));
         LastImportErrorDetails = string.Empty;
-        SetPreviewPreparing("\u6b63\u5728\u51c6\u5907\u9884\u89c8...");
+        SetPreviewPreparingToGeneric();
 
         var importResult = await _trimWorkflowService.ImportAsync(paths);
         if (importResult.Outcome == VideoTrimImportOutcome.Rejected)
         {
-            StatusMessage = importResult.Message;
+            SetStatusMessage(() => importResult.Message);
             return;
         }
 
@@ -576,7 +728,10 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         RaiseTrimStateChanged();
         RefreshPlannedOutputPath();
         LastImportErrorDetails = string.Empty;
-        StatusMessage = importResult.Message;
+        SetStatusMessage(() => FormatLocalizedText(
+            "trim.status.importSuccess",
+            "\u5df2\u5bfc\u5165 {fileName}\uff0c\u8bf7\u62d6\u52a8\u5165\u70b9\u548c\u51fa\u70b9\u786e\u8ba4\u88c1\u526a\u8303\u56f4\u3002",
+            ("fileName", _inputFileName)));
     }
 
     public void ApplyPlayableDuration(TimeSpan duration)
@@ -610,16 +765,15 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     {
         ResetPreviewInteractionState();
         IsPreviewReady = false;
-        PreviewStateMessage = string.IsNullOrWhiteSpace(message)
+        SetPreviewStateMessage(() => string.IsNullOrWhiteSpace(message)
             ? GetDefaultPreviewPreparingMessage()
-            : message;
-        OnPropertyChanged(nameof(PreviewOverlayMessage));
+            : message);
     }
 
     public void SetPreviewReady()
     {
         IsPreviewReady = true;
-        PreviewStateMessage = string.Empty;
+        SetPreviewStateMessage(() => string.Empty);
         OnPropertyChanged(nameof(PreviewOverlayMessage));
     }
 
@@ -627,11 +781,20 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     {
         ResetPreviewInteractionState();
         IsPreviewReady = false;
-        PreviewStateMessage = string.IsNullOrWhiteSpace(message)
-            ? "\u5f53\u524d\u6587\u4ef6\u6682\u65f6\u65e0\u6cd5\u9884\u89c8\u3002"
-            : message;
-        OnPropertyChanged(nameof(PreviewOverlayMessage));
+        SetPreviewStateMessage(() => string.IsNullOrWhiteSpace(message)
+            ? GetLocalizedText(
+                "trim.preview.failed.fileUnavailable",
+                "\u5f53\u524d\u6587\u4ef6\u6682\u65f6\u65e0\u6cd5\u9884\u89c8\u3002")
+            : message);
     }
+
+    internal void SetPreviewPreparingToDefault() => SetPreviewPreparing(GetDefaultPreviewPreparingMessage());
+
+    internal void SetPreviewPreparingToGeneric() => SetPreviewPreparing(GetLocalizedText(
+        "trim.preview.preparing.generic",
+        "\u6b63\u5728\u51c6\u5907\u9884\u89c8..."));
+
+    internal void SetPreviewUnavailable() => SetPreviewFailed(PreviewUnavailableMessage);
 
     public void SetPlaying(bool isPlaying) => IsPlaying = isPlaying && CanPlayPreview;
 
@@ -703,11 +866,15 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         try
         {
             var file = await _filePickerService.PickSingleFileAsync(
-                new FilePickerRequest(_configuration.SupportedTrimInputFileTypes, "\u5bfc\u5165\u6587\u4ef6"));
+                new FilePickerRequest(
+                    _configuration.SupportedTrimInputFileTypes,
+                    GetLocalizedText("trim.picker.importFileTitle", "\u5bfc\u5165\u6587\u4ef6")));
 
             if (string.IsNullOrWhiteSpace(file))
             {
-                StatusMessage = "\u5df2\u53d6\u6d88\u5bfc\u5165\u6587\u4ef6\u3002";
+                SetStatusMessage(() => GetLocalizedText(
+                    "trim.status.importCancelled",
+                    "\u5df2\u53d6\u6d88\u5bfc\u5165\u6587\u4ef6\u3002"));
                 return;
             }
 
@@ -715,7 +882,9 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = "\u5df2\u53d6\u6d88\u5bfc\u5165\u6587\u4ef6\u3002";
+            SetStatusMessage(() => GetLocalizedText(
+                "trim.status.importCancelled",
+                "\u5df2\u53d6\u6d88\u5bfc\u5165\u6587\u4ef6\u3002"));
         }
         catch (Exception exception)
         {
@@ -743,33 +912,49 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         _currentPosition = TimeSpan.Zero;
         ResetPreviewInteractionState();
         LastImportErrorDetails = string.Empty;
-        SetPreviewFailed("\u8bf7\u5148\u5bfc\u5165\u97f3\u9891\u6216\u89c6\u9891\u6587\u4ef6\uff0c\u4e5f\u53ef\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002");
+        SetPreviewStateMessage(() => GetLocalizedText(
+            "trim.status.ready",
+            "\u8bf7\u5bfc\u5165\u97f3\u9891\u6216\u89c6\u9891\u6587\u4ef6\uff0c\u4e5f\u53ef\u62d6\u62fd\u5230\u6b64\u5904\u5f00\u59cb\u88c1\u526a\u3002"));
+        IsPreviewReady = false;
+        OnPropertyChanged(nameof(PreviewOverlayMessage));
         RefreshMediaInfoFields();
         RaiseTrimStateChanged();
-        StatusMessage = "\u5df2\u79fb\u9664\u5f53\u524d\u6587\u4ef6\u3002";
+        SetStatusMessage(() => GetLocalizedText(
+            "trim.status.removedInput",
+            "\u5df2\u79fb\u9664\u5f53\u524d\u6587\u4ef6\u3002"));
     }
 
     private async Task SelectOutputDirectoryAsync()
     {
         try
         {
-            var folder = await _filePickerService.PickFolderAsync("\u9009\u62e9\u88c1\u526a\u8f93\u51fa\u76ee\u5f55");
+            var folder = await _filePickerService.PickFolderAsync(
+                GetLocalizedText("trim.picker.outputDirectoryTitle", "\u9009\u62e9\u88c1\u526a\u8f93\u51fa\u76ee\u5f55"));
             if (string.IsNullOrWhiteSpace(folder))
             {
-                StatusMessage = "\u5df2\u53d6\u6d88\u9009\u62e9\u8f93\u51fa\u76ee\u5f55\u3002";
+                SetStatusMessage(() => GetLocalizedText(
+                    "trim.status.outputDirectoryCancelled",
+                    "\u5df2\u53d6\u6d88\u9009\u62e9\u8f93\u51fa\u76ee\u5f55\u3002"));
                 return;
             }
 
             OutputDirectory = folder;
-            StatusMessage = $"\u5df2\u5c06\u88c1\u526a\u8f93\u51fa\u76ee\u5f55\u8bbe\u7f6e\u4e3a\uff1a{OutputDirectory}";
+            SetStatusMessage(() => FormatLocalizedText(
+                "trim.status.outputDirectoryUpdated",
+                "\u5df2\u5c06\u88c1\u526a\u8f93\u51fa\u76ee\u5f55\u8bbe\u7f6e\u4e3a\uff1a{path}",
+                ("path", OutputDirectory)));
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = "\u5df2\u53d6\u6d88\u9009\u62e9\u8f93\u51fa\u76ee\u5f55\u3002";
+            SetStatusMessage(() => GetLocalizedText(
+                "trim.status.outputDirectoryCancelled",
+                "\u5df2\u53d6\u6d88\u9009\u62e9\u8f93\u51fa\u76ee\u5f55\u3002"));
         }
         catch (Exception exception)
         {
-            StatusMessage = "\u9009\u62e9\u8f93\u51fa\u76ee\u5f55\u5931\u8d25\u3002";
+            SetStatusMessage(() => GetLocalizedText(
+                "trim.status.outputDirectoryFailed",
+                "\u9009\u62e9\u8f93\u51fa\u76ee\u5f55\u5931\u8d25\u3002"));
             _logger.Log(LogLevel.Error, "\u88c1\u526a\u6a21\u5757\u9009\u62e9\u8f93\u51fa\u76ee\u5f55\u65f6\u53d1\u751f\u5f02\u5e38\u3002", exception);
         }
     }
@@ -782,16 +967,22 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         }
 
         OutputDirectory = string.Empty;
-        StatusMessage = "\u5df2\u6e05\u7a7a\u88c1\u526a\u8f93\u51fa\u76ee\u5f55\uff0c\u5bfc\u51fa\u65f6\u5c06\u4f7f\u7528\u539f\u6587\u4ef6\u6240\u5728\u6587\u4ef6\u5939\u3002";
+        SetStatusMessage(() => GetLocalizedText(
+            "trim.status.outputDirectoryCleared",
+            "\u5df2\u6e05\u7a7a\u88c1\u526a\u8f93\u51fa\u76ee\u5f55\uff0c\u5bfc\u51fa\u65f6\u5c06\u4f7f\u7528\u539f\u6587\u4ef6\u6240\u5728\u6587\u4ef6\u5939\u3002"));
     }
 
     private async Task ExportTrimAsync()
     {
         if (!CanExportTrim())
         {
-            StatusMessage = HasInput
-                ? "\u5f53\u524d\u88c1\u526a\u533a\u95f4\u65e0\u6548\uff0c\u8bf7\u91cd\u65b0\u8c03\u6574\u5165\u70b9\u548c\u51fa\u70b9\u3002"
-                : "\u8bf7\u5148\u5bfc\u5165\u4e00\u4e2a\u6587\u4ef6\u3002";
+            SetStatusMessage(() => HasInput
+                ? GetLocalizedText(
+                    "trim.status.invalidSelection",
+                    "\u5f53\u524d\u88c1\u526a\u533a\u95f4\u65e0\u6548\uff0c\u8bf7\u91cd\u65b0\u8c03\u6574\u5165\u70b9\u548c\u51fa\u70b9\u3002")
+                : GetLocalizedText(
+                    "trim.status.needsInput",
+                    "\u8bf7\u5148\u5bfc\u5165\u4e00\u4e2a\u6587\u4ef6\u3002"));
             return;
         }
 
@@ -805,7 +996,9 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
             EnsureOutputDirectoryExists();
             RefreshPlannedOutputPath();
             ShowExportPreparationProgress();
-            StatusMessage = "\u6b63\u5728\u51c6\u5907\u5bfc\u51fa\u88c1\u526a\u7247\u6bb5...";
+            SetStatusMessage(() => GetLocalizedText(
+                "trim.status.exportPreparing",
+                "\u6b63\u5728\u51c6\u5907\u5bfc\u51fa\u88c1\u526a\u7247\u6bb5..."));
 
             var preferences = _userPreferencesService.Load();
             var request = new VideoTrimExportRequest(
@@ -821,35 +1014,48 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
                 request,
                 preferences,
                 new Progress<FFmpegProgressUpdate>(UpdateExportProgress),
-                () => StatusMessage = "GPU 编码失败，已自动回退为 CPU 重试一次。",
+                () => SetStatusMessage(() => GetLocalizedText(
+                    "trim.status.gpuFallbackRetry",
+                    "GPU \u7f16\u7801\u5931\u8d25\uff0c\u5df2\u81ea\u52a8\u56de\u9000\u4e3a CPU \u91cd\u8bd5\u4e00\u6b21\u3002")),
                 _exportCancellationSource.Token);
             var result = exportResult.ExecutionResult;
             if (result.WasSuccessful && File.Exists(exportResult.Request.OutputPath))
             {
-                ExportProgressValue = 100d;
-                ExportProgressPercentText = "100%";
-                ExportProgressDetailText = "\u5bfc\u51fa\u5b8c\u6210\uff0c\u6b63\u5728\u6574\u7406\u7ed3\u679c...";
-                var completionMessage = $"\u88c1\u526a\u5bfc\u51fa\u5b8c\u6210\uff1a{Path.GetFileName(exportResult.Request.OutputPath)}";
-                StatusMessage = string.IsNullOrWhiteSpace(exportResult.TranscodingMessage)
-                    ? completionMessage
-                    : $"{completionMessage} {exportResult.TranscodingMessage}";
+                ShowExportFinishingProgress();
+                var outputFileName = Path.GetFileName(exportResult.Request.OutputPath);
+                SetStatusMessage(() => AppendStatusSuffix(
+                    FormatLocalizedText(
+                        "trim.status.exportCompleted",
+                        "\u88c1\u526a\u5bfc\u51fa\u5b8c\u6210\uff1a{fileName}",
+                        ("fileName", outputFileName)),
+                    exportResult.TranscodingMessage));
                 TryRevealOutputFile(exportResult.Request.OutputPath);
                 return;
             }
 
-            StatusMessage = result.WasCancelled
-                ? "\u5df2\u53d6\u6d88\u88c1\u526a\u5bfc\u51fa\u3002"
-                : string.IsNullOrWhiteSpace(exportResult.TranscodingMessage)
-                    ? $"\u88c1\u526a\u5bfc\u51fa\u5931\u8d25\uff1a{ExtractFriendlyFailureMessage(result)}"
-                    : $"\u88c1\u526a\u5bfc\u51fa\u5931\u8d25\uff1a{ExtractFriendlyFailureMessage(result)} {exportResult.TranscodingMessage}";
+            var failureReason = ExtractFriendlyFailureMessage(result);
+            SetStatusMessage(() => result.WasCancelled
+                ? GetLocalizedText(
+                    "trim.status.exportCancelled",
+                    "\u5df2\u53d6\u6d88\u88c1\u526a\u5bfc\u51fa\u3002")
+                : AppendStatusSuffix(
+                    FormatLocalizedText(
+                        "trim.status.exportFailed",
+                        "\u88c1\u526a\u5bfc\u51fa\u5931\u8d25\uff1a{reason}",
+                        ("reason", failureReason)),
+                    exportResult.TranscodingMessage));
         }
         catch (OperationCanceledException) when (_exportCancellationSource?.IsCancellationRequested == true)
         {
-            StatusMessage = "\u5df2\u53d6\u6d88\u88c1\u526a\u5bfc\u51fa\u3002";
+            SetStatusMessage(() => GetLocalizedText(
+                "trim.status.exportCancelled",
+                "\u5df2\u53d6\u6d88\u88c1\u526a\u5bfc\u51fa\u3002"));
         }
         catch (Exception exception)
         {
-            StatusMessage = "\u88c1\u526a\u5bfc\u51fa\u8fc7\u7a0b\u4e2d\u53d1\u751f\u5f02\u5e38\u3002";
+            SetStatusMessage(() => GetLocalizedText(
+                "trim.status.exportException",
+                "\u88c1\u526a\u5bfc\u51fa\u8fc7\u7a0b\u4e2d\u53d1\u751f\u5f02\u5e38\u3002"));
             _logger.Log(LogLevel.Error, "\u88c1\u526a\u6a21\u5757\u5bfc\u51fa\u7247\u6bb5\u65f6\u53d1\u751f\u5f02\u5e38\u3002", exception);
         }
         finally
@@ -893,30 +1099,64 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     private IReadOnlyList<MediaDetailField> BuildBasicInfoFields(MediaDetailsSnapshot snapshot) =>
         new[]
         {
-            new MediaDetailField { Label = "\u5927\u5c0f", Value = FormatFileSize(GetInputFileSizeBytes(snapshot.InputPath)) },
-            new MediaDetailField { Label = "\u65f6\u957f", Value = FormatInfoDuration(_mediaDuration) }
+            new MediaDetailField
+            {
+                Label = GetLocalizedText("trim.mediaInfo.field.size", "\u5927\u5c0f"),
+                Value = FormatFileSize(GetInputFileSizeBytes(snapshot.InputPath))
+            },
+            new MediaDetailField
+            {
+                Label = GetLocalizedText("trim.mediaInfo.field.duration", "\u65f6\u957f"),
+                Value = FormatInfoDuration(_mediaDuration)
+            }
         };
 
-    private static IReadOnlyList<MediaDetailField> BuildVideoInfoFields(MediaDetailsSnapshot snapshot) =>
+    private IReadOnlyList<MediaDetailField> BuildVideoInfoFields(MediaDetailsSnapshot snapshot) =>
         new[]
         {
-            new MediaDetailField { Label = "\u5206\u8fa8\u7387", Value = GetFieldValue(snapshot.VideoFields, "\u5206\u8fa8\u7387") },
-            new MediaDetailField { Label = "\u5e27\u7387", Value = GetFieldValue(snapshot.VideoFields, "\u5e27\u7387") },
-            new MediaDetailField { Label = "\u7f16\u7801", Value = GetFieldValue(snapshot.VideoFields, "\u7f16\u7801") }
+            new MediaDetailField
+            {
+                Label = GetLocalizedText("trim.mediaInfo.field.resolution", "\u5206\u8fa8\u7387"),
+                Value = GetFieldValue(snapshot.VideoFields, "\u5206\u8fa8\u7387")
+            },
+            new MediaDetailField
+            {
+                Label = GetLocalizedText("trim.mediaInfo.field.frameRate", "\u5e27\u7387"),
+                Value = GetFieldValue(snapshot.VideoFields, "\u5e27\u7387")
+            },
+            new MediaDetailField
+            {
+                Label = GetLocalizedText("trim.mediaInfo.field.codec", "\u7f16\u7801"),
+                Value = GetFieldValue(snapshot.VideoFields, "\u7f16\u7801")
+            }
         };
 
-    private static IReadOnlyList<MediaDetailField> BuildAudioInfoFields(MediaDetailsSnapshot snapshot) =>
+    private IReadOnlyList<MediaDetailField> BuildAudioInfoFields(MediaDetailsSnapshot snapshot) =>
         new[]
         {
-            new MediaDetailField { Label = "\u7f16\u7801", Value = GetFieldValue(snapshot.AudioFields, "\u7f16\u7801") },
-            new MediaDetailField { Label = "\u91c7\u6837\u7387", Value = GetFieldValue(snapshot.AudioFields, "\u91c7\u6837\u7387") },
-            new MediaDetailField { Label = "\u58f0\u9053", Value = GetFieldValue(snapshot.AudioFields, "\u58f0\u9053") }
+            new MediaDetailField
+            {
+                Label = GetLocalizedText("trim.mediaInfo.field.codec", "\u7f16\u7801"),
+                Value = GetFieldValue(snapshot.AudioFields, "\u7f16\u7801")
+            },
+            new MediaDetailField
+            {
+                Label = GetLocalizedText("trim.mediaInfo.field.sampleRate", "\u91c7\u6837\u7387"),
+                Value = GetFieldValue(snapshot.AudioFields, "\u91c7\u6837\u7387")
+            },
+            new MediaDetailField
+            {
+                Label = GetLocalizedText("trim.mediaInfo.field.channels", "\u58f0\u9053"),
+                Value = GetFieldValue(snapshot.AudioFields, "\u58f0\u9053")
+            }
         };
 
-    private static string GetFieldValue(IEnumerable<MediaDetailField> fields, string label)
+    private string GetFieldValue(IEnumerable<MediaDetailField> fields, string label)
     {
         var value = fields.FirstOrDefault(field => string.Equals(field.Label, label, StringComparison.Ordinal))?.Value;
-        return string.IsNullOrWhiteSpace(value) ? "\u672a\u77e5" : value;
+        return string.IsNullOrWhiteSpace(value)
+            ? GetLocalizedText("trim.mediaInfo.unknown", "\u672a\u77e5")
+            : value;
     }
 
     private static long GetInputFileSizeBytes(string inputPath)
@@ -963,11 +1203,33 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         OnPropertyChanged(nameof(PlaceholderIconSymbol));
         OnPropertyChanged(nameof(PlaceholderTitleText));
         OnPropertyChanged(nameof(PlaceholderDescriptionText));
+        OnPropertyChanged(nameof(PlaceholderImportButtonText));
         OnPropertyChanged(nameof(ImportErrorDetailsTitle));
         OnPropertyChanged(nameof(SelectionRuleDescription));
         OnPropertyChanged(nameof(OutputDirectoryHintText));
         OnPropertyChanged(nameof(MediaInfoPanelTitle));
         OnPropertyChanged(nameof(RemoveInputCommandText));
+        OnPropertyChanged(nameof(JumpToSelectionStartText));
+        OnPropertyChanged(nameof(JumpToSelectionEndText));
+        OnPropertyChanged(nameof(TimelineSliderAutomationName));
+        OnPropertyChanged(nameof(VolumeTitleText));
+        OnPropertyChanged(nameof(SelectionRangeSectionTitle));
+        OnPropertyChanged(nameof(SelectionStartLabelText));
+        OnPropertyChanged(nameof(SelectionEndLabelText));
+        OnPropertyChanged(nameof(SelectionDurationLabelText));
+        OnPropertyChanged(nameof(SelectionStartInputAutomationName));
+        OnPropertyChanged(nameof(SelectionEndInputAutomationName));
+        OnPropertyChanged(nameof(CurrentSelectionTitleText));
+        OnPropertyChanged(nameof(OutputSettingsTitleText));
+        OnPropertyChanged(nameof(OutputFormatLabelText));
+        OnPropertyChanged(nameof(TrimStrategyLabelText));
+        OnPropertyChanged(nameof(OutputDirectoryLabelText));
+        OnPropertyChanged(nameof(SelectOutputDirectoryButtonText));
+        OnPropertyChanged(nameof(ClearOutputDirectoryButtonText));
+        OnPropertyChanged(nameof(PlannedOutputPathLabelText));
+        OnPropertyChanged(nameof(BasicInfoSectionTitleText));
+        OnPropertyChanged(nameof(VideoInfoSectionTitleText));
+        OnPropertyChanged(nameof(AudioInfoSectionTitleText));
         OnPropertyChanged(nameof(PreviewOverlayVisibility));
         OnPropertyChanged(nameof(PreviewOverlayMessage));
         OnPropertyChanged(nameof(PreviewOverlaySymbol));
@@ -975,6 +1237,8 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         OnPropertyChanged(nameof(AudioPreviewTitleText));
         OnPropertyChanged(nameof(AudioPreviewSubtitleText));
         OnPropertyChanged(nameof(AudioPreviewFormatBadgeText));
+        OnPropertyChanged(nameof(VolumeToolTipText));
+        OnPropertyChanged(nameof(VolumeButtonText));
         RaiseTimelineChanged();
         NotifyCommandStates();
     }
@@ -1034,18 +1298,59 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         _availableOutputFormats.FirstOrDefault(item => string.Equals(item.Extension, extension, StringComparison.OrdinalIgnoreCase))
         ?? _availableOutputFormats.First();
 
+    private void RefreshLocalizedRuntimeText()
+    {
+        if (_statusMessageResolver is not null)
+        {
+            StatusMessage = _statusMessageResolver.Invoke();
+        }
+
+        if (_previewStateMessageResolver is not null)
+        {
+            PreviewStateMessage = _previewStateMessageResolver.Invoke();
+            OnPropertyChanged(nameof(PreviewOverlayMessage));
+        }
+
+        _exportProgressStateApplier?.Invoke();
+    }
+
+    private IReadOnlyList<TranscodingModeOption> BuildTranscodingOptions() =>
+        new[]
+        {
+            new TranscodingModeOption(
+                TranscodingMode.FastContainerConversion,
+                GetLocalizedText(
+                    "trim.strategy.option.fast.displayName",
+                    "\u901f\u5ea6\u4f18\u5148"),
+                GetLocalizedText(
+                    "trim.strategy.option.fast.description",
+                    "\u4fdd\u7559\u5f53\u524d\u5feb\u901f\u5bfc\u51fa\u8def\u5f84\uff1a\u5f53\u8f93\u5165\u4e0e\u8f93\u51fa\u5bb9\u5668\u517c\u5bb9\u65f6\u4f18\u5148\u76f4\u63a5\u590d\u7528\u539f\u59cb\u6d41\uff0c\u6574\u4f53\u901f\u5ea6\u66f4\u5feb\u3002")),
+            new TranscodingModeOption(
+                TranscodingMode.FullTranscode,
+                GetLocalizedText(
+                    "trim.strategy.option.accurate.displayName",
+                    "\u7cbe\u786e\u5ea6\u4f18\u5148"),
+                GetLocalizedText(
+                    "trim.strategy.option.accurate.description",
+                    "\u7edf\u4e00\u4f7f\u7528\u7cbe\u786e\u88c1\u526a\u8def\u5f84\uff1b\u89c6\u9891\u4f1a\u4f18\u5148\u5c1d\u8bd5\u667a\u80fd\u88c1\u526a\uff0c\u5fc5\u8981\u65f6\u56de\u9000\u4e3a\u6574\u6bb5\u7cbe\u786e\u91cd\u7f16\u7801\u3002"))
+        };
+
     private TranscodingModeOption ResolvePreferredTranscodingMode(TranscodingMode mode)
     {
-        var matchedOption = TrimTranscodingModeOptions.FirstOrDefault(item => item.Mode == mode);
-        return matchedOption ?? TrimTranscodingModeOptions[0];
+        var matchedOption = _transcodingOptions.FirstOrDefault(item => item.Mode == mode);
+        return matchedOption ?? _transcodingOptions[0];
     }
 
     private string BuildAccurateTrimModeDescription()
     {
         var gpuAccelerationEnabled = _userPreferencesService.Load().EnableGpuAccelerationForTranscoding;
         return gpuAccelerationEnabled
-            ? "\u7edf\u4e00\u4f7f\u7528\u8f93\u5165\u540e\u7684 `-ss/-t` \u7cbe\u786e\u88c1\u526a\uff1b\u89c6\u9891\u4f1a\u4f18\u5148\u5c1d\u8bd5 smart trim\uff0c\u5e76\u6309 NVIDIA NVENC -> AMD AMF -> Intel Quick Sync -> CPU \u7684\u987a\u5e8f\u9009\u62e9\u7f16\u7801\u80fd\u529b\u3002"
-            : "\u7edf\u4e00\u4f7f\u7528\u8f93\u5165\u540e\u7684 `-ss/-t` \u7cbe\u786e\u88c1\u526a\uff1b\u89c6\u9891\u4f1a\u4f18\u5148\u5c1d\u8bd5 smart trim\uff0c\u5f53\u524d\u82e5\u9700\u8981\u91cd\u7f16\u7801\u5219\u7531 CPU \u5168\u7a0b\u514c\u5e95\u3002";
+            ? GetLocalizedText(
+                "trim.strategy.option.accurate.gpuDescription",
+                "\u7edf\u4e00\u4f7f\u7528\u8f93\u5165\u540e\u7684 `-ss/-t` \u7cbe\u786e\u88c1\u526a\uff1b\u89c6\u9891\u4f1a\u4f18\u5148\u5c1d\u8bd5 smart trim\uff0c\u5e76\u6309 NVIDIA NVENC -> AMD AMF -> Intel Quick Sync -> CPU \u7684\u987a\u5e8f\u9009\u62e9\u7f16\u7801\u80fd\u529b\u3002")
+            : GetLocalizedText(
+                "trim.strategy.option.accurate.cpuDescription",
+                "\u7edf\u4e00\u4f7f\u7528\u8f93\u5165\u540e\u7684 `-ss/-t` \u7cbe\u786e\u88c1\u526a\uff1b\u89c6\u9891\u4f1a\u4f18\u5148\u5c1d\u8bd5 smart trim\uff0c\u5f53\u524d\u82e5\u9700\u8981\u91cd\u7f16\u7801\u5219\u7531 CPU \u5168\u7a0b\u514c\u5e95\u3002");
     }
 
     private void ApplyImportFailure(string message, string? diagnosticDetails)
@@ -1057,12 +1362,18 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
             ? string.Empty
             : diagnosticDetails.Trim();
 
-        StatusMessage = $"\u5bfc\u5165\u6587\u4ef6\u5931\u8d25\uff1a{friendlyMessage}";
+        SetStatusMessage(() => FormatLocalizedText(
+            "trim.status.importFailed",
+            "\u5bfc\u5165\u6587\u4ef6\u5931\u8d25\uff1a{reason}",
+            ("reason", friendlyMessage)));
         LastImportErrorDetails = diagnosticText;
-        SetPreviewFailed(
-            string.IsNullOrWhiteSpace(diagnosticText)
-                ? "\u5f53\u524d\u6587\u4ef6\u65e0\u6cd5\u9884\u89c8\uff0c\u8bf7\u68c0\u67e5\u6587\u4ef6\u540e\u91cd\u8bd5\u3002"
-                : "\u5f53\u524d\u6587\u4ef6\u5bfc\u5165\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u4e0b\u65b9\u8be6\u7ec6\u9519\u8bef\u4fe1\u606f\u3002");
+        SetPreviewFailed(string.IsNullOrWhiteSpace(diagnosticText)
+            ? GetLocalizedText(
+                "trim.preview.failed.checkFile",
+                "\u5f53\u524d\u6587\u4ef6\u65e0\u6cd5\u9884\u89c8\uff0c\u8bf7\u68c0\u67e5\u6587\u4ef6\u540e\u91cd\u8bd5\u3002")
+            : GetLocalizedText(
+                "trim.preview.failed.importDetails",
+                "\u5f53\u524d\u6587\u4ef6\u5bfc\u5165\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u4e0b\u65b9\u8be6\u7ec6\u9519\u8bef\u4fe1\u606f\u3002"));
 
         if (!string.IsNullOrWhiteSpace(diagnosticText))
         {
@@ -1070,16 +1381,60 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         }
     }
 
-    private static string ExtractFriendlyExceptionMessage(Exception exception) =>
+    private void SetStatusMessage(Func<string> resolver)
+    {
+        ArgumentNullException.ThrowIfNull(resolver);
+
+        _statusMessageResolver = resolver;
+        StatusMessage = resolver();
+    }
+
+    private void SetPreviewStateMessage(Func<string> resolver)
+    {
+        ArgumentNullException.ThrowIfNull(resolver);
+
+        _previewStateMessageResolver = resolver;
+        PreviewStateMessage = resolver();
+        OnPropertyChanged(nameof(PreviewOverlayMessage));
+    }
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
+
+    private string FormatLocalizedText(string key, string fallback, params (string Name, object? Value)[] arguments)
+    {
+        Dictionary<string, object?>? localizedArguments = null;
+        if (arguments.Length > 0)
+        {
+            localizedArguments = new Dictionary<string, object?>(arguments.Length, StringComparer.Ordinal);
+            foreach (var argument in arguments)
+            {
+                localizedArguments[argument.Name] = argument.Value;
+            }
+        }
+
+        return _localizationService.Format(key, localizedArguments, fallback);
+    }
+
+    private static string AppendStatusSuffix(string message, string? suffix) =>
+        string.IsNullOrWhiteSpace(suffix)
+            ? message
+            : $"{message} {suffix}";
+
+    private string ExtractFriendlyExceptionMessage(Exception exception) =>
         string.IsNullOrWhiteSpace(exception.Message)
-            ? "\u5bfc\u5165\u6587\u4ef6\u8fc7\u7a0b\u4e2d\u53d1\u751f\u672a\u77e5\u5f02\u5e38\u3002"
+            ? GetLocalizedText(
+                "trim.import.failure.unknownException",
+                "\u5bfc\u5165\u6587\u4ef6\u8fc7\u7a0b\u4e2d\u53d1\u751f\u672a\u77e5\u5f02\u5e38\u3002")
             : exception.Message.Trim();
 
-    private static string BuildExceptionDiagnosticDetails(Exception exception)
+    private string BuildExceptionDiagnosticDetails(Exception exception)
     {
         var details = exception.ToString().Trim();
         return string.IsNullOrWhiteSpace(details)
-            ? "\u672a\u80fd\u6355\u83b7\u5230\u989d\u5916\u7684\u5f02\u5e38\u8bca\u65ad\u4fe1\u606f\u3002"
+            ? GetLocalizedText(
+                "trim.import.failure.noDiagnosticDetails",
+                "\u672a\u80fd\u6355\u83b7\u5230\u989d\u5916\u7684\u5f02\u5e38\u8bca\u65ad\u4fe1\u606f\u3002")
             : details;
     }
 
@@ -1486,43 +1841,119 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     private void ShowExportPreparationProgress()
     {
-        ExportProgressVisibility = Visibility.Visible;
-        ExportProgressSummaryText = "\u7247\u6bb5\u5bfc\u51fa";
-        ExportProgressDetailText = "\u6b63\u5728\u6821\u9a8c\u533a\u95f4\u5e76\u51c6\u5907 FFmpeg \u5bfc\u51fa\u53c2\u6570...";
-        ExportProgressPercentText = "\u51c6\u5907\u4e2d";
-        ExportProgressValue = 0d;
-        IsExportProgressIndeterminate = true;
+        _exportProgressStateApplier = () =>
+            ApplyExportProgressState(
+                true,
+                0d,
+                GetLocalizedText(
+                    "trim.progress.summary.export",
+                    "\u7247\u6bb5\u5bfc\u51fa"),
+                GetLocalizedText(
+                    "trim.progress.detail.preparing",
+                    "\u6b63\u5728\u6821\u9a8c\u533a\u95f4\u5e76\u51c6\u5907 FFmpeg \u5bfc\u51fa\u53c2\u6570..."),
+                GetLocalizedText(
+                    "trim.progress.percent.preparing",
+                    "\u51c6\u5907\u4e2d"));
+
+        _exportProgressStateApplier.Invoke();
+    }
+
+    private void ShowExportFinishingProgress()
+    {
+        var percentText = ExportProgressPercentText;
+        var progressValue = ExportProgressValue;
+        var isIndeterminate = IsExportProgressIndeterminate;
+        _exportProgressStateApplier = () =>
+            ApplyExportProgressState(
+                isIndeterminate,
+                progressValue,
+                GetLocalizedText(
+                    "trim.progress.summary.export",
+                    "\u7247\u6bb5\u5bfc\u51fa"),
+                GetLocalizedText(
+                    "trim.progress.detail.finishing",
+                    "\u5bfc\u51fa\u5b8c\u6210\uff0c\u6b63\u5728\u6574\u7406\u7ed3\u679c..."),
+                string.IsNullOrWhiteSpace(percentText)
+                    ? GetLocalizedText(
+                        "trim.progress.percent.running",
+                        "\u5bfc\u51fa\u4e2d")
+                    : percentText);
+
+        _exportProgressStateApplier.Invoke();
     }
 
     private void UpdateExportProgress(FFmpegProgressUpdate progress)
     {
-        ExportProgressVisibility = Visibility.Visible;
-
         if (progress.ProgressRatio is not double ratio)
         {
-            ExportProgressDetailText = "\u6b63\u5728\u5bfc\u51fa\u88c1\u526a\u7247\u6bb5\uff0c\u6682\u65f6\u65e0\u6cd5\u4f30\u7b97\u8fdb\u5ea6\u3002";
-            ExportProgressPercentText = "\u5bfc\u51fa\u4e2d";
-            IsExportProgressIndeterminate = true;
+            _exportProgressStateApplier = () =>
+                ApplyExportProgressState(
+                    true,
+                    ExportProgressValue,
+                    GetLocalizedText(
+                        "trim.progress.summary.export",
+                        "\u7247\u6bb5\u5bfc\u51fa"),
+                    GetLocalizedText(
+                        "trim.progress.detail.unknown",
+                        "\u6b63\u5728\u5bfc\u51fa\u88c1\u526a\u7247\u6bb5\uff0c\u6682\u65f6\u65e0\u6cd5\u4f30\u7b97\u8fdb\u5ea6\u3002"),
+                    GetLocalizedText(
+                        "trim.progress.percent.running",
+                        "\u5bfc\u51fa\u4e2d"));
+
+            _exportProgressStateApplier.Invoke();
             return;
         }
 
         var normalized = Math.Clamp(ratio, 0d, 1d);
-        IsExportProgressIndeterminate = false;
-        ExportProgressValue = Math.Round(normalized * 100d, 1);
-        ExportProgressPercentText = $"{Math.Round(normalized * 100d):0}%";
-        ExportProgressDetailText = progress.ProcessedDuration is { } processed
-            ? $"\u5df2\u5bfc\u51fa {FormatSelectionTime(processed)} / {SelectedDurationText}"
-            : $"\u5f53\u524d\u5bfc\u51fa\u8fdb\u5ea6 {ExportProgressPercentText}";
+        var roundedProgressValue = Math.Round(normalized * 100d, 1);
+        var percentText = $"{Math.Round(normalized * 100d):0}%";
+        var processedDuration = progress.ProcessedDuration;
+        _exportProgressStateApplier = () =>
+            ApplyExportProgressState(
+                false,
+                roundedProgressValue,
+                GetLocalizedText(
+                    "trim.progress.summary.export",
+                    "\u7247\u6bb5\u5bfc\u51fa"),
+                processedDuration is { } processed
+                    ? FormatLocalizedText(
+                        "trim.progress.detail.processed",
+                        "\u5df2\u5bfc\u51fa {processed} / {duration}",
+                        ("processed", FormatSelectionTime(processed)),
+                        ("duration", SelectedDurationText))
+                    : FormatLocalizedText(
+                        "trim.progress.detail.percent",
+                        "\u5f53\u524d\u5bfc\u51fa\u8fdb\u5ea6 {percent}",
+                        ("percent", percentText)),
+                percentText);
+
+        _exportProgressStateApplier.Invoke();
     }
 
     private void ResetExportProgress()
     {
+        _exportProgressStateApplier = null;
         ExportProgressVisibility = Visibility.Collapsed;
         IsExportProgressIndeterminate = false;
         ExportProgressValue = 0d;
         ExportProgressSummaryText = string.Empty;
         ExportProgressDetailText = string.Empty;
         ExportProgressPercentText = string.Empty;
+    }
+
+    private void ApplyExportProgressState(
+        bool isIndeterminate,
+        double progressValue,
+        string summaryText,
+        string detailText,
+        string percentText)
+    {
+        ExportProgressVisibility = Visibility.Visible;
+        IsExportProgressIndeterminate = isIndeterminate;
+        ExportProgressValue = progressValue;
+        ExportProgressSummaryText = summaryText;
+        ExportProgressDetailText = detailText;
+        ExportProgressPercentText = percentText;
     }
 
     private void EnsureOutputDirectoryExists()
@@ -1576,14 +2007,18 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
 
     private string GetDefaultPreviewPreparingMessage() =>
         IsAudioTrim
-            ? "\u6b63\u5728\u51c6\u5907\u97f3\u9891\u9884\u89c8..."
-            : "\u6b63\u5728\u51c6\u5907\u89c6\u9891\u9884\u89c8...";
+            ? GetLocalizedText(
+                "trim.preview.preparing.audio",
+                "\u6b63\u5728\u51c6\u5907\u97f3\u9891\u9884\u89c8...")
+            : GetLocalizedText(
+                "trim.preview.preparing.video",
+                "\u6b63\u5728\u51c6\u5907\u89c6\u9891\u9884\u89c8...");
 
-    private static string FormatFileSize(long sizeBytes)
+    private string FormatFileSize(long sizeBytes)
     {
         if (sizeBytes <= 0)
         {
-            return "\u672a\u77e5";
+            return GetLocalizedText("trim.mediaInfo.unknown", "\u672a\u77e5");
         }
 
         string[] units = ["B", "KB", "MB", "GB", "TB"];
@@ -1598,17 +2033,17 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         return $"{size:0.##} {units[unitIndex]}";
     }
 
-    private static string FormatInfoDuration(TimeSpan duration)
+    private string FormatInfoDuration(TimeSpan duration)
     {
         if (duration <= TimeSpan.Zero)
         {
-            return "\u672a\u77e5";
+            return GetLocalizedText("trim.mediaInfo.unknown", "\u672a\u77e5");
         }
 
         return $"{(int)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
     }
 
-    private static string ExtractFriendlyFailureMessage(FFmpegExecutionResult result)
+    private string ExtractFriendlyFailureMessage(FFmpegExecutionResult result)
     {
         if (!string.IsNullOrWhiteSpace(result.FailureReason))
         {
@@ -1618,7 +2053,9 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         var lines = (result.StandardError ?? string.Empty)
             .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        return lines.LastOrDefault() ?? "FFmpeg \u672a\u8fd4\u56de\u53ef\u7528\u9519\u8bef\u4fe1\u606f\u3002";
+        return lines.LastOrDefault() ?? GetLocalizedText(
+            "trim.export.failure.noFfmpegMessage",
+            "FFmpeg \u672a\u8fd4\u56de\u53ef\u7528\u9519\u8bef\u4fe1\u606f\u3002");
     }
 
     private static TimeSpan Clamp(TimeSpan value, TimeSpan min, TimeSpan max) =>

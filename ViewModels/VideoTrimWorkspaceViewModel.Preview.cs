@@ -87,11 +87,8 @@ public sealed partial class VideoTrimWorkspaceViewModel
         }
         catch (Exception exception)
         {
-            _logger.Log(LogLevel.Error, "MPV 预览加载失败。", exception);
-            RunPreviewOnUiThread(() =>
-                SetPreviewFailed(IsAudioTrim
-                    ? "当前音频无法预览，但仍可尝试直接导出。"
-                    : "当前视频无法预览，但仍可尝试直接导出。"));
+            _logger.Log(LogLevel.Error, GetLocalizedText("trim.log.previewLoadFailed", "MPV 预览加载失败。"), exception);
+            RunPreviewOnUiThread(SetPreviewUnavailable);
         }
     }
 
@@ -530,7 +527,7 @@ public sealed partial class VideoTrimWorkspaceViewModel
         }
         catch (Exception exception)
         {
-            _logger.Log(LogLevel.Warning, "裁剪边界预热失败，已保留当前预览状态。", exception);
+            _logger.Log(LogLevel.Warning, GetLocalizedText("trim.log.boundaryWarmupFailed", "裁剪边界预热失败，已保留当前预览状态。"), exception);
         }
     }
 
@@ -615,11 +612,13 @@ public sealed partial class VideoTrimWorkspaceViewModel
                 return;
             }
 
-            SetPreviewFailed(string.IsNullOrWhiteSpace(e.Message)
-                ? IsAudioTrim
-                    ? "当前音频无法预览，但仍可尝试直接导出。"
-                    : "当前视频无法预览，但仍可尝试直接导出。"
-                : e.Message);
+            if (string.IsNullOrWhiteSpace(e.Message))
+            {
+                SetPreviewUnavailable();
+                return;
+            }
+
+            SetPreviewFailed(e.Message);
         });
     }
 

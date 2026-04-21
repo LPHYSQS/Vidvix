@@ -167,7 +167,8 @@ public sealed class AppCompositionRoot
             mediaRuntime.VideoAccelerationService,
             mediaRuntime.MediaInfoService,
             videoTrimCommandFactory,
-            transcodingDecisionResolver);
+            transcodingDecisionResolver,
+            localizationService);
         var videoJoinWorkflowService = new VideoJoinWorkflowService(
             Configuration,
             mediaRuntime.RuntimeService,
@@ -190,7 +191,8 @@ public sealed class AppCompositionRoot
             mediaRuntime.FFmpegService,
             videoTrimWorkflowService,
             audioTrimCommandFactory,
-            transcodingDecisionResolver);
+            transcodingDecisionResolver,
+            localizationService);
 
         return new AppWorkflowServices(
             new MediaImportDiscoveryService(),

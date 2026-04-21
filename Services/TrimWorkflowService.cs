@@ -19,6 +19,7 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
     private readonly IVideoTrimWorkflowService _videoTrimWorkflowService;
     private readonly IAudioTrimCommandFactory _audioTrimCommandFactory;
     private readonly TranscodingDecisionResolver _transcodingDecisionResolver;
+    private readonly ILocalizationService _localizationService;
 
     public TrimWorkflowService(
         ApplicationConfiguration configuration,
@@ -27,7 +28,8 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
         IFFmpegService ffmpegService,
         IVideoTrimWorkflowService videoTrimWorkflowService,
         IAudioTrimCommandFactory audioTrimCommandFactory,
-        TranscodingDecisionResolver transcodingDecisionResolver)
+        TranscodingDecisionResolver transcodingDecisionResolver,
+        ILocalizationService localizationService)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _mediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
@@ -36,6 +38,7 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
         _videoTrimWorkflowService = videoTrimWorkflowService ?? throw new ArgumentNullException(nameof(videoTrimWorkflowService));
         _audioTrimCommandFactory = audioTrimCommandFactory ?? throw new ArgumentNullException(nameof(audioTrimCommandFactory));
         _transcodingDecisionResolver = transcodingDecisionResolver ?? throw new ArgumentNullException(nameof(transcodingDecisionResolver));
+        _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
     }
 
     public async Task<VideoTrimImportResult> ImportAsync(
@@ -52,24 +55,32 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
 
         if (paths.Length == 0)
         {
-            return VideoTrimImportResult.Rejected(string.Empty);
+            return VideoTrimImportResult.Rejected(GetLocalizedText(
+                "trim.import.rejected.noInput",
+                "未检测到可导入的文件。"));
         }
 
         if (paths.Length != 1)
         {
-            return VideoTrimImportResult.Rejected("裁剪模块一次只能导入 1 个文件。");
+            return VideoTrimImportResult.Rejected(GetLocalizedText(
+                "trim.import.rejected.singleItemOnly",
+                "裁剪模块一次只能导入 1 个文件。"));
         }
 
         var inputPath = paths[0];
         if (Directory.Exists(inputPath))
         {
-            return VideoTrimImportResult.Rejected("裁剪模块仅支持导入单个音频或视频文件，不支持文件夹。");
+            return VideoTrimImportResult.Rejected(GetLocalizedText(
+                "trim.import.rejected.singleFileOnly",
+                "裁剪模块仅支持导入单个音频或视频文件，不支持文件夹。"));
         }
 
         if (!File.Exists(inputPath) ||
             !_configuration.SupportedTrimInputFileTypes.Contains(Path.GetExtension(inputPath), StringComparer.OrdinalIgnoreCase))
         {
-            return VideoTrimImportResult.Rejected("当前文件类型不在裁剪模块支持范围内。");
+            return VideoTrimImportResult.Rejected(GetLocalizedText(
+                "trim.import.rejected.unsupportedType",
+                "当前文件类型不在裁剪模块支持范围内。"));
         }
 
         var details = await _mediaInfoService.GetMediaDetailsAsync(inputPath, cancellationToken).ConfigureAwait(false);
@@ -98,7 +109,10 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
             mediaKind,
             details.Snapshot,
             duration.Value,
-            $"已导入 {inputFileName}，请拖动入点和出点确认裁剪范围。");
+            FormatLocalizedText(
+                "trim.status.importSuccess",
+                $"已导入 {inputFileName}，请拖动入点和出点确认裁剪范围。",
+                ("fileName", inputFileName)));
     }
 
     public async Task<VideoTrimExportResult> ExportAsync(
@@ -148,9 +162,13 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
                                inputSnapshot?.PrimaryAudioCodecName,
                                request.OutputFormat.Extension);
         var message = usedFastPath
-            ? "当前素材与目标输出兼容，已优先复用原始音频流。"
+            ? GetLocalizedText(
+                "trim.export.transcoding.audio.fastPath",
+                "当前素材与目标输出兼容，已优先复用原始音频流。")
             : request.TranscodingMode == TranscodingMode.FastContainerConversion
-                ? "当前素材与目标输出不完全兼容，本次已回退为兼容音频转码。"
+                ? GetLocalizedText(
+                    "trim.export.transcoding.audio.compatibilityFallback",
+                    "当前素材与目标输出不完全兼容，本次已回退为兼容音频转码。")
                 : decision.Message;
 
         return new VideoTrimExportResult(request, executionResult, message, usedFastPath);
@@ -174,7 +192,7 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
         return false;
     }
 
-    private static string ResolveImportFailureMessage(MediaDetailsLoadResult result)
+    private string ResolveImportFailureMessage(MediaDetailsLoadResult result)
     {
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
@@ -183,14 +201,38 @@ public sealed class TrimWorkflowService : ITrimWorkflowService
 
         if (result.Snapshot is null)
         {
-            return "无法解析当前文件。";
+            return GetLocalizedText(
+                "trim.import.failure.cannotParseFile",
+                "无法解析当前文件。");
         }
 
         if (!result.Snapshot.HasVideoStream && !result.Snapshot.HasAudioStream)
         {
-            return "当前文件不包含可裁剪的音频或视频流。";
+            return GetLocalizedText(
+                "trim.import.failure.noTrimmableStreams",
+                "当前文件不包含可裁剪的音频或视频流。");
         }
 
-        return "当前文件时长无效，无法开始裁剪。";
+        return GetLocalizedText(
+            "trim.import.failure.invalidDuration",
+            "当前文件时长无效，无法开始裁剪。");
+    }
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
+
+    private string FormatLocalizedText(string key, string fallback, params (string Name, object? Value)[] arguments)
+    {
+        Dictionary<string, object?>? localizedArguments = null;
+        if (arguments.Length > 0)
+        {
+            localizedArguments = new Dictionary<string, object?>(arguments.Length, StringComparer.Ordinal);
+            foreach (var argument in arguments)
+            {
+                localizedArguments[argument.Name] = argument.Value;
+            }
+        }
+
+        return _localizationService.Format(key, localizedArguments, fallback);
     }
 }

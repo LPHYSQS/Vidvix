@@ -35,7 +35,9 @@ public sealed partial class VideoTrimWorkflowService
         var plan = TryBuildSmartTrimPlan(request, keyframes);
         if (plan is null)
         {
-            return new SmartTrimAttemptResult(null, "当前片段未覆盖足够的关键帧区间，已回退为整段精确重编码。");
+            return new SmartTrimAttemptResult(null, GetLocalizedText(
+                "trim.smartTrim.fallback.noKeyframeRange",
+                "当前片段未覆盖足够的关键帧区间，已回退为整段精确重编码。"));
         }
 
         var executionResult = await ExecuteSmartTrimPipelineAsync(
@@ -96,29 +98,37 @@ public sealed partial class VideoTrimWorkflowService
             }
         }
 
-        return new SmartTrimAttemptResult(null, "smart trim 未能稳定完成，已回退为整段精确重编码。");
+        return new SmartTrimAttemptResult(null, GetLocalizedText(
+            "trim.smartTrim.fallback.unstable",
+            "smart trim 未能稳定完成，已回退为整段精确重编码。"));
     }
 
-    private static bool TryValidateSmartTrimPrerequisites(
+    private bool TryValidateSmartTrimPrerequisites(
         VideoTrimExportRequest request,
         MediaDetailsSnapshot inputSnapshot,
         out string failureMessage)
     {
         if (request.Duration < MinimumSmartTrimSelectionDuration)
         {
-            failureMessage = "当前片段较短，直接整段精确重编码更稳定，已自动回退。";
+            failureMessage = GetLocalizedText(
+                "trim.smartTrim.fallback.shortSelection",
+                "当前片段较短，直接整段精确重编码更稳定，已自动回退。");
             return false;
         }
 
         if (!SupportsSmartTrimOutput(request.OutputFormat.Extension))
         {
-            failureMessage = "当前输出格式不适合 smart trim，已回退为整段精确重编码。";
+            failureMessage = GetLocalizedText(
+                "trim.smartTrim.fallback.outputUnsupported",
+                "当前输出格式不适合 smart trim，已回退为整段精确重编码。");
             return false;
         }
 
         if (!string.Equals(NormalizeVideoCodecName(inputSnapshot.PrimaryVideoCodecName), "h264", StringComparison.Ordinal))
         {
-            failureMessage = "当前素材视频编码暂不适合 smart trim，已回退为整段精确重编码。";
+            failureMessage = GetLocalizedText(
+                "trim.smartTrim.fallback.codecUnsupported",
+                "当前素材视频编码暂不适合 smart trim，已回退为整段精确重编码。");
             return false;
         }
 
@@ -390,8 +400,12 @@ public sealed partial class VideoTrimWorkflowService
         bool usedCpuFallback)
     {
         var message = usedCpuFallback
-            ? "精确度优先已启用 smart trim，GPU 不可用时已自动回退到 CPU 完成导出。"
-            : "精确度优先已启用 smart trim：头尾精确重编码，中段关键帧区间直拷贝。";
+            ? GetLocalizedText(
+                "trim.smartTrim.result.completedCpuFallback",
+                "精确度优先已启用 smart trim，GPU 不可用时已自动回退到 CPU 完成导出。")
+            : GetLocalizedText(
+                "trim.smartTrim.result.completed",
+                "精确度优先已启用 smart trim：头尾精确重编码，中段关键帧区间直拷贝。");
 
         return new VideoTrimExportResult(request, executionResult, message, usedFastPath: false, usedCpuFallback);
     }

@@ -22,6 +22,7 @@ public sealed partial class VideoTrimWorkflowService : IVideoTrimWorkflowService
     private readonly IMediaInfoService _mediaInfoService;
     private readonly IVideoTrimCommandFactory _videoTrimCommandFactory;
     private readonly TranscodingDecisionResolver _transcodingDecisionResolver;
+    private readonly ILocalizationService _localizationService;
 
     public VideoTrimWorkflowService(
         ApplicationConfiguration configuration,
@@ -30,7 +31,8 @@ public sealed partial class VideoTrimWorkflowService : IVideoTrimWorkflowService
         IFFmpegVideoAccelerationService ffmpegVideoAccelerationService,
         IMediaInfoService mediaInfoService,
         IVideoTrimCommandFactory videoTrimCommandFactory,
-        TranscodingDecisionResolver transcodingDecisionResolver)
+        TranscodingDecisionResolver transcodingDecisionResolver,
+        ILocalizationService localizationService)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _ffmpegRuntimeService = ffmpegRuntimeService ?? throw new ArgumentNullException(nameof(ffmpegRuntimeService));
@@ -39,6 +41,7 @@ public sealed partial class VideoTrimWorkflowService : IVideoTrimWorkflowService
         _mediaInfoService = mediaInfoService ?? throw new ArgumentNullException(nameof(mediaInfoService));
         _videoTrimCommandFactory = videoTrimCommandFactory ?? throw new ArgumentNullException(nameof(videoTrimCommandFactory));
         _transcodingDecisionResolver = transcodingDecisionResolver ?? throw new ArgumentNullException(nameof(transcodingDecisionResolver));
+        _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
     }
 
     public async Task<VideoTrimImportResult> ImportAsync(
@@ -55,24 +58,32 @@ public sealed partial class VideoTrimWorkflowService : IVideoTrimWorkflowService
 
         if (paths.Length == 0)
         {
-            return VideoTrimImportResult.Rejected(string.Empty);
+            return VideoTrimImportResult.Rejected(GetLocalizedText(
+                "trim.import.rejected.noInput",
+                "未检测到可导入的文件。"));
         }
 
         if (paths.Length != 1)
         {
-            return VideoTrimImportResult.Rejected("裁剪模块一次只能导入 1 个视频文件。");
+            return VideoTrimImportResult.Rejected(GetLocalizedText(
+                "trim.import.rejected.singleVideoOnly",
+                "裁剪模块一次只能导入 1 个视频文件。"));
         }
 
         var inputPath = paths[0];
         if (Directory.Exists(inputPath))
         {
-            return VideoTrimImportResult.Rejected("裁剪模块仅支持导入单个视频文件，不支持文件夹。");
+            return VideoTrimImportResult.Rejected(GetLocalizedText(
+                "trim.import.rejected.singleVideoFileOnly",
+                "裁剪模块仅支持导入单个视频文件，不支持文件夹。"));
         }
 
         if (!File.Exists(inputPath) ||
             !_configuration.SupportedTrimInputFileTypes.Contains(Path.GetExtension(inputPath), StringComparer.OrdinalIgnoreCase))
         {
-            return VideoTrimImportResult.Rejected("当前文件类型不在裁剪模块支持范围内。");
+            return VideoTrimImportResult.Rejected(GetLocalizedText(
+                "trim.import.rejected.unsupportedType",
+                "当前文件类型不在裁剪模块支持范围内。"));
         }
 
         var details = await _mediaInfoService.GetMediaDetailsAsync(inputPath, cancellationToken).ConfigureAwait(false);
@@ -95,7 +106,10 @@ public sealed partial class VideoTrimWorkflowService : IVideoTrimWorkflowService
             TrimMediaKind.Video,
             details.Snapshot,
             duration.Value,
-            $"已导入 {inputFileName}，请拖动入点和出点确认裁剪范围。");
+            FormatLocalizedText(
+                "trim.status.importSuccess",
+                $"已导入 {inputFileName}，请拖动入点和出点确认裁剪范围。",
+                ("fileName", inputFileName)));
     }
 
     public async Task<VideoTrimExportResult> ExportAsync(
@@ -193,7 +207,7 @@ public sealed partial class VideoTrimWorkflowService : IVideoTrimWorkflowService
         return new VideoTrimExportResult(resolvedRequest, executionResult, message, usedFastPath, usedCpuFallback);
     }
 
-    private static string ResolveImportFailureMessage(MediaDetailsLoadResult result)
+    private string ResolveImportFailureMessage(MediaDetailsLoadResult result)
     {
         if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
@@ -202,18 +216,24 @@ public sealed partial class VideoTrimWorkflowService : IVideoTrimWorkflowService
 
         if (result.Snapshot is null)
         {
-            return "无法解析当前视频文件。";
+            return GetLocalizedText(
+                "trim.import.failure.cannotParseVideoFile",
+                "无法解析当前视频文件。");
         }
 
         if (!result.Snapshot.HasVideoStream)
         {
-            return "当前文件不包含可裁剪的视频流。";
+            return GetLocalizedText(
+                "trim.import.failure.noVideoStream",
+                "当前文件不包含可裁剪的视频流。");
         }
 
-        return "当前视频时长无效，无法开始裁剪。";
+        return GetLocalizedText(
+            "trim.import.failure.invalidVideoDuration",
+            "当前视频时长无效，无法开始裁剪。");
     }
 
-    private static string BuildCompletionMessage(
+    private string BuildCompletionMessage(
         TranscodingMode transcodingMode,
         bool usedFastPath,
         bool usedCpuFallback,
@@ -221,20 +241,46 @@ public sealed partial class VideoTrimWorkflowService : IVideoTrimWorkflowService
     {
         if (usedFastPath)
         {
-            return "速度优先已命中兼容容器，当前片段优先复用原始流完成导出。";
+            return GetLocalizedText(
+                "trim.export.transcoding.video.fastPath",
+                "速度优先已命中兼容容器，当前片段优先复用原始流完成导出。");
         }
 
         if (transcodingMode == TranscodingMode.FastContainerConversion)
         {
-            return "速度优先下当前片段无法完全复用原始流，本次已自动回退为兼容重编码。";
+            return GetLocalizedText(
+                "trim.export.transcoding.video.fastFallback",
+                "速度优先下当前片段无法完全复用原始流，本次已自动回退为兼容重编码。");
         }
 
         var prefix = usedCpuFallback
-            ? "精确度优先下 GPU 编码失败，已自动回退为 CPU 重新执行精确裁剪。"
-            : "精确度优先已按所选入点和出点完成精确裁剪。";
+            ? GetLocalizedText(
+                "trim.export.transcoding.video.accurateCpuFallback",
+                "精确度优先下 GPU 编码失败，已自动回退为 CPU 重新执行精确裁剪。")
+            : GetLocalizedText(
+                "trim.export.transcoding.video.accurateCompleted",
+                "精确度优先已按所选入点和出点完成精确裁剪。");
 
         return string.IsNullOrWhiteSpace(decisionMessage)
             ? prefix
             : $"{prefix} {decisionMessage}";
+    }
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
+
+    private string FormatLocalizedText(string key, string fallback, params (string Name, object? Value)[] arguments)
+    {
+        Dictionary<string, object?>? localizedArguments = null;
+        if (arguments.Length > 0)
+        {
+            localizedArguments = new Dictionary<string, object?>(arguments.Length, StringComparer.Ordinal);
+            foreach (var argument in arguments)
+            {
+                localizedArguments[argument.Name] = argument.Value;
+            }
+        }
+
+        return _localizationService.Format(key, localizedArguments, fallback);
     }
 }

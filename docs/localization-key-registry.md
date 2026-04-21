@@ -49,6 +49,18 @@
 | `mainWindow.message.*` | `main-window.json` | 主窗口常驻状态、批量结果、异常与反馈消息 | `R5` |
 | `mainWindow.processingContext.*` | `main-window.json` | 主窗口处理前预检与模式上下文提示 | `R5` |
 | `mainWindow.transcoding.*` | `main-window.json` | 主窗口转码策略、GPU 检测与回退说明 | `R5` |
+| `trim.editor.*` | `trim.json` | 裁剪页标题、说明与当前文件 caption | `R6` |
+| `trim.placeholder.*` | `trim.json` | 裁剪页空态、导入按钮与导入失败详情 | `R6` |
+| `trim.preview.*` | `trim.json` | 预览覆盖层、播放控制、时间轴与音量提示 | `R6` |
+| `trim.selection.*` | `trim.json` | 裁剪区间标签、自动化名称、摘要与规则说明 | `R6` |
+| `trim.settings.*` | `trim.json` | 裁剪输出设置、目录按钮与计划输出路径 | `R6` |
+| `trim.mediaInfo.*` | `trim.json` | 裁剪媒体信息分区、字段名与未知值兜底 | `R6` |
+| `trim.status.*` | `trim.json` | 裁剪导入、导出、取消、异常与运行态状态消息 | `R6` |
+| `trim.progress.*` | `trim.json` | 裁剪导出进度摘要、百分比与明细状态 | `R6` |
+| `trim.import.*` | `trim.json` | 裁剪导入拒绝原因、失败原因与异常兜底 | `R6` |
+| `trim.export.*` | `trim.json` | 裁剪导出兼容性、失败兜底与转码说明 | `R6` |
+| `trim.smartTrim.*` | `trim.json` | smart trim 结果与回退原因 | `R6` |
+| `trim.log.*` | `trim.json` | 裁剪预览加载与边界预热日志文本 | `R6` |
 
 ## 已注册 Key
 
@@ -178,8 +190,42 @@
 | `mainWindow.transcoding.gpuDetected` | `mainWindow` | `main-window.json` | `检测到 {gpuName} 可用，本次可启用视频硬件编码。` | `{gpuName} is available, so hardware video encoding can be used for this run.` | `Active` | `R5` |
 | `mainWindow.queue.item.status.running` | `mainWindow` | `main-window.json` | `处理中` | `Processing` | `Active` | `R5` |
 
+## R6 批量登记
+
+- 本轮把裁剪模块页面层、运行态状态、预览失败兜底、导出进度与工作流层导入 / 导出消息统一收敛到 `Resources/Localization/zh-CN/trim.json` 与 `Resources/Localization/en-US/trim.json`。
+- 已登记的 R6 key family：
+  - `trim.editor.*`
+  - `trim.placeholder.*`
+  - `trim.preview.*`
+  - `trim.selection.*`
+  - `trim.settings.*`
+  - `trim.mediaInfo.*`
+  - `trim.status.*`
+  - `trim.progress.*`
+  - `trim.import.*`
+  - `trim.export.*`
+  - `trim.smartTrim.*`
+  - `trim.log.*`
+- R6 刷新补记：
+  - `VideoTrimWorkspaceViewModel.RefreshLocalization()` 现在不仅刷新静态标题，还会重建裁剪策略选项、媒体信息字段、预览覆盖文案与导出进度状态，因此运行中切换语言时不会继续保留旧语言的裁剪页缓存。
+  - `TrimWorkflowService` / `VideoTrimWorkflowService` 已直接注入 `ILocalizationService`，导入校验、成功摘要、速度优先 / 精确度优先说明和 smart trim 回退消息不再依赖单语言字符串常量。
+- R6 代表性 key：
+
+| Key | 模块 | 资源文件 | `zh-CN` | `en-US` | 状态 | 首次建立轮次 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `trim.placeholder.title` | `trim` | `trim.json` | `请导入文件或拖拽到此处开始裁剪` | `Import a file or drag it here to start trimming` | `Active` | `R6` |
+| `trim.preview.jumpToStart` | `trim` | `trim.json` | `跳转到裁剪入点` | `Jump to trim start` | `Active` | `R6` |
+| `trim.selection.summary` | `trim` | `trim.json` | `裁剪区间：{start} - {end}（共 {duration}）` | `Trim range: {start} - {end} ({duration} total)` | `Active` | `R6` |
+| `trim.settings.outputDirectoryLabel` | `trim` | `trim.json` | `输出目录` | `Output folder` | `Active` | `R6` |
+| `trim.mediaInfo.field.duration` | `trim` | `trim.json` | `时长` | `Duration` | `Active` | `R6` |
+| `trim.progress.detail.processed` | `trim` | `trim.json` | `已导出 {processed} / {duration}` | `Exported {processed} / {duration}` | `Active` | `R6` |
+| `trim.import.rejected.noInput` | `trim` | `trim.json` | `未检测到可导入的文件。` | `No files were provided for import.` | `Active` | `R6` |
+| `trim.export.transcoding.video.fastFallback` | `trim` | `trim.json` | `速度优先下当前片段无法完全复用原始流，本次已自动回退为兼容重编码。` | `Speed priority could not fully reuse the original streams for this clip, so the export fell back to compatible re-encoding automatically.` | `Active` | `R6` |
+| `trim.smartTrim.fallback.noKeyframeRange` | `trim` | `trim.json` | `当前片段未覆盖足够的关键帧区间，已回退为整段精确重编码。` | `The selected clip did not cover a sufficient keyframe range, so it fell back to full precise re-encoding.` | `Active` | `R6` |
+| `trim.log.previewLoadFailed` | `trim` | `trim.json` | `MPV 预览加载失败。` | `MPV preview loading failed.` | `Active` | `R6` |
+
 ## 下一轮接入提示
 
-- `R6` 直接复用 `common.workspace.trim.*`、`common.outputFormat.trim.*` 的集中式配置结果，以及本轮已经稳定的主窗口刷新模式，不要回头重写 `main-window.json` 的既有职责。
-- `R6` 新增裁剪页私有文案时，优先落到 `trim.json`，不要再把裁剪页面内部提示塞进 `main-window.json`。
-- `R6` 只处理裁剪模块 `P0 / P1` 文案，不要回头扩大主窗口范围，也不要提前触碰 `split-audio`、`merge`、`terminal`、`media-details`。
+- `R7` 直接复用 `common.workspace.splitAudio.*`、`common.splitAudio.acceleration.*` 的集中式配置结果，以及本轮 `trim` 中已经验证通过的 ViewModel 运行态刷新模式，不要回头重写 `trim.json` 的既有职责。
+- `R7` 新增拆音页私有文案时，优先落到 `split-audio.json`，不要把拆音页面内部提示塞进 `main-window.json` 或 `trim.json`。
+- `R7` 只处理 `split-audio` 模块私有页面文案，不要回头扩大 `trim` 范围，也不要提前触碰 `merge`、`terminal`、`media-details`。

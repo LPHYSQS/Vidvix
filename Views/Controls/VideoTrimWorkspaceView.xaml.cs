@@ -438,10 +438,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         {
             if (ViewModel is not null && version == _sourceVersion)
             {
-                ViewModel.SetPreviewFailed(
-                    ViewModel.IsAudioTrim
-                        ? "当前音频无法预览，但仍可尝试直接导出。"
-                        : "当前视频无法预览，但仍可尝试直接导出。");
+                ViewModel.SetPreviewUnavailable();
             }
         }
         finally
@@ -753,7 +750,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private void UpdateVolumeToolTip()
     {
-        _volumeToolTip.Content = ViewModel?.VolumeToolTipText ?? "音量";
+        _volumeToolTip.Content = ViewModel?.VolumeToolTipText ?? ViewModel?.VolumeTitleText ?? string.Empty;
     }
 
     private void AttachPreviewViewportXamlRootChangedHandler()

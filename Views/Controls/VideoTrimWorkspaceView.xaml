@@ -114,7 +114,7 @@
                     <Button HorizontalAlignment="Center" Command="{x:Bind ViewModel.SelectVideoCommand, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <SymbolIcon Symbol="OpenFile" />
-                            <TextBlock Text="导入文件" />
+                            <TextBlock Text="{x:Bind ViewModel.PlaceholderImportButtonText, Mode=OneWay}" />
                         </StackPanel>
                     </Button>
                     <TextBlock MaxWidth="760" Opacity="0.72" Text="{x:Bind ViewModel.SupportedInputFormatsHint, Mode=OneWay}" TextAlignment="Center" TextWrapping="Wrap" />
@@ -192,11 +192,11 @@
                     <Button
                         Grid.Column="1"
                         Margin="0,0,14,0"
-                        AutomationProperties.Name="跳转到裁剪入点"
+                        AutomationProperties.Name="{x:Bind ViewModel.JumpToSelectionStartText, Mode=OneWay}"
                         Click="OnJumpToSelectionStartClick"
                         IsEnabled="{x:Bind ViewModel.CanJumpToSelectionBoundary, Mode=OneWay}"
                         Style="{StaticResource TimelineStripButtonStyle}"
-                        ToolTipService.ToolTip="跳转到裁剪入点">
+                        ToolTipService.ToolTip="{x:Bind ViewModel.JumpToSelectionStartText, Mode=OneWay}">
                         <Grid Width="14" Height="14">
                             <Rectangle
                                 Width="2"
@@ -222,7 +222,7 @@
                         Margin="0,-3,0,0"
                         ThumbToolTipValueConverter="{StaticResource TimelineMillisecondsToTimeConverter}"
                         VerticalAlignment="Center"
-                        AutomationProperties.Name="时间轴定位"
+                        AutomationProperties.Name="{x:Bind ViewModel.TimelineSliderAutomationName, Mode=OneWay}"
                         Background="{ThemeResource ControlFillColorTertiaryBrush}"
                         CornerRadius="999"
                         Foreground="{ThemeResource ControlStrongFillColorDefaultBrush}"
@@ -251,11 +251,11 @@
                     <Button
                         Grid.Column="4"
                         Margin="0,0,8,0"
-                        AutomationProperties.Name="跳转到裁剪出点"
+                        AutomationProperties.Name="{x:Bind ViewModel.JumpToSelectionEndText, Mode=OneWay}"
                         Click="OnJumpToSelectionEndClick"
                         IsEnabled="{x:Bind ViewModel.CanJumpToSelectionBoundary, Mode=OneWay}"
                         Style="{StaticResource TimelineStripButtonStyle}"
-                        ToolTipService.ToolTip="跳转到裁剪出点">
+                        ToolTipService.ToolTip="{x:Bind ViewModel.JumpToSelectionEndText, Mode=OneWay}">
                         <Grid Width="14" Height="14">
                             <Rectangle
                                 Width="2"
@@ -276,7 +276,7 @@
                     <Button
                         Grid.Column="5"
                         x:Name="VolumeButton"
-                        AutomationProperties.Name="音量"
+                        AutomationProperties.Name="{x:Bind ViewModel.VolumeTitleText, Mode=OneWay}"
                         HorizontalAlignment="Right"
                         IsEnabled="{x:Bind ViewModel.CanPlayPreview, Mode=OneWay}"
                         PointerWheelChanged="OnVolumeButtonPointerWheelChanged"
@@ -290,7 +290,7 @@
                                     </Style>
                                 </Flyout.FlyoutPresenterStyle>
                                 <StackPanel Width="176" Padding="12,10" Spacing="8">
-                                    <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="音量" />
+                                    <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind ViewModel.VolumeTitleText, Mode=OneWay}" />
                                     <Grid ColumnSpacing="10">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -319,7 +319,7 @@
 
                 <Border Grid.Column="0" Grid.Row="2" Padding="14" CornerRadius="16" Style="{StaticResource InsetSurfaceCardBorderStyle}">
                     <StackPanel Spacing="12">
-                        <TextBlock FontSize="14" FontWeight="SemiBold" Text="裁剪区间" />
+                        <TextBlock FontSize="14" FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectionRangeSectionTitle, Mode=OneWay}" />
                         <TextBlock Opacity="0.72" Text="{x:Bind ViewModel.SelectionSummaryText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                         <local:DualThumbRangeSelector x:Name="RangeSelector" EndValue="{x:Bind ViewModel.SelectionEndMilliseconds, Mode=TwoWay}" Maximum="{x:Bind ViewModel.SelectionMaximum, Mode=OneWay}" Minimum="0" MinimumRange="1" SelectionChanged="OnRangeSelectorSelectionChanged" StartValue="{x:Bind ViewModel.SelectionStartMilliseconds, Mode=TwoWay}" />
                         <Grid ColumnSpacing="18" VerticalAlignment="Center">
@@ -333,13 +333,13 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Style="{StaticResource CaptionTextStyle}" Text="入点" VerticalAlignment="Center" />
+                                <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.SelectionStartLabelText, Mode=OneWay}" VerticalAlignment="Center" />
                                 <TextBox
                                     Grid.Column="1"
                                     x:Name="SelectionStartInputBox"
                                     Style="{StaticResource SelectionTimeInputTextBoxStyle}"
                                     MinWidth="{x:Bind ViewModel.SelectionTimeInputBoxWidth, Mode=OneWay}"
-                                    AutomationProperties.Name="裁剪入点时间输入"
+                                    AutomationProperties.Name="{x:Bind ViewModel.SelectionStartInputAutomationName, Mode=OneWay}"
                                     BeforeTextChanging="OnSelectionInputBeforeTextChanging"
                                     GotFocus="OnSelectionStartInputGotFocus"
                                     HorizontalAlignment="Left"
@@ -357,7 +357,7 @@
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Style="{StaticResource CaptionTextStyle}" Text="片段时长" VerticalAlignment="Center" />
+                                    <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.SelectionDurationLabelText, Mode=OneWay}" VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectedDurationText, Mode=OneWay}" VerticalAlignment="Center" />
                                 </Grid>
                                 <TextBlock HorizontalAlignment="Center" Opacity="0.72" Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.SelectionTimeInputAssistText, Mode=OneWay}" />
@@ -371,7 +371,7 @@
                                     x:Name="SelectionEndInputBox"
                                     Style="{StaticResource SelectionTimeInputTextBoxStyle}"
                                     MinWidth="{x:Bind ViewModel.SelectionTimeInputBoxWidth, Mode=OneWay}"
-                                    AutomationProperties.Name="裁剪出点时间输入"
+                                    AutomationProperties.Name="{x:Bind ViewModel.SelectionEndInputAutomationName, Mode=OneWay}"
                                     BeforeTextChanging="OnSelectionInputBeforeTextChanging"
                                     GotFocus="OnSelectionEndInputGotFocus"
                                     HorizontalAlignment="Left"
@@ -382,7 +382,7 @@
                                     PlaceholderText="{x:Bind ViewModel.SelectionTimeInputFormatHint, Mode=OneWay}"
                                     Text="{x:Bind ViewModel.SelectionEndInputText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                     VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="1" Style="{StaticResource CaptionTextStyle}" Text="出点" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.SelectionEndLabelText, Mode=OneWay}" VerticalAlignment="Center" />
                             </Grid>
                         </Grid>
                         <Grid ColumnSpacing="10" Visibility="Collapsed">
@@ -392,15 +392,15 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Spacing="2">
-                                <TextBlock Style="{StaticResource CaptionTextStyle}" Text="入点" />
+                                <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.SelectionStartLabelText, Mode=OneWay}" />
                                 <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectionStartText, Mode=OneWay}" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" HorizontalAlignment="Center" Spacing="2">
-                                <TextBlock Style="{StaticResource CaptionTextStyle}" Text="片段时长" />
+                                <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.SelectionDurationLabelText, Mode=OneWay}" />
                                 <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectedDurationText, Mode=OneWay}" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" HorizontalAlignment="Right" Spacing="2">
-                                <TextBlock Style="{StaticResource CaptionTextStyle}" Text="出点" />
+                                <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.SelectionEndLabelText, Mode=OneWay}" />
                                 <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectionEndText, Mode=OneWay}" />
                             </StackPanel>
                         </Grid>
@@ -411,7 +411,7 @@
                     <StackPanel Padding="0,0,16,0" Spacing="12">
                         <Border Padding="12" CornerRadius="16" Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <StackPanel Spacing="8">
-                                <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="当前选区" />
+                                <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="{x:Bind ViewModel.CurrentSelectionTitleText, Mode=OneWay}" />
                                 <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectionSummaryText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                                 <Grid ColumnSpacing="12">
                                     <Grid.ColumnDefinitions>
@@ -419,11 +419,11 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Spacing="2">
-                                        <TextBlock Style="{StaticResource CaptionTextStyle}" Text="入点" />
+                                        <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.SelectionStartLabelText, Mode=OneWay}" />
                                         <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectionStartText, Mode=OneWay}" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Spacing="2">
-                                        <TextBlock Style="{StaticResource CaptionTextStyle}" Text="出点" />
+                                        <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.SelectionEndLabelText, Mode=OneWay}" />
                                         <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectionEndText, Mode=OneWay}" />
                                     </StackPanel>
                                 </Grid>
@@ -433,19 +433,19 @@
 
                         <Border Padding="12" CornerRadius="16" Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <StackPanel Spacing="10">
-                                <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="输出设置" />
+                                <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="{x:Bind ViewModel.OutputSettingsTitleText, Mode=OneWay}" />
                                 <StackPanel Spacing="6">
-                                    <TextBlock Text="输出格式" />
+                                    <TextBlock Text="{x:Bind ViewModel.OutputFormatLabelText, Mode=OneWay}" />
                                     <ComboBox DisplayMemberPath="DisplayName" ItemsSource="{x:Bind ViewModel.AvailableOutputFormats, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedOutputFormat, Mode=TwoWay}" />
                                     <TextBlock Opacity="0.72" Text="{x:Bind ViewModel.SelectedOutputFormatDescription, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                                 </StackPanel>
                                 <StackPanel Spacing="6">
-                                    <TextBlock Text="裁剪策略" />
+                                    <TextBlock Text="{x:Bind ViewModel.TrimStrategyLabelText, Mode=OneWay}" />
                                     <ComboBox DisplayMemberPath="DisplayName" ItemsSource="{x:Bind ViewModel.TranscodingOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedTranscodingModeOption, Mode=TwoWay}" />
                                     <TextBlock Opacity="0.72" Text="{x:Bind ViewModel.SelectedTranscodingModeDescription, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                                 </StackPanel>
                                 <StackPanel Spacing="6">
-                                    <TextBlock Text="输出目录" />
+                                    <TextBlock Text="{x:Bind ViewModel.OutputDirectoryLabelText, Mode=OneWay}" />
                                     <TextBox IsReadOnly="True" Text="{x:Bind ViewModel.OutputDirectory, Mode=OneWay}" />
                                     <Grid ColumnSpacing="10">
                                         <Grid.ColumnDefinitions>
@@ -454,12 +454,12 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock VerticalAlignment="Center" Opacity="0.72" Text="{x:Bind ViewModel.OutputDirectoryHintText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                                        <Button Grid.Column="1" Command="{x:Bind ViewModel.SelectOutputDirectoryCommand, Mode=OneWay}" Content="选择目录" />
-                                        <Button Grid.Column="2" Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}" Content="清空" />
+                                        <Button Grid.Column="1" Command="{x:Bind ViewModel.SelectOutputDirectoryCommand, Mode=OneWay}" Content="{x:Bind ViewModel.SelectOutputDirectoryButtonText, Mode=OneWay}" />
+                                        <Button Grid.Column="2" Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}" Content="{x:Bind ViewModel.ClearOutputDirectoryButtonText, Mode=OneWay}" />
                                     </Grid>
                                 </StackPanel>
                                 <StackPanel Spacing="6">
-                                    <TextBlock Text="计划输出路径" />
+                                    <TextBlock Text="{x:Bind ViewModel.PlannedOutputPathLabelText, Mode=OneWay}" />
                                     <TextBox IsReadOnly="True" Text="{x:Bind ViewModel.PlannedOutputPath, Mode=OneWay}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </StackPanel>
@@ -471,7 +471,7 @@
                                 <TextBlock MaxLines="2" FontWeight="SemiBold" Text="{x:Bind ViewModel.InputFileName, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Style="{StaticResource CaptionTextStyle}" Opacity="0.72" Text="{x:Bind ViewModel.InputPath, Mode=OneWay}" TextWrapping="WrapWholeWords" />
                                 <StackPanel Spacing="6" Visibility="{x:Bind ViewModel.BasicInfoVisibility, Mode=OneWay}">
-                                    <TextBlock Style="{StaticResource CaptionTextStyle}" Text="基础信息" />
+                                    <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.BasicInfoSectionTitleText, Mode=OneWay}" />
                                     <ItemsControl ItemsSource="{x:Bind ViewModel.BasicInfoFields, Mode=OneWay}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="models:MediaDetailField">
@@ -490,7 +490,7 @@
                                     </ItemsControl>
                                 </StackPanel>
                                 <StackPanel Spacing="6" Visibility="{x:Bind ViewModel.VideoInfoVisibility, Mode=OneWay}">
-                                    <TextBlock Style="{StaticResource CaptionTextStyle}" Text="视频信息" />
+                                    <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.VideoInfoSectionTitleText, Mode=OneWay}" />
                                     <ItemsControl ItemsSource="{x:Bind ViewModel.VideoInfoFields, Mode=OneWay}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="models:MediaDetailField">
@@ -509,7 +509,7 @@
                                     </ItemsControl>
                                 </StackPanel>
                                 <StackPanel Spacing="6" Visibility="{x:Bind ViewModel.AudioInfoVisibility, Mode=OneWay}">
-                                    <TextBlock Style="{StaticResource CaptionTextStyle}" Text="音频信息" />
+                                    <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind ViewModel.AudioInfoSectionTitleText, Mode=OneWay}" />
                                     <ItemsControl ItemsSource="{x:Bind ViewModel.AudioInfoFields, Mode=OneWay}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="models:MediaDetailField">

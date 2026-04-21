@@ -7,11 +7,11 @@
 - 计划版本：`v2`
 - 项目：`Vidvix`
 - 当前阶段：`Stage 2`
-- 当前轮次：`R5`
+- 当前轮次：`R6`
 - 当前状态：`Completed`
 - 当前执行 Agent：`Codex`
-- 最近完成轮次：`R5`
-- 最近完成时间：`2026-04-20 23:08`
+- 最近完成轮次：`R6`
+- 最近完成时间：`2026-04-21 13:26`
 - 构建验证：`Passed`
 - 热切换验证：`Passed`
 - 字符串盘点产物：`docs/localization-string-inventory.csv`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已将 `Views/MainWindow.xaml` 的主窗口外壳按钮 / 标签、待处理队列、处理设置与输出目录区，以及 `MainViewModel`、`MediaJobViewModel` 和相关服务层中直接暴露到主窗口的常驻状态、公共进度细节、批量结果、预检提示与转码说明迁移为 `mainWindow.*` 语言 key，并补齐运行时语言切换后的统一刷新链路。
-- 本轮修改文件：`Resources/Localization/zh-CN/main-window.json`、`Resources/Localization/en-US/main-window.json`、`Services/FFmpeg/FFmpegVideoAccelerationService.cs`、`Services/MediaProcessingWorkflowService.cs`、`Services/TranscodingDecisionResolver.cs`、`Utils/AppCompositionRoot.cs`、`ViewModels/MainViewModel.cs`、`ViewModels/MainViewModel.Execution.cs`、`ViewModels/MainViewModel.Import.cs`、`ViewModels/MainViewModel.Localization.cs`、`ViewModels/MainViewModel.ProcessingMessages.cs`、`ViewModels/MainViewModel.Progress.cs`、`ViewModels/MainViewModel.UiState.cs`、`ViewModels/MainViewModel.Workspace.cs`、`ViewModels/MediaJobViewModel.cs`、`Views/MainWindow.xaml`、`docs/localization-agent-rollout-plan.md`、`docs/localization-key-registry.md`、`docs/localization-validation-log.md`
+- 本轮完成项：已将 `Views/Controls/VideoTrimWorkspaceView.xaml`、`VideoTrimWorkspaceViewModel`、预览子流程与 `TrimWorkflowService` / `VideoTrimWorkflowService` 的裁剪模块私有文案统一迁移为 `trim.*` 语言 key，补齐导出进度、预览失败、smart trim 回退、导入校验与媒体信息区的热切换刷新链路，并修复空导入请求的安全兜底与未完成的导出进度实现缺口。
+- 本轮修改文件：`Resources/Localization/zh-CN/trim.json`、`Resources/Localization/en-US/trim.json`、`Services/TrimWorkflowService.cs`、`Services/VideoTrimWorkflowService.cs`、`Services/VideoTrimWorkflowService.SmartTrim.cs`、`Utils/AppCompositionRoot.cs`、`ViewModels/VideoTrimWorkspaceViewModel.cs`、`ViewModels/VideoTrimWorkspaceViewModel.Preview.cs`、`Views/Controls/VideoTrimWorkspaceView.xaml`、`Views/Controls/VideoTrimWorkspaceView.xaml.cs`、`docs/localization-agent-rollout-plan.md`、`docs/localization-key-registry.md`、`docs/localization-validation-log.md`
 - 本轮新增文件：`None`
-- 本轮验证结果：`dotnet build .\\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；启动 `bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\Vidvix.exe` 持续运行超过 `8` 秒，`MainWindowHandle` 为 `3016856`，未出现黑屏或闪退；UI 自动化冒烟采样可见 `当前模块`、`视频处理`、`导入文件`、`导入文件夹`、`清空列表` 等主窗口壳层文案，前序采样中也观察到英文 `Current module`；结合用户确认“本质修改没有任何问题”，本轮主窗口外壳与公共进度区热切换链路按计划收口。
-- 当前遗留问题：主窗口中与 `media-details` 浮层 / 详情面板相关的私有文案，例如 `返回`、`复制全部`、`概览` 及轨道分组标题，仍按计划留给 `R8`；裁剪、拆音、合并页面内部的私有交互文案分别留给 `R6`、`R7`、`R9` / `R10`。
-- 下一轮必须处理：执行 `R6`，迁移裁剪模块 `Views/Controls/VideoTrimWorkspaceView.xaml` 与对应 ViewModel 的 `P0 / P1` 文案，并复用本轮已经稳定的主窗口刷新链路与进度文案模式。
-- 下一轮禁止扩展：不要再回头扩大主窗口 shell 范围；不要提前触碰 `split-audio`、`merge`、`terminal`、`media-details` 的私有页面文案，`R6` 只处理裁剪模块。
+- 本轮验证结果：`dotnet build .\\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；启动 `bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\Vidvix.exe` 持续运行超过 `10` 秒，`MainWindowHandle` 为 `6227994`，进程保持响应，未出现黑屏、白屏或闪退；随后通过 UI 自动化在 `TrimWorkspaceToggle` + `SettingsLanguageComboBox` 上完成裁剪页占位文案 `请导入文件或拖拽到此处开始裁剪 -> Import a file or drag it here to start trimming -> 请导入文件或拖拽到此处开始裁剪` 的往返热切换验证。
+- 当前遗留问题：`trim` 模块本轮 `P0 / P1` 用户可见文案已按计划收口；后续仍按总计划推进 `split-audio`、`terminal` / `media-details` 与 `merge` 页面私有文案迁移，不回头扩大 `trim` 范围。
+- 下一轮必须处理：执行 `R7`，迁移拆音模块私有页面文案，并沿用本轮在裁剪模块中已经验证通过的运行态消息刷新和服务层本地化注入模式。
+- 下一轮禁止扩展：不要回头扩大 `trim` 模块范围；不要提前触碰 `merge`、`terminal`、`media-details` 的私有页面文案，`R7` 只处理 `split-audio`。
 
 ## 执行协议
 
@@ -228,7 +228,7 @@ splitAudio.progress.step = 正在处理第 {index} / {total} 项
 | R3 | Stage 1 | 设置页语言切换与热切换打通 | Completed | Codex | 2026-04-20 | ~~未开始~~ 已接入设置页语言下拉、当前语言持久化与 `LocalizationRefreshRequested` 刷新链路；修复 `SelectedLanguageOption` 递归导致的启动白屏/闪退，并将语言下拉改为按 `Code` 选中以消除往返切换后的空白显示；`zh-CN -> en-US -> zh-CN` 热切换烟测通过，主窗口试点覆盖页头 caption、设置按钮与处理进度标题。 |
 | R4 | Stage 2 | 公共配置与集中式文案迁移 | Completed | Codex | 2026-04-20 | ~~未开始~~ 已完成集中式配置文案迁移，并修复主窗口视频 / 音频目标格式首次启动空白显示。 |
 | R5 | Stage 2 | 主窗口外壳与公共进度区迁移 | Completed | Codex | 2026-04-20 | ~~未开始~~ 已完成主窗口外壳、待处理队列、输出目录与公共进度 / 结果日志文案迁移，并补齐 `mainWindow.*` 的 shell、message、processingContext、transcoding key。 |
-| R6 | Stage 2 | 裁剪模块迁移 | Pending | Unassigned | Not Recorded | 未开始 |
+| R6 | Stage 2 | 裁剪模块迁移 | Completed | Codex | 2026-04-21 | ~~未开始~~ 已完成裁剪模块页面层、预览层与工作流层文案迁移，并补齐导出进度、导入校验、smart trim 回退与运行时热切换刷新链路。 |
 | R7 | Stage 2 | 拆音模块迁移 | Pending | Unassigned | Not Recorded | 未开始 |
 | R8 | Stage 2 | 终端与媒体详情迁移 | Pending | Unassigned | Not Recorded | 未开始 |
 | R9 | Stage 2 | 合并模块状态层迁移 | Pending | Unassigned | Not Recorded | 未开始 |
