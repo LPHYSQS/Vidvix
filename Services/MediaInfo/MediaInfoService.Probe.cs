@@ -13,7 +13,7 @@ namespace Vidvix.Services.MediaInfo;
 
 public sealed partial class MediaInfoService
 {
-    private static string ExtractFailureReason(string standardError)
+    private string ExtractFailureReason(string standardError)
     {
         if (string.IsNullOrWhiteSpace(standardError))
         {
@@ -24,7 +24,7 @@ public sealed partial class MediaInfoService
         return lines.LastOrDefault() ?? ParseFailedMessage;
     }
 
-    private static string CreateFfprobeDiagnosticDetails(
+    private string CreateFfprobeDiagnosticDetails(
         string? ffprobePath,
         string inputPath,
         FfprobeExecutionResult? executionResult,
@@ -37,24 +37,33 @@ public sealed partial class MediaInfoService
             builder.AppendLine(additionalMessage);
         }
 
-        builder.AppendLine($"输入文件：{inputPath}");
+        builder.AppendLine(FormatLocalizedText(
+            "mediaDetails.diagnostic.inputFile",
+            $"输入文件：{inputPath}",
+            ("path", inputPath)));
 
         if (!string.IsNullOrWhiteSpace(ffprobePath))
         {
-            builder.AppendLine($"命令：{BuildFfprobeCommandLine(ffprobePath, inputPath)}");
+            builder.AppendLine(FormatLocalizedText(
+                "mediaDetails.diagnostic.command",
+                $"命令：{BuildFfprobeCommandLine(ffprobePath, inputPath)}",
+                ("command", BuildFfprobeCommandLine(ffprobePath, inputPath))));
         }
 
         if (executionResult is { } result)
         {
-            builder.AppendLine($"退出码：{result.ExitCode}");
-            AppendDiagnosticSection(builder, "标准错误", result.StandardError);
-            AppendDiagnosticSection(builder, "标准输出", result.StandardOutput);
+            builder.AppendLine(FormatLocalizedText(
+                "mediaDetails.diagnostic.exitCode",
+                $"退出码：{result.ExitCode}",
+                ("exitCode", result.ExitCode)));
+            AppendDiagnosticSection(builder, GetLocalizedText("mediaDetails.diagnostic.standardError", "标准错误"), result.StandardError);
+            AppendDiagnosticSection(builder, GetLocalizedText("mediaDetails.diagnostic.standardOutput", "标准输出"), result.StandardOutput);
         }
 
         return builder.ToString().Trim();
     }
 
-    private static void AppendDiagnosticSection(StringBuilder builder, string title, string content)
+    private void AppendDiagnosticSection(StringBuilder builder, string title, string content)
     {
         if (string.IsNullOrWhiteSpace(content))
         {

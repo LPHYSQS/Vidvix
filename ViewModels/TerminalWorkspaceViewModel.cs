@@ -17,6 +17,7 @@ namespace Vidvix.ViewModels;
 public sealed class TerminalWorkspaceViewModel : ObservableObject, IDisposable
 {
     private readonly IFFmpegTerminalService? _terminalService;
+    private readonly ILocalizationService? _localizationService;
     private readonly HashSet<string> _supportedDropFileExtensions;
     private readonly AsyncRelayCommand _executeCommand;
     private string _commandText = string.Empty;
@@ -24,16 +25,18 @@ public sealed class TerminalWorkspaceViewModel : ObservableObject, IDisposable
     private CancellationTokenSource? _executionCancellationSource;
 
     public TerminalWorkspaceViewModel()
-        : this(new ApplicationConfiguration(), null)
+        : this(new ApplicationConfiguration(), null, null)
     {
     }
 
     public TerminalWorkspaceViewModel(
         ApplicationConfiguration configuration,
+        ILocalizationService? localizationService,
         IFFmpegTerminalService? terminalService)
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
+        _localizationService = localizationService;
         _terminalService = terminalService;
         _supportedDropFileExtensions = configuration.SupportedVideoInputFileTypes
             .Concat(configuration.SupportedAudioInputFileTypes)
@@ -46,23 +49,38 @@ public sealed class TerminalWorkspaceViewModel : ObservableObject, IDisposable
 
     public event EventHandler? ScrollToEndRequested;
 
-    public string CommandSectionTitle => "命令输入";
+    public string CommandSectionTitle =>
+        GetLocalizedText("terminal.command.sectionTitle", "命令输入");
 
     public string CommandSectionDescription =>
-        "这里只允许输入 ffmpeg、ffprobe、ffplay 三个命令，并且始终调用软件内置的 FF 程序，不会执行其他 CMD 命令。";
+        GetLocalizedText(
+            "terminal.command.description",
+            "这里只允许输入 ffmpeg、ffprobe、ffplay 三个命令，并且始终调用软件内置的 FF 程序，不会执行其他 CMD 命令。");
 
-    public string CommandPlaceholder => "例如：ffmpeg -i input.mp4 -vf scale=1280:-2 output.mp4";
+    public string CommandPlaceholder =>
+        GetLocalizedText(
+            "terminal.command.placeholder",
+            "例如：ffmpeg -i input.mp4 -vf scale=1280:-2 output.mp4");
 
-    public string ExecuteButtonText => IsExecuting ? "执行中..." : "执行";
+    public string ExecuteButtonText => IsExecuting
+        ? GetLocalizedText("terminal.command.execute.running", "执行中...")
+        : GetLocalizedText("terminal.command.execute.idle", "执行");
 
-    public string OutputSectionTitle => "命令输出";
+    public string OutputSectionTitle =>
+        GetLocalizedText("terminal.output.sectionTitle", "命令输出");
 
     public string OutputSectionDescription =>
-        "命令的标准输出和错误输出都会实时显示在这里，内容会自动滚动到最新位置。";
+        GetLocalizedText(
+            "terminal.output.description",
+            "命令的标准输出和错误输出都会实时显示在这里，内容会自动滚动到最新位置。");
 
-    public string EmptyStateTitle => "暂无执行记录";
+    public string EmptyStateTitle =>
+        GetLocalizedText("terminal.output.empty.title", "暂无执行记录");
 
-    public string EmptyStateDescription => "输入 ffmpeg、ffprobe 或 ffplay 命令后，执行输出会实时显示在这里。";
+    public string EmptyStateDescription =>
+        GetLocalizedText(
+            "terminal.output.empty.description",
+            "输入 ffmpeg、ffprobe 或 ffplay 命令后，执行输出会实时显示在这里。");
 
     public ObservableCollection<TerminalOutputEntryViewModel> OutputEntries { get; } = new();
 
@@ -124,6 +142,23 @@ public sealed class TerminalWorkspaceViewModel : ObservableObject, IDisposable
         OutputEntries.CollectionChanged -= OnOutputEntriesChanged;
     }
 
+    public void RefreshLocalization()
+    {
+        OnPropertyChanged(nameof(CommandSectionTitle));
+        OnPropertyChanged(nameof(CommandSectionDescription));
+        OnPropertyChanged(nameof(CommandPlaceholder));
+        OnPropertyChanged(nameof(ExecuteButtonText));
+        OnPropertyChanged(nameof(OutputSectionTitle));
+        OnPropertyChanged(nameof(OutputSectionDescription));
+        OnPropertyChanged(nameof(EmptyStateTitle));
+        OnPropertyChanged(nameof(EmptyStateDescription));
+
+        foreach (var outputEntry in OutputEntries)
+        {
+            outputEntry.RefreshLocalization();
+        }
+    }
+
     private bool CanExecuteCommand() =>
         !IsExecuting &&
         !string.IsNullOrWhiteSpace(CommandText);
@@ -137,11 +172,13 @@ public sealed class TerminalWorkspaceViewModel : ObservableObject, IDisposable
         }
 
         var outputEntry = new TerminalOutputEntryViewModel(
-            sourceName: "FF 内置终端",
+            sourceName: GetBuiltInSourceName(),
             timestampText: DateTime.Now.ToString("HH:mm:ss"),
-            statusText: "执行中",
+            statusText: GetStatusExecutingText(),
             commandText: rawCommandText,
             outputText: string.Empty);
+        outputEntry.SetSourceNameResolver(GetBuiltInSourceName);
+        outputEntry.SetStatusTextResolver(GetStatusExecutingText);
 
         OutputEntries.Add(outputEntry);
         RequestScrollToEnd();
@@ -154,8 +191,10 @@ public sealed class TerminalWorkspaceViewModel : ObservableObject, IDisposable
         {
             if (_terminalService is null)
             {
-                outputEntry.SetStatusText("不可用");
-                outputEntry.AppendOutputLine("终端服务尚未初始化。");
+                outputEntry.SetStatusTextResolver(() => GetLocalizedText("terminal.output.status.unavailable", "不可用"));
+                outputEntry.AppendLocalizedOutputLine(() => GetLocalizedText(
+                    "terminal.output.message.serviceUnavailable",
+                    "终端服务尚未初始化。"));
                 RequestScrollToEnd();
                 return;
             }
@@ -177,26 +216,38 @@ public sealed class TerminalWorkspaceViewModel : ObservableObject, IDisposable
                 outputEntry.SetSourceName(ResolveSourceName(result.DisplayCommandText));
             }
 
-            outputEntry.SetStatusText(CreateStatusText(result));
+            outputEntry.SetStatusTextResolver(CreateStatusTextResolver(result));
 
-            if (!string.IsNullOrWhiteSpace(result.FailureReason) &&
-                !string.Equals(result.FailureReason, "命令已取消。", StringComparison.Ordinal))
+            if (!string.IsNullOrWhiteSpace(result.FailureReason))
             {
-                outputEntry.AppendOutputLine(result.FailureReason);
+                if (result.FailureReasonResolver is not null)
+                {
+                    outputEntry.AppendLocalizedOutputLine(result.FailureReasonResolver);
+                }
+                else
+                {
+                    outputEntry.AppendOutputLine(result.FailureReason);
+                }
             }
 
             RequestScrollToEnd();
         }
         catch (OperationCanceledException)
         {
-            outputEntry.SetStatusText("已取消");
-            outputEntry.AppendOutputLine("命令已取消。");
+            outputEntry.SetStatusTextResolver(() => GetLocalizedText("terminal.output.status.cancelled", "已取消"));
+            outputEntry.AppendLocalizedOutputLine(() => GetLocalizedText(
+                "terminal.output.message.cancelled",
+                "命令已取消。"));
             RequestScrollToEnd();
         }
         catch (Exception exception)
         {
-            outputEntry.SetStatusText("异常");
-            outputEntry.AppendOutputLine($"命令执行时发生异常：{exception.Message}");
+            var exceptionMessage = exception.Message;
+            outputEntry.SetStatusTextResolver(() => GetLocalizedText("terminal.output.status.exception", "异常"));
+            outputEntry.AppendLocalizedOutputLine(() => FormatLocalizedText(
+                "terminal.output.message.exception",
+                $"命令执行时发生异常：{exceptionMessage}",
+                ("message", exceptionMessage)));
             RequestScrollToEnd();
         }
         finally
@@ -207,37 +258,39 @@ public sealed class TerminalWorkspaceViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static string CreateStatusText(TerminalCommandExecutionResult result)
+    private Func<string> CreateStatusTextResolver(TerminalCommandExecutionResult result)
     {
         if (result.WasCancelled)
         {
-            return "已取消";
+            return () => GetLocalizedText("terminal.output.status.cancelled", "已取消");
         }
 
         if (result.WasSuccessful)
         {
-            return "已完成";
+            return () => GetLocalizedText("terminal.output.status.completed", "已完成");
         }
 
         if (result.ExitCode is { } exitCode)
         {
-            return $"退出 {exitCode}";
+            return () => FormatLocalizedText(
+                "terminal.output.status.exitCode",
+                $"退出 {exitCode}",
+                ("exitCode", exitCode));
         }
 
-        if (!string.IsNullOrWhiteSpace(result.FailureReason) &&
-            result.FailureReason.Contains("仅支持", StringComparison.Ordinal))
+        if (result.WasRejected)
         {
-            return "已拒绝";
+            return () => GetLocalizedText("terminal.output.status.rejected", "已拒绝");
         }
 
-        return "执行失败";
+        return () => GetLocalizedText("terminal.output.status.failed", "执行失败");
     }
 
-    private static string ResolveSourceName(string displayCommandText)
+    private string ResolveSourceName(string displayCommandText)
     {
         if (string.IsNullOrWhiteSpace(displayCommandText))
         {
-            return "FF 内置终端";
+            return GetBuiltInSourceName();
         }
 
         var separatorIndex = displayCommandText.IndexOf(' ');
@@ -255,4 +308,30 @@ public sealed class TerminalWorkspaceViewModel : ObservableObject, IDisposable
 
     private void RequestScrollToEnd() =>
         ScrollToEndRequested?.Invoke(this, EventArgs.Empty);
+
+    private string GetBuiltInSourceName() =>
+        GetLocalizedText("terminal.output.source.builtIn", "FF 内置终端");
+
+    private string GetStatusExecutingText() =>
+        GetLocalizedText("terminal.output.status.executing", "执行中");
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService?.GetString(key, fallback) ?? fallback;
+
+    private string FormatLocalizedText(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments)
+    {
+        if (_localizationService is null || arguments.Length == 0)
+        {
+            return _localizationService?.GetString(key, fallback) ?? fallback;
+        }
+
+        var localizedArguments = arguments.ToDictionary(
+            argument => argument.Name,
+            argument => argument.Value,
+            StringComparer.Ordinal);
+        return _localizationService.Format(key, localizedArguments, fallback);
+    }
 }

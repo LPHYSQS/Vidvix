@@ -134,7 +134,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _mergeImportItems = new ObservableCollection<MediaJobViewModel>();
         _splitAudioImportItems = new ObservableCollection<MediaJobViewModel>();
         _terminalImportItems = new ObservableCollection<MediaJobViewModel>();
-        DetailPanel = new MediaDetailPanelViewModel();
+        DetailPanel = new MediaDetailPanelViewModel(_localizationService);
         ProcessingModes = BuildProcessingModes();
 
         var userPreferences = _userPreferencesService.Load();

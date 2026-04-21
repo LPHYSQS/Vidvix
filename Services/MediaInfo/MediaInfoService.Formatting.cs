@@ -7,7 +7,7 @@ namespace Vidvix.Services.MediaInfo;
 
 public sealed partial class MediaInfoService
 {
-    private static string FormatContainer(string? formatLongName, string? formatName)
+    private string FormatContainer(string? formatLongName, string? formatName)
     {
         if (!string.IsNullOrWhiteSpace(formatLongName))
         {
@@ -23,7 +23,7 @@ public sealed partial class MediaInfoService
         return string.IsNullOrWhiteSpace(primaryName) ? UnknownValue : primaryName.ToUpperInvariant();
     }
 
-    private static string FormatCodec(string? codecName)
+    private string FormatCodec(string? codecName)
     {
         if (string.IsNullOrWhiteSpace(codecName))
         {
@@ -53,7 +53,7 @@ public sealed partial class MediaInfoService
         };
     }
 
-    private static string BuildProfileLevel(string? profile, int? level)
+    private string BuildProfileLevel(string? profile, int? level)
     {
         var profileText = string.IsNullOrWhiteSpace(profile) ? UnknownValue : profile;
         var levelText = FormatLevel(level);
@@ -76,10 +76,10 @@ public sealed partial class MediaInfoService
         return profileText + " / " + levelText;
     }
 
-    private static string FormatDuration(string? durationText) =>
+    private string FormatDuration(string? durationText) =>
         FormatDuration(ParseDurationSeconds(durationText));
 
-    private static string FormatDuration(double? durationSeconds)
+    private string FormatDuration(double? durationSeconds)
     {
         if (durationSeconds is not >= 0)
         {
@@ -97,10 +97,14 @@ public sealed partial class MediaInfoService
             return $"{duration.Minutes:00}:{duration.Seconds:00}";
         }
 
-        return $"{Math.Max(duration.TotalSeconds, 0.1):F1} 秒";
+        var secondsText = Math.Max(duration.TotalSeconds, 0.1).ToString("F1", CultureInfo.InvariantCulture);
+        return FormatLocalizedText(
+            "mediaDetails.common.duration.seconds",
+            $"{secondsText} 秒",
+            ("seconds", secondsText));
     }
 
-    private static string FormatResolution(int? width, int? height)
+    private string FormatResolution(int? width, int? height)
     {
         if (width is not > 0 || height is not > 0)
         {
@@ -110,10 +114,19 @@ public sealed partial class MediaInfoService
         return $"{width} x {height}";
     }
 
-    private static string FormatFrameRate(string? averageFrameRate, string? realFrameRate)
+    private string FormatFrameRate(string? averageFrameRate, string? realFrameRate)
     {
         var frameRate = ParseFrameRate(averageFrameRate) ?? ParseFrameRate(realFrameRate);
-        return frameRate is null ? UnknownValue : $"{frameRate.Value:0.###} 帧/秒";
+        if (frameRate is null)
+        {
+            return UnknownValue;
+        }
+
+        var valueText = frameRate.Value.ToString("0.###", CultureInfo.InvariantCulture);
+        return FormatLocalizedText(
+            "mediaDetails.video.value.frameRate",
+            $"{valueText} 帧/秒",
+            ("value", valueText));
     }
 
     private static double? ParseFrameRate(string? rawFrameRate)
@@ -137,7 +150,7 @@ public sealed partial class MediaInfoService
             : null;
     }
 
-    private static string FormatBitrate(string? bitrateText)
+    private string FormatBitrate(string? bitrateText)
     {
         if (!double.TryParse(bitrateText, NumberStyles.Float, CultureInfo.InvariantCulture, out var bitsPerSecond) || bitsPerSecond <= 0)
         {
@@ -154,14 +167,18 @@ public sealed partial class MediaInfoService
             return $"{bitsPerSecond / 1_000d:0.##} kbps";
         }
 
-        return $"{bitsPerSecond:0} 比特/秒";
+        var valueText = bitsPerSecond.ToString("0", CultureInfo.InvariantCulture);
+        return FormatLocalizedText(
+            "mediaDetails.common.bitrate.bitsPerSecond",
+            $"{valueText} 比特/秒",
+            ("value", valueText));
     }
 
-    private static string FormatBitDepth(string? bitsPerRawSample, string? pixelFormat)
+    private string FormatBitDepth(string? bitsPerRawSample, string? pixelFormat)
     {
         if (int.TryParse(bitsPerRawSample, NumberStyles.Integer, CultureInfo.InvariantCulture, out var bitDepth) && bitDepth > 0)
         {
-            return bitDepth + " 位";
+            return FormatBitDepthValue(bitDepth);
         }
 
         if (string.IsNullOrWhiteSpace(pixelFormat))
@@ -170,15 +187,15 @@ public sealed partial class MediaInfoService
         }
 
         var normalized = pixelFormat.ToLowerInvariant();
-        if (normalized.Contains("p16", StringComparison.Ordinal)) return "16 位";
-        if (normalized.Contains("p14", StringComparison.Ordinal)) return "14 位";
-        if (normalized.Contains("p12", StringComparison.Ordinal)) return "12 位";
-        if (normalized.Contains("p10", StringComparison.Ordinal)) return "10 位";
-        if (normalized.Contains("p9", StringComparison.Ordinal)) return "9 位";
-        return "8 位";
+        if (normalized.Contains("p16", StringComparison.Ordinal)) return FormatBitDepthValue(16);
+        if (normalized.Contains("p14", StringComparison.Ordinal)) return FormatBitDepthValue(14);
+        if (normalized.Contains("p12", StringComparison.Ordinal)) return FormatBitDepthValue(12);
+        if (normalized.Contains("p10", StringComparison.Ordinal)) return FormatBitDepthValue(10);
+        if (normalized.Contains("p9", StringComparison.Ordinal)) return FormatBitDepthValue(9);
+        return FormatBitDepthValue(8);
     }
 
-    private static string DetermineHdrType(string? colorTransfer)
+    private string DetermineHdrType(string? colorTransfer)
     {
         if (string.Equals(colorTransfer, "smpte2084", StringComparison.OrdinalIgnoreCase))
         {
@@ -190,10 +207,10 @@ public sealed partial class MediaInfoService
             return "HLG";
         }
 
-        return "SDR";
+        return GetLocalizedText("mediaDetails.video.value.dynamicRange.sdr", "SDR");
     }
 
-    private static string FormatLevel(int? level)
+    private string FormatLevel(int? level)
     {
         if (level is not > 0)
         {
@@ -205,7 +222,7 @@ public sealed partial class MediaInfoService
             : level.Value.ToString(CultureInfo.InvariantCulture);
     }
 
-    private static string FormatSampleRate(string? sampleRateText)
+    private string FormatSampleRate(string? sampleRateText)
     {
         if (!double.TryParse(sampleRateText, NumberStyles.Float, CultureInfo.InvariantCulture, out var sampleRate) || sampleRate <= 0)
         {
@@ -217,25 +234,29 @@ public sealed partial class MediaInfoService
             : $"{sampleRate:0} Hz";
     }
 
-    private static string FormatChannels(string? channelLayout, int? channels)
+    private string FormatChannels(string? channelLayout, int? channels)
     {
         var friendlyLayout = channelLayout?.ToLowerInvariant() switch
         {
-            "mono" => "单声道",
-            "stereo" => "立体声",
-            "2.1" => "2.1 声道",
-            "3.0" => "3.0 声道",
-            "4.0" => "4.0 声道",
-            "5.1" => "5.1 声道",
-            "5.1(side)" => "5.1 声道",
-            "7.1" => "7.1 声道",
-            "7.1(wide)" => "7.1 声道",
+            "mono" => GetLocalizedText("mediaDetails.audio.value.channelLayout.mono", "单声道"),
+            "stereo" => GetLocalizedText("mediaDetails.audio.value.channelLayout.stereo", "立体声"),
+            "2.1" => FormatLocalizedText("mediaDetails.audio.value.channelLayout.named", "2.1 声道", ("layout", "2.1")),
+            "3.0" => FormatLocalizedText("mediaDetails.audio.value.channelLayout.named", "3.0 声道", ("layout", "3.0")),
+            "4.0" => FormatLocalizedText("mediaDetails.audio.value.channelLayout.named", "4.0 声道", ("layout", "4.0")),
+            "5.1" => FormatLocalizedText("mediaDetails.audio.value.channelLayout.named", "5.1 声道", ("layout", "5.1")),
+            "5.1(side)" => FormatLocalizedText("mediaDetails.audio.value.channelLayout.named", "5.1 声道", ("layout", "5.1")),
+            "7.1" => FormatLocalizedText("mediaDetails.audio.value.channelLayout.named", "7.1 声道", ("layout", "7.1")),
+            "7.1(wide)" => FormatLocalizedText("mediaDetails.audio.value.channelLayout.named", "7.1 声道", ("layout", "7.1")),
             _ => channelLayout
         };
 
         if (!string.IsNullOrWhiteSpace(friendlyLayout) && channels is > 0)
         {
-            return $"{friendlyLayout}（{channels} 声道）";
+            return FormatLocalizedText(
+                "mediaDetails.audio.value.channelLayout.withCount",
+                $"{friendlyLayout}（{channels} 声道）",
+                ("layout", friendlyLayout),
+                ("count", channels));
         }
 
         if (!string.IsNullOrWhiteSpace(friendlyLayout))
@@ -243,10 +264,15 @@ public sealed partial class MediaInfoService
             return friendlyLayout;
         }
 
-        return channels is > 0 ? $"{channels} 声道" : UnknownValue;
+        return channels is > 0
+            ? FormatLocalizedText(
+                "mediaDetails.audio.value.channelLayout.countOnly",
+                $"{channels} 声道",
+                ("count", channels))
+            : UnknownValue;
     }
 
-    private static string DeriveChromaSubsampling(string? pixelFormat)
+    private string DeriveChromaSubsampling(string? pixelFormat)
     {
         if (string.IsNullOrWhiteSpace(pixelFormat))
         {
@@ -264,7 +290,7 @@ public sealed partial class MediaInfoService
         return UnknownValue;
     }
 
-    private static string ResolveEncoderTag(FfprobeFormat? format, FfprobeStream? videoStream, FfprobeStream? audioStream)
+    private string ResolveEncoderTag(FfprobeFormat? format, FfprobeStream? videoStream, FfprobeStream? audioStream)
     {
         return FirstNonEmpty(
                    GetTagValue(format?.tags, "encoder"),
@@ -288,9 +314,15 @@ public sealed partial class MediaInfoService
         return tags.TryGetValue(key, out var value) ? value : null;
     }
 
-    private static string NormalizeValue(string? value) =>
+    private string NormalizeValue(string? value) =>
         string.IsNullOrWhiteSpace(value) ? UnknownValue : value;
 
     private static string? FirstNonEmpty(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private string FormatBitDepthValue(int bitDepth) =>
+        FormatLocalizedText(
+            "mediaDetails.video.value.bitDepth",
+            $"{bitDepth} 位",
+            ("value", bitDepth));
 }

@@ -278,8 +278,48 @@
 | `splitAudio.planner.launcherMissing` | `splitAudio` | `split-audio.json` | `未找到 Demucs 启动脚本：{path}` | `The Demucs launcher script was not found: {path}` | `Active` | `R7` |
 | `splitAudio.runtime.missingRuntimePackage` | `splitAudio` | `split-audio.json` | `未找到离线 Demucs {runtimeVariant} 运行时包，请补齐 {packagePath}。` | `The offline Demucs {runtimeVariant} runtime package was not found. Please provide {packagePath}.` | `Active` | `R7` |
 
+## R8 批量登记
+
+- 本轮把终端区输入 / 输出页、运行态失败消息，以及媒体详情浮层标题、节标题、复制反馈、诊断信息和服务层用户可见错误统一收敛到 `Resources/Localization/zh-CN/terminal.json`、`Resources/Localization/en-US/terminal.json`、`Resources/Localization/zh-CN/media-details.json` 与 `Resources/Localization/en-US/media-details.json`。
+- 已登记的 R8 key family：
+  - `terminal.command.*`
+  - `terminal.error.*`
+  - `terminal.output.*`
+  - `terminal.log.*`
+  - `mediaDetails.action.*`
+  - `mediaDetails.header.*`
+  - `mediaDetails.state.*`
+  - `mediaDetails.section.*`
+  - `mediaDetails.field.*`
+  - `mediaDetails.common.*`
+  - `mediaDetails.audio.*`
+  - `mediaDetails.video.*`
+  - `mediaDetails.overview.*`
+  - `mediaDetails.copy.*`
+  - `mediaDetails.status.*`
+  - `mediaDetails.error.*`
+  - `mediaDetails.diagnostic.*`
+- R8 刷新补记：
+  - `TerminalWorkspaceViewModel.RefreshLocalization()` 现已联动刷新现有 `OutputEntries`；`TerminalCommandExecutionResult` 额外持有 failure reason resolver，因此“已拒绝 / 已取消 / 退出码 / 运行时不可用”等运行态输出行不再锁死在切换前语言。
+  - `MediaInfoService` 缓存的是 probe 原始结果而不是已本地化的最终快照；`MainViewModel.RefreshMediaDetailsLocalization()` 会在详情浮层打开时重建当前快照，`MediaDetailPanelViewModel.RefreshLocalization()` 同步刷新节标题、复制按钮与默认标题，避免打开态浮层保留旧语言字段标签。
+  - `Views/MainWindow.xaml` 中详情浮层按钮、节标题、加载 / 错误标题和复制提示入口已全部转为绑定 `DetailPanel` 属性，不再保留固定中文 XAML 文案。
+- R8 代表性 key：
+
+| Key | 模块 | 资源文件 | `zh-CN` | `en-US` | 状态 | 首次建立轮次 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `terminal.command.sectionTitle` | `terminal` | `terminal.json` | `命令输入` | `Command input` | `Active` | `R8` |
+| `terminal.error.unsupportedCommand` | `terminal` | `terminal.json` | `仅支持 ffmpeg、ffprobe、ffplay 三个内置命令，不能执行其他 CMD 或系统命令。` | `Only the bundled ffmpeg, ffprobe, and ffplay commands are supported. Other CMD or system commands cannot be run.` | `Active` | `R8` |
+| `terminal.output.status.rejected` | `terminal` | `terminal.json` | `已拒绝` | `Rejected` | `Active` | `R8` |
+| `terminal.output.message.cancelled` | `terminal` | `terminal.json` | `命令已取消。` | `The command was cancelled.` | `Active` | `R8` |
+| `mediaDetails.header.title` | `mediaDetails` | `media-details.json` | `媒体详情` | `Media details` | `Active` | `R8` |
+| `mediaDetails.state.loading` | `mediaDetails` | `media-details.json` | `正在解析媒体信息...` | `Inspecting media information...` | `Active` | `R8` |
+| `mediaDetails.section.audioOverview` | `mediaDetails` | `media-details.json` | `音频概览` | `Audio overview` | `Active` | `R8` |
+| `mediaDetails.field.sampleRate` | `mediaDetails` | `media-details.json` | `采样率` | `Sample rate` | `Active` | `R8` |
+| `mediaDetails.copy.feedback.section` | `mediaDetails` | `media-details.json` | `已复制{section}` | `Copied {section}` | `Active` | `R8` |
+| `mediaDetails.diagnostic.jsonParseFailed` | `mediaDetails` | `media-details.json` | `ffprobe 输出解析失败：{message}` | `Failed to parse ffprobe output: {message}` | `Active` | `R8` |
+
 ## 下一轮接入提示
 
-- `R8` 直接复用 `R7` 在拆音模块已经验证通过的 resolver 化运行态刷新模式、服务层本地化异常封装方式，以及 `SplitAudioWorkspaceToggle` + `SettingsLanguageComboBox` 的 UI 热切换验证路径，不要回头重写 `split-audio.json` 的既有职责。
-- `R8` 新增终端区与媒体详情区私有文案时，优先分别落到 `terminal.json` 与 `media-details.json`，不要把详情浮层或终端页内部提示继续塞进 `main-window.json` 或 `split-audio.json`。
-- `R8` 只处理 `terminal` 与 `media-details` 模块私有页面文案，不要回头扩大 `trim` / `split-audio` 范围，也不要提前触碰 `merge` 私有页面文案。
+- `R9` 只处理合并模块状态层与模式层文案，优先落在现有 `merge.json` 中，不要把合并模块私有状态提示继续塞回 `main-window.json` 或 `common.json`。
+- `R9` 直接复用 `R8` 已验证通过的“缓存原始数据 + 视图层重建快照 / resolver”的热切换模式；对于合并模块的轨道空态、模式摘要、状态提示，优先保存结构化状态而不是保存最终中文句子。
+- `R9` 不要提前触碰 `Views/MergePage.xaml` 的主界面按钮、标签和说明文案，那部分留给 `R10`；也不要回头扩大 `terminal`、`media-details`、`trim`、`split-audio` 范围。

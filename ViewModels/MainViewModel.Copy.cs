@@ -41,7 +41,7 @@ public sealed partial class MainViewModel
         catch (Exception exception)
         {
             _logger.Log(LogLevel.Warning, "\u590d\u5236\u5a92\u4f53\u8be6\u60c5\u5931\u8d25\u3002", exception);
-            StatusMessage = "\u590d\u5236\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5\u3002";
+            StatusMessage = GetLocalizedText("mediaDetails.copy.failed", "复制失败，请稍后重试。");
             TransientNotificationRequested?.Invoke(StatusMessage);
         }
     }

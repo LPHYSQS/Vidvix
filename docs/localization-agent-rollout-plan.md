@@ -7,11 +7,11 @@
 - 计划版本：`v2`
 - 项目：`Vidvix`
 - 当前阶段：`Stage 2`
-- 当前轮次：`R8`
+- 当前轮次：`R9`
 - 当前状态：`Pending`
 - 当前执行 Agent：`Unassigned`
-- 最近完成轮次：`R7`
-- 最近完成时间：`2026-04-21 14:58`
+- 最近完成轮次：`R8`
+- 最近完成时间：`2026-04-21 17:49`
 - 构建验证：`Passed`
 - 热切换验证：`Passed`
 - 字符串盘点产物：`docs/localization-string-inventory.csv`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已将 `Views/SplitAudioPage.xaml`、`SplitAudioWorkspaceViewModel`、`SplitAudioProgressState`、拆音结果卡片 / 预览卡与 `AudioSeparationWorkflowService`、`SplitAudioExecutionCoordinator`、`DemucsExecutionPlanner`、`DemucsRuntimeService` 的拆音模块私有文案统一迁移为 `splitAudio.*` 语言 key，补齐 `split-audio.json` 双语资源，接入可重算运行态消息与本地化异常解析，并修复框架依赖烟测下的运行时路径解析，保证拆音页运行中和热切换时不继续持有旧语言字符串。
-- 本轮修改文件：`Core/Models/AudioSeparationProgress.cs`、`Core/Models/DemucsExecutionPlan.cs`、`Core/Models/LocalizedExceptions.cs`、`Resources/Localization/zh-CN/split-audio.json`、`Resources/Localization/en-US/split-audio.json`、`Services/AudioSeparationWorkflowService.cs`、`Services/Demucs/DemucsExecutionPlanner.cs`、`Services/Demucs/DemucsRuntimeService.cs`、`Utils/AppCompositionRoot.cs`、`Utils/ApplicationPaths.cs`、`ViewModels/SplitAudioExecutionCoordinator.cs`、`ViewModels/SplitAudioInputState.cs`、`ViewModels/SplitAudioProgressState.cs`、`ViewModels/SplitAudioWorkspacePreferencesState.cs`、`ViewModels/SplitAudioWorkspaceViewModel.cs`、`ViewModels/SplitAudioWorkspaceViewModel.Preview.cs`、`Views/SplitAudioPage.xaml`、`Views/Controls/SplitAudioStemPreviewCard.xaml`、`Views/Controls/SplitAudioStemPreviewCard.xaml.cs`、`tests/SplitAudioOfflineSmoke/Program.cs`、`docs/localization-agent-rollout-plan.md`、`docs/localization-key-registry.md`、`docs/localization-validation-log.md`
-- 本轮新增文件：`Core/Models/LocalizedExceptions.cs`
-- 本轮验证结果：`dotnet build .\\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；`Resources/Localization/zh-CN/split-audio.json` 与 `Resources/Localization/en-US/split-audio.json` key 对齐校验通过，双语均为 `120` 个 key；`powershell -ExecutionPolicy Bypass -File .\\scripts\\test-split-audio-offline.ps1 -RepoRoot .` 通过，CPU 音频烟测与 GPU 优先视频烟测均通过；启动 `bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\Vidvix.exe` 持续运行超过 `10` 秒，`MainWindowHandle` 为 `20317592`，进程保持响应，未出现黑屏、白屏或闪退；随后通过 UI Automation 在 `SplitAudioWorkspaceToggle` + `SettingsLanguageComboBox` 上完成拆音页与设置页文案 `请导入文件或拖拽到此处 -> Import a file or drag it here -> 请导入文件或拖拽到此处`、`界面语言 -> Display language -> 界面语言` 的往返热切换验证。
-- 当前遗留问题：`split-audio` 模块本轮范围内的页面层、状态层与服务层直达用户的 `P0 / P1` 文案已按计划收口；服务层不再保留拆音用户可见直写中文，后续仅按总计划进入 `R8` 的 `terminal` / `media-details`，不回头扩大 `split-audio` 范围。
-- 下一轮必须处理：执行 `R8`，迁移 `terminal` 与 `media-details` 的私有页面文案，并沿用本轮拆音模块已经验证通过的 resolver 化运行态刷新与 UI 热切换验证方式。
-- 下一轮禁止扩展：不要回头扩大 `split-audio` 模块范围；不要提前触碰 `merge` 模块私有页面文案，`R8` 只处理 `terminal` 与 `media-details`。
+- 本轮完成项：已将终端区与媒体详情浮层的私有页面 / 状态 / 服务层用户可见文案统一迁移为 `terminal.*` 与 `mediaDetails.*` 语言 key，补齐 `terminal.json`、`media-details.json` 双语资源，接入终端运行态失败原因 resolver 刷新与详情浮层重建刷新链路，保证当前页在语言切换后不继续持有旧语言字符串。
+- 本轮修改文件：`Core/Models/TerminalCommandExecutionResult.cs`、`Resources/Localization/zh-CN/terminal.json`、`Resources/Localization/en-US/terminal.json`、`Resources/Localization/zh-CN/media-details.json`、`Resources/Localization/en-US/media-details.json`、`Services/FFmpeg/FFmpegTerminalService.cs`、`Services/MediaInfo/MediaInfoService.Formatting.cs`、`Services/MediaInfo/MediaInfoService.Models.cs`、`Services/MediaInfo/MediaInfoService.Probe.cs`、`Services/MediaInfo/MediaInfoService.Snapshot.cs`、`Services/MediaInfo/MediaInfoService.cs`、`Utils/AppCompositionRoot.cs`、`ViewModels/MainViewModel.Copy.cs`、`ViewModels/MainViewModel.Details.cs`、`ViewModels/MainViewModel.Localization.cs`、`ViewModels/MainViewModel.cs`、`ViewModels/MediaDetailPanelViewModel.cs`、`ViewModels/TerminalOutputEntryViewModel.cs`、`ViewModels/TerminalWorkspaceViewModel.cs`、`Views/MainWindow.xaml`、`docs/localization-agent-rollout-plan.md`、`docs/localization-key-registry.md`、`docs/localization-validation-log.md`
+- 本轮新增文件：`None`
+- 本轮验证结果：`dotnet build .\\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；`Resources/Localization/zh-CN/terminal.json` 与 `Resources/Localization/en-US/terminal.json` key 对齐校验通过，双语均为 `30` 个 key；`Resources/Localization/zh-CN/media-details.json` 与 `Resources/Localization/en-US/media-details.json` key 对齐校验通过，双语均为 `72` 个 key；终端与媒体详情代码引用 key 扫描结果为 `102` 个引用、`0` 个缺失；临时运行态烟测 `dotnet run -c Debug --project %TEMP%\\VidvixR8Smoke\\VidvixR8Smoke.csproj` 通过，确认终端已有输出项与媒体详情打开态在 `zh-CN -> en-US -> zh-CN` 往返切换下可即时刷新；启动 `bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\Vidvix.exe` 前台持续运行并保持响应，`MainWindowHandle` 为 `330182`，前台截图可见主窗口壳层与拆音页入口，未出现黑屏、白屏或闪退。
+- 当前遗留问题：`terminal` / `media-details` 模块本轮范围内的 `P0 / P1` 用户可见文案已按计划收口，`R8` 无新增阻塞项。
+- 下一轮必须处理：执行 `R9`，仅迁移合并模块状态层与模式层文案，优先处理 `MergeViewModel` 状态摘要、轨道空态、模式切换提示与 `MergeWorkspaceModeState`。
+- 下一轮禁止扩展：不要提前触碰 `Views/MergePage.xaml` 的主界面文案，那部分留给 `R10`；也不要回头扩大 `terminal`、`media-details`、`trim`、`split-audio` 范围。
 
 ## 执行协议
 
@@ -230,7 +230,7 @@ splitAudio.progress.step = 正在处理第 {index} / {total} 项
 | R5 | Stage 2 | 主窗口外壳与公共进度区迁移 | Completed | Codex | 2026-04-20 | ~~未开始~~ 已完成主窗口外壳、待处理队列、输出目录与公共进度 / 结果日志文案迁移，并补齐 `mainWindow.*` 的 shell、message、processingContext、transcoding key。 |
 | R6 | Stage 2 | 裁剪模块迁移 | Completed | Codex | 2026-04-21 | ~~未开始~~ 已完成裁剪模块页面层、预览层与工作流层文案迁移，并补齐导出进度、导入校验、smart trim 回退与运行时热切换刷新链路。 |
 | R7 | Stage 2 | 拆音模块迁移 | Completed | Codex | 2026-04-21 | ~~未开始~~ 已完成拆音页、运行态状态、结果卡片与服务层用户可见文案迁移，补齐 `splitAudio.*` 双语资源、Demucs 运行时回退消息与拆音页往返热切换验证。 |
-| R8 | Stage 2 | 终端与媒体详情迁移 | Pending | Unassigned | Not Recorded | 未开始 |
+| R8 | Stage 2 | 终端与媒体详情迁移 | Completed | Codex | 2026-04-21 | ~~未开始~~ 已完成终端页与媒体详情浮层文案迁移，补齐 `terminal.*` / `mediaDetails.*` 双语资源、终端失败原因 resolver 刷新与详情浮层重建刷新链路；构建、运行态往返热切换烟测与前台启动截图验证通过。 |
 | R9 | Stage 2 | 合并模块状态层迁移 | Pending | Unassigned | Not Recorded | 未开始 |
 | R10 | Stage 2 | 合并模块界面层迁移 | Pending | Unassigned | Not Recorded | 未开始 |
 | R11 | Stage 3 | 残余文案清理与英语补齐 | Pending | Unassigned | Not Recorded | 未开始 |

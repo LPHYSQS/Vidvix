@@ -187,9 +187,12 @@ public sealed partial class MainViewModel
         RefreshLocalizedTextProperties();
         RefreshDesktopShortcutNotificationText();
         RefreshWorkspaceLocalization();
+        DetailPanel.RefreshLocalization();
         TrimWorkspace.RefreshLocalization();
         MergeWorkspace.RefreshLocalization();
         SplitAudioWorkspace.RefreshLocalization();
+        TerminalWorkspace.RefreshLocalization();
+        RefreshMediaDetailsLocalization();
         LocalizationRefreshRequested?.Invoke();
     }
 

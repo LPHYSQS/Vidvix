@@ -8,7 +8,7 @@ namespace Vidvix.Services.MediaInfo;
 
 public sealed partial class MediaInfoService
 {
-    private static MediaDetailsSnapshot BuildSnapshot(MediaCacheContext cacheContext, FfprobeResponse probeResult, ResolvedStreamBitrates resolvedBitrates)
+    private MediaDetailsSnapshot BuildSnapshot(MediaCacheContext cacheContext, FfprobeResponse probeResult, ResolvedStreamBitrates resolvedBitrates)
     {
         var format = probeResult.format;
         var streams = probeResult.streams ?? Array.Empty<FfprobeStream>();
@@ -47,51 +47,61 @@ public sealed partial class MediaInfoService
         var audioBitrateText = audioMissing ? MissingAudioStreamValue : FormatBitrate(resolvedBitrates.AudioBitrateText);
         var overviewFields = new List<MediaDetailField>
         {
-            new() { Label = "文件名", Value = cacheContext.FileName },
-            new() { Label = "时长", Value = FormatDuration(mediaDurationSeconds) },
-            new() { Label = "总码率", Value = FormatBitrate(format?.bit_rate) },
-            new() { Label = "封装格式", Value = FormatContainer(format?.format_long_name, format?.format_name) },
-            new() { Label = "字幕轨道", Value = subtitleCount > 0 ? $"{subtitleCount} 条" : "未检测到字幕轨道" }
+            CreateField("mediaDetails.field.fileName", "文件名", cacheContext.FileName),
+            CreateField("mediaDetails.field.duration", "时长", FormatDuration(mediaDurationSeconds)),
+            CreateField("mediaDetails.field.totalBitrate", "总码率", FormatBitrate(format?.bit_rate)),
+            CreateField("mediaDetails.field.container", "封装格式", FormatContainer(format?.format_long_name, format?.format_name)),
+            CreateField(
+                "mediaDetails.field.subtitleTracks",
+                "字幕轨道",
+                subtitleCount > 0
+                    ? FormatLocalizedText(
+                        "mediaDetails.overview.value.subtitleCount",
+                        $"{subtitleCount} 条",
+                        ("count", subtitleCount))
+                    : GetLocalizedText(
+                        "mediaDetails.overview.value.noSubtitleTracks",
+                        "未检测到字幕轨道"))
         };
 
         if (!videoMissing)
         {
-            overviewFields.Insert(2, new MediaDetailField { Label = "分辨率", Value = resolutionText });
+            overviewFields.Insert(2, CreateField("mediaDetails.field.resolution", "分辨率", resolutionText));
         }
 
         var videoFields = videoMissing
             ? Array.Empty<MediaDetailField>()
             : new[]
             {
-                new MediaDetailField { Label = "编码", Value = FormatCodec(videoStream?.codec_name) },
-                new MediaDetailField { Label = "规格 / 级别", Value = videoProfileLevel },
-                new MediaDetailField { Label = "分辨率", Value = resolutionText },
-                new MediaDetailField { Label = "帧率", Value = FormatFrameRate(videoStream?.avg_frame_rate, videoStream?.r_frame_rate) },
-                new MediaDetailField { Label = "视频码率", Value = videoBitrateText },
-                new MediaDetailField { Label = "色深", Value = FormatBitDepth(videoStream?.bits_per_raw_sample, videoStream?.pix_fmt) },
-                new MediaDetailField { Label = "像素格式", Value = NormalizeValue(videoStream?.pix_fmt) },
-                new MediaDetailField { Label = "色彩空间", Value = NormalizeValue(videoStream?.color_space) },
-                new MediaDetailField { Label = "色域", Value = NormalizeValue(videoStream?.color_primaries) },
-                new MediaDetailField { Label = "HDR 类型", Value = hdrType }
+                CreateField("mediaDetails.field.codec", "编码", FormatCodec(videoStream?.codec_name)),
+                CreateField("mediaDetails.field.profileLevel", "规格 / 级别", videoProfileLevel),
+                CreateField("mediaDetails.field.resolution", "分辨率", resolutionText),
+                CreateField("mediaDetails.field.frameRate", "帧率", FormatFrameRate(videoStream?.avg_frame_rate, videoStream?.r_frame_rate)),
+                CreateField("mediaDetails.field.videoBitrate", "视频码率", videoBitrateText),
+                CreateField("mediaDetails.field.bitDepth", "色深", FormatBitDepth(videoStream?.bits_per_raw_sample, videoStream?.pix_fmt)),
+                CreateField("mediaDetails.field.pixelFormat", "像素格式", NormalizeValue(videoStream?.pix_fmt)),
+                CreateField("mediaDetails.field.colorSpace", "色彩空间", NormalizeValue(videoStream?.color_space)),
+                CreateField("mediaDetails.field.colorPrimaries", "色域", NormalizeValue(videoStream?.color_primaries)),
+                CreateField("mediaDetails.field.hdrType", "HDR 类型", hdrType)
             };
 
         var audioFields = audioMissing
             ? Array.Empty<MediaDetailField>()
             : new[]
             {
-                new MediaDetailField { Label = "编码", Value = FormatCodec(audioStream?.codec_name) },
-                new MediaDetailField { Label = "声道", Value = FormatChannels(audioStream?.channel_layout, audioStream?.channels) },
-                new MediaDetailField { Label = "采样率", Value = FormatSampleRate(audioStream?.sample_rate) },
-                new MediaDetailField { Label = "音频码率", Value = audioBitrateText }
+                CreateField("mediaDetails.field.codec", "编码", FormatCodec(audioStream?.codec_name)),
+                CreateField("mediaDetails.field.channelLayout", "声道", FormatChannels(audioStream?.channel_layout, audioStream?.channels)),
+                CreateField("mediaDetails.field.sampleRate", "采样率", FormatSampleRate(audioStream?.sample_rate)),
+                CreateField("mediaDetails.field.audioBitrate", "音频码率", audioBitrateText)
             };
 
         var advancedFields = videoMissing
             ? Array.Empty<MediaDetailField>()
             : new[]
             {
-                new MediaDetailField { Label = "色度抽样", Value = DeriveChromaSubsampling(videoStream?.pix_fmt) },
-                new MediaDetailField { Label = "传输特性", Value = NormalizeValue(videoStream?.color_transfer) },
-                new MediaDetailField { Label = "编码器标记", Value = encoderTag }
+                CreateField("mediaDetails.field.chromaSubsampling", "色度抽样", DeriveChromaSubsampling(videoStream?.pix_fmt)),
+                CreateField("mediaDetails.field.transferCharacteristic", "传输特性", NormalizeValue(videoStream?.color_transfer)),
+                CreateField("mediaDetails.field.encoderTag", "编码器标记", encoderTag)
             };
 
         return new MediaDetailsSnapshot
@@ -296,4 +306,11 @@ public sealed partial class MediaInfoService
     private static bool IsAttachedPictureStream(FfprobeStream stream) =>
         IsVideoStream(stream) &&
         stream.disposition?.attached_pic == 1;
+
+    private MediaDetailField CreateField(string key, string fallback, string value) =>
+        new()
+        {
+            Label = GetLocalizedText(key, fallback),
+            Value = value
+        };
 }

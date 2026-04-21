@@ -77,3 +77,14 @@
 - 热切换验证：通过 UI Automation 在 `SplitAudioWorkspaceToggle` 与 `SettingsLanguageComboBox` 上完成拆音页和设置页往返采样，确认 `请导入文件或拖拽到此处 -> Import a file or drag it here -> 请导入文件或拖拽到此处`、`界面语言 -> Display language -> 界面语言`、`当前语言：简体中文 -> Current language: English (United States) -> 当前语言：简体中文` 可在运行时即时刷新，无需重启应用。
 - 刷新链路验证：`SplitAudioWorkspaceViewModel.RefreshLocalization()` 已联动重建输入摘要、进度快照、结果卡片按钮与完成 / 失败状态；`SplitAudioExecutionCoordinator` 现通过 failure reason resolver 保持异常原因可重算，`AudioSeparationWorkflowService`、`DemucsExecutionPlanner`、`DemucsRuntimeService` 已直接注入 `ILocalizationService` 与本地化异常封装，因此运行中切换语言不会继续持有旧语言错误字符串。
 - 回归补记：本轮顺带修复 `ApplicationPaths` 在 `dotnet xxx.dll` 框架依赖宿主下错误解析到 `dotnet.exe` 目录的问题；修复后离线拆音烟测能够稳定定位 Demucs 启动脚本与运行时资源。
+
+## R8 · 2026-04-21 17:49
+
+- 轮次范围：终端与媒体详情迁移，仅处理 `TerminalWorkspaceViewModel`、`TerminalOutputEntryViewModel`、`FFmpegTerminalService`、`MediaInfoService` 家族、`MainViewModel` 详情 / 复制 / 本地化接线，以及 `Views/MainWindow.xaml` 中媒体详情浮层与终端区的私有文案，不扩展到 `merge` 模块。
+- 构建命令：`dotnet build .\Vidvix.sln -c Debug -v minimal`
+- 构建结果：通过，`0` 警告，`0` 错误。
+- 资源验证：`Resources/Localization/zh-CN/terminal.json` 与 `Resources/Localization/en-US/terminal.json` key 对齐校验通过，双语均为 `30` 个 key；`Resources/Localization/zh-CN/media-details.json` 与 `Resources/Localization/en-US/media-details.json` key 对齐校验通过，双语均为 `72` 个 key；终端与媒体详情代码引用扫描结果为 `102` 个 key 引用、`0` 个缺失。
+- 运行态往返热切换烟测：一次性临时项目 `dotnet run -c Debug --project %TEMP%\VidvixR8Smoke\VidvixR8Smoke.csproj` 通过，确认终端已有输出项的 source / status / failure line 与媒体详情打开态的 section title / field label 在 `zh-CN -> en-US -> zh-CN` 往返切换下均可即时重算，无需重启应用。
+- 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行，`MainWindowHandle` 为 `330182`，进程保持响应；前台截图 `C:\Users\30106\AppData\Local\Temp\vidvix-r8-foreground.png` 可见主窗口壳层与拆音页入口，未出现黑屏、白屏或闪退。
+- 刷新链路验证：`TerminalWorkspaceViewModel.RefreshLocalization()` 已联动刷新现有 `OutputEntries`，`TerminalCommandExecutionResult` 现持有 failure reason resolver，因此“已拒绝 / 已取消 / 退出码 / 运行时不可用”等输出行不再锁定旧语言；`MediaInfoService` 以 probe 原始结果重建快照，`MainViewModel.RefreshMediaDetailsLocalization()` 与 `MediaDetailPanelViewModel.RefreshLocalization()` 会在详情浮层打开态下同步刷新节标题、字段标签和复制反馈。
+- 回归补记：本轮额外修复终端结果模型只保存静态失败文本导致的热切换残留问题，并将取消结果重新落到输出流中；终端页与详情浮层在现有内容已渲染的状态下都能正确跟随语言切换刷新。

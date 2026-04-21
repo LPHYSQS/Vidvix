@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using Microsoft.UI.Xaml;
+using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Utils;
 
@@ -11,22 +12,23 @@ namespace Vidvix.ViewModels;
 
 public sealed class MediaDetailPanelViewModel : ObservableObject
 {
-    private static readonly string[] AudioOverviewExcludedLabels = ["\u5206\u8fa8\u7387"];
-
-    private string _headerTitle = "\u5a92\u4f53\u8be6\u60c5";
-    private string _headerSubtitle = "\u70b9\u51fb\u961f\u5217\u4e2d\u7684\u8be6\u60c5\u6309\u94ae\u67e5\u770b\u5a92\u4f53\u4fe1\u606f\u3002";
+    private readonly ILocalizationService _localizationService;
+    private string _headerTitle = string.Empty;
+    private string _headerSubtitle = string.Empty;
     private string _currentInputPath = string.Empty;
     private string _errorMessage = string.Empty;
     private bool _isOpen;
     private bool _isLoading;
     private ProcessingWorkspaceKind _workspaceKind = ProcessingWorkspaceKind.Video;
 
-    public MediaDetailPanelViewModel()
+    public MediaDetailPanelViewModel(ILocalizationService localizationService)
     {
+        _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
         OverviewFields = new ObservableCollection<MediaDetailField>();
         VideoFields = new ObservableCollection<MediaDetailField>();
         AudioFields = new ObservableCollection<MediaDetailField>();
         AdvancedFields = new ObservableCollection<MediaDetailField>();
+        ApplyDefaultHeaderText();
     }
 
     public ObservableCollection<MediaDetailField> OverviewFields { get; }
@@ -116,6 +118,39 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
 
     public Visibility AudioOverviewVisibility => GetFieldsVisibility(GetAudioOverviewFields());
 
+    public string BackButtonText =>
+        GetLocalizedText("mediaDetails.action.back", "返回");
+
+    public string CopyAllButtonText =>
+        GetLocalizedText("mediaDetails.action.copyAll", "复制全部");
+
+    public string CopyButtonText =>
+        GetLocalizedText("mediaDetails.action.copy", "复制");
+
+    public string CopyToastFallbackText =>
+        GetLocalizedText("mediaDetails.copy.feedback.default", "已复制");
+
+    public string LoadingText =>
+        GetLocalizedText("mediaDetails.state.loading", "正在解析媒体信息...");
+
+    public string ErrorTitleText =>
+        GetLocalizedText("mediaDetails.state.error", "无法解析");
+
+    public string OverviewSectionTitle =>
+        GetLocalizedText("mediaDetails.section.overview", "概览");
+
+    public string VideoInfoSectionTitle =>
+        GetLocalizedText("mediaDetails.section.video", "视频信息");
+
+    public string AudioInfoSectionTitle =>
+        GetLocalizedText("mediaDetails.section.audio", "音频信息");
+
+    public string AdvancedSectionTitle =>
+        GetLocalizedText("mediaDetails.section.advanced", "高级信息");
+
+    public string AudioOverviewSectionTitle =>
+        GetLocalizedText("mediaDetails.section.audioOverview", "音频概览");
+
     public string OverviewSummaryText => FormatFields(OverviewFields);
 
     public string VideoSummaryText => FormatFields(VideoFields);
@@ -157,7 +192,7 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
         if (parameter is null or "All")
         {
             text = BuildAllCopyText();
-            feedbackMessage = "已复制全部详情";
+            feedbackMessage = GetLocalizedText("mediaDetails.copy.feedback.all", "已复制全部详情");
             return !string.IsNullOrWhiteSpace(text);
         }
 
@@ -167,7 +202,10 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
         }
 
         text = BuildSectionCopyText(title, fields);
-        feedbackMessage = $"已复制{title}";
+        feedbackMessage = FormatLocalizedText(
+            "mediaDetails.copy.feedback.section",
+            $"已复制{title}",
+            ("section", title));
         return !string.IsNullOrWhiteSpace(text);
     }
 
@@ -227,6 +265,24 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
         IsOpen = false;
     }
 
+    public void RefreshLocalization()
+    {
+        if (!IsOpen && string.IsNullOrWhiteSpace(CurrentInputPath))
+        {
+            ApplyDefaultHeaderText();
+        }
+
+        NotifyLocalizationChanged();
+        NotifySummaryTextChanged();
+        NotifyStateVisualsChanged();
+    }
+
+    private void ApplyDefaultHeaderText()
+    {
+        HeaderTitle = GetLocalizedText("mediaDetails.header.title", "媒体详情");
+        HeaderSubtitle = GetLocalizedText("mediaDetails.header.subtitle", "点击队列中的详情按钮查看媒体信息。");
+    }
+
     private void ClearAllFields()
     {
         OverviewFields.Clear();
@@ -261,8 +317,8 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
     {
         var builder = new StringBuilder();
 
-        AppendLineIfPresent(builder, $"文件名：{HeaderTitle}");
-        AppendLineIfPresent(builder, $"文件路径：{HeaderSubtitle}");
+        AppendLineIfPresent(builder, $"{GetLocalizedText("mediaDetails.copy.field.fileName", "文件名")}：{HeaderTitle}");
+        AppendLineIfPresent(builder, $"{GetLocalizedText("mediaDetails.copy.field.filePath", "文件路径")}：{HeaderSubtitle}");
 
         if (builder.Length > 0)
         {
@@ -271,15 +327,15 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
 
         if (_workspaceKind == ProcessingWorkspaceKind.Video)
         {
-            AppendSection(builder, "概览", OverviewFields);
-            AppendSection(builder, "视频信息", VideoFields);
-            AppendSection(builder, "音频信息", AudioFields);
-            AppendSection(builder, "高级信息", AdvancedFields);
+            AppendSection(builder, OverviewSectionTitle, OverviewFields);
+            AppendSection(builder, VideoInfoSectionTitle, VideoFields);
+            AppendSection(builder, AudioInfoSectionTitle, AudioFields);
+            AppendSection(builder, AdvancedSectionTitle, AdvancedFields);
         }
         else
         {
-            AppendSection(builder, "音频概览", GetAudioOverviewFields());
-            AppendSection(builder, "音频信息", AudioFields);
+            AppendSection(builder, AudioOverviewSectionTitle, GetAudioOverviewFields());
+            AppendSection(builder, AudioInfoSectionTitle, AudioFields);
         }
 
         return builder.ToString().Trim();
@@ -324,26 +380,26 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
         switch (parameter)
         {
             case "Overview" when OverviewFields.Count > 0:
-                title = "概览";
+                title = OverviewSectionTitle;
                 fields = OverviewFields.ToArray();
                 return true;
             case "Video" when VideoFields.Count > 0:
-                title = "视频信息";
+                title = VideoInfoSectionTitle;
                 fields = VideoFields.ToArray();
                 return true;
             case "Audio" when AudioFields.Count > 0:
-                title = "音频信息";
+                title = AudioInfoSectionTitle;
                 fields = AudioFields.ToArray();
                 return true;
             case "Advanced" when AdvancedFields.Count > 0:
-                title = "高级信息";
+                title = AdvancedSectionTitle;
                 fields = AdvancedFields.ToArray();
                 return true;
             case "AudioOverview":
                 var audioOverviewFields = GetAudioOverviewFields();
                 if (audioOverviewFields.Count > 0)
                 {
-                    title = "音频概览";
+                    title = AudioOverviewSectionTitle;
                     fields = audioOverviewFields;
                     return true;
                 }
@@ -391,10 +447,36 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
         OnPropertyChanged(nameof(AudioOverviewVisibility));
     }
 
-    private IReadOnlyList<MediaDetailField> GetAudioOverviewFields() =>
-        OverviewFields
-            .Where(field => !AudioOverviewExcludedLabels.Contains(field.Label, StringComparer.Ordinal))
+    private void NotifyLocalizationChanged()
+    {
+        OnPropertyChanged(nameof(BackButtonText));
+        OnPropertyChanged(nameof(CopyAllButtonText));
+        OnPropertyChanged(nameof(CopyButtonText));
+        OnPropertyChanged(nameof(CopyToastFallbackText));
+        OnPropertyChanged(nameof(LoadingText));
+        OnPropertyChanged(nameof(ErrorTitleText));
+        OnPropertyChanged(nameof(OverviewSectionTitle));
+        OnPropertyChanged(nameof(VideoInfoSectionTitle));
+        OnPropertyChanged(nameof(AudioInfoSectionTitle));
+        OnPropertyChanged(nameof(AdvancedSectionTitle));
+        OnPropertyChanged(nameof(AudioOverviewSectionTitle));
+    }
+
+    private IReadOnlyList<MediaDetailField> GetAudioOverviewFields()
+    {
+        var excludedLabels = GetAudioOverviewExcludedLabels();
+        return OverviewFields
+            .Where(field => !excludedLabels.Contains(field.Label))
             .ToArray();
+    }
+
+    private HashSet<string> GetAudioOverviewExcludedLabels() =>
+        new(StringComparer.Ordinal)
+        {
+            GetLocalizedText("mediaDetails.field.resolution", "分辨率"),
+            "分辨率",
+            "Resolution"
+        };
 
     private Visibility GetFieldsVisibility(IEnumerable<MediaDetailField> fields)
     {
@@ -419,5 +501,25 @@ public sealed class MediaDetailPanelViewModel : ObservableObject
         _workspaceKind = workspaceKind;
         NotifyStateVisualsChanged();
         NotifySummaryTextChanged();
+    }
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
+
+    private string FormatLocalizedText(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments)
+    {
+        if (arguments.Length == 0)
+        {
+            return GetLocalizedText(key, fallback);
+        }
+
+        var localizedArguments = arguments.ToDictionary(
+            argument => argument.Name,
+            argument => argument.Value,
+            StringComparer.Ordinal);
+        return _localizationService.Format(key, localizedArguments, fallback);
     }
 }

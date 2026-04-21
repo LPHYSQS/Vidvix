@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.UI.Xaml;
 using Vidvix.Utils;
 
@@ -10,6 +12,9 @@ public sealed class TerminalOutputEntryViewModel : ObservableObject
     private string _statusText;
     private string _commandText;
     private string _outputText;
+    private Func<string>? _sourceNameResolver;
+    private Func<string>? _statusTextResolver;
+    private readonly List<OutputLineSegment> _outputLineSegments = new();
 
     public TerminalOutputEntryViewModel(
         string sourceName,
@@ -23,6 +28,11 @@ public sealed class TerminalOutputEntryViewModel : ObservableObject
         _statusText = statusText?.Trim() ?? string.Empty;
         _commandText = commandText?.Trim() ?? string.Empty;
         _outputText = outputText?.Trim() ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(_outputText))
+        {
+            _outputLineSegments.Add(OutputLineSegment.ForRawText(_outputText));
+        }
     }
 
     public string SourceName
@@ -103,10 +113,22 @@ public sealed class TerminalOutputEntryViewModel : ObservableObject
         string.IsNullOrWhiteSpace(OutputText) ? Visibility.Collapsed : Visibility.Visible;
 
     public void SetSourceName(string sourceName) =>
-        SourceName = sourceName?.Trim() ?? string.Empty;
+        ApplySourceName(sourceName?.Trim() ?? string.Empty, null);
 
     public void SetStatusText(string statusText) =>
-        StatusText = statusText?.Trim() ?? string.Empty;
+        ApplyStatusText(statusText?.Trim() ?? string.Empty, null);
+
+    public void SetSourceNameResolver(Func<string> sourceNameResolver)
+    {
+        ArgumentNullException.ThrowIfNull(sourceNameResolver);
+        ApplySourceName(sourceNameResolver(), sourceNameResolver);
+    }
+
+    public void SetStatusTextResolver(Func<string> statusTextResolver)
+    {
+        ArgumentNullException.ThrowIfNull(statusTextResolver);
+        ApplyStatusText(statusTextResolver(), statusTextResolver);
+    }
 
     public void SetCommandText(string commandText) =>
         CommandText = commandText?.Trim() ?? string.Empty;
@@ -119,8 +141,85 @@ public sealed class TerminalOutputEntryViewModel : ObservableObject
             return;
         }
 
-        OutputText = string.IsNullOrWhiteSpace(OutputText)
-            ? line
-            : OutputText + Environment.NewLine + line;
+        _outputLineSegments.Add(OutputLineSegment.ForRawText(line));
+        RefreshOutputText();
+    }
+
+    public void AppendLocalizedOutputLine(Func<string> lineResolver)
+    {
+        ArgumentNullException.ThrowIfNull(lineResolver);
+
+        var line = lineResolver().TrimEnd();
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return;
+        }
+
+        _outputLineSegments.Add(OutputLineSegment.ForResolver(lineResolver));
+        RefreshOutputText();
+    }
+
+    public void RefreshLocalization()
+    {
+        if (_sourceNameResolver is not null)
+        {
+            SourceName = _sourceNameResolver();
+        }
+
+        if (_statusTextResolver is not null)
+        {
+            StatusText = _statusTextResolver();
+        }
+
+        if (_outputLineSegments.Count > 0)
+        {
+            RefreshOutputText();
+        }
+    }
+
+    private void ApplySourceName(string sourceName, Func<string>? sourceNameResolver)
+    {
+        _sourceNameResolver = sourceNameResolver;
+        SourceName = sourceName;
+    }
+
+    private void ApplyStatusText(string statusText, Func<string>? statusTextResolver)
+    {
+        _statusTextResolver = statusTextResolver;
+        StatusText = statusText;
+    }
+
+    private void RefreshOutputText()
+    {
+        var lines = _outputLineSegments
+            .Select(segment => segment.Resolve())
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
+
+        OutputText = lines.Length == 0
+            ? string.Empty
+            : string.Join(Environment.NewLine, lines);
+    }
+
+    private sealed class OutputLineSegment
+    {
+        private OutputLineSegment(string text, Func<string>? resolver)
+        {
+            Text = text;
+            Resolver = resolver;
+        }
+
+        public string Text { get; }
+
+        public Func<string>? Resolver { get; }
+
+        public static OutputLineSegment ForRawText(string text) =>
+            new(text, null);
+
+        public static OutputLineSegment ForResolver(Func<string> resolver) =>
+            new(resolver(), resolver);
+
+        public string Resolve() =>
+            (Resolver?.Invoke() ?? Text).TrimEnd();
     }
 }

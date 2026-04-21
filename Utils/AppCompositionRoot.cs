@@ -105,10 +105,10 @@ public sealed class AppCompositionRoot
         var packageSource = new FFmpegPackageSource(Configuration, Logger);
         var runtimeService = new FFmpegRuntimeService(Configuration, packageSource, Logger);
         var ffmpegService = new FFmpegService(Logger);
-        var terminalService = new FFmpegTerminalService(Configuration, runtimeService, Logger);
+        var terminalService = new FFmpegTerminalService(Configuration, runtimeService, localizationService, Logger);
         var ffmpegVideoAccelerationService = new FFmpegVideoAccelerationService(ffmpegService, localizationService, Logger);
         var demucsRuntimeService = new DemucsRuntimeService(Configuration, localizationService, Logger);
-        var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
+        var mediaInfoService = new MediaInfoService(runtimeService, Configuration, localizationService, Logger);
         var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
         var trimVideoPreviewService = new MpvVideoPreviewService(Configuration, windowContext, Logger);
         var splitAudioPreviewService = new MpvVideoPreviewService(Configuration, windowContext, Logger);
@@ -249,7 +249,7 @@ public sealed class AppCompositionRoot
     }
 
     private TerminalWorkspaceViewModel CreateTerminalWorkspaceViewModel(AppMediaRuntimeServices mediaRuntime) =>
-        new(Configuration, mediaRuntime.TerminalService);
+        new(Configuration, _localizationService, mediaRuntime.TerminalService);
 
     private SplitAudioWorkspaceViewModel CreateSplitAudioWorkspaceViewModel(
         AppInfrastructureServices infrastructure,

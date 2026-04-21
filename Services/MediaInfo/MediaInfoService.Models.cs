@@ -5,6 +5,11 @@ namespace Vidvix.Services.MediaInfo;
 
 public sealed partial class MediaInfoService
 {
+    private readonly record struct CachedMediaDetails(
+        MediaCacheContext CacheContext,
+        FfprobeResponse ProbeResult,
+        ResolvedStreamBitrates ResolvedBitrates);
+
     private readonly record struct ResolvedStreamBitrates(
         string? VideoBitrateText,
         string? AudioBitrateText);

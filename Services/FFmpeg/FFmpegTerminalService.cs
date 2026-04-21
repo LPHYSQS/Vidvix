@@ -29,16 +29,19 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
 
     private readonly ApplicationConfiguration _configuration;
     private readonly IFFmpegRuntimeService _runtimeService;
+    private readonly ILocalizationService _localizationService;
     private readonly ILogger _logger;
 
     public FFmpegTerminalService(
         ApplicationConfiguration configuration,
         IFFmpegRuntimeService runtimeService,
+        ILocalizationService localizationService,
         ILogger logger)
     {
-        _configuration = configuration;
-        _runtimeService = runtimeService;
-        _logger = logger;
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _runtimeService = runtimeService ?? throw new ArgumentNullException(nameof(runtimeService));
+        _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task<TerminalCommandExecutionResult> ExecuteAsync(
@@ -48,7 +51,13 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
     {
         if (string.IsNullOrWhiteSpace(commandText))
         {
-            return TerminalCommandExecutionResult.Failed(string.Empty, "请输入 FFmpeg、FFprobe 或 FFplay 命令。");
+            var emptyCommandMessage = CreateLocalizedText(
+                "terminal.error.emptyCommand",
+                "请输入 FFmpeg、FFprobe 或 FFplay 命令。");
+            return TerminalCommandExecutionResult.Failed(
+                string.Empty,
+                emptyCommandMessage.Text,
+                failureReasonResolver: emptyCommandMessage.Resolver);
         }
 
         IReadOnlyList<string> tokens;
@@ -60,20 +69,37 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
         catch (Exception exception)
         {
             _logger.Log(LogLevel.Warning, "解析终端命令失败。", exception);
-            return TerminalCommandExecutionResult.Failed(commandText.Trim(), "命令格式无法解析，请检查引号和参数是否完整。");
+            var parseFailedMessage = CreateLocalizedText(
+                "terminal.error.parseFailed",
+                "命令格式无法解析，请检查引号和参数是否完整。");
+            return TerminalCommandExecutionResult.Failed(
+                commandText.Trim(),
+                parseFailedMessage.Text,
+                failureReasonResolver: parseFailedMessage.Resolver);
         }
 
         if (tokens.Count == 0)
         {
-            return TerminalCommandExecutionResult.Failed(commandText.Trim(), "请输入 FFmpeg、FFprobe 或 FFplay 命令。");
+            var emptyCommandMessage = CreateLocalizedText(
+                "terminal.error.emptyCommand",
+                "请输入 FFmpeg、FFprobe 或 FFplay 命令。");
+            return TerminalCommandExecutionResult.Failed(
+                commandText.Trim(),
+                emptyCommandMessage.Text,
+                failureReasonResolver: emptyCommandMessage.Resolver);
         }
 
         var requestedExecutable = tokens[0];
         if (!AllowedExecutables.TryGetValue(requestedExecutable, out var executableAlias))
         {
+            var unsupportedCommandMessage = CreateLocalizedText(
+                "terminal.error.unsupportedCommand",
+                "仅支持 ffmpeg、ffprobe、ffplay 三个内置命令，不能执行其他 CMD 或系统命令。");
             return TerminalCommandExecutionResult.Failed(
                 commandText.Trim(),
-                "仅支持 ffmpeg、ffprobe、ffplay 三个内置命令，不能执行其他 CMD 或系统命令。");
+                unsupportedCommandMessage.Text,
+                wasRejected: true,
+                failureReasonResolver: unsupportedCommandMessage.Resolver);
         }
 
         var displayCommandText = BuildDisplayCommandText(executableAlias, tokens);
@@ -85,9 +111,14 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
 
             if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
             {
+                var missingExecutableMessage = CreateLocalizedText(
+                    "terminal.error.missingExecutable",
+                    $"未找到内置 {executableAlias} 可执行文件。",
+                    ("command", executableAlias));
                 return TerminalCommandExecutionResult.Failed(
                     displayCommandText,
-                    $"未找到内置 {executableAlias} 可执行文件。");
+                    missingExecutableMessage.Text,
+                    failureReasonResolver: missingExecutableMessage.Resolver);
             }
 
             return await ExecuteProcessAsync(
@@ -100,12 +131,26 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return TerminalCommandExecutionResult.Cancelled(displayCommandText);
+            var cancelledMessage = CreateLocalizedText(
+                "terminal.output.message.cancelled",
+                "命令已取消。");
+            return TerminalCommandExecutionResult.Cancelled(
+                displayCommandText,
+                cancelledMessage.Text,
+                cancelledMessage.Resolver);
         }
         catch (Exception exception)
         {
             _logger.Log(LogLevel.Error, $"执行终端命令失败：{displayCommandText}", exception);
-            return TerminalCommandExecutionResult.Failed(displayCommandText, $"执行内置 {executableAlias} 时发生异常：{exception.Message}");
+            var executionExceptionMessage = CreateLocalizedText(
+                "terminal.error.executionException",
+                $"执行内置 {executableAlias} 时发生异常：{exception.Message}",
+                ("command", executableAlias),
+                ("message", exception.Message));
+            return TerminalCommandExecutionResult.Failed(
+                displayCommandText,
+                executionExceptionMessage.Text,
+                failureReasonResolver: executionExceptionMessage.Resolver);
         }
     }
 
@@ -152,7 +197,13 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
         {
             if (!process.Start())
             {
-                return TerminalCommandExecutionResult.Failed(displayCommandText, "内置 FF 命令进程无法启动。");
+                var processStartFailedMessage = CreateLocalizedText(
+                    "terminal.error.processStartFailed",
+                    "内置 FF 命令进程无法启动。");
+                return TerminalCommandExecutionResult.Failed(
+                    displayCommandText,
+                    processStartFailedMessage.Text,
+                    failureReasonResolver: processStartFailedMessage.Resolver);
             }
 
             processId = process.Id;
@@ -171,25 +222,47 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
                         process,
                         processId,
                         _logger,
-                        "终端模块取消命令后，FF 进程在宽限时间内仍未完全退出，已继续返回结果。")
+                        GetLocalizedText(
+                            "terminal.log.cancellationTimeout",
+                            "终端模块取消命令后，FF 进程在宽限时间内仍未完全退出，已继续返回结果。"))
                     .ConfigureAwait(false);
                 await AwaitOutputCompletionAsync(standardOutputClosed.Task, standardErrorClosed.Task).ConfigureAwait(false);
-                return TerminalCommandExecutionResult.Cancelled(displayCommandText);
+                var cancelledMessage = CreateLocalizedText(
+                    "terminal.output.message.cancelled",
+                    "命令已取消。");
+                return TerminalCommandExecutionResult.Cancelled(
+                    displayCommandText,
+                    cancelledMessage.Text,
+                    cancelledMessage.Resolver);
             }
 
             await AwaitOutputCompletionAsync(standardOutputClosed.Task, standardErrorClosed.Task).ConfigureAwait(false);
 
-            return process.ExitCode == 0
-                ? TerminalCommandExecutionResult.Success(displayCommandText, process.ExitCode)
-                : TerminalCommandExecutionResult.Failed(
-                    displayCommandText,
-                    $"内置 FF 命令已退出，返回代码：{process.ExitCode}。",
-                    process.ExitCode);
+            if (process.ExitCode == 0)
+            {
+                return TerminalCommandExecutionResult.Success(displayCommandText, process.ExitCode);
+            }
+
+            var exitCodeMessage = CreateLocalizedText(
+                "terminal.error.exitCode",
+                $"内置 FF 命令已退出，返回代码：{process.ExitCode}。",
+                ("exitCode", process.ExitCode));
+            return TerminalCommandExecutionResult.Failed(
+                displayCommandText,
+                exitCodeMessage.Text,
+                process.ExitCode,
+                failureReasonResolver: exitCodeMessage.Resolver);
         }
         catch (Win32Exception exception)
         {
             _logger.Log(LogLevel.Error, $"启动终端命令失败：{displayCommandText}", exception);
-            return TerminalCommandExecutionResult.Failed(displayCommandText, "内置 FF 命令不可用，请先确认软件运行时已准备完成。");
+            var runtimeUnavailableMessage = CreateLocalizedText(
+                "terminal.error.runtimeUnavailable",
+                "内置 FF 命令不可用，请先确认软件运行时已准备完成。");
+            return TerminalCommandExecutionResult.Failed(
+                displayCommandText,
+                runtimeUnavailableMessage.Text,
+                failureReasonResolver: runtimeUnavailableMessage.Resolver);
         }
     }
 
@@ -325,6 +398,47 @@ public sealed class FFmpegTerminalService : IFFmpegTerminalService
 
     private static async Task AwaitOutputCompletionAsync(Task standardOutputTask, Task standardErrorTask) =>
         await Task.WhenAll(standardOutputTask, standardErrorTask).ConfigureAwait(false);
+
+    private LocalizedTerminalText CreateLocalizedText(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments)
+    {
+        if (arguments.Length == 0)
+        {
+            return new LocalizedTerminalText(
+                GetLocalizedText(key, fallback),
+                () => GetLocalizedText(key, fallback));
+        }
+
+        return new LocalizedTerminalText(
+            FormatLocalizedText(key, fallback, arguments),
+            () => FormatLocalizedText(key, fallback, arguments));
+    }
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
+
+    private string FormatLocalizedText(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments)
+    {
+        if (arguments.Length == 0)
+        {
+            return GetLocalizedText(key, fallback);
+        }
+
+        var localizedArguments = new Dictionary<string, object?>(arguments.Length, StringComparer.Ordinal);
+        foreach (var argument in arguments)
+        {
+            localizedArguments[argument.Name] = argument.Value;
+        }
+
+        return _localizationService.Format(key, localizedArguments, fallback);
+    }
+
+    private readonly record struct LocalizedTerminalText(string Text, Func<string> Resolver);
 
     [DllImport("shell32.dll", SetLastError = true)]
     private static extern IntPtr CommandLineToArgvW(

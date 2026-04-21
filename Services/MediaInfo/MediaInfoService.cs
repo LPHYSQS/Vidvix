@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,10 +15,6 @@ namespace Vidvix.Services.MediaInfo;
 
 public sealed partial class MediaInfoService : IMediaInfoService
 {
-    private const string UnknownValue = "\u672a\u77e5";
-    private const string ParseFailedMessage = "\u65e0\u6cd5\u89e3\u6790\u5f53\u524d\u5a92\u4f53\u6587\u4ef6\u3002";
-    private const string MissingVideoStreamValue = "\u672a\u68c0\u6d4b\u5230\u89c6\u9891\u6d41";
-    private const string MissingAudioStreamValue = "\u672a\u68c0\u6d4b\u5230\u97f3\u9891\u6d41";
     private const string LightweightProbeEntries =
         "format=duration,bit_rate,format_name,format_long_name:format_tags=encoder:" +
         "stream=codec_type,codec_name,profile,level,width,height,avg_frame_rate,r_frame_rate,duration,bit_rate," +
@@ -33,18 +29,21 @@ public sealed partial class MediaInfoService : IMediaInfoService
 
     private readonly IFFmpegRuntimeService _ffmpegRuntimeService;
     private readonly ApplicationConfiguration _configuration;
+    private readonly ILocalizationService _localizationService;
     private readonly ILogger _logger;
-    private readonly ConcurrentDictionary<string, MediaDetailsSnapshot> _cache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, CachedMediaDetails> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, SharedCancelableTask<MediaDetailsLoadResult>> _inFlightRequests = new(StringComparer.OrdinalIgnoreCase);
 
     public MediaInfoService(
         IFFmpegRuntimeService ffmpegRuntimeService,
         ApplicationConfiguration configuration,
+        ILocalizationService localizationService,
         ILogger logger)
     {
-        _ffmpegRuntimeService = ffmpegRuntimeService;
-        _configuration = configuration;
-        _logger = logger;
+        _ffmpegRuntimeService = ffmpegRuntimeService ?? throw new ArgumentNullException(nameof(ffmpegRuntimeService));
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public bool TryGetCachedDetails(string inputPath, out MediaDetailsSnapshot snapshot)
@@ -55,7 +54,17 @@ public sealed partial class MediaInfoService : IMediaInfoService
             return false;
         }
 
-        return _cache.TryGetValue(cacheContext.CacheKey, out snapshot!);
+        if (!_cache.TryGetValue(cacheContext.CacheKey, out var cachedDetails))
+        {
+            snapshot = null!;
+            return false;
+        }
+
+        snapshot = BuildSnapshot(
+            cachedDetails.CacheContext,
+            cachedDetails.ProbeResult,
+            cachedDetails.ResolvedBitrates);
+        return true;
     }
 
     public async Task<MediaDetailsLoadResult> GetMediaDetailsAsync(string inputPath, CancellationToken cancellationToken = default)
@@ -65,9 +74,13 @@ public sealed partial class MediaInfoService : IMediaInfoService
             return MediaDetailsLoadResult.Failure(validationError ?? ParseFailedMessage);
         }
 
-        if (_cache.TryGetValue(cacheContext.CacheKey, out var cachedSnapshot))
+        if (_cache.TryGetValue(cacheContext.CacheKey, out var cachedDetails))
         {
-            return MediaDetailsLoadResult.Success(cachedSnapshot);
+            return MediaDetailsLoadResult.Success(
+                BuildSnapshot(
+                    cachedDetails.CacheContext,
+                    cachedDetails.ProbeResult,
+                    cachedDetails.ResolvedBitrates));
         }
 
         var inFlightLoad = _inFlightRequests.GetOrAdd(
@@ -142,9 +155,13 @@ public sealed partial class MediaInfoService : IMediaInfoService
                     ffprobePath,
                     cacheContext.InputPath,
                     executionResult,
-                    "未找到内置 ffprobe 可执行文件。");
+                    GetLocalizedText(
+                        "mediaDetails.diagnostic.ffprobeMissing",
+                        "未找到内置 ffprobe 可执行文件。"));
                 return MediaDetailsLoadResult.Failure(
-                    "\u672a\u627e\u5230\u5185\u7f6e ffprobe\uff0c\u65e0\u6cd5\u89e3\u6790\u8be5\u89c6\u9891\u6587\u4ef6\u3002",
+                    GetLocalizedText(
+                        "mediaDetails.error.ffprobeMissing",
+                        "未找到内置 ffprobe，无法解析该媒体文件。"),
                     diagnosticDetails,
                     isToolMissing: true);
             }
@@ -167,17 +184,23 @@ public sealed partial class MediaInfoService : IMediaInfoService
                     ffprobePath,
                     cacheContext.InputPath,
                     probeExecutionResult,
-                    "ffprobe 未返回可用输出。");
+                    GetLocalizedText(
+                        "mediaDetails.diagnostic.emptyOutput",
+                        "ffprobe 未返回可用输出。"));
                 _logger.Log(LogLevel.Warning, $"ffprobe \u672a\u8fd4\u56de\u53ef\u7528\u8f93\u51fa\uff1a{cacheContext.InputPath}{Environment.NewLine}{diagnosticDetails}");
                 return MediaDetailsLoadResult.Failure(ParseFailedMessage, diagnosticDetails);
             }
 
             var probeResult = ParseProbeResult(probeExecutionResult.StandardOutput);
             var resolvedBitrates = ResolveStreamBitrates(probeResult);
-            var snapshot = BuildSnapshot(cacheContext, probeResult, resolvedBitrates);
-            _cache[cacheContext.CacheKey] = snapshot;
+            var cachedDetails = new CachedMediaDetails(cacheContext, probeResult, resolvedBitrates);
+            _cache[cacheContext.CacheKey] = cachedDetails;
             RemoveStaleEntries(cacheContext);
-            return MediaDetailsLoadResult.Success(snapshot);
+            return MediaDetailsLoadResult.Success(
+                BuildSnapshot(
+                    cachedDetails.CacheContext,
+                    cachedDetails.ProbeResult,
+                    cachedDetails.ResolvedBitrates));
         }
         catch (OperationCanceledException)
         {
@@ -189,7 +212,10 @@ public sealed partial class MediaInfoService : IMediaInfoService
                 ffprobePath,
                 cacheContext.InputPath,
                 executionResult,
-                $"ffprobe \u8f93\u51fa\u89e3\u6790\u5931\u8d25\uff1a{exception.Message}");
+                FormatLocalizedText(
+                    "mediaDetails.diagnostic.jsonParseFailed",
+                    $"ffprobe 输出解析失败：{exception.Message}",
+                    ("message", exception.Message)));
             _logger.Log(LogLevel.Warning, $"ffprobe \u8f93\u51fa\u89e3\u6790\u5931\u8d25\uff1a{cacheContext.InputPath}{Environment.NewLine}{diagnosticDetails}", exception);
             return MediaDetailsLoadResult.Failure(ParseFailedMessage, diagnosticDetails);
         }
@@ -199,7 +225,10 @@ public sealed partial class MediaInfoService : IMediaInfoService
                 ffprobePath,
                 cacheContext.InputPath,
                 executionResult,
-                $"\u8bfb\u53d6\u5a92\u4f53\u8be6\u60c5\u65f6\u53d1\u751f\u5f02\u5e38\uff1a{exception.Message}");
+                FormatLocalizedText(
+                    "mediaDetails.diagnostic.unexpectedException",
+                    $"读取媒体详情时发生异常：{exception.Message}",
+                    ("message", exception.Message)));
             _logger.Log(LogLevel.Error, $"\u8bfb\u53d6\u5a92\u4f53\u8be6\u60c5\u65f6\u53d1\u751f\u5f02\u5e38\uff1a{cacheContext.InputPath}{Environment.NewLine}{diagnosticDetails}", exception);
             return MediaDetailsLoadResult.Failure(ParseFailedMessage, diagnosticDetails);
         }
@@ -208,12 +237,14 @@ public sealed partial class MediaInfoService : IMediaInfoService
     private string ResolveFfprobePath(string ffmpegExecutablePath)
     {
         var executableDirectory = Path.GetDirectoryName(ffmpegExecutablePath)
-            ?? throw new InvalidOperationException("FFmpeg \u53ef\u6267\u884c\u6587\u4ef6\u8def\u5f84\u65e0\u6548\u3002");
+            ?? throw new InvalidOperationException(GetLocalizedText(
+                "mediaDetails.error.invalidFfmpegPath",
+                "FFmpeg 可执行文件路径无效。"));
 
         return Path.Combine(executableDirectory, _configuration.FFprobeExecutableFileName);
     }
 
-    private static async Task<FfprobeExecutionResult> ExecuteFfprobeAsync(string ffprobePath, string inputPath, CancellationToken cancellationToken)
+    private async Task<FfprobeExecutionResult> ExecuteFfprobeAsync(string ffprobePath, string inputPath, CancellationToken cancellationToken)
     {
         using var process = new Process
         {
@@ -224,7 +255,12 @@ public sealed partial class MediaInfoService : IMediaInfoService
 
         if (!process.Start())
         {
-            return new FfprobeExecutionResult(-1, string.Empty, "ffprobe \u8fdb\u7a0b\u65e0\u6cd5\u542f\u52a8\u3002");
+            return new FfprobeExecutionResult(
+                -1,
+                string.Empty,
+                GetLocalizedText(
+                    "mediaDetails.error.ffprobeStartFailed",
+                    "ffprobe 进程无法启动。"));
         }
 
         processId = process.Id;
@@ -288,7 +324,7 @@ public sealed partial class MediaInfoService : IMediaInfoService
         }
     }
 
-    private static bool TryCreateCacheContext(string inputPath, out MediaCacheContext cacheContext, out string? validationError)
+    private bool TryCreateCacheContext(string inputPath, out MediaCacheContext cacheContext, out string? validationError)
     {
         cacheContext = default;
         validationError = null;
@@ -304,7 +340,9 @@ public sealed partial class MediaInfoService : IMediaInfoService
             var fullPath = Path.GetFullPath(inputPath);
             if (!File.Exists(fullPath))
             {
-                validationError = "\u6587\u4ef6\u4e0d\u5b58\u5728\uff0c\u65e0\u6cd5\u89e3\u6790\u5f53\u524d\u5a92\u4f53\u6587\u4ef6\u3002";
+                validationError = GetLocalizedText(
+                    "mediaDetails.error.fileMissing",
+                    "文件不存在，无法解析当前媒体文件。");
                 return false;
             }
 
@@ -325,4 +363,33 @@ public sealed partial class MediaInfoService : IMediaInfoService
         }
     }
 
+    private string UnknownValue => GetLocalizedText("mediaDetails.common.unknownValue", "未知");
+
+    private string ParseFailedMessage => GetLocalizedText("mediaDetails.error.parseFailed", "无法解析当前媒体文件。");
+
+    private string MissingVideoStreamValue => GetLocalizedText("mediaDetails.video.missingStream", "未检测到视频流");
+
+    private string MissingAudioStreamValue => GetLocalizedText("mediaDetails.audio.missingStream", "未检测到音频流");
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
+
+    private string FormatLocalizedText(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments)
+    {
+        if (arguments.Length == 0)
+        {
+            return GetLocalizedText(key, fallback);
+        }
+
+        var localizedArguments = new Dictionary<string, object?>(arguments.Length, StringComparer.Ordinal);
+        foreach (var argument in arguments)
+        {
+            localizedArguments[argument.Name] = argument.Value;
+        }
+
+        return _localizationService.Format(key, localizedArguments, fallback);
+    }
 }

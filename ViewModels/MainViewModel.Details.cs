@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Models;
@@ -62,7 +63,10 @@ public sealed partial class MainViewModel
             }
 
             DetailPanel.ShowDetails(cachedSnapshot, _selectedWorkspaceKind);
-            StatusMessage = $"已从缓存载入 {item.InputFileName} 的详情。";
+            StatusMessage = FormatLocalizedText(
+                "mediaDetails.status.loadedFromCache",
+                $"已从缓存载入 {item.InputFileName} 的详情。",
+                ("fileName", item.InputFileName));
             NotifyCommandStates();
             return;
         }
@@ -73,7 +77,10 @@ public sealed partial class MainViewModel
         }
 
         DetailPanel.ShowLoading(title, inputPath, _selectedWorkspaceKind);
-        StatusMessage = $"正在解析 {item.InputFileName} 的媒体详情...";
+        StatusMessage = FormatLocalizedText(
+            "mediaDetails.status.loading",
+            $"正在解析 {item.InputFileName} 的媒体详情...",
+            ("fileName", item.InputFileName));
         NotifyCommandStates();
 
         var detailLoadCancellationSource = new CancellationTokenSource();
@@ -97,11 +104,16 @@ public sealed partial class MainViewModel
                 if (result.IsSuccess && result.Snapshot is not null)
                 {
                     DetailPanel.ShowDetails(result.Snapshot, _selectedWorkspaceKind);
-                    StatusMessage = $"媒体详情已加载：{item.InputFileName}";
+                    StatusMessage = FormatLocalizedText(
+                        "mediaDetails.status.loaded",
+                        $"媒体详情已加载：{item.InputFileName}",
+                        ("fileName", item.InputFileName));
                     return;
                 }
 
-                var errorMessage = result.ErrorMessage ?? "无法解析该媒体文件。";
+                var errorMessage = result.ErrorMessage ?? GetLocalizedText(
+                    "mediaDetails.error.unavailable",
+                    "无法解析该媒体文件。");
                 DetailPanel.ShowError(title, inputPath, errorMessage, _selectedWorkspaceKind);
                 StatusMessage = errorMessage;
             });
@@ -192,4 +204,25 @@ public sealed partial class MainViewModel
 
     private bool IsCurrentDetailLoadVersion(int detailLoadVersion) =>
         Volatile.Read(ref _detailLoadVersion) == detailLoadVersion;
+
+    private void RefreshMediaDetailsLocalization()
+    {
+        if (!DetailPanel.IsOpen || string.IsNullOrWhiteSpace(DetailPanel.CurrentInputPath))
+        {
+            return;
+        }
+
+        var currentItem = ImportItems.FirstOrDefault(item =>
+            string.Equals(item.InputPath, DetailPanel.CurrentInputPath, StringComparison.OrdinalIgnoreCase));
+        if (currentItem is not null)
+        {
+            _ = OpenMediaDetailsAsync(currentItem);
+            return;
+        }
+
+        if (_mediaInfoService.TryGetCachedDetails(DetailPanel.CurrentInputPath, out var cachedSnapshot))
+        {
+            DetailPanel.ShowDetails(cachedSnapshot, _selectedWorkspaceKind);
+        }
+    }
 }
