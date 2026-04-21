@@ -23,15 +23,18 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
 
     private readonly ApplicationConfiguration _configuration;
     private readonly IDemucsRuntimeService _demucsRuntimeService;
+    private readonly ILocalizationService _localizationService;
     private readonly ILogger _logger;
 
     public DemucsExecutionPlanner(
         ApplicationConfiguration configuration,
         IDemucsRuntimeService demucsRuntimeService,
+        ILocalizationService localizationService,
         ILogger logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _demucsRuntimeService = demucsRuntimeService ?? throw new ArgumentNullException(nameof(demucsRuntimeService));
+        _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -53,7 +56,9 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
                     accelerationMode,
                     cpuRuntime,
                     launcherScriptPath,
-                    "\u5f53\u524d\u4f7f\u7528 CPU \u6a21\u5f0f\u62c6\u97f3\uff0c\u517c\u5bb9\u6027\u6700\u9ad8\u3002")
+                    CreateLocalizedText(
+                        "splitAudio.executionPlan.cpu.direct",
+                        "\u5f53\u524d\u4f7f\u7528 CPU \u6a21\u5f0f\u62c6\u97f3\uff0c\u517c\u5bb9\u6027\u6700\u9ad8\u3002"))
             };
         }
 
@@ -140,8 +145,12 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
         if (executionPlans.Count == 0)
         {
             var fallbackSummary = encounteredGpuProbeFailure
-                ? "\u5df2\u9009\u62e9 GPU \u4f18\u5148\u6a21\u5f0f\uff0cGPU \u8fd0\u884c\u65f6\u63a2\u6d4b\u5931\u8d25\uff0c\u5df2\u81ea\u52a8\u56de\u9000\u5230 CPU\u3002"
-                : "\u5df2\u9009\u62e9 GPU \u4f18\u5148\u6a21\u5f0f\uff0c\u4f46\u672a\u68c0\u6d4b\u5230\u53ef\u7528\u72ec\u663e\u6216\u6838\u663e\uff0c\u5df2\u81ea\u52a8\u56de\u9000\u5230 CPU\u3002";
+                ? CreateLocalizedText(
+                    "splitAudio.executionPlan.cpu.fallbackAfterGpuProbeFailure",
+                    "\u5df2\u9009\u62e9 GPU \u4f18\u5148\u6a21\u5f0f\uff0cGPU \u8fd0\u884c\u65f6\u63a2\u6d4b\u5931\u8d25\uff0c\u5df2\u81ea\u52a8\u56de\u9000\u5230 CPU\u3002")
+                : CreateLocalizedText(
+                    "splitAudio.executionPlan.cpu.fallbackAfterGpuUnavailable",
+                    "\u5df2\u9009\u62e9 GPU \u4f18\u5148\u6a21\u5f0f\uff0c\u4f46\u672a\u68c0\u6d4b\u5230\u53ef\u7528\u72ec\u663e\u6216\u6838\u663e\uff0c\u5df2\u81ea\u52a8\u56de\u9000\u5230 CPU\u3002");
 
             return new[]
             {
@@ -157,7 +166,9 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
             accelerationMode,
             fallbackCpuRuntime,
             launcherScriptPath,
-            "\u5df2\u9009\u62e9 GPU \u4f18\u5148\u6a21\u5f0f\uff0cGPU \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u81ea\u52a8\u56de\u9000\u5230 CPU\u3002"));
+            CreateLocalizedText(
+                "splitAudio.executionPlan.cpu.fallbackAfterGpuFailure",
+                "\u5df2\u9009\u62e9 GPU \u4f18\u5148\u6a21\u5f0f\uff0cGPU \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u81ea\u52a8\u56de\u9000\u5230 CPU\u3002")));
 
         return executionPlans;
     }
@@ -173,8 +184,14 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
 
         if (!File.Exists(launcherScriptPath))
         {
-            throw new InvalidOperationException(
-                $"Demucs launcher script was not found: {Path.Combine("Tools", _configuration.DemucsDirectoryName, _configuration.DemucsScriptsDirectoryName, _configuration.DemucsRunnerScriptFileName)}");
+            throw CreateLocalizedInvalidOperationException(
+                "splitAudio.planner.launcherMissing",
+                "未找到 Demucs 启动脚本：{path}",
+                ("path", Path.Combine(
+                    "Tools",
+                    _configuration.DemucsDirectoryName,
+                    _configuration.DemucsScriptsDirectoryName,
+                    _configuration.DemucsRunnerScriptFileName)));
         }
 
         return launcherScriptPath;
@@ -208,7 +225,10 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
 
         if (!process.Start())
         {
-            throw new InvalidOperationException($"Demucs probe process could not be started: {probeCommand}");
+            throw CreateLocalizedInvalidOperationException(
+                "splitAudio.planner.probeStartFailed",
+                "Demucs 设备探测进程启动失败：{probeCommand}",
+                ("probeCommand", probeCommand));
         }
 
         processId = process.Id;
@@ -242,16 +262,27 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
                 ? standardError.Trim()
                 : standardOutput.Trim();
 
-            throw new InvalidOperationException(
-                string.IsNullOrWhiteSpace(failureDetail)
-                    ? $"Demucs probe failed with exit code {process.ExitCode}: {probeCommand}"
-                    : $"Demucs probe failed with exit code {process.ExitCode}: {probeCommand}. {failureDetail}");
+            throw string.IsNullOrWhiteSpace(failureDetail)
+                ? CreateLocalizedInvalidOperationException(
+                    "splitAudio.planner.probeFailed.exitCode",
+                    "Demucs 设备探测失败，退出代码 {exitCode}：{probeCommand}",
+                    ("exitCode", process.ExitCode),
+                    ("probeCommand", probeCommand))
+                : CreateLocalizedInvalidOperationException(
+                    "splitAudio.planner.probeFailed.detail",
+                    "Demucs 设备探测失败，退出代码 {exitCode}：{probeCommand}。{detail}",
+                    ("exitCode", process.ExitCode),
+                    ("probeCommand", probeCommand),
+                    ("detail", failureDetail));
         }
 
         var probeResult = JsonSerializer.Deserialize<GenericProbeResult>(standardOutput, SerializerOptions);
         if (probeResult is null)
         {
-            throw new InvalidOperationException($"Demucs probe returned an empty payload: {probeCommand}");
+            throw CreateLocalizedInvalidOperationException(
+                "splitAudio.planner.probeEmptyPayload",
+                "Demucs 设备探测返回了空结果：{probeCommand}",
+                ("probeCommand", probeCommand));
         }
 
         return probeResult;
@@ -367,12 +398,18 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
             _ => 0
         };
 
-    private static string BuildCudaAttemptSummary(string deviceName, int attemptIndex) =>
+    private LocalizedText BuildCudaAttemptSummary(string deviceName, int attemptIndex) =>
         attemptIndex == 0
-            ? $"\u5df2\u68c0\u6d4b\u5230 NVIDIA \u72ec\u7acb\u663e\u5361\uff0c\u5f53\u524d\u5c06\u4f7f\u7528 CUDA \u62c6\u97f3\uff1a{deviceName}\u3002"
-            : $"\u4e0a\u4e00\u5f20 NVIDIA \u72ec\u663e\u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u5207\u6362\u5230\u53e6\u4e00\u5f20\u72ec\u663e\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002";
+            ? CreateLocalizedText(
+                "splitAudio.executionPlan.cuda.first",
+                "\u5df2\u68c0\u6d4b\u5230 NVIDIA \u72ec\u7acb\u663e\u5361\uff0c\u5f53\u524d\u5c06\u4f7f\u7528 CUDA \u62c6\u97f3\uff1a{deviceName}\u3002",
+                ("deviceName", deviceName))
+            : CreateLocalizedText(
+                "splitAudio.executionPlan.cuda.retry",
+                "\u4e0a\u4e00\u5f20 NVIDIA \u72ec\u663e\u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u5207\u6362\u5230\u53e6\u4e00\u5f20\u72ec\u663e\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002",
+                ("deviceName", deviceName));
 
-    private static string BuildDirectMlAttemptSummary(
+    private LocalizedText BuildDirectMlAttemptSummary(
         DemucsExecutionDeviceKind kind,
         string deviceName,
         int attemptIndex,
@@ -381,24 +418,42 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
         if (discoveredCudaDiscreteGpu)
         {
             return kind == DemucsExecutionDeviceKind.IntegratedGpu
-                ? $"\u72ec\u663e CUDA \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u56de\u9000\u5230\u6838\u663e\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002"
-                : $"\u72ec\u663e CUDA \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u5c1d\u8bd5\u5176\u4ed6 DirectML \u8bbe\u5907\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002";
+                ? CreateLocalizedText(
+                    "splitAudio.executionPlan.directml.afterCuda.integrated",
+                    "\u72ec\u663e CUDA \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u56de\u9000\u5230\u6838\u663e\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002",
+                    ("deviceName", deviceName))
+                : CreateLocalizedText(
+                    "splitAudio.executionPlan.directml.afterCuda.other",
+                    "\u72ec\u663e CUDA \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u5c1d\u8bd5\u5176\u4ed6 DirectML \u8bbe\u5907\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002",
+                    ("deviceName", deviceName));
         }
 
         return attemptIndex switch
         {
-            0 when kind == DemucsExecutionDeviceKind.DiscreteGpu =>
-                $"\u5df2\u68c0\u6d4b\u5230\u72ec\u7acb\u663e\u5361\uff0c\u5f53\u524d\u5c06\u4f7f\u7528 DirectML \u62c6\u97f3\uff1a{deviceName}\u3002",
-            0 when kind == DemucsExecutionDeviceKind.IntegratedGpu =>
-                $"\u672a\u68c0\u6d4b\u5230\u53ef\u7528\u72ec\u663e\uff0c\u5df2\u5207\u6362\u4e3a\u6838\u663e\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002",
-            0 =>
-                $"\u5df2\u68c0\u6d4b\u5230\u53ef\u7528 GPU\uff0c\u5f53\u524d\u5c06\u4f7f\u7528 DirectML \u8bbe\u5907\u62c6\u97f3\uff1a{deviceName}\u3002",
-            _ when kind == DemucsExecutionDeviceKind.DiscreteGpu =>
-                $"\u4e0a\u4e00\u5f20 GPU \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u5207\u6362\u5230\u53e6\u4e00\u5f20\u72ec\u663e\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002",
-            _ when kind == DemucsExecutionDeviceKind.IntegratedGpu =>
-                $"\u4e0a\u4e00\u5f20 GPU \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u56de\u9000\u5230\u6838\u663e\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002",
-            _ =>
-                $"\u4e0a\u4e00\u5f20 GPU \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u5c1d\u8bd5\u5176\u4ed6 GPU \u8bbe\u5907\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002"
+            0 when kind == DemucsExecutionDeviceKind.DiscreteGpu => CreateLocalizedText(
+                "splitAudio.executionPlan.directml.first.discrete",
+                "\u5df2\u68c0\u6d4b\u5230\u72ec\u7acb\u663e\u5361\uff0c\u5f53\u524d\u5c06\u4f7f\u7528 DirectML \u62c6\u97f3\uff1a{deviceName}\u3002",
+                ("deviceName", deviceName)),
+            0 when kind == DemucsExecutionDeviceKind.IntegratedGpu => CreateLocalizedText(
+                "splitAudio.executionPlan.directml.first.integrated",
+                "\u672a\u68c0\u6d4b\u5230\u53ef\u7528\u72ec\u663e\uff0c\u5df2\u5207\u6362\u4e3a\u6838\u663e\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002",
+                ("deviceName", deviceName)),
+            0 => CreateLocalizedText(
+                "splitAudio.executionPlan.directml.first.generic",
+                "\u5df2\u68c0\u6d4b\u5230\u53ef\u7528 GPU\uff0c\u5f53\u524d\u5c06\u4f7f\u7528 DirectML \u8bbe\u5907\u62c6\u97f3\uff1a{deviceName}\u3002",
+                ("deviceName", deviceName)),
+            _ when kind == DemucsExecutionDeviceKind.DiscreteGpu => CreateLocalizedText(
+                "splitAudio.executionPlan.directml.retry.discrete",
+                "\u4e0a\u4e00\u5f20 GPU \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u5207\u6362\u5230\u53e6\u4e00\u5f20\u72ec\u663e\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002",
+                ("deviceName", deviceName)),
+            _ when kind == DemucsExecutionDeviceKind.IntegratedGpu => CreateLocalizedText(
+                "splitAudio.executionPlan.directml.retry.integrated",
+                "\u4e0a\u4e00\u5f20 GPU \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u56de\u9000\u5230\u6838\u663e\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002",
+                ("deviceName", deviceName)),
+            _ => CreateLocalizedText(
+                "splitAudio.executionPlan.directml.retry.generic",
+                "\u4e0a\u4e00\u5f20 GPU \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u5c1d\u8bd5\u5176\u4ed6 GPU \u8bbe\u5907\u7ee7\u7eed\u62c6\u97f3\uff1a{deviceName}\u3002",
+                ("deviceName", deviceName))
         };
     }
 
@@ -406,7 +461,7 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
         DemucsAccelerationMode requestedAccelerationMode,
         DemucsRuntimeResolution runtimeResolution,
         string launcherScriptPath,
-        string resolutionSummary) =>
+        LocalizedText resolutionSummary) =>
         new()
         {
             RequestedAccelerationMode = requestedAccelerationMode,
@@ -414,7 +469,8 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
             DeviceDisplayName = "CPU",
             DeviceArgument = "cpu",
             LauncherScriptPath = launcherScriptPath,
-            ResolutionSummary = resolutionSummary,
+            ResolutionSummary = resolutionSummary.Text,
+            ResolutionSummaryResolver = resolutionSummary.Resolver,
             RuntimeResolution = runtimeResolution
         };
 
@@ -425,7 +481,7 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
         DemucsExecutionDeviceKind deviceKind,
         string deviceName,
         string deviceArgument,
-        string resolutionSummary) =>
+        LocalizedText resolutionSummary) =>
         new()
         {
             RequestedAccelerationMode = requestedAccelerationMode,
@@ -433,9 +489,46 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
             DeviceDisplayName = deviceName,
             DeviceArgument = deviceArgument,
             LauncherScriptPath = launcherScriptPath,
-            ResolutionSummary = resolutionSummary,
+            ResolutionSummary = resolutionSummary.Text,
+            ResolutionSummaryResolver = resolutionSummary.Resolver,
             RuntimeResolution = runtimeResolution
         };
+
+    private LocalizedText CreateLocalizedText(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments) =>
+        new(
+            FormatLocalizedText(key, fallback, arguments),
+            () => FormatLocalizedText(key, fallback, arguments));
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
+
+    private LocalizedInvalidOperationException CreateLocalizedInvalidOperationException(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments) =>
+        new(() => FormatLocalizedText(key, fallback, arguments));
+
+    private string FormatLocalizedText(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments)
+    {
+        if (arguments.Length == 0)
+        {
+            return GetLocalizedText(key, fallback);
+        }
+
+        var localizedArguments = arguments.ToDictionary(
+            argument => argument.Name,
+            argument => argument.Value,
+            StringComparer.Ordinal);
+        return _localizationService.Format(key, localizedArguments, fallback);
+    }
+
+    private readonly record struct LocalizedText(string Text, Func<string> Resolver);
 
     private sealed class GenericProbeResult
     {

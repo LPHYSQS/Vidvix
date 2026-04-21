@@ -7,11 +7,11 @@
 - 计划版本：`v2`
 - 项目：`Vidvix`
 - 当前阶段：`Stage 2`
-- 当前轮次：`R6`
-- 当前状态：`Completed`
-- 当前执行 Agent：`Codex`
-- 最近完成轮次：`R6`
-- 最近完成时间：`2026-04-21 13:26`
+- 当前轮次：`R8`
+- 当前状态：`Pending`
+- 当前执行 Agent：`Unassigned`
+- 最近完成轮次：`R7`
+- 最近完成时间：`2026-04-21 14:58`
 - 构建验证：`Passed`
 - 热切换验证：`Passed`
 - 字符串盘点产物：`docs/localization-string-inventory.csv`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已将 `Views/Controls/VideoTrimWorkspaceView.xaml`、`VideoTrimWorkspaceViewModel`、预览子流程与 `TrimWorkflowService` / `VideoTrimWorkflowService` 的裁剪模块私有文案统一迁移为 `trim.*` 语言 key，补齐导出进度、预览失败、smart trim 回退、导入校验与媒体信息区的热切换刷新链路，并修复空导入请求的安全兜底与未完成的导出进度实现缺口。
-- 本轮修改文件：`Resources/Localization/zh-CN/trim.json`、`Resources/Localization/en-US/trim.json`、`Services/TrimWorkflowService.cs`、`Services/VideoTrimWorkflowService.cs`、`Services/VideoTrimWorkflowService.SmartTrim.cs`、`Utils/AppCompositionRoot.cs`、`ViewModels/VideoTrimWorkspaceViewModel.cs`、`ViewModels/VideoTrimWorkspaceViewModel.Preview.cs`、`Views/Controls/VideoTrimWorkspaceView.xaml`、`Views/Controls/VideoTrimWorkspaceView.xaml.cs`、`docs/localization-agent-rollout-plan.md`、`docs/localization-key-registry.md`、`docs/localization-validation-log.md`
-- 本轮新增文件：`None`
-- 本轮验证结果：`dotnet build .\\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；启动 `bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\Vidvix.exe` 持续运行超过 `10` 秒，`MainWindowHandle` 为 `6227994`，进程保持响应，未出现黑屏、白屏或闪退；随后通过 UI 自动化在 `TrimWorkspaceToggle` + `SettingsLanguageComboBox` 上完成裁剪页占位文案 `请导入文件或拖拽到此处开始裁剪 -> Import a file or drag it here to start trimming -> 请导入文件或拖拽到此处开始裁剪` 的往返热切换验证。
-- 当前遗留问题：`trim` 模块本轮 `P0 / P1` 用户可见文案已按计划收口；后续仍按总计划推进 `split-audio`、`terminal` / `media-details` 与 `merge` 页面私有文案迁移，不回头扩大 `trim` 范围。
-- 下一轮必须处理：执行 `R7`，迁移拆音模块私有页面文案，并沿用本轮在裁剪模块中已经验证通过的运行态消息刷新和服务层本地化注入模式。
-- 下一轮禁止扩展：不要回头扩大 `trim` 模块范围；不要提前触碰 `merge`、`terminal`、`media-details` 的私有页面文案，`R7` 只处理 `split-audio`。
+- 本轮完成项：已将 `Views/SplitAudioPage.xaml`、`SplitAudioWorkspaceViewModel`、`SplitAudioProgressState`、拆音结果卡片 / 预览卡与 `AudioSeparationWorkflowService`、`SplitAudioExecutionCoordinator`、`DemucsExecutionPlanner`、`DemucsRuntimeService` 的拆音模块私有文案统一迁移为 `splitAudio.*` 语言 key，补齐 `split-audio.json` 双语资源，接入可重算运行态消息与本地化异常解析，并修复框架依赖烟测下的运行时路径解析，保证拆音页运行中和热切换时不继续持有旧语言字符串。
+- 本轮修改文件：`Core/Models/AudioSeparationProgress.cs`、`Core/Models/DemucsExecutionPlan.cs`、`Core/Models/LocalizedExceptions.cs`、`Resources/Localization/zh-CN/split-audio.json`、`Resources/Localization/en-US/split-audio.json`、`Services/AudioSeparationWorkflowService.cs`、`Services/Demucs/DemucsExecutionPlanner.cs`、`Services/Demucs/DemucsRuntimeService.cs`、`Utils/AppCompositionRoot.cs`、`Utils/ApplicationPaths.cs`、`ViewModels/SplitAudioExecutionCoordinator.cs`、`ViewModels/SplitAudioInputState.cs`、`ViewModels/SplitAudioProgressState.cs`、`ViewModels/SplitAudioWorkspacePreferencesState.cs`、`ViewModels/SplitAudioWorkspaceViewModel.cs`、`ViewModels/SplitAudioWorkspaceViewModel.Preview.cs`、`Views/SplitAudioPage.xaml`、`Views/Controls/SplitAudioStemPreviewCard.xaml`、`Views/Controls/SplitAudioStemPreviewCard.xaml.cs`、`tests/SplitAudioOfflineSmoke/Program.cs`、`docs/localization-agent-rollout-plan.md`、`docs/localization-key-registry.md`、`docs/localization-validation-log.md`
+- 本轮新增文件：`Core/Models/LocalizedExceptions.cs`
+- 本轮验证结果：`dotnet build .\\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；`Resources/Localization/zh-CN/split-audio.json` 与 `Resources/Localization/en-US/split-audio.json` key 对齐校验通过，双语均为 `120` 个 key；`powershell -ExecutionPolicy Bypass -File .\\scripts\\test-split-audio-offline.ps1 -RepoRoot .` 通过，CPU 音频烟测与 GPU 优先视频烟测均通过；启动 `bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\Vidvix.exe` 持续运行超过 `10` 秒，`MainWindowHandle` 为 `20317592`，进程保持响应，未出现黑屏、白屏或闪退；随后通过 UI Automation 在 `SplitAudioWorkspaceToggle` + `SettingsLanguageComboBox` 上完成拆音页与设置页文案 `请导入文件或拖拽到此处 -> Import a file or drag it here -> 请导入文件或拖拽到此处`、`界面语言 -> Display language -> 界面语言` 的往返热切换验证。
+- 当前遗留问题：`split-audio` 模块本轮范围内的页面层、状态层与服务层直达用户的 `P0 / P1` 文案已按计划收口；服务层不再保留拆音用户可见直写中文，后续仅按总计划进入 `R8` 的 `terminal` / `media-details`，不回头扩大 `split-audio` 范围。
+- 下一轮必须处理：执行 `R8`，迁移 `terminal` 与 `media-details` 的私有页面文案，并沿用本轮拆音模块已经验证通过的 resolver 化运行态刷新与 UI 热切换验证方式。
+- 下一轮禁止扩展：不要回头扩大 `split-audio` 模块范围；不要提前触碰 `merge` 模块私有页面文案，`R8` 只处理 `terminal` 与 `media-details`。
 
 ## 执行协议
 
@@ -229,7 +229,7 @@ splitAudio.progress.step = 正在处理第 {index} / {total} 项
 | R4 | Stage 2 | 公共配置与集中式文案迁移 | Completed | Codex | 2026-04-20 | ~~未开始~~ 已完成集中式配置文案迁移，并修复主窗口视频 / 音频目标格式首次启动空白显示。 |
 | R5 | Stage 2 | 主窗口外壳与公共进度区迁移 | Completed | Codex | 2026-04-20 | ~~未开始~~ 已完成主窗口外壳、待处理队列、输出目录与公共进度 / 结果日志文案迁移，并补齐 `mainWindow.*` 的 shell、message、processingContext、transcoding key。 |
 | R6 | Stage 2 | 裁剪模块迁移 | Completed | Codex | 2026-04-21 | ~~未开始~~ 已完成裁剪模块页面层、预览层与工作流层文案迁移，并补齐导出进度、导入校验、smart trim 回退与运行时热切换刷新链路。 |
-| R7 | Stage 2 | 拆音模块迁移 | Pending | Unassigned | Not Recorded | 未开始 |
+| R7 | Stage 2 | 拆音模块迁移 | Completed | Codex | 2026-04-21 | ~~未开始~~ 已完成拆音页、运行态状态、结果卡片与服务层用户可见文案迁移，补齐 `splitAudio.*` 双语资源、Demucs 运行时回退消息与拆音页往返热切换验证。 |
 | R8 | Stage 2 | 终端与媒体详情迁移 | Pending | Unassigned | Not Recorded | 未开始 |
 | R9 | Stage 2 | 合并模块状态层迁移 | Pending | Unassigned | Not Recorded | 未开始 |
 | R10 | Stage 2 | 合并模块界面层迁移 | Pending | Unassigned | Not Recorded | 未开始 |

@@ -14,15 +14,18 @@ namespace Vidvix.Services.Demucs;
 public sealed class DemucsRuntimeService : IDemucsRuntimeService
 {
     private readonly ApplicationConfiguration _configuration;
+    private readonly ILocalizationService _localizationService;
     private readonly ILogger _logger;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
     private readonly Dictionary<DemucsRuntimeVariant, DemucsRuntimeResolution> _cachedResolutions = new();
 
     public DemucsRuntimeService(
         ApplicationConfiguration configuration,
+        ILocalizationService localizationService,
         ILogger logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -56,8 +59,15 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
                 var runtimeArchivePath = GetBundledRuntimeArchivePath(runtimeVariant);
                 if (!File.Exists(runtimeArchivePath))
                 {
-                    throw new InvalidOperationException(
-                        $"未找到离线 Demucs {GetRuntimeVariantDisplayName(runtimeVariant)} 运行时包，请补齐 {Path.Combine("Tools", _configuration.DemucsDirectoryName, _configuration.DemucsPackagesDirectoryName, GetRuntimeArchiveFileName(runtimeVariant))}。");
+                    throw CreateLocalizedInvalidOperationException(
+                        "splitAudio.runtime.missingRuntimePackage",
+                        "未找到离线 Demucs {runtimeVariant} 运行时包，请补齐 {packagePath}。",
+                        ("runtimeVariant", GetRuntimeVariantDisplayName(runtimeVariant)),
+                        ("packagePath", Path.Combine(
+                            "Tools",
+                            _configuration.DemucsDirectoryName,
+                            _configuration.DemucsPackagesDirectoryName,
+                            GetRuntimeArchiveFileName(runtimeVariant))));
                 }
 
                 runtimeRootPath = await ExtractRuntimeArchiveAsync(
@@ -73,8 +83,15 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
                 var modelArchivePath = GetBundledModelArchivePath();
                 if (!File.Exists(modelArchivePath))
                 {
-                    throw new InvalidOperationException(
-                        $"未找到 Demucs 模型仓，请补齐 {Path.Combine("Tools", _configuration.DemucsDirectoryName, _configuration.DemucsModelsDirectoryName)} 或 {Path.Combine("Tools", _configuration.DemucsDirectoryName, _configuration.DemucsPackagesDirectoryName, _configuration.DemucsModelArchiveFileName)}。");
+                    throw CreateLocalizedInvalidOperationException(
+                        "splitAudio.runtime.missingModelRepository",
+                        "未找到 Demucs 模型仓，请补齐 {modelPath} 或 {archivePath}。",
+                        ("modelPath", Path.Combine("Tools", _configuration.DemucsDirectoryName, _configuration.DemucsModelsDirectoryName)),
+                        ("archivePath", Path.Combine(
+                            "Tools",
+                            _configuration.DemucsDirectoryName,
+                            _configuration.DemucsPackagesDirectoryName,
+                            _configuration.DemucsModelArchiveFileName)));
                 }
 
                 modelRepositoryPath = await ExtractModelArchiveAsync(
@@ -85,7 +102,9 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
             }
 
             var pythonExecutablePath = FindRuntimeExecutablePath(runtimeRootPath)
-                ?? throw new InvalidOperationException("Demucs 运行时目录中缺少 python.exe。");
+                ?? throw CreateLocalizedInvalidOperationException(
+                    "splitAudio.runtime.missingPythonExecutable",
+                    "Demucs 运行时目录中缺少 python.exe。");
 
             return CacheResolution(
                 runtimeVariant,
@@ -169,7 +188,9 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
                 .ConfigureAwait(false);
 
             var extractedRuntimeRootPath = ResolveExtractedRuntimeRootPath(stagingDirectoryPath)
-                ?? throw new InvalidOperationException("Demucs 运行时包中缺少 python.exe。");
+                ?? throw CreateLocalizedInvalidOperationException(
+                    "splitAudio.runtime.invalidRuntimePackage",
+                    "Demucs 运行时包中缺少 python.exe。");
 
             var targetRuntimeRootPath = GetExtractedRuntimeRootPath(storageRootPath, runtimeVariant);
             if (Directory.Exists(targetRuntimeRootPath))
@@ -210,7 +231,9 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
                 .ConfigureAwait(false);
 
             var extractedModelRepositoryPath = FindModelRepositoryPath(stagingDirectoryPath)
-                ?? throw new InvalidOperationException("Demucs 模型包缺少 htdemucs_ft 所需文件。");
+                ?? throw CreateLocalizedInvalidOperationException(
+                    "splitAudio.runtime.invalidModelPackage",
+                    "Demucs 模型包缺少 htdemucs_ft 所需文件。");
 
             var targetModelRootPath = GetExtractedModelRootPath(storageRootPath);
             if (Directory.Exists(targetModelRootPath))
@@ -416,4 +439,30 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
             DemucsRuntimeVariant.DirectMl => "DirectML",
             _ => "CPU"
         };
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
+
+    private LocalizedInvalidOperationException CreateLocalizedInvalidOperationException(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments) =>
+        new(() => FormatLocalizedText(key, fallback, arguments));
+
+    private string FormatLocalizedText(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments)
+    {
+        if (arguments.Length == 0)
+        {
+            return GetLocalizedText(key, fallback);
+        }
+
+        var localizedArguments = arguments.ToDictionary(
+            argument => argument.Name,
+            argument => argument.Value,
+            StringComparer.Ordinal);
+        return _localizationService.Format(key, localizedArguments, fallback);
+    }
 }

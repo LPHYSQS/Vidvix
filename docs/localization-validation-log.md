@@ -65,3 +65,15 @@
 - 刷新链路验证：`VideoTrimWorkspaceViewModel.RefreshLocalization()` 现已联动重建裁剪策略选项、媒体信息字段、预览覆盖文案与导出进度状态；`TrimWorkflowService` / `VideoTrimWorkflowService` 已直接注入 `ILocalizationService`，因此服务层导入 / 导出消息不会继续保留单语言缓存。
 - 热切换验证：通过 UI 自动化在 `TrimWorkspaceToggle` 与 `SettingsLanguageComboBox` 上完成裁剪页占位文案往返采样，确认 `请导入文件或拖拽到此处开始裁剪 -> Import a file or drag it here to start trimming -> 请导入文件或拖拽到此处开始裁剪` 可在运行时即时刷新，无需重启应用。
 - 回归补记：本轮顺带修复了裁剪导出进度实现中遗漏的 `ShowExportFinishingProgress()` 缺口，并为“空导入请求”补上安全拒绝消息，避免异常路径再次触发隐藏崩溃点。
+
+## R7 · 2026-04-21 14:58
+
+- 轮次范围：拆音模块迁移，仅处理 `Views/SplitAudioPage.xaml`、`SplitAudioWorkspaceViewModel`、拆音结果卡片 / 预览卡，以及 `AudioSeparationWorkflowService`、`SplitAudioExecutionCoordinator`、`DemucsExecutionPlanner`、`DemucsRuntimeService` 直接暴露到拆音页的私有文案，不扩展到 `terminal`、`media-details`、`merge`。
+- 构建命令：`dotnet build .\Vidvix.sln -c Debug -v minimal`
+- 构建结果：通过，`0` 警告，`0` 错误。
+- 资源验证：`Resources/Localization/zh-CN/split-audio.json` 与 `Resources/Localization/en-US/split-audio.json` key 对齐校验通过，双语均为 `120` 个 key，未发现缺失项。
+- 离线烟测：`powershell -ExecutionPolicy Bypass -File .\scripts\test-split-audio-offline.ps1 -RepoRoot .` 通过；CPU 音频烟测与 GPU 优先视频烟测均完成，日志最终输出 `Offline smoke regression passed.`。
+- 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行超过 `10` 秒，`MainWindowHandle` 为 `20317592`，进程保持响应，未出现黑屏、白屏或闪退。
+- 热切换验证：通过 UI Automation 在 `SplitAudioWorkspaceToggle` 与 `SettingsLanguageComboBox` 上完成拆音页和设置页往返采样，确认 `请导入文件或拖拽到此处 -> Import a file or drag it here -> 请导入文件或拖拽到此处`、`界面语言 -> Display language -> 界面语言`、`当前语言：简体中文 -> Current language: English (United States) -> 当前语言：简体中文` 可在运行时即时刷新，无需重启应用。
+- 刷新链路验证：`SplitAudioWorkspaceViewModel.RefreshLocalization()` 已联动重建输入摘要、进度快照、结果卡片按钮与完成 / 失败状态；`SplitAudioExecutionCoordinator` 现通过 failure reason resolver 保持异常原因可重算，`AudioSeparationWorkflowService`、`DemucsExecutionPlanner`、`DemucsRuntimeService` 已直接注入 `ILocalizationService` 与本地化异常封装，因此运行中切换语言不会继续持有旧语言错误字符串。
+- 回归补记：本轮顺带修复 `ApplicationPaths` 在 `dotnet xxx.dll` 框架依赖宿主下错误解析到 `dotnet.exe` 目录的问题；修复后离线拆音烟测能够稳定定位 Demucs 启动脚本与运行时资源。

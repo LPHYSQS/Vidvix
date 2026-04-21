@@ -108,8 +108,12 @@ internal sealed class SplitAudioWorkspacePreferencesState
 
     public string GetAccelerationModeStatusMessage() =>
         SelectedAccelerationMode.Mode == DemucsAccelerationMode.GpuPreferred
-            ? "已切换为 GPU 优先模式，将按独显 -> 核显 -> CPU 的顺序尝试拆音。"
-            : "已切换为 CPU 兼容模式，本次拆音将固定使用 CPU。";
+            ? GetLocalizedText(
+                "splitAudio.status.acceleration.gpuPreferred",
+                "已切换为 GPU 优先模式，将按独显 -> 核显 -> CPU 的顺序尝试拆音。")
+            : GetLocalizedText(
+                "splitAudio.status.acceleration.cpu",
+                "已切换为 CPU 兼容模式，本次拆音将固定使用 CPU。");
 
     private void PersistPreferences()
     {
@@ -160,4 +164,7 @@ internal sealed class SplitAudioWorkspacePreferencesState
         _logger.Log(LogLevel.Warning, "检测到无效的拆音输出目录配置，已回退为原文件夹输出。");
         return string.Empty;
     }
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
 }

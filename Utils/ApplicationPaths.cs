@@ -53,6 +53,13 @@ public static class ApplicationPaths
 
     private static string ResolveExecutableDirectoryPath()
     {
+        var runtimeBaseDirectory = AppContext.BaseDirectory;
+        if (!string.IsNullOrWhiteSpace(runtimeBaseDirectory) &&
+            Directory.Exists(runtimeBaseDirectory))
+        {
+            return Path.GetFullPath(runtimeBaseDirectory);
+        }
+
         var executablePath = ResolveExecutablePath();
         if (Directory.Exists(executablePath))
         {

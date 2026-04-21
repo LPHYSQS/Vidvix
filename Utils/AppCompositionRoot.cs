@@ -107,7 +107,7 @@ public sealed class AppCompositionRoot
         var ffmpegService = new FFmpegService(Logger);
         var terminalService = new FFmpegTerminalService(Configuration, runtimeService, Logger);
         var ffmpegVideoAccelerationService = new FFmpegVideoAccelerationService(ffmpegService, localizationService, Logger);
-        var demucsRuntimeService = new DemucsRuntimeService(Configuration, Logger);
+        var demucsRuntimeService = new DemucsRuntimeService(Configuration, localizationService, Logger);
         var mediaInfoService = new MediaInfoService(runtimeService, Configuration, Logger);
         var videoThumbnailService = new VideoThumbnailService(runtimeService, ffmpegService, Configuration, Logger);
         var trimVideoPreviewService = new MpvVideoPreviewService(Configuration, windowContext, Logger);
@@ -137,6 +137,7 @@ public sealed class AppCompositionRoot
         var demucsExecutionPlanner = new DemucsExecutionPlanner(
             Configuration,
             mediaRuntime.DemucsRuntimeService,
+            localizationService,
             Logger);
         var mediaProcessingWorkflowService = new MediaProcessingWorkflowService(
             Configuration,
@@ -156,6 +157,7 @@ public sealed class AppCompositionRoot
             mediaProcessingCommandFactory,
             commandBuilder,
             demucsExecutionPlanner,
+            localizationService,
             Logger);
         var mergeMediaAnalysisService = new MergeMediaAnalysisService(
             mediaRuntime.MediaInfoService,

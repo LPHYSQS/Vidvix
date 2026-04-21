@@ -34,6 +34,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
     private readonly IMediaProcessingCommandFactory _mediaProcessingCommandFactory;
     private readonly IFFmpegCommandBuilder _commandBuilder;
     private readonly IDemucsExecutionPlanner _demucsExecutionPlanner;
+    private readonly ILocalizationService _localizationService;
     private readonly ILogger _logger;
 
     public AudioSeparationWorkflowService(
@@ -44,6 +45,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         IMediaProcessingCommandFactory mediaProcessingCommandFactory,
         IFFmpegCommandBuilder commandBuilder,
         IDemucsExecutionPlanner demucsExecutionPlanner,
+        ILocalizationService localizationService,
         ILogger logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -53,6 +55,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         _mediaProcessingCommandFactory = mediaProcessingCommandFactory ?? throw new ArgumentNullException(nameof(mediaProcessingCommandFactory));
         _commandBuilder = commandBuilder ?? throw new ArgumentNullException(nameof(commandBuilder));
         _demucsExecutionPlanner = demucsExecutionPlanner ?? throw new ArgumentNullException(nameof(demucsExecutionPlanner));
+        _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -64,7 +67,10 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
         if (!File.Exists(request.InputPath))
         {
-            throw new FileNotFoundException("未找到待拆音的输入文件。", request.InputPath);
+            throw CreateLocalizedFileNotFoundException(
+                "splitAudio.error.inputFileMissing",
+                "未找到待拆音的输入文件。",
+                request.InputPath);
         }
 
         var startedAt = DateTimeOffset.UtcNow;
@@ -94,11 +100,23 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
             ReportProgress(
                 request.Progress,
-                "运行策略",
+                GetLocalizedText("splitAudio.progress.stage.strategy", "运行策略"),
                 request.AccelerationMode == DemucsAccelerationMode.GpuPreferred
-                    ? "已选择 GPU 优先模式，正在检测独显与核显..."
-                    : "已选择 CPU 模式，正在准备 Demucs 运行时...",
-                0.15d);
+                    ? GetLocalizedText(
+                        "splitAudio.progress.detail.strategy.gpuPreferred",
+                        "已选择 GPU 优先模式，正在检测独显与核显...")
+                    : GetLocalizedText(
+                        "splitAudio.progress.detail.strategy.cpu",
+                        "已选择 CPU 模式，正在准备 Demucs 运行时..."),
+                0.15d,
+                () => GetLocalizedText("splitAudio.progress.stage.strategy", "运行策略"),
+                request.AccelerationMode == DemucsAccelerationMode.GpuPreferred
+                    ? () => GetLocalizedText(
+                        "splitAudio.progress.detail.strategy.gpuPreferred",
+                        "已选择 GPU 优先模式，正在检测独显与核显...")
+                    : () => GetLocalizedText(
+                        "splitAudio.progress.detail.strategy.cpu",
+                        "已选择 CPU 模式，正在准备 Demucs 运行时..."));
 
             var executionPlans = await _demucsExecutionPlanner
                 .ResolveExecutionPlansAsync(request.AccelerationMode, cancellationToken)
@@ -107,9 +125,11 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
             ReportProgress(
                 request.Progress,
-                "运行策略",
-                executionPlan.ResolutionSummary,
-                0.15d);
+                GetLocalizedText("splitAudio.progress.stage.strategy", "运行策略"),
+                executionPlan.ResolveResolutionSummary(),
+                0.15d,
+                () => GetLocalizedText("splitAudio.progress.stage.strategy", "运行策略"),
+                executionPlan.ResolveResolutionSummary);
 
             var demucsOutputRootPath = Path.Combine(temporaryRootPath, "demucs-output");
             executionPlan = await RunDemucsWithFallbackAsync(
@@ -151,9 +171,17 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
             ReportProgress(
                 request.Progress,
-                "拆音完成",
-                $"已生成 {stemOutputs.Count} 条分轨文件。",
-                1d);
+                GetLocalizedText("splitAudio.progress.stage.complete", "拆音完成"),
+                FormatLocalizedText(
+                    "splitAudio.progress.detail.completed",
+                    "已生成 {count} 条分轨文件。",
+                    ("count", stemOutputs.Count)),
+                1d,
+                () => GetLocalizedText("splitAudio.progress.stage.complete", "拆音完成"),
+                () => FormatLocalizedText(
+                    "splitAudio.progress.detail.completed",
+                    "已生成 {count} 条分轨文件。",
+                    ("count", stemOutputs.Count)));
 
             return new AudioSeparationResult(
                 request.InputPath,
@@ -174,7 +202,9 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         {
             if (!cachedSnapshot.HasAudioStream)
             {
-                throw new InvalidOperationException("当前文件不包含可用音频轨道，无法执行拆音。");
+                throw CreateLocalizedInvalidOperationException(
+                    "splitAudio.error.noAudioTrack",
+                    "当前文件不包含可用音频轨道，无法执行拆音。");
             }
 
             return;
@@ -189,7 +219,9 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
         if (detailsResult.Snapshot is { HasAudioStream: false })
         {
-            throw new InvalidOperationException("当前文件不包含可用音频轨道，无法执行拆音。");
+            throw CreateLocalizedInvalidOperationException(
+                "splitAudio.error.noAudioTrack",
+                "当前文件不包含可用音频轨道，无法执行拆音。");
         }
     }
 
@@ -200,7 +232,13 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         IProgress<AudioSeparationProgress>? progress,
         CancellationToken cancellationToken)
     {
-        ReportProgress(progress, "准备输入音频", "正在提取并标准化音频轨道...", 0d);
+        ReportProgress(
+            progress,
+            GetLocalizedText("splitAudio.progress.stage.normalize", "准备输入音频"),
+            GetLocalizedText("splitAudio.progress.detail.normalize.running", "正在提取并标准化音频轨道..."),
+            0d,
+            () => GetLocalizedText("splitAudio.progress.stage.normalize", "准备输入音频"),
+            () => GetLocalizedText("splitAudio.progress.detail.normalize.running", "正在提取并标准化音频轨道..."));
 
         var duration = await TryGetMediaDurationAsync(inputPath, cancellationToken).ConfigureAwait(false);
         var ffmpegProgress = new Progress<FFmpegProgressUpdate>(update =>
@@ -211,10 +249,14 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
             ReportProgress(
                 progress,
-                "准备输入音频",
+                GetLocalizedText("splitAudio.progress.stage.normalize", "准备输入音频"),
                 update.ProcessedDuration is { } processed && (update.TotalDuration ?? duration) is { } total
-                    ? $"正在标准化音频：{FormatClockDuration(processed)} / {FormatClockDuration(total)}"
-                    : "正在提取并标准化音频轨道...",
+                    ? FormatLocalizedText(
+                        "splitAudio.progress.detail.normalize.duration",
+                        "正在标准化音频：{processed} / {total}",
+                        ("processed", FormatClockDuration(processed)),
+                        ("total", FormatClockDuration(total)))
+                    : GetLocalizedText("splitAudio.progress.detail.normalize.running", "正在提取并标准化音频轨道..."),
                 ratio);
         });
 
@@ -243,9 +285,17 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
             },
             cancellationToken).ConfigureAwait(false);
 
-        EnsureFfmpegSucceeded(result, "标准化输入音频失败。");
+        EnsureFfmpegSucceeded(
+            result,
+            () => GetLocalizedText("splitAudio.error.normalizeFailed", "标准化输入音频失败。"));
 
-        ReportProgress(progress, "准备输入音频", "输入音频已标准化完成。", 0.15d);
+        ReportProgress(
+            progress,
+            GetLocalizedText("splitAudio.progress.stage.normalize", "准备输入音频"),
+            GetLocalizedText("splitAudio.progress.detail.normalize.completed", "输入音频已标准化完成。"),
+            0.15d,
+            () => GetLocalizedText("splitAudio.progress.stage.normalize", "准备输入音频"),
+            () => GetLocalizedText("splitAudio.progress.detail.normalize.completed", "输入音频已标准化完成。"));
     }
 
     private async Task RunDemucsAsync(
@@ -255,7 +305,13 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         IProgress<AudioSeparationProgress>? progress,
         CancellationToken cancellationToken)
     {
-        ReportProgress(progress, "Demucs 分离", "正在运行 Demucs 拆分四轨...", 0.15d);
+        ReportProgress(
+            progress,
+            GetLocalizedText("splitAudio.progress.stage.demucs", "Demucs 分离"),
+            GetLocalizedText("splitAudio.progress.detail.demucs.running", "正在运行 Demucs 拆分四轨..."),
+            0.15d,
+            () => GetLocalizedText("splitAudio.progress.stage.demucs", "Demucs 分离"),
+            () => GetLocalizedText("splitAudio.progress.detail.demucs.running", "正在运行 Demucs 拆分四轨..."));
 
         using var process = new Process
         {
@@ -300,13 +356,18 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         {
             if (!process.Start())
             {
-                throw new InvalidOperationException("Demucs 进程未能成功启动。");
+                throw CreateLocalizedInvalidOperationException(
+                    "splitAudio.error.demucsProcessStartFailed",
+                    "Demucs 进程未能成功启动。");
             }
             processId = process.Id;
         }
         catch (Win32Exception exception)
         {
-            throw new InvalidOperationException("Demucs 运行时不可用，请检查离线运行时包是否完整。", exception);
+            throw CreateLocalizedInvalidOperationException(
+                exception,
+                "splitAudio.error.demucsRuntimeUnavailable",
+                "Demucs 运行时不可用，请检查离线运行时包是否完整。");
         }
 
         process.BeginOutputReadLine();
@@ -334,14 +395,20 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
         if (process.ExitCode != 0)
         {
-            throw new InvalidOperationException(
-                CreateDemucsFailureMessage(
+            throw new LocalizedInvalidOperationException(
+                () => CreateDemucsFailureMessage(
                     process.ExitCode,
                     standardOutputBuilder.ToString(),
                     standardErrorBuilder.ToString()));
         }
 
-        ReportProgress(progress, "Demucs 分离", "四轨 WAV 已生成，正在准备导出。", 0.80d);
+        ReportProgress(
+            progress,
+            GetLocalizedText("splitAudio.progress.stage.demucs", "Demucs 分离"),
+            GetLocalizedText("splitAudio.progress.detail.demucs.completed", "四轨 WAV 已生成，正在准备导出。"),
+            0.80d,
+            () => GetLocalizedText("splitAudio.progress.stage.demucs", "Demucs 分离"),
+            () => GetLocalizedText("splitAudio.progress.detail.demucs.completed", "四轨 WAV 已生成，正在准备导出。"));
     }
 
     private async Task<DemucsExecutionPlan> RunDemucsWithFallbackAsync(
@@ -353,7 +420,9 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
     {
         if (executionPlans.Count == 0)
         {
-            throw new InvalidOperationException("未找到可用的 Demucs 执行方案。");
+            throw CreateLocalizedInvalidOperationException(
+                "splitAudio.error.noExecutionPlan",
+                "未找到可用的 Demucs 执行方案。");
         }
 
         ExceptionDispatchInfo? lastFailure = null;
@@ -368,9 +437,11 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
             ReportProgress(
                 progress,
-                "运行策略",
-                executionPlan.ResolutionSummary,
-                0.15d);
+                GetLocalizedText("splitAudio.progress.stage.strategy", "运行策略"),
+                executionPlan.ResolveResolutionSummary(),
+                0.15d,
+                () => GetLocalizedText("splitAudio.progress.stage.strategy", "运行策略"),
+                executionPlan.ResolveResolutionSummary);
 
             try
             {
@@ -394,7 +465,9 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         }
 
         lastFailure?.Throw();
-        throw new InvalidOperationException("Demucs 执行失败，且没有可用的回退方案。");
+        throw CreateLocalizedInvalidOperationException(
+            "splitAudio.error.noFallbackExecutionPlan",
+            "Demucs 执行失败，且没有可用的回退方案。");
     }
 
     private ProcessStartInfo CreateDemucsStartInfo(
@@ -451,13 +524,19 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
             var normalizedPercent = Math.Clamp(percentValue / 100d, 0d, 1d);
             ReportProgress(
                 progress,
-                "Demucs 分离",
+                GetLocalizedText("splitAudio.progress.stage.demucs", "Demucs 分离"),
                 trimmedLine,
-                0.15d + (0.65d * normalizedPercent));
+                0.15d + (0.65d * normalizedPercent),
+                () => GetLocalizedText("splitAudio.progress.stage.demucs", "Demucs 分离"));
             return;
         }
 
-        ReportProgress(progress, "Demucs 分离", trimmedLine, null);
+        ReportProgress(
+            progress,
+            GetLocalizedText("splitAudio.progress.stage.demucs", "Demucs 分离"),
+            trimmedLine,
+            null,
+            () => GetLocalizedText("splitAudio.progress.stage.demucs", "Demucs 分离"));
     }
 
     private IReadOnlyDictionary<AudioStemKind, string> ResolveStemSourcePaths(string demucsOutputRootPath)
@@ -475,7 +554,10 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
             if (string.IsNullOrWhiteSpace(sourceStemPath))
             {
-                throw new InvalidOperationException($"Demucs 未输出 {stemFileName}。");
+                throw CreateLocalizedInvalidOperationException(
+                    "splitAudio.error.stemOutputMissing",
+                    "Demucs 未输出 {stemFileName}。",
+                    ("stemFileName", stemFileName));
             }
 
             stemPaths[stemKind] = sourceStemPath;
@@ -494,13 +576,28 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         CancellationToken cancellationToken)
     {
         var stemKind = OrderedStemKinds[stemIndex];
-        var stageTitle = $"导出 {GetStemDisplayName(stemKind)}";
+        var stemDisplayName = GetStemDisplayName(stemKind);
+        var stageTitle = FormatLocalizedText(
+            "splitAudio.progress.stage.exportStem",
+            "导出 {stem}",
+            ("stem", stemDisplayName));
 
         ReportProgress(
             progress,
             stageTitle,
-            $"正在导出 {GetStemDisplayName(stemKind)} 分轨...",
-            0.80d + ((stemIndex / (double)OrderedStemKinds.Count) * 0.20d));
+            FormatLocalizedText(
+                "splitAudio.progress.detail.exportStem.running",
+                "正在导出 {stem} 分轨...",
+                ("stem", stemDisplayName)),
+            0.80d + ((stemIndex / (double)OrderedStemKinds.Count) * 0.20d),
+            () => FormatLocalizedText(
+                "splitAudio.progress.stage.exportStem",
+                "导出 {stem}",
+                ("stem", GetStemDisplayName(stemKind))),
+            () => FormatLocalizedText(
+                "splitAudio.progress.detail.exportStem.running",
+                "正在导出 {stem} 分轨...",
+                ("stem", GetStemDisplayName(stemKind))));
 
         var duration = await TryGetMediaDurationAsync(sourceStemPath, cancellationToken).ConfigureAwait(false);
         var ffmpegProgress = new Progress<FFmpegProgressUpdate>(update =>
@@ -516,8 +613,16 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
                 progress,
                 stageTitle,
                 update.ProcessedDuration is { } processed && (update.TotalDuration ?? duration) is { } total
-                    ? $"正在导出 {GetStemDisplayName(stemKind)}：{FormatClockDuration(processed)} / {FormatClockDuration(total)}"
-                    : $"正在导出 {GetStemDisplayName(stemKind)} 分轨...",
+                    ? FormatLocalizedText(
+                        "splitAudio.progress.detail.exportStem.duration",
+                        "正在导出 {stem}：{processed} / {total}",
+                        ("stem", GetStemDisplayName(stemKind)),
+                        ("processed", FormatClockDuration(processed)),
+                        ("total", FormatClockDuration(total)))
+                    : FormatLocalizedText(
+                        "splitAudio.progress.detail.exportStem.running",
+                        "正在导出 {stem} 分轨...",
+                        ("stem", GetStemDisplayName(stemKind))),
                 ratio);
         });
 
@@ -545,7 +650,12 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
             },
             cancellationToken).ConfigureAwait(false);
 
-        EnsureFfmpegSucceeded(result, $"导出 {GetStemDisplayName(stemKind)} 分轨失败。");
+        EnsureFfmpegSucceeded(
+            result,
+            () => FormatLocalizedText(
+                "splitAudio.error.exportStemFailed",
+                "导出 {stem} 分轨失败。",
+                ("stem", stemDisplayName)));
     }
 
     private async Task<TimeSpan?> TryGetMediaDurationAsync(string inputPath, CancellationToken cancellationToken)
@@ -565,14 +675,18 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         {
             return string.IsNullOrWhiteSpace(normalizedOutputDirectory)
                 ? Path.GetDirectoryName(inputPath)
-                    ?? throw new InvalidOperationException("输入文件缺少有效目录。")
+                    ?? throw CreateLocalizedInvalidOperationException(
+                        "splitAudio.error.inputDirectoryMissing",
+                        "输入文件缺少有效目录。")
                 : normalizedOutputDirectory;
         }
 
-        throw new InvalidOperationException("输出目录无效，请重新选择。");
+        throw CreateLocalizedInvalidOperationException(
+            "splitAudio.error.invalidOutputDirectory",
+            "输出目录无效，请重新选择。");
     }
 
-    private void EnsureFfmpegSucceeded(FFmpegExecutionResult result, string failureTitle)
+    private void EnsureFfmpegSucceeded(FFmpegExecutionResult result, Func<string> failureTitleResolver)
     {
         if (result.WasSuccessful)
         {
@@ -581,24 +695,33 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
         if (result.WasCancelled)
         {
-            throw new OperationCanceledException("当前拆音任务已取消。");
+            throw new OperationCanceledException(
+                GetLocalizedText("splitAudio.status.cancelled", "当前拆音任务已取消。"));
         }
 
-        throw new InvalidOperationException($"{failureTitle}{ExtractFriendlyFailureMessage(result)}");
+        throw new LocalizedInvalidOperationException(
+            () => $"{failureTitleResolver()}{ExtractFriendlyFailureMessage(result)}");
     }
 
-    private static string CreateDemucsFailureMessage(int exitCode, string standardOutput, string standardError)
+    private string CreateDemucsFailureMessage(int exitCode, string standardOutput, string standardError)
     {
         var outputLines = (standardError + Environment.NewLine + standardOutput)
             .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         var lastMeaningfulLine = outputLines.LastOrDefault();
         return string.IsNullOrWhiteSpace(lastMeaningfulLine)
-            ? $"Demucs 执行失败，退出代码：{exitCode}。"
-            : $"Demucs 执行失败，退出代码：{exitCode}。{lastMeaningfulLine}";
+            ? FormatLocalizedText(
+                "splitAudio.error.demucsFailure.exitCode",
+                "Demucs 执行失败，退出代码：{exitCode}。",
+                ("exitCode", exitCode))
+            : FormatLocalizedText(
+                "splitAudio.error.demucsFailure.exitCodeWithDetail",
+                "Demucs 执行失败，退出代码：{exitCode}。{detail}",
+                ("exitCode", exitCode),
+                ("detail", lastMeaningfulLine));
     }
 
-    private static string ExtractFriendlyFailureMessage(FFmpegExecutionResult result)
+    private string ExtractFriendlyFailureMessage(FFmpegExecutionResult result)
     {
         if (!string.IsNullOrWhiteSpace(result.FailureReason))
         {
@@ -608,19 +731,25 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         var lines = (result.StandardError ?? string.Empty)
             .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        return lines.LastOrDefault() ?? "FFmpeg 未返回可用错误信息。";
+        return lines.LastOrDefault() ?? GetLocalizedText(
+            "splitAudio.error.noFfmpegMessage",
+            "FFmpeg 未返回可用错误信息。");
     }
 
-    private static void ReportProgress(
+    private void ReportProgress(
         IProgress<AudioSeparationProgress>? progress,
         string stageTitle,
         string detailText,
-        double? progressRatio)
+        double? progressRatio,
+        Func<string>? stageTitleResolver = null,
+        Func<string>? detailTextResolver = null)
     {
         progress?.Report(new AudioSeparationProgress(
             stageTitle,
             detailText,
-            progressRatio is double ratio ? Math.Clamp(ratio, 0d, 1d) : null));
+            progressRatio is double ratio ? Math.Clamp(ratio, 0d, 1d) : null,
+            stageTitleResolver,
+            detailTextResolver));
     }
 
     private static string GetStemFileSuffix(AudioStemKind stemKind) =>
@@ -633,15 +762,55 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
             _ => throw new InvalidEnumArgumentException(nameof(stemKind), (int)stemKind, typeof(AudioStemKind))
         };
 
-    private static string GetStemDisplayName(AudioStemKind stemKind) =>
+    private string GetStemDisplayName(AudioStemKind stemKind) =>
         stemKind switch
         {
-            AudioStemKind.Vocals => "人声",
-            AudioStemKind.Drums => "鼓组",
-            AudioStemKind.Bass => "低频",
-            AudioStemKind.Other => "其他",
+            AudioStemKind.Vocals => GetLocalizedText("splitAudio.stem.vocals", "人声"),
+            AudioStemKind.Drums => GetLocalizedText("splitAudio.stem.drums", "鼓组"),
+            AudioStemKind.Bass => GetLocalizedText("splitAudio.stem.bass", "低频"),
+            AudioStemKind.Other => GetLocalizedText("splitAudio.stem.other", "其他"),
             _ => throw new InvalidEnumArgumentException(nameof(stemKind), (int)stemKind, typeof(AudioStemKind))
         };
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
+
+    private LocalizedFileNotFoundException CreateLocalizedFileNotFoundException(
+        string key,
+        string fallback,
+        string? fileName,
+        params (string Name, object? Value)[] arguments) =>
+        new(() => FormatLocalizedText(key, fallback, arguments), fileName);
+
+    private LocalizedInvalidOperationException CreateLocalizedInvalidOperationException(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments) =>
+        new(() => FormatLocalizedText(key, fallback, arguments));
+
+    private LocalizedInvalidOperationException CreateLocalizedInvalidOperationException(
+        Exception innerException,
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments) =>
+        new(() => FormatLocalizedText(key, fallback, arguments), innerException);
+
+    private string FormatLocalizedText(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments)
+    {
+        if (arguments.Length == 0)
+        {
+            return GetLocalizedText(key, fallback);
+        }
+
+        var localizedArguments = arguments.ToDictionary(
+            argument => argument.Name,
+            argument => argument.Value,
+            StringComparer.Ordinal);
+        return _localizationService.Format(key, localizedArguments, fallback);
+    }
 
     private static string FormatClockDuration(TimeSpan duration) =>
         duration.TotalHours >= 1d

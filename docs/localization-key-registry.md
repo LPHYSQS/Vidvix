@@ -61,6 +61,21 @@
 | `trim.export.*` | `trim.json` | 裁剪导出兼容性、失败兜底与转码说明 | `R6` |
 | `trim.smartTrim.*` | `trim.json` | smart trim 结果与回退原因 | `R6` |
 | `trim.log.*` | `trim.json` | 裁剪预览加载与边界预热日志文本 | `R6` |
+| `splitAudio.action.*` | `split-audio.json` | 拆音页主操作按钮与结果区动作 | `R7` |
+| `splitAudio.common.*` | `split-audio.json` | 拆音模块内部通用分隔符与共享显示片段 | `R7` |
+| `splitAudio.input.*` | `split-audio.json` | 拆音页导入区标题、空态、输入摘要与文件元信息 | `R7` |
+| `splitAudio.settings.*` | `split-audio.json` | 拆音页设置区标题、输出目录、加速模式与状态标签 | `R7` |
+| `splitAudio.results.*` | `split-audio.json` | 拆音结果区标题、说明、空态与清空动作 | `R7` |
+| `splitAudio.preview.*` | `split-audio.json` | 拆音预览按钮、不可预览提示与卡片交互文案 | `R7` |
+| `splitAudio.status.*` | `split-audio.json` | 拆音页运行态状态、导入反馈、完成 / 失败 / 取消消息 | `R7` |
+| `splitAudio.validation.*` | `split-audio.json` | 拆音输入合法性校验消息 | `R7` |
+| `splitAudio.stem.*` | `split-audio.json` | 四轨 stem 名称 | `R7` |
+| `splitAudio.picker.*` | `split-audio.json` | 输出目录选择器标题 | `R7` |
+| `splitAudio.progress.*` | `split-audio.json` | 拆音运行阶段、百分比与明细进度文本 | `R7` |
+| `splitAudio.error.*` | `split-audio.json` | 拆音工作流错误、FFmpeg / Demucs 失败兜底 | `R7` |
+| `splitAudio.executionPlan.*` | `split-audio.json` | Demucs 执行方案、GPU 回退与设备切换摘要 | `R7` |
+| `splitAudio.planner.*` | `split-audio.json` | Demucs 设备探测与启动脚本校验消息 | `R7` |
+| `splitAudio.runtime.*` | `split-audio.json` | Demucs 运行时包、模型仓与 Python 环境缺失提示 | `R7` |
 
 ## 已注册 Key
 
@@ -224,8 +239,47 @@
 | `trim.smartTrim.fallback.noKeyframeRange` | `trim` | `trim.json` | `当前片段未覆盖足够的关键帧区间，已回退为整段精确重编码。` | `The selected clip did not cover a sufficient keyframe range, so it fell back to full precise re-encoding.` | `Active` | `R6` |
 | `trim.log.previewLoadFailed` | `trim` | `trim.json` | `MPV 预览加载失败。` | `MPV preview loading failed.` | `Active` | `R6` |
 
+## R7 批量登记
+
+- 本轮把拆音模块页面层、运行态状态、结果卡片 / 预览卡，以及 `AudioSeparationWorkflowService`、`SplitAudioExecutionCoordinator`、`DemucsExecutionPlanner`、`DemucsRuntimeService` 直接暴露到拆音页的用户可见文案统一收敛到 `Resources/Localization/zh-CN/split-audio.json` 与 `Resources/Localization/en-US/split-audio.json`。
+- 已登记的 R7 key family：
+  - `splitAudio.action.*`
+  - `splitAudio.common.*`
+  - `splitAudio.input.*`
+  - `splitAudio.settings.*`
+  - `splitAudio.results.*`
+  - `splitAudio.preview.*`
+  - `splitAudio.status.*`
+  - `splitAudio.validation.*`
+  - `splitAudio.stem.*`
+  - `splitAudio.picker.*`
+  - `splitAudio.progress.*`
+  - `splitAudio.error.*`
+  - `splitAudio.executionPlan.*`
+  - `splitAudio.planner.*`
+  - `splitAudio.runtime.*`
+- R7 刷新补记：
+  - `SplitAudioWorkspaceViewModel.RefreshLocalization()` 现已联动重建输入摘要、运行状态、进度快照、结果卡片按钮与预览按钮文本，因此语言切换时拆音页不会继续保留旧语言缓存。
+  - `SplitAudioExecutionCoordinator` 改为持有失败原因 resolver，`AudioSeparationWorkflowService`、`DemucsExecutionPlanner`、`DemucsRuntimeService` 通过 `ILocalizationService` 与 `LocalizedExceptions` 提供可重算错误消息，避免运行中切换语言后继续显示旧的 `exception.Message`。
+  - `ApplicationPaths.ResolveExecutableDirectoryPath()` 现优先使用 `AppContext.BaseDirectory`，因此 `dotnet xxx.dll` 方式运行的离线烟测也能稳定找到 Demucs 启动脚本与运行时资源，不再误解析到 `dotnet.exe` 目录。
+- R7 代表性 key：
+
+| Key | 模块 | 资源文件 | `zh-CN` | `en-US` | 状态 | 首次建立轮次 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `splitAudio.input.placeholderTitle` | `splitAudio` | `split-audio.json` | `请导入文件或拖拽到此处` | `Import a file or drag it here` | `Active` | `R7` |
+| `splitAudio.input.summary.ready` | `splitAudio` | `split-audio.json` | `{mediaType}，{duration}，{audioCodec}。拆音时会先标准化为临时 WAV，再调用 Demucs 分离四轨。` | `{mediaType}, {duration}, {audioCodec}. The workflow normalizes the source to a temporary WAV before Demucs separates the four stems.` | `Active` | `R7` |
+| `splitAudio.settings.outputDirectoryHint` | `splitAudio` | `split-audio.json` | `留空时默认导出到原文件所在文件夹。` | `Leave empty to export to the source file folder by default.` | `Active` | `R7` |
+| `splitAudio.results.sectionTitle` | `splitAudio` | `split-audio.json` | `处理完毕列表` | `Completed runs` | `Active` | `R7` |
+| `splitAudio.preview.unavailable.withFileName` | `splitAudio` | `split-audio.json` | `已导入 {fileName}，但预览暂不可用，仍可以继续拆音。` | `{fileName} was imported, but preview is temporarily unavailable. You can still continue separating audio.` | `Active` | `R7` |
+| `splitAudio.status.completed` | `splitAudio` | `split-audio.json` | `{resolutionSummary} 已生成 {count} 条分轨文件。` | `{resolutionSummary} Generated {count} stem files.` | `Active` | `R7` |
+| `splitAudio.progress.detail.exportStem.duration` | `splitAudio` | `split-audio.json` | `正在导出 {stem}：{processed} / {total}` | `Exporting {stem}: {processed} / {total}` | `Active` | `R7` |
+| `splitAudio.error.demucsRuntimeUnavailable` | `splitAudio` | `split-audio.json` | `Demucs 运行时不可用，请检查离线运行时包是否完整。` | `The Demucs runtime isn't available. Check whether the offline runtime package is complete.` | `Active` | `R7` |
+| `splitAudio.executionPlan.directml.afterCuda.integrated` | `splitAudio` | `split-audio.json` | `独显 CUDA 执行未成功，已回退到核显继续拆音：{deviceName}。` | `CUDA on the discrete GPU failed. Falling back to the integrated GPU for separation: {deviceName}.` | `Active` | `R7` |
+| `splitAudio.planner.launcherMissing` | `splitAudio` | `split-audio.json` | `未找到 Demucs 启动脚本：{path}` | `The Demucs launcher script was not found: {path}` | `Active` | `R7` |
+| `splitAudio.runtime.missingRuntimePackage` | `splitAudio` | `split-audio.json` | `未找到离线 Demucs {runtimeVariant} 运行时包，请补齐 {packagePath}。` | `The offline Demucs {runtimeVariant} runtime package was not found. Please provide {packagePath}.` | `Active` | `R7` |
+
 ## 下一轮接入提示
 
-- `R7` 直接复用 `common.workspace.splitAudio.*`、`common.splitAudio.acceleration.*` 的集中式配置结果，以及本轮 `trim` 中已经验证通过的 ViewModel 运行态刷新模式，不要回头重写 `trim.json` 的既有职责。
-- `R7` 新增拆音页私有文案时，优先落到 `split-audio.json`，不要把拆音页面内部提示塞进 `main-window.json` 或 `trim.json`。
-- `R7` 只处理 `split-audio` 模块私有页面文案，不要回头扩大 `trim` 范围，也不要提前触碰 `merge`、`terminal`、`media-details`。
+- `R8` 直接复用 `R7` 在拆音模块已经验证通过的 resolver 化运行态刷新模式、服务层本地化异常封装方式，以及 `SplitAudioWorkspaceToggle` + `SettingsLanguageComboBox` 的 UI 热切换验证路径，不要回头重写 `split-audio.json` 的既有职责。
+- `R8` 新增终端区与媒体详情区私有文案时，优先分别落到 `terminal.json` 与 `media-details.json`，不要把详情浮层或终端页内部提示继续塞进 `main-window.json` 或 `split-audio.json`。
+- `R8` 只处理 `terminal` 与 `media-details` 模块私有页面文案，不要回头扩大 `trim` / `split-audio` 范围，也不要提前触碰 `merge` 私有页面文案。

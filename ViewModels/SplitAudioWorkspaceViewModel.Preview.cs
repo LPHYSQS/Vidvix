@@ -53,7 +53,7 @@ public sealed partial class SplitAudioWorkspaceViewModel
 
     public bool CanPlayPreview => HasInput && !IsBusy && !IsSeeking && _previewDuration > TimeSpan.Zero;
 
-    public string PlayPauseButtonText => IsPlaying ? "\u6682\u505c\u9884\u89c8" : "\u64ad\u653e\u9884\u89c8";
+    public string PlayPauseButtonText => IsPlaying ? PausePreviewButtonText : PlayPreviewButtonText;
 
     public Symbol PlayPauseButtonSymbol => IsPlaying ? Symbol.Pause : Symbol.Play;
 
@@ -174,9 +174,19 @@ public sealed partial class SplitAudioWorkspaceViewModel
             RunPreviewOnUiThread(() =>
             {
                 ResetPreviewState();
-                StatusMessage = string.IsNullOrWhiteSpace(InputFileName)
-                    ? "\u5f53\u524d\u6587\u4ef6\u9884\u89c8\u4e0d\u53ef\u7528\uff0c\u4ecd\u53ef\u4ee5\u7ee7\u7eed\u62c6\u97f3\u3002"
-                    : $"\u5df2\u5bfc\u5165 {InputFileName}\uff0c\u4f46\u9884\u89c8\u6682\u4e0d\u53ef\u7528\uff0c\u4ecd\u53ef\u4ee5\u7ee7\u7eed\u62c6\u97f3\u3002";
+                if (string.IsNullOrWhiteSpace(InputFileName))
+                {
+                    SetStatusMessage(
+                        "splitAudio.preview.unavailable.generic",
+                        "\u5f53\u524d\u6587\u4ef6\u9884\u89c8\u4e0d\u53ef\u7528\uff0c\u4ecd\u53ef\u4ee5\u7ee7\u7eed\u62c6\u97f3\u3002");
+                    return;
+                }
+
+                SetStatusMessage(
+                    () => FormatLocalizedText(
+                        "splitAudio.preview.unavailable.withFileName",
+                        "\u5df2\u5bfc\u5165 {fileName}\uff0c\u4f46\u9884\u89c8\u6682\u4e0d\u53ef\u7528\uff0c\u4ecd\u53ef\u4ee5\u7ee7\u7eed\u62c6\u97f3\u3002",
+                        ("fileName", InputFileName)));
             });
             return false;
         }
@@ -480,9 +490,17 @@ public sealed partial class SplitAudioWorkspaceViewModel
             }
 
             ResetPreviewState();
-            StatusMessage = string.IsNullOrWhiteSpace(e.Message)
-                ? "\u5f53\u524d\u6587\u4ef6\u9884\u89c8\u4e0d\u53ef\u7528\uff0c\u4ecd\u53ef\u4ee5\u7ee7\u7eed\u62c6\u97f3\u3002"
-                : e.Message;
+            if (string.IsNullOrWhiteSpace(e.Message))
+            {
+                SetStatusMessage(
+                    "splitAudio.preview.unavailable.generic",
+                    "\u5f53\u524d\u6587\u4ef6\u9884\u89c8\u4e0d\u53ef\u7528\uff0c\u4ecd\u53ef\u4ee5\u7ee7\u7eed\u62c6\u97f3\u3002");
+            }
+            else
+            {
+                SetStatusMessage(() => e.Message);
+            }
+
             SplitAudioPlaybackCoordinator.NotifyPaused(this);
         });
     }

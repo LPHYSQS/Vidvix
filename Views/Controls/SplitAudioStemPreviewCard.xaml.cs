@@ -110,11 +110,47 @@ public sealed partial class SplitAudioStemPreviewCard : UserControl, INotifyProp
         typeof(SplitAudioStemPreviewCard),
         new PropertyMetadata(null));
 
+    public string RevealButtonText
+    {
+        get => (string)GetValue(RevealButtonTextProperty);
+        set => SetValue(RevealButtonTextProperty, value);
+    }
+
+    public static readonly DependencyProperty RevealButtonTextProperty = DependencyProperty.Register(
+        nameof(RevealButtonText),
+        typeof(string),
+        typeof(SplitAudioStemPreviewCard),
+        new PropertyMetadata("Reveal file", OnLocalizedTextChanged));
+
+    public string PlayPreviewButtonText
+    {
+        get => (string)GetValue(PlayPreviewButtonTextProperty);
+        set => SetValue(PlayPreviewButtonTextProperty, value);
+    }
+
+    public static readonly DependencyProperty PlayPreviewButtonTextProperty = DependencyProperty.Register(
+        nameof(PlayPreviewButtonText),
+        typeof(string),
+        typeof(SplitAudioStemPreviewCard),
+        new PropertyMetadata("Play preview", OnLocalizedTextChanged));
+
+    public string PausePreviewButtonText
+    {
+        get => (string)GetValue(PausePreviewButtonTextProperty);
+        set => SetValue(PausePreviewButtonTextProperty, value);
+    }
+
+    public static readonly DependencyProperty PausePreviewButtonTextProperty = DependencyProperty.Register(
+        nameof(PausePreviewButtonText),
+        typeof(string),
+        typeof(SplitAudioStemPreviewCard),
+        new PropertyMetadata("Pause preview", OnLocalizedTextChanged));
+
     public string DisplayFileName => string.IsNullOrWhiteSpace(FilePath) ? string.Empty : Path.GetFileName(FilePath);
 
     public bool CanPlayPreview => !_hasLoadFailed && !string.IsNullOrWhiteSpace(FilePath) && _duration > TimeSpan.Zero;
 
-    public string PlayPauseButtonText => IsPlaying ? "暂停预览" : "播放预览";
+    public string PlayPauseButtonText => IsPlaying ? PausePreviewButtonText : PlayPreviewButtonText;
 
     public Symbol PlayPauseButtonSymbol => IsPlaying ? Symbol.Pause : Symbol.Play;
 
@@ -160,6 +196,13 @@ public sealed partial class SplitAudioStemPreviewCard : UserControl, INotifyProp
 
     private static void OnPreviewSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
         ((SplitAudioStemPreviewCard)d).ResetForSource();
+
+    private static void OnLocalizedTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var card = (SplitAudioStemPreviewCard)d;
+        card.OnPropertyChanged(nameof(card.RevealButtonText));
+        card.OnPropertyChanged(nameof(card.PlayPauseButtonText));
+    }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {

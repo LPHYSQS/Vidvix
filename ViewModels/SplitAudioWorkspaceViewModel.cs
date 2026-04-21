@@ -16,6 +16,7 @@ namespace Vidvix.ViewModels;
 public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDisposable, ISplitAudioPlaybackParticipant
 {
     private readonly ApplicationConfiguration _configuration;
+    private readonly ILocalizationService _localizationService;
     private readonly IMediaImportDiscoveryService _mediaImportDiscoveryService;
     private readonly IMediaInfoService _mediaInfoService;
     private readonly IFilePickerService _filePickerService;
@@ -37,6 +38,7 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
     private readonly RelayCommand _clearResultsCommand;
 
     private string _statusMessage;
+    private Func<string>? _statusMessageResolver;
     private bool _isBusy;
     private CancellationTokenSource? _executionCancellationSource;
     private bool _isDisposed;
@@ -46,6 +48,7 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         ArgumentNullException.ThrowIfNull(dependencies);
 
         _configuration = dependencies.Configuration;
+        _localizationService = dependencies.LocalizationService;
         _mediaImportDiscoveryService = dependencies.MediaImportDiscoveryService;
         _mediaInfoService = dependencies.MediaInfoService;
         _filePickerService = dependencies.FilePickerService;
@@ -58,16 +61,20 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
             dependencies.LocalizationService,
             dependencies.UserPreferencesService,
             _logger);
-        _progressState = new SplitAudioProgressState();
+        _progressState = new SplitAudioProgressState(dependencies.LocalizationService);
         _resultCollectionState = new SplitAudioResultCollectionState();
-        _inputState = new SplitAudioInputState();
+        _inputState = new SplitAudioInputState(GetDefaultInputSummaryText);
         _executionCoordinator = new SplitAudioExecutionCoordinator(
             dependencies.AudioSeparationWorkflowService,
+            dependencies.LocalizationService,
             dependencies.UserPreferencesService,
             dependencies.FileRevealService,
             _logger);
 
-        _statusMessage = "请导入 1 个音频或视频文件，系统会先标准化音频，再调用 Demucs 执行四轨拆分。";
+        _statusMessage = string.Empty;
+        SetStatusMessage(
+            "splitAudio.status.ready",
+            "请导入 1 个音频或视频文件，系统会先标准化音频，再调用 Demucs 执行四轨拆分。");
 
         _selectInputCommand = new AsyncRelayCommand(SelectInputAsync, () => !IsBusy);
         _removeInputCommand = new RelayCommand(RemoveInput, () => HasInput && !IsBusy);
@@ -86,17 +93,6 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
     public IReadOnlyList<DemucsAccelerationModeOption> AvailableAccelerationModes =>
         _preferencesState.AvailableAccelerationModes;
-
-    public void RefreshLocalization()
-    {
-        _preferencesState.ReloadLocalization();
-        OnPropertyChanged(nameof(AvailableOutputFormats));
-        OnPropertyChanged(nameof(SelectedOutputFormat));
-        OnPropertyChanged(nameof(SelectedOutputFormatDescription));
-        OnPropertyChanged(nameof(AvailableAccelerationModes));
-        OnPropertyChanged(nameof(SelectedAccelerationMode));
-        OnPropertyChanged(nameof(SelectedAccelerationModeDescription));
-    }
 
     public ICommand SelectInputCommand => _selectInputCommand;
 
@@ -120,20 +116,11 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         private set => SetProperty(ref _statusMessage, value);
     }
 
-    public string InputPath
-    {
-        get => _inputState.InputPath;
-    }
+    public string InputPath => _inputState.InputPath;
 
-    public string InputFileName
-    {
-        get => _inputState.InputFileName;
-    }
+    public string InputFileName => _inputState.InputFileName;
 
-    public string InputSummaryText
-    {
-        get => _inputState.InputSummaryText;
-    }
+    public string InputSummaryText => _inputState.InputSummaryText;
 
     public bool HasInput => _inputState.HasInput;
 
@@ -145,12 +132,84 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
     public Visibility EmptyResultsVisibility => _resultCollectionState.EmptyResultsVisibility;
 
-    public string SupportedInputFormatsHint =>
-        "支持导入格式（" +
-        string.Join("、", _configuration.SupportedSplitAudioInputFileTypes.Select(item => item.TrimStart('.').ToUpperInvariant())) +
-        "）";
+    public string InputSectionTitleText =>
+        GetLocalizedText("splitAudio.input.sectionTitle", "导入文件");
 
-    public string DragDropCaptionText => "导入音频或视频文件";
+    public string PlaceholderTitleText =>
+        GetLocalizedText("splitAudio.input.placeholderTitle", "请导入文件或拖拽到此处");
+
+    public string ImportButtonText =>
+        GetLocalizedText("splitAudio.action.importFile", "导入文件");
+
+    public string RemoveInputButtonText =>
+        GetLocalizedText("splitAudio.action.removeInput", "移除");
+
+    public string SettingsSectionTitleText =>
+        GetLocalizedText("splitAudio.settings.sectionTitle", "拆音相关设置");
+
+    public string SettingsDescriptionText =>
+        GetLocalizedText("splitAudio.settings.description", "输出格式仍由 FFmpeg 负责，Demucs 只负责生成中间四轨。");
+
+    public string OutputFormatLabelText =>
+        GetLocalizedText("splitAudio.settings.outputFormatLabel", "输出格式");
+
+    public string OutputDirectoryLabelText =>
+        GetLocalizedText("splitAudio.settings.outputDirectoryLabel", "输出目录");
+
+    public string OutputDirectoryPlaceholderText =>
+        GetLocalizedText("splitAudio.settings.outputDirectoryPlaceholder", "原文件目录");
+
+    public string SelectOutputDirectoryButtonText =>
+        GetLocalizedText("splitAudio.settings.selectDirectory", "选择目录");
+
+    public string ClearOutputDirectoryButtonText =>
+        GetLocalizedText("splitAudio.settings.clearDirectory", "清空");
+
+    public string AccelerationModeLabelText =>
+        GetLocalizedText("splitAudio.settings.accelerationLabel", "拆音加速模式");
+
+    public string StatusSectionTitleText =>
+        GetLocalizedText("splitAudio.settings.statusLabel", "当前状态");
+
+    public string ResultsSectionTitleText =>
+        GetLocalizedText("splitAudio.results.sectionTitle", "处理完毕列表");
+
+    public string ResultsDescriptionText =>
+        GetLocalizedText("splitAudio.results.description", "每次完成后会按原文件名 + stem 名称输出四个结果文件。");
+
+    public string ClearResultsButtonText =>
+        GetLocalizedText("splitAudio.results.clearAll", "全部清空");
+
+    public string EmptyResultsText =>
+        GetLocalizedText("splitAudio.results.empty", "暂无处理结果");
+
+    public string RevealFileButtonText =>
+        GetLocalizedText("splitAudio.action.revealFile", "定位文件");
+
+    public string PlayPreviewButtonText =>
+        GetLocalizedText("splitAudio.preview.play", "播放预览");
+
+    public string PausePreviewButtonText =>
+        GetLocalizedText("splitAudio.preview.pause", "暂停预览");
+
+    public string VocalsStemTitleText => GetStemDisplayName(AudioStemKind.Vocals);
+
+    public string DrumsStemTitleText => GetStemDisplayName(AudioStemKind.Drums);
+
+    public string BassStemTitleText => GetStemDisplayName(AudioStemKind.Bass);
+
+    public string OtherStemTitleText => GetStemDisplayName(AudioStemKind.Other);
+
+    public string SupportedInputFormatsHint =>
+        FormatLocalizedText(
+            "common.workspace.splitAudio.supportedInputFormatsHint",
+            "支持导入格式（{formats}）",
+            ("formats", string.Join(
+                GetLocalizedText("splitAudio.common.listSeparator", "、"),
+                _configuration.SupportedSplitAudioInputFileTypes.Select(item => item.TrimStart('.').ToUpperInvariant()))));
+
+    public string DragDropCaptionText =>
+        GetLocalizedText("common.workspace.splitAudio.dragDropCaptionText", "导入音频或视频文件");
 
     public OutputFormatOption SelectedOutputFormat
     {
@@ -189,7 +248,7 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
                 if (!IsBusy)
                 {
-                    StatusMessage = _preferencesState.GetAccelerationModeStatusMessage();
+                    SetStatusMessage(() => _preferencesState.GetAccelerationModeStatusMessage());
                 }
             }
         }
@@ -213,7 +272,8 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
     public bool HasCustomOutputDirectory => _preferencesState.HasCustomOutputDirectory;
 
-    public string OutputDirectoryHintText => "留空时默认导出到原文件所在文件夹。";
+    public string OutputDirectoryHintText =>
+        GetLocalizedText("splitAudio.settings.outputDirectoryHint", "留空时默认导出到原文件所在文件夹。");
 
     public bool IsBusy
     {
@@ -228,34 +288,61 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         }
     }
 
-    public Visibility ProgressVisibility
-    {
-        get => _progressState.ProgressVisibility;
-    }
+    public Visibility ProgressVisibility => _progressState.ProgressVisibility;
 
-    public bool IsProgressIndeterminate
-    {
-        get => _progressState.IsProgressIndeterminate;
-    }
+    public bool IsProgressIndeterminate => _progressState.IsProgressIndeterminate;
 
-    public double ProgressValue
-    {
-        get => _progressState.ProgressValue;
-    }
+    public double ProgressValue => _progressState.ProgressValue;
 
-    public string ProgressSummaryText
-    {
-        get => _progressState.ProgressSummaryText;
-    }
+    public string ProgressSummaryText => _progressState.ProgressSummaryText;
 
-    public string ProgressDetailText
-    {
-        get => _progressState.ProgressDetailText;
-    }
+    public string ProgressDetailText => _progressState.ProgressDetailText;
 
-    public string ProgressPercentText
+    public string ProgressPercentText => _progressState.ProgressPercentText;
+
+    public void RefreshLocalization()
     {
-        get => _progressState.ProgressPercentText;
+        _preferencesState.ReloadLocalization();
+        _inputState.RefreshLocalization();
+        _progressState.RefreshLocalization();
+
+        OnPropertyChanged(nameof(AvailableOutputFormats));
+        OnPropertyChanged(nameof(SelectedOutputFormat));
+        OnPropertyChanged(nameof(SelectedOutputFormatDescription));
+        OnPropertyChanged(nameof(AvailableAccelerationModes));
+        OnPropertyChanged(nameof(SelectedAccelerationMode));
+        OnPropertyChanged(nameof(SelectedAccelerationModeDescription));
+        OnPropertyChanged(nameof(InputSectionTitleText));
+        OnPropertyChanged(nameof(PlaceholderTitleText));
+        OnPropertyChanged(nameof(ImportButtonText));
+        OnPropertyChanged(nameof(RemoveInputButtonText));
+        OnPropertyChanged(nameof(SettingsSectionTitleText));
+        OnPropertyChanged(nameof(SettingsDescriptionText));
+        OnPropertyChanged(nameof(OutputFormatLabelText));
+        OnPropertyChanged(nameof(OutputDirectoryLabelText));
+        OnPropertyChanged(nameof(OutputDirectoryPlaceholderText));
+        OnPropertyChanged(nameof(SelectOutputDirectoryButtonText));
+        OnPropertyChanged(nameof(ClearOutputDirectoryButtonText));
+        OnPropertyChanged(nameof(AccelerationModeLabelText));
+        OnPropertyChanged(nameof(StatusSectionTitleText));
+        OnPropertyChanged(nameof(ResultsSectionTitleText));
+        OnPropertyChanged(nameof(ResultsDescriptionText));
+        OnPropertyChanged(nameof(ClearResultsButtonText));
+        OnPropertyChanged(nameof(EmptyResultsText));
+        OnPropertyChanged(nameof(RevealFileButtonText));
+        OnPropertyChanged(nameof(PlayPreviewButtonText));
+        OnPropertyChanged(nameof(PausePreviewButtonText));
+        OnPropertyChanged(nameof(PlayPauseButtonText));
+        OnPropertyChanged(nameof(VocalsStemTitleText));
+        OnPropertyChanged(nameof(DrumsStemTitleText));
+        OnPropertyChanged(nameof(BassStemTitleText));
+        OnPropertyChanged(nameof(OtherStemTitleText));
+        OnPropertyChanged(nameof(SupportedInputFormatsHint));
+        OnPropertyChanged(nameof(DragDropCaptionText));
+        OnPropertyChanged(nameof(OutputDirectoryHintText));
+        NotifyInputStateChanged();
+        NotifyProgressStateChanged();
+        RefreshLocalizedRuntimeText();
     }
 
     public void Dispose()
@@ -278,7 +365,9 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
         if (IsBusy)
         {
-            StatusMessage = "当前拆音任务正在执行，请等待完成或先取消。";
+            SetStatusMessage(
+                "splitAudio.status.busy",
+                "当前拆音任务正在执行，请等待完成或先取消。");
             return;
         }
 
@@ -293,20 +382,32 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
             return;
         }
 
-        StatusMessage = "正在整理拆音输入...";
+        SetStatusMessage(
+            "splitAudio.status.organizingImport",
+            "正在整理拆音输入...");
         var discovery = await Task.Run(
             () => _mediaImportDiscoveryService.Discover(normalizedPaths, _configuration.SupportedSplitAudioInputFileTypes));
 
         if (discovery.SupportedFiles.Count == 0)
         {
-            StatusMessage = discovery.UnsupportedEntries > 0 || discovery.MissingEntries > 0
-                ? "未发现可用于拆音的音频或视频文件。"
-                : "没有新的可处理文件。";
+            if (discovery.UnsupportedEntries > 0 || discovery.MissingEntries > 0)
+            {
+                SetStatusMessage(
+                    "common.workspace.splitAudio.noProcessableImportMessage",
+                    "没有发现可用于拆音的音频或视频文件。");
+            }
+            else
+            {
+                SetStatusMessage(
+                    "splitAudio.status.noNewFiles",
+                    "没有新的可处理文件。");
+            }
+
             return;
         }
 
         string? selectedFilePath = null;
-        string? rejectedMessage = null;
+        Func<string>? rejectedMessageResolver = null;
 
         foreach (var filePath in discovery.SupportedFiles)
         {
@@ -317,12 +418,14 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
                 break;
             }
 
-            rejectedMessage = validationResult.Reason;
+            rejectedMessageResolver = validationResult.ReasonResolver;
         }
 
         if (string.IsNullOrWhiteSpace(selectedFilePath))
         {
-            StatusMessage = rejectedMessage ?? "导入文件不包含可用音频轨道，无法拆音。";
+            SetStatusMessage(rejectedMessageResolver ?? (() => GetLocalizedText(
+                "splitAudio.status.noAudioTrack",
+                "导入文件不包含可用音频轨道，无法拆音。")));
             return;
         }
 
@@ -330,11 +433,19 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
         if (discovery.SupportedFiles.Count > 1)
         {
-            StatusMessage = $"拆音一次仅支持 1 个文件，已导入第一个可处理文件：{InputFileName}";
+            SetStatusMessage(
+                () => FormatLocalizedText(
+                    "splitAudio.status.importedFirstFromMultiple",
+                    "拆音一次仅支持 1 个文件，已导入第一个可处理文件：{fileName}",
+                    ("fileName", InputFileName)));
         }
         else
         {
-            StatusMessage = $"已导入 {InputFileName}，可以开始拆音。";
+            SetStatusMessage(
+                () => FormatLocalizedText(
+                    "splitAudio.status.importedReady",
+                    "已导入 {fileName}，可以开始拆音。",
+                    ("fileName", InputFileName)));
         }
     }
 
@@ -343,11 +454,17 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         try
         {
             var selectedFile = await _filePickerService.PickSingleFileAsync(
-                new FilePickerRequest(_configuration.SupportedSplitAudioInputFileTypes, "导入拆音文件"));
+                new FilePickerRequest(
+                    _configuration.SupportedSplitAudioInputFileTypes,
+                    GetLocalizedText(
+                        "common.workspace.splitAudio.importFilePickerCommitText",
+                        "导入音频或视频文件")));
 
             if (string.IsNullOrWhiteSpace(selectedFile))
             {
-                StatusMessage = "已取消文件导入。";
+                SetStatusMessage(
+                    "splitAudio.status.importCancelled",
+                    "已取消文件导入。");
                 return;
             }
 
@@ -355,11 +472,15 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = "已取消文件导入。";
+            SetStatusMessage(
+                "splitAudio.status.importCancelled",
+                "已取消文件导入。");
         }
         catch (Exception exception)
         {
-            StatusMessage = "导入文件失败。";
+            SetStatusMessage(
+                "splitAudio.status.importFailed",
+                "导入文件失败。");
             _logger.Log(LogLevel.Error, "导入拆音文件时发生异常。", exception);
         }
     }
@@ -377,30 +498,43 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         _inputState.Clear();
         NotifyInputStateChanged();
         NotifyCommandStates();
-        StatusMessage = "已清空当前拆音输入。";
+        SetStatusMessage(
+            "splitAudio.status.inputRemoved",
+            "已清空当前拆音输入。");
     }
 
     private async Task BrowseOutputDirectoryAsync()
     {
         try
         {
-            var selectedDirectory = await _filePickerService.PickFolderAsync("选择拆音输出目录");
+            var selectedDirectory = await _filePickerService.PickFolderAsync(
+                GetLocalizedText("splitAudio.picker.outputDirectoryTitle", "选择拆音输出目录"));
             if (string.IsNullOrWhiteSpace(selectedDirectory))
             {
-                StatusMessage = "已取消选择输出目录。";
+                SetStatusMessage(
+                    "splitAudio.status.outputDirectoryCancelled",
+                    "已取消选择输出目录。");
                 return;
             }
 
             OutputDirectory = selectedDirectory;
-            StatusMessage = $"已将拆音输出目录设置为：{OutputDirectory}";
+            SetStatusMessage(
+                () => FormatLocalizedText(
+                    "splitAudio.status.outputDirectoryUpdated",
+                    "已将拆音输出目录设置为：{path}",
+                    ("path", OutputDirectory)));
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = "已取消选择输出目录。";
+            SetStatusMessage(
+                "splitAudio.status.outputDirectoryCancelled",
+                "已取消选择输出目录。");
         }
         catch (Exception exception)
         {
-            StatusMessage = "选择输出目录失败。";
+            SetStatusMessage(
+                "splitAudio.status.outputDirectoryFailed",
+                "选择输出目录失败。");
             _logger.Log(LogLevel.Error, "选择拆音输出目录时发生异常。", exception);
         }
     }
@@ -413,14 +547,18 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         }
 
         OutputDirectory = string.Empty;
-        StatusMessage = "已清空拆音输出目录，留空时将输出到原文件夹。";
+        SetStatusMessage(
+            "splitAudio.status.outputDirectoryCleared",
+            "已清空拆音输出目录，留空时将输出到原文件夹。");
     }
 
     private async Task StartSeparationAsync()
     {
         if (!HasInput)
         {
-            StatusMessage = "请先导入一个可拆音文件。";
+            SetStatusMessage(
+                "common.workspace.splitAudio.emptyQueueProcessingMessage",
+                "请先导入一个可拆音的音频或视频文件。");
             return;
         }
 
@@ -433,7 +571,9 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         {
             IsBusy = true;
             ShowPreparationProgress();
-            StatusMessage = "正在执行拆音，请稍候...";
+            SetStatusMessage(
+                "splitAudio.status.processing",
+                "正在执行拆音，请稍候...");
 
             var outcome = await _executionCoordinator.ExecuteAsync(
                 InputPath,
@@ -449,7 +589,7 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
                 NotifyResultStateChanged();
             }
 
-            StatusMessage = outcome.StatusMessage;
+            ApplyExecutionOutcomeStatus(outcome);
         }
         finally
         {
@@ -467,7 +607,9 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
             return;
         }
 
-        StatusMessage = "正在取消当前拆音任务...";
+        SetStatusMessage(
+            "splitAudio.status.cancelling",
+            "正在取消当前拆音任务...");
         _executionCancellationSource?.Cancel();
     }
 
@@ -485,7 +627,9 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         catch (Exception exception)
         {
             _logger.Log(LogLevel.Warning, "定位拆音输出文件失败。", exception);
-            StatusMessage = "定位输出文件失败，请检查文件是否仍然存在。";
+            SetStatusMessage(
+                "splitAudio.status.revealFailed",
+                "定位输出文件失败，请检查文件是否仍然存在。");
         }
     }
 
@@ -503,7 +647,11 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         var clearedCount = ResultItems.Count;
         _resultCollectionState.Clear();
         NotifyResultStateChanged();
-        StatusMessage = $"已清空处理完毕列表，共移除 {clearedCount} 条记录。";
+        SetStatusMessage(
+            () => FormatLocalizedText(
+                "splitAudio.status.resultsCleared",
+                "已清空处理完毕列表，共移除 {count} 条记录。",
+                ("count", clearedCount)));
     }
 
     private bool CanClearResults() => _resultCollectionState.HasResults;
@@ -555,13 +703,13 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
             if (_mediaInfoService.TryGetCachedDetails(inputPath, out var cachedSnapshot) &&
                 !cachedSnapshot.HasAudioStream)
             {
-                return InputValidationResult.Rejected($"{Path.GetFileName(inputPath)} 不包含可用音频轨道。");
+                return InputValidationResult.Rejected(() => CreateNoAudioTrackMessage(Path.GetFileName(inputPath)));
             }
 
             var detailsResult = await _mediaInfoService.GetMediaDetailsAsync(inputPath);
             if (detailsResult.IsSuccess && detailsResult.Snapshot is { HasAudioStream: false })
             {
-                return InputValidationResult.Rejected($"{Path.GetFileName(inputPath)} 不包含可用音频轨道。");
+                return InputValidationResult.Rejected(() => CreateNoAudioTrackMessage(Path.GetFileName(inputPath)));
             }
 
             return InputValidationResult.Accepted();
@@ -577,15 +725,15 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
     {
         var normalizedPath = Path.GetFullPath(inputPath);
         ResetPreviewState();
-        var inputSummary = await BuildInputSummaryAsync(normalizedPath);
-        _inputState.SetSelectedInput(normalizedPath, inputSummary);
+        var inputSummaryResolver = await BuildInputSummaryResolverAsync(normalizedPath);
+        _inputState.SetSelectedInput(normalizedPath, inputSummaryResolver);
         await PrimePreviewTimelineAsync(normalizedPath);
         OnPropertyChanged(nameof(CanPlayPreview));
         NotifyInputStateChanged();
         NotifyCommandStates();
     }
 
-    private async Task<string> BuildInputSummaryAsync(string inputPath)
+    private async Task<Func<string>> BuildInputSummaryResolverAsync(string inputPath)
     {
         try
         {
@@ -606,25 +754,100 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
 
             if (snapshot is null)
             {
-                return "已导入文件；开始拆音时会再次校验音轨并标准化为 WAV。";
+                return () => GetLocalizedText(
+                    "splitAudio.input.summary.pendingValidation",
+                    "已导入文件；开始拆音时会再次校验音轨并标准化为 WAV。");
             }
 
-            var mediaType = snapshot.HasVideoStream ? "视频输入" : "音频输入";
-            var durationText = snapshot.MediaDuration is { } duration && duration > TimeSpan.Zero
-                ? (duration.TotalHours >= 1d ? duration.ToString(@"hh\:mm\:ss") : duration.ToString(@"mm\:ss"))
-                : "时长未知";
-            var audioCodecText = string.IsNullOrWhiteSpace(snapshot.PrimaryAudioCodecName)
-                ? "音频编码未知"
-                : $"音频编码 {snapshot.PrimaryAudioCodecName}";
+            var isVideoInput = snapshot.HasVideoStream;
+            var mediaDuration = snapshot.MediaDuration;
+            var primaryAudioCodecName = snapshot.PrimaryAudioCodecName;
 
-            return $"{mediaType}，{durationText}，{audioCodecText}。拆音时会先标准化为临时 WAV，再调用 Demucs 分离四轨。";
+            return () =>
+            {
+                var mediaType = GetLocalizedText(
+                    isVideoInput
+                        ? "splitAudio.input.summary.mediaType.video"
+                        : "splitAudio.input.summary.mediaType.audio",
+                    isVideoInput ? "视频输入" : "音频输入");
+                var durationText = mediaDuration is { } duration && duration > TimeSpan.Zero
+                    ? FormatCompactDuration(duration)
+                    : GetLocalizedText("splitAudio.input.summary.unknownDuration", "时长未知");
+                var audioCodecText = string.IsNullOrWhiteSpace(primaryAudioCodecName)
+                    ? GetLocalizedText("splitAudio.input.summary.unknownCodec", "音频编码未知")
+                    : FormatLocalizedText(
+                        "splitAudio.input.summary.codec",
+                        "音频编码 {codec}",
+                        ("codec", primaryAudioCodecName));
+
+                return FormatLocalizedText(
+                    "splitAudio.input.summary.ready",
+                    "{mediaType}，{duration}，{audioCodec}。拆音时会先标准化为临时 WAV，再调用 Demucs 分离四轨。",
+                    ("mediaType", mediaType),
+                    ("duration", durationText),
+                    ("audioCodec", audioCodecText));
+            };
         }
         catch (Exception exception)
         {
             _logger.Log(LogLevel.Warning, "读取拆音输入摘要失败，将继续使用简化说明。", exception);
-            return "已导入文件；开始拆音时会再次校验音轨并标准化为 WAV。";
+            return () => GetLocalizedText(
+                "splitAudio.input.summary.pendingValidation",
+                "已导入文件；开始拆音时会再次校验音轨并标准化为 WAV。");
         }
     }
+
+    private void ApplyExecutionOutcomeStatus(SplitAudioExecutionOutcome outcome)
+    {
+        ArgumentNullException.ThrowIfNull(outcome);
+
+        switch (outcome.Kind)
+        {
+            case SplitAudioExecutionOutcomeKind.Succeeded when outcome.Result is not null:
+                SetStatusMessage(
+                    () => FormatLocalizedText(
+                        "splitAudio.status.completed",
+                        "{resolutionSummary} 已生成 {count} 条分轨文件。",
+                        ("resolutionSummary", outcome.Result.ExecutionPlan.ResolveResolutionSummary()),
+                        ("count", outcome.Result.StemOutputs.Count)));
+                return;
+
+            case SplitAudioExecutionOutcomeKind.Cancelled:
+                SetStatusMessage(
+                    "splitAudio.status.cancelled",
+                    "拆音任务已取消。");
+                return;
+
+            default:
+                var failureReasonResolver = outcome.FailureReasonResolver ??
+                                            (() => GetLocalizedText("splitAudio.status.failedGenericReason", "未知错误"));
+                SetStatusMessage(
+                    () => FormatLocalizedText(
+                        "splitAudio.status.failed",
+                        "拆音失败：{reason}",
+                        ("reason", failureReasonResolver())));
+                return;
+        }
+    }
+
+    private void RefreshLocalizedRuntimeText()
+    {
+        if (_statusMessageResolver is not null)
+        {
+            StatusMessage = _statusMessageResolver();
+        }
+    }
+
+    private void SetStatusMessage(Func<string> resolver)
+    {
+        ArgumentNullException.ThrowIfNull(resolver);
+
+        _statusMessageResolver = resolver;
+        StatusMessage = resolver();
+    }
+
+    private void SetStatusMessage(string key, string fallback) =>
+        SetStatusMessage(() => GetLocalizedText(key, fallback));
 
     private void NotifyCommandStates()
     {
@@ -664,10 +887,58 @@ public sealed partial class SplitAudioWorkspaceViewModel : ObservableObject, IDi
         _clearResultsCommand.NotifyCanExecuteChanged();
     }
 
-    private readonly record struct InputValidationResult(bool IsAccepted, string? Reason)
+    private string GetDefaultInputSummaryText() =>
+        GetLocalizedText(
+            "splitAudio.input.summary.default",
+            "支持视频与纯音频输入；如果导入视频，会自动提取主音轨后再开始拆音。");
+
+    private string CreateNoAudioTrackMessage(string? fileName) =>
+        FormatLocalizedText(
+            "splitAudio.validation.noAudioTrack",
+            "{fileName} 不包含可用音频轨道。",
+            ("fileName", string.IsNullOrWhiteSpace(fileName)
+                ? GetLocalizedText("splitAudio.input.summary.unknownFileName", "当前文件")
+                : fileName));
+
+    private string GetStemDisplayName(AudioStemKind stemKind) =>
+        stemKind switch
+        {
+            AudioStemKind.Vocals => GetLocalizedText("splitAudio.stem.vocals", "人声"),
+            AudioStemKind.Drums => GetLocalizedText("splitAudio.stem.drums", "鼓组"),
+            AudioStemKind.Bass => GetLocalizedText("splitAudio.stem.bass", "低频"),
+            AudioStemKind.Other => GetLocalizedText("splitAudio.stem.other", "其他"),
+            _ => throw new ArgumentOutOfRangeException(nameof(stemKind), stemKind, null)
+        };
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService.GetString(key, fallback);
+
+    private string FormatLocalizedText(
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments)
+    {
+        if (arguments.Length == 0)
+        {
+            return GetLocalizedText(key, fallback);
+        }
+
+        var localizedArguments = arguments.ToDictionary(
+            argument => argument.Name,
+            argument => argument.Value,
+            StringComparer.Ordinal);
+        return _localizationService.Format(key, localizedArguments, fallback);
+    }
+
+    private static string FormatCompactDuration(TimeSpan duration) =>
+        duration.TotalHours >= 1d
+            ? duration.ToString(@"hh\:mm\:ss")
+            : duration.ToString(@"mm\:ss");
+
+    private readonly record struct InputValidationResult(bool IsAccepted, Func<string>? ReasonResolver)
     {
         public static InputValidationResult Accepted() => new(true, null);
 
-        public static InputValidationResult Rejected(string reason) => new(false, reason);
+        public static InputValidationResult Rejected(Func<string> reasonResolver) => new(false, reasonResolver);
     }
 }

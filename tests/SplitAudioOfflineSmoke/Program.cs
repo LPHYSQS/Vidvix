@@ -26,14 +26,17 @@ if (!File.Exists(inputPath))
 
 var configuration = new ApplicationConfiguration();
 var logger = new SimpleLogger(mirrorToConsole: true);
+var userPreferencesService = new UserPreferencesService(configuration, logger);
+var localizationService = new LocalizationService(configuration, userPreferencesService, logger);
+await localizationService.InitializeAsync();
 var packageSource = new FFmpegPackageSource(configuration, logger);
 var ffmpegRuntimeService = new FFmpegRuntimeService(configuration, packageSource, logger);
 var ffmpegService = new FFmpegService(logger);
 var mediaInfoService = new MediaInfoService(ffmpegRuntimeService, configuration, logger);
 var commandBuilder = new FFmpegCommandBuilder(configuration.FFmpegExecutableFileName);
 var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(configuration, commandBuilder);
-var demucsRuntimeService = new DemucsRuntimeService(configuration, logger);
-var demucsExecutionPlanner = new DemucsExecutionPlanner(configuration, demucsRuntimeService, logger);
+var demucsRuntimeService = new DemucsRuntimeService(configuration, localizationService, logger);
+var demucsExecutionPlanner = new DemucsExecutionPlanner(configuration, demucsRuntimeService, localizationService, logger);
 var workflowService = new AudioSeparationWorkflowService(
     configuration,
     ffmpegRuntimeService,
@@ -42,6 +45,7 @@ var workflowService = new AudioSeparationWorkflowService(
     mediaProcessingCommandFactory,
     commandBuilder,
     demucsExecutionPlanner,
+    localizationService,
     logger);
 
 var outputFormat = configuration.SupportedAudioOutputFormats.FirstOrDefault(format =>
@@ -60,7 +64,7 @@ var progress = new Progress<AudioSeparationProgress>(update =>
     var progressText = update.ProgressRatio is double ratio
         ? $"{Math.Round(ratio * 100d):0}%"
         : "N/A";
-    Console.WriteLine($"[progress] {update.StageTitle} | {progressText} | {update.DetailText}");
+    Console.WriteLine($"[progress] {update.ResolveStageTitle()} | {progressText} | {update.ResolveDetailText()}");
 });
 
 try
@@ -71,7 +75,7 @@ try
     Console.WriteLine($"INPUT={result.InputPath}");
     Console.WriteLine($"OUTPUT_DIR={result.OutputDirectory}");
     Console.WriteLine($"DURATION_MS={Math.Round(result.Duration.TotalMilliseconds, 0)}");
-    Console.WriteLine($"EXECUTION_PLAN={result.ExecutionPlan.ResolutionSummary}");
+    Console.WriteLine($"EXECUTION_PLAN={result.ExecutionPlan.ResolveResolutionSummary()}");
     Console.WriteLine($"EXECUTION_DEVICE_KIND={result.ExecutionPlan.SelectedDeviceKind}");
     Console.WriteLine($"EXECUTION_DEVICE_NAME={result.ExecutionPlan.DeviceDisplayName}");
     Console.WriteLine($"EXECUTION_DEVICE_ARG={result.ExecutionPlan.DeviceArgument}");

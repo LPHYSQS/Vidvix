@@ -105,7 +105,7 @@
                     Grid.Column="1"
                     Command="{x:Bind RevealCommand, Mode=OneWay}"
                     CommandParameter="{x:Bind FilePath, Mode=OneWay}"
-                    Content="定位文件"
+                    Content="{x:Bind RevealButtonText, Mode=OneWay}"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top" />
             </Grid>

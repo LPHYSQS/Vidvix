@@ -147,7 +147,9 @@
                             BorderThickness="1"
                             CornerRadius="14">
                             <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="人声 · vocals" />
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{Binding ElementName=RootPage, Path=ViewModel.VocalsStemTitleText}" />
                                 <TextBlock
                                     Opacity="0.72"
                                     Text="{x:Bind VocalsFileName}"
@@ -155,7 +157,7 @@
                                 <Button
                                     Command="{Binding ElementName=RootPage, Path=ViewModel.RevealFileCommand}"
                                     CommandParameter="{x:Bind VocalsPath}"
-                                    Content="定位文件" />
+                                    Content="{Binding ElementName=RootPage, Path=ViewModel.RevealFileButtonText}" />
                             </StackPanel>
                         </Border>
 
@@ -167,7 +169,9 @@
                             BorderThickness="1"
                             CornerRadius="14">
                             <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="鼓组 · drums" />
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{Binding ElementName=RootPage, Path=ViewModel.DrumsStemTitleText}" />
                                 <TextBlock
                                     Opacity="0.72"
                                     Text="{x:Bind DrumsFileName}"
@@ -175,7 +179,7 @@
                                 <Button
                                     Command="{Binding ElementName=RootPage, Path=ViewModel.RevealFileCommand}"
                                     CommandParameter="{x:Bind DrumsPath}"
-                                    Content="定位文件" />
+                                    Content="{Binding ElementName=RootPage, Path=ViewModel.RevealFileButtonText}" />
                             </StackPanel>
                         </Border>
 
@@ -187,7 +191,9 @@
                             BorderThickness="1"
                             CornerRadius="14">
                             <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="低频 · bass" />
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{Binding ElementName=RootPage, Path=ViewModel.BassStemTitleText}" />
                                 <TextBlock
                                     Opacity="0.72"
                                     Text="{x:Bind BassFileName}"
@@ -195,7 +201,7 @@
                                 <Button
                                     Command="{Binding ElementName=RootPage, Path=ViewModel.RevealFileCommand}"
                                     CommandParameter="{x:Bind BassPath}"
-                                    Content="定位文件" />
+                                    Content="{Binding ElementName=RootPage, Path=ViewModel.RevealFileButtonText}" />
                             </StackPanel>
                         </Border>
 
@@ -208,7 +214,9 @@
                             BorderThickness="1"
                             CornerRadius="14">
                             <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="其他 · other" />
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{Binding ElementName=RootPage, Path=ViewModel.OtherStemTitleText}" />
                                 <TextBlock
                                     Opacity="0.72"
                                     Text="{x:Bind OtherFileName}"
@@ -216,7 +224,7 @@
                                 <Button
                                     Command="{Binding ElementName=RootPage, Path=ViewModel.RevealFileCommand}"
                                     CommandParameter="{x:Bind OtherPath}"
-                                    Content="定位文件" />
+                                    Content="{Binding ElementName=RootPage, Path=ViewModel.RevealFileButtonText}" />
                             </StackPanel>
                         </Border>
                     </Grid>
@@ -275,30 +283,42 @@
                     <controls:SplitAudioStemPreviewCard
                         DurationMilliseconds="{x:Bind DurationMilliseconds}"
                         FilePath="{x:Bind VocalsPath}"
+                        PausePreviewButtonText="{Binding ElementName=RootPage, Path=ViewModel.PausePreviewButtonText}"
+                        PlayPreviewButtonText="{Binding ElementName=RootPage, Path=ViewModel.PlayPreviewButtonText}"
                         RevealCommand="{Binding ElementName=RootPage, Path=ViewModel.RevealFileCommand}"
-                        StemTitle="人声 / vocals" />
+                        RevealButtonText="{Binding ElementName=RootPage, Path=ViewModel.RevealFileButtonText}"
+                        StemTitle="{Binding ElementName=RootPage, Path=ViewModel.VocalsStemTitleText}" />
 
                     <controls:SplitAudioStemPreviewCard
                         Grid.Column="1"
                         DurationMilliseconds="{x:Bind DurationMilliseconds}"
                         FilePath="{x:Bind DrumsPath}"
+                        PausePreviewButtonText="{Binding ElementName=RootPage, Path=ViewModel.PausePreviewButtonText}"
+                        PlayPreviewButtonText="{Binding ElementName=RootPage, Path=ViewModel.PlayPreviewButtonText}"
                         RevealCommand="{Binding ElementName=RootPage, Path=ViewModel.RevealFileCommand}"
-                        StemTitle="鼓组 / drums" />
+                        RevealButtonText="{Binding ElementName=RootPage, Path=ViewModel.RevealFileButtonText}"
+                        StemTitle="{Binding ElementName=RootPage, Path=ViewModel.DrumsStemTitleText}" />
 
                     <controls:SplitAudioStemPreviewCard
                         Grid.Row="1"
                         DurationMilliseconds="{x:Bind DurationMilliseconds}"
                         FilePath="{x:Bind BassPath}"
+                        PausePreviewButtonText="{Binding ElementName=RootPage, Path=ViewModel.PausePreviewButtonText}"
+                        PlayPreviewButtonText="{Binding ElementName=RootPage, Path=ViewModel.PlayPreviewButtonText}"
                         RevealCommand="{Binding ElementName=RootPage, Path=ViewModel.RevealFileCommand}"
-                        StemTitle="低频 / bass" />
+                        RevealButtonText="{Binding ElementName=RootPage, Path=ViewModel.RevealFileButtonText}"
+                        StemTitle="{Binding ElementName=RootPage, Path=ViewModel.BassStemTitleText}" />
 
                     <controls:SplitAudioStemPreviewCard
                         Grid.Row="1"
                         Grid.Column="1"
                         DurationMilliseconds="{x:Bind DurationMilliseconds}"
                         FilePath="{x:Bind OtherPath}"
+                        PausePreviewButtonText="{Binding ElementName=RootPage, Path=ViewModel.PausePreviewButtonText}"
+                        PlayPreviewButtonText="{Binding ElementName=RootPage, Path=ViewModel.PlayPreviewButtonText}"
                         RevealCommand="{Binding ElementName=RootPage, Path=ViewModel.RevealFileCommand}"
-                        StemTitle="其他 / other" />
+                        RevealButtonText="{Binding ElementName=RootPage, Path=ViewModel.RevealFileButtonText}"
+                        StemTitle="{Binding ElementName=RootPage, Path=ViewModel.OtherStemTitleText}" />
                 </Grid>
             </StackPanel>
         </DataTemplate>
@@ -339,7 +359,7 @@
                 <StackPanel Spacing="4">
                     <TextBlock
                         Style="{StaticResource SectionTitleTextStyle}"
-                        Text="导入文件" />
+                        Text="{x:Bind ViewModel.InputSectionTitleText, Mode=OneWay}" />
                     <TextBlock
                         Opacity="0.72"
                         Text="{x:Bind ViewModel.SupportedInputFormatsHint, Mode=OneWay}"
@@ -366,7 +386,7 @@
                             <TextBlock
                                 HorizontalAlignment="Center"
                                 FontWeight="SemiBold"
-                                Text="请导入文件或拖拽到此处"
+                                Text="{x:Bind ViewModel.PlaceholderTitleText, Mode=OneWay}"
                                 TextAlignment="Center" />
                             <TextBlock
                                 HorizontalAlignment="Center"
@@ -379,7 +399,7 @@
                                 HorizontalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <SymbolIcon Symbol="OpenFile" />
-                                    <TextBlock Text="导入文件" />
+                                    <TextBlock Text="{x:Bind ViewModel.ImportButtonText, Mode=OneWay}" />
                                 </StackPanel>
                             </Button>
                         </StackPanel>
@@ -419,7 +439,7 @@
                                 <Button
                                     Grid.Column="1"
                                     Command="{x:Bind ViewModel.RemoveInputCommand, Mode=OneWay}"
-                                    Content="移除" />
+                                    Content="{x:Bind ViewModel.RemoveInputButtonText, Mode=OneWay}" />
                             </Grid>
 
                             <Border
@@ -506,17 +526,17 @@
                     <StackPanel Spacing="4">
                         <TextBlock
                             Style="{StaticResource SectionTitleTextStyle}"
-                            Text="拆音相关设置" />
+                            Text="{x:Bind ViewModel.SettingsSectionTitleText, Mode=OneWay}" />
                         <TextBlock
                             Opacity="0.72"
-                            Text="输出格式仍由 FFmpeg 负责，Demucs 只负责生成中间四轨。"
+                            Text="{x:Bind ViewModel.SettingsDescriptionText, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
                     <StackPanel Spacing="8">
                         <TextBlock
                             FontWeight="SemiBold"
-                            Text="输出格式" />
+                            Text="{x:Bind ViewModel.OutputFormatLabelText, Mode=OneWay}" />
                         <ComboBox
                             DisplayMemberPath="DisplayName"
                             ItemsSource="{x:Bind ViewModel.AvailableOutputFormats, Mode=OneWay}"
@@ -530,7 +550,7 @@
                     <StackPanel Spacing="8">
                         <TextBlock
                             FontWeight="SemiBold"
-                            Text="输出目录" />
+                            Text="{x:Bind ViewModel.OutputDirectoryLabelText, Mode=OneWay}" />
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -540,16 +560,16 @@
 
                             <TextBox
                                 IsReadOnly="True"
-                                PlaceholderText="原文件目录"
+                                PlaceholderText="{x:Bind ViewModel.OutputDirectoryPlaceholderText, Mode=OneWay}"
                                 Text="{x:Bind ViewModel.OutputDirectory, Mode=OneWay}" />
                             <Button
                                 Grid.Column="1"
                                 Command="{x:Bind ViewModel.BrowseOutputDirectoryCommand, Mode=OneWay}"
-                                Content="选择目录" />
+                                Content="{x:Bind ViewModel.SelectOutputDirectoryButtonText, Mode=OneWay}" />
                             <Button
                                 Grid.Column="2"
                                 Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
-                                Content="清空" />
+                                Content="{x:Bind ViewModel.ClearOutputDirectoryButtonText, Mode=OneWay}" />
                         </Grid>
                         <TextBlock
                             Opacity="0.72"
@@ -560,7 +580,7 @@
                     <StackPanel Spacing="8">
                         <TextBlock
                             FontWeight="SemiBold"
-                            Text="拆音加速模式" />
+                            Text="{x:Bind ViewModel.AccelerationModeLabelText, Mode=OneWay}" />
                         <ComboBox
                             DisplayMemberPath="DisplayName"
                             ItemsSource="{x:Bind ViewModel.AvailableAccelerationModes, Mode=OneWay}"
@@ -574,7 +594,7 @@
                     <StackPanel Spacing="8">
                         <TextBlock
                             FontWeight="SemiBold"
-                            Text="当前状态" />
+                            Text="{x:Bind ViewModel.StatusSectionTitleText, Mode=OneWay}" />
                         <Border
                             Padding="12"
                             Style="{StaticResource SplitAudioInsetCardStyle}">
@@ -601,10 +621,10 @@
                 <StackPanel Margin="0,0,108,0" Spacing="4">
                     <TextBlock
                         Style="{StaticResource SectionTitleTextStyle}"
-                        Text="处理完毕列表" />
+                        Text="{x:Bind ViewModel.ResultsSectionTitleText, Mode=OneWay}" />
                     <TextBlock
                         Opacity="0.72"
-                        Text="每次完成后会按原文件名 + stem 名称输出四个结果文件。"
+                        Text="{x:Bind ViewModel.ResultsDescriptionText, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
 
@@ -612,7 +632,7 @@
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
                     Command="{x:Bind ViewModel.ClearResultsCommand, Mode=OneWay}"
-                    Content="全部清空" />
+                    Content="{x:Bind ViewModel.ClearResultsButtonText, Mode=OneWay}" />
 
                 <Border
                     Grid.Row="1"
@@ -634,7 +654,7 @@
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Opacity="0.72"
-                            Text="暂无处理结果"
+                            Text="{x:Bind ViewModel.EmptyResultsText, Mode=OneWay}"
                             Visibility="{x:Bind ViewModel.EmptyResultsVisibility, Mode=OneWay}" />
                     </Grid>
                 </Border>
