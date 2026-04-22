@@ -146,7 +146,7 @@
                                     FontSize="12"
                                     FontWeight="SemiBold"
                                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                    Text="以视频长度为预设" />
+                                    Text="{Binding ViewModel.AudioVideoComposeVideoPresetBadgeText, ElementName=RootPage}" />
                             </Border>
                             <Border
                                 Padding="10,4"
@@ -157,7 +157,7 @@
                                     FontSize="12"
                                     FontWeight="SemiBold"
                                     Foreground="#FFC42B1C"
-                                    Text="已失效" />
+                                    Text="{Binding ViewModel.InvalidTrackBadgeText, ElementName=RootPage}" />
                             </Border>
                         </StackPanel>
 
@@ -171,15 +171,15 @@
                                 IsEnabled="{x:Bind CanSetAsResolutionPreset, Mode=OneWay}"
                                 Tag="{x:Bind}"
                                 Visibility="{Binding ViewModel.AudioVideoComposePresetSelectionVisibility, ElementName=RootPage}"
-                                ToolTipService.ToolTip="设为视频长度预设">
-                                <TextBlock Text="长度预设" />
+                                ToolTipService.ToolTip="{Binding ViewModel.AudioVideoComposeVideoPresetToolTipText, ElementName=RootPage}">
+                                <TextBlock Text="{Binding ViewModel.DurationPresetButtonText, ElementName=RootPage}" />
                             </Button>
                             <Button
                                 Click="OnRemoveVideoTrackItemClick"
                                 Style="{StaticResource MergeTrackActionButtonStyle}"
                                 Tag="{x:Bind}"
-                                ToolTipService.ToolTip="移除视频片段">
-                                <TextBlock Text="移除" />
+                                ToolTipService.ToolTip="{Binding ViewModel.RemoveVideoTrackItemToolTipText, ElementName=RootPage}">
+                                <TextBlock Text="{Binding ViewModel.RemoveButtonText, ElementName=RootPage}" />
                             </Button>
                         </StackPanel>
                     </Grid>
@@ -281,7 +281,7 @@
                                     FontSize="12"
                                     FontWeight="SemiBold"
                                     Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                    Text="以音频长度为预设" />
+                                    Text="{Binding ViewModel.AudioVideoComposeAudioPresetBadgeText, ElementName=RootPage}" />
                             </Border>
                             <Border
                                 Padding="10,4"
@@ -292,7 +292,7 @@
                                     FontSize="12"
                                     FontWeight="SemiBold"
                                     Foreground="#FFC42B1C"
-                                    Text="已失效" />
+                                    Text="{Binding ViewModel.InvalidTrackBadgeText, ElementName=RootPage}" />
                             </Border>
                         </StackPanel>
 
@@ -306,15 +306,15 @@
                                 IsEnabled="{x:Bind CanSetAsResolutionPreset, Mode=OneWay}"
                                 Tag="{x:Bind}"
                                 Visibility="{Binding ViewModel.AudioVideoComposePresetSelectionVisibility, ElementName=RootPage}"
-                                ToolTipService.ToolTip="设为音频长度预设">
-                                <TextBlock Text="长度预设" />
+                                ToolTipService.ToolTip="{Binding ViewModel.AudioVideoComposeAudioPresetToolTipText, ElementName=RootPage}">
+                                <TextBlock Text="{Binding ViewModel.DurationPresetButtonText, ElementName=RootPage}" />
                             </Button>
                             <Button
                                 Click="OnRemoveAudioTrackItemClick"
                                 Style="{StaticResource MergeTrackActionButtonStyle}"
                                 Tag="{x:Bind}"
-                                ToolTipService.ToolTip="移除音频片段">
-                                <TextBlock Text="移除" />
+                                ToolTipService.ToolTip="{Binding ViewModel.RemoveAudioTrackItemToolTipText, ElementName=RootPage}">
+                                <TextBlock Text="{Binding ViewModel.RemoveButtonText, ElementName=RootPage}" />
                             </Button>
                         </StackPanel>
                     </Grid>
@@ -386,10 +386,10 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Spacing="4">
-                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="素材列表" />
+                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="{x:Bind ViewModel.MediaLibrarySectionTitleText, Mode=OneWay}" />
                     <TextBlock
                         Opacity="0.72"
-                        Text="支持导入视频或音频文件。单击素材列表中的素材可添加到相应轨道。"
+                        Text="{x:Bind ViewModel.MediaLibraryDescriptionText, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
 
@@ -399,7 +399,7 @@
                     HorizontalAlignment="Stretch">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <SymbolIcon Symbol="OpenFile" />
-                        <TextBlock Text="导入文件" />
+                        <TextBlock Text="{x:Bind ViewModel.ImportFilesButtonText, Mode=OneWay}" />
                     </StackPanel>
                 </Button>
 
@@ -463,7 +463,7 @@
                                             Grid.RowSpan="2"
                                             Click="OnRemoveMediaItemClick"
                                             Style="{StaticResource MergeMediaRemoveButtonStyle}"
-                                            ToolTipService.ToolTip="移除素材">
+                                            ToolTipService.ToolTip="{Binding ViewModel.RemoveMediaItemToolTipText, ElementName=RootPage}">
                                             <FontIcon FontSize="14" Glyph="&#xE74D;" />
                                         </Button>
                                     </Grid>
@@ -477,7 +477,7 @@
                         VerticalAlignment="Center"
                         MaxWidth="180"
                         Opacity="0.72"
-                        Text="导入后素材会显示在这里。"
+                        Text="{x:Bind ViewModel.MediaLibraryEmptyText, Mode=OneWay}"
                         TextAlignment="Center"
                         TextWrapping="WrapWholeWords"
                         Visibility="{x:Bind ViewModel.MediaItemsEmptyVisibility, Mode=OneWay}" />
@@ -498,10 +498,10 @@
                     </Grid.RowDefinitions>
 
                 <StackPanel Spacing="4">
-                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="合并工作区" />
+                    <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="{x:Bind ViewModel.WorkspaceSectionTitleText, Mode=OneWay}" />
                     <TextBlock
                         Opacity="0.72"
-                        Text="在不同合并模式之间切换，按需将素材编排到视频轨道或音频轨道。"
+                        Text="{x:Bind ViewModel.WorkspaceDescriptionText, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
 
@@ -534,7 +534,7 @@
                                 <TextBlock
                                     VerticalAlignment="Center"
                                     FontWeight="SemiBold"
-                                    Text="视频拼接"
+                                    Text="{x:Bind ViewModel.VideoJoinModeDisplayName, Mode=OneWay}"
                                     TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                         </RadioButton>
@@ -558,7 +558,7 @@
                                 <TextBlock
                                     VerticalAlignment="Center"
                                     FontWeight="SemiBold"
-                                    Text="音频拼接"
+                                    Text="{x:Bind ViewModel.AudioJoinModeDisplayName, Mode=OneWay}"
                                     TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                         </RadioButton>
@@ -600,7 +600,7 @@
                                 <TextBlock
                                     VerticalAlignment="Center"
                                     FontWeight="SemiBold"
-                                    Text="音视频合成"
+                                    Text="{x:Bind ViewModel.AudioVideoComposeModeDisplayName, Mode=OneWay}"
                                     TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                         </RadioButton>
@@ -633,7 +633,7 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="视频轨道" />
+                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="{x:Bind ViewModel.VideoTrackSectionTitleText, Mode=OneWay}" />
                                 <StackPanel
                                     Grid.Column="1"
                                     HorizontalAlignment="Right"
@@ -660,7 +660,7 @@
                                 <TextBlock
                                     Opacity="0.72"
                                     Style="{StaticResource CaptionTextStyle}"
-                                    Text="可左键长按拖拽片段调整顺序，也可使用片段顶部按钮快速移除或设为分辨率预设。"
+                                    Text="{x:Bind ViewModel.VideoTrackOperationHintText, Mode=OneWay}"
                                     TextWrapping="WrapWholeWords" />
                             </StackPanel>
 
@@ -762,7 +762,7 @@
                                                                     FontSize="12"
                                                                     FontWeight="SemiBold"
                                                                     Foreground="#FFC42B1C"
-                                                                    Text="已失效" />
+                                                                    Text="{Binding ViewModel.InvalidTrackBadgeText, ElementName=RootPage}" />
                                                             </Border>
                                                         </StackPanel>
 
@@ -775,15 +775,15 @@
                                                                 Style="{StaticResource MergeTrackActionButtonStyle}"
                                                                 IsEnabled="{x:Bind CanSetAsResolutionPreset, Mode=OneWay}"
                                                                 Tag="{x:Bind}"
-                                                                ToolTipService.ToolTip="设为分辨率预设">
-                                                                <TextBlock Text="预设" />
+                                                                ToolTipService.ToolTip="{Binding ViewModel.VideoResolutionPresetToolTipText, ElementName=RootPage}">
+                                                                <TextBlock Text="{Binding ViewModel.PresetButtonText, ElementName=RootPage}" />
                                                             </Button>
                                                             <Button
                                                                 Click="OnRemoveVideoTrackItemClick"
                                                                 Style="{StaticResource MergeTrackActionButtonStyle}"
                                                                 Tag="{x:Bind}"
-                                                                ToolTipService.ToolTip="移除视频片段">
-                                                                <TextBlock Text="移除" />
+                                                                ToolTipService.ToolTip="{Binding ViewModel.RemoveVideoTrackItemToolTipText, ElementName=RootPage}">
+                                                                <TextBlock Text="{Binding ViewModel.RemoveButtonText, ElementName=RootPage}" />
                                                             </Button>
                                                         </StackPanel>
                                                     </Grid>
@@ -899,7 +899,7 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="音频轨道" />
+                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="{x:Bind ViewModel.AudioTrackSectionTitleText, Mode=OneWay}" />
                                 <StackPanel
                                     Grid.Column="1"
                                     HorizontalAlignment="Right"
@@ -1028,7 +1028,7 @@
                                                                     FontSize="12"
                                                                     FontWeight="SemiBold"
                                                                     Foreground="#FFC42B1C"
-                                                                    Text="已失效" />
+                                                                    Text="{Binding ViewModel.InvalidTrackBadgeText, ElementName=RootPage}" />
                                                             </Border>
                                                         </StackPanel>
 
@@ -1042,15 +1042,15 @@
                                                                 IsEnabled="{x:Bind CanSetAsResolutionPreset, Mode=OneWay}"
                                                                 Tag="{x:Bind}"
                                                                 Visibility="{Binding ViewModel.AudioJoinPresetSelectionVisibility, ElementName=RootPage}"
-                                                                ToolTipService.ToolTip="设为参数预设">
-                                                                <TextBlock Text="预设" />
+                                                                ToolTipService.ToolTip="{Binding ViewModel.AudioParameterPresetToolTipText, ElementName=RootPage}">
+                                                                <TextBlock Text="{Binding ViewModel.PresetButtonText, ElementName=RootPage}" />
                                                             </Button>
                                                             <Button
                                                                 Click="OnRemoveAudioTrackItemClick"
                                                                 Style="{StaticResource MergeTrackActionButtonStyle}"
                                                                 Tag="{x:Bind}"
-                                                                ToolTipService.ToolTip="移除音频片段">
-                                                                <TextBlock Text="移除" />
+                                                                ToolTipService.ToolTip="{Binding ViewModel.RemoveAudioTrackItemToolTipText, ElementName=RootPage}">
+                                                                <TextBlock Text="{Binding ViewModel.RemoveButtonText, ElementName=RootPage}" />
                                                             </Button>
                                                         </StackPanel>
                                                     </Grid>
@@ -1180,7 +1180,7 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="视频轨道" />
+                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="{x:Bind ViewModel.VideoTrackSectionTitleText, Mode=OneWay}" />
                                 <StackPanel
                                     Grid.Column="1"
                                     HorizontalAlignment="Right"
@@ -1257,7 +1257,7 @@
                                                         <TextBlock
                                                             FontSize="13"
                                                             FontWeight="SemiBold"
-                                                            Text="当前定位" />
+                                                            Text="{x:Bind ViewModel.AudioVideoComposeCurrentPositionLabelText, Mode=OneWay}" />
                                                         <TextBlock
                                                             Text="{x:Bind ViewModel.AudioVideoComposeVideoTrackSummaryText, Mode=OneWay}"
                                                             TextWrapping="WrapWholeWords" />
@@ -1277,7 +1277,7 @@
                                                         <TextBlock
                                                             FontSize="13"
                                                             FontWeight="SemiBold"
-                                                            Text="合成策略" />
+                                                            Text="{x:Bind ViewModel.AudioVideoComposeVideoStrategyLabelText, Mode=OneWay}" />
                                                         <TextBlock
                                                             Text="{x:Bind ViewModel.AudioVideoComposeVideoCardStrategyText, Mode=OneWay}"
                                                             TextWrapping="WrapWholeWords" />
@@ -1295,14 +1295,14 @@
                                 Visibility="{x:Bind ViewModel.AudioVideoComposeVideoExtendOptionsVisibility, Mode=OneWay}">
                                 <TextBlock
                                     Style="{StaticResource CaptionTextStyle}"
-                                    Text="视频较短时的延长方式" />
+                                    Text="{x:Bind ViewModel.AudioVideoComposeVideoExtendModeLabelText, Mode=OneWay}" />
                                 <StackPanel Orientation="Horizontal" Spacing="16">
                                     <RadioButton
-                                        Content="循环延长到音频时长"
+                                        Content="{x:Bind ViewModel.AudioVideoComposeExtendLoopOptionText, Mode=OneWay}"
                                         GroupName="AudioVideoComposeVideoExtendMode"
                                         IsChecked="{Binding ViewModel.IsAudioVideoComposeLoopVideoExtendModeSelected, ElementName=RootPage, Mode=TwoWay}" />
                                     <RadioButton
-                                        Content="冻结最后一帧到音频结束"
+                                        Content="{x:Bind ViewModel.AudioVideoComposeExtendFreezeOptionText, Mode=OneWay}"
                                         GroupName="AudioVideoComposeVideoExtendMode"
                                         IsChecked="{Binding ViewModel.IsAudioVideoComposeFreezeFrameVideoExtendModeSelected, ElementName=RootPage, Mode=TwoWay}" />
                                 </StackPanel>
@@ -1335,7 +1335,7 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="音频轨道" />
+                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="{x:Bind ViewModel.AudioTrackSectionTitleText, Mode=OneWay}" />
                                 <StackPanel
                                     Grid.Column="1"
                                     HorizontalAlignment="Right"
@@ -1412,7 +1412,7 @@
                                                         <TextBlock
                                                             FontSize="13"
                                                             FontWeight="SemiBold"
-                                                            Text="当前定位" />
+                                                            Text="{x:Bind ViewModel.AudioVideoComposeCurrentPositionLabelText, Mode=OneWay}" />
                                                         <TextBlock
                                                             Text="{x:Bind ViewModel.AudioVideoComposeAudioTrackSummaryText, Mode=OneWay}"
                                                             TextWrapping="WrapWholeWords" />
@@ -1432,7 +1432,7 @@
                                                         <TextBlock
                                                             FontSize="13"
                                                             FontWeight="SemiBold"
-                                                            Text="音轨策略" />
+                                                            Text="{x:Bind ViewModel.AudioVideoComposeAudioStrategyLabelText, Mode=OneWay}" />
                                                         <TextBlock
                                                             Text="{x:Bind ViewModel.AudioVideoComposeAudioCardStrategyText, Mode=OneWay}"
                                                             TextWrapping="WrapWholeWords" />
@@ -1460,7 +1460,7 @@
                 VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="16">
                     <StackPanel Spacing="4">
-                        <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="输出设置" />
+                        <TextBlock Style="{StaticResource SectionTitleTextStyle}" Text="{x:Bind ViewModel.OutputSettingsSectionTitleText, Mode=OneWay}" />
                         <TextBlock
                             Opacity="0.72"
                             Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
@@ -1470,7 +1470,7 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.VideoJoinOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="输出格式" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutputFormatLabelText, Mode=OneWay}" />
                         <ComboBox
                             DisplayMemberPath="DisplayName"
                             ItemsSource="{x:Bind ViewModel.VideoJoinOutputFormats, Mode=OneWay}"
@@ -1484,7 +1484,7 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.VideoJoinOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="输出目录" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutputDirectoryLabelText, Mode=OneWay}" />
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -1496,15 +1496,15 @@
                                 IsReadOnly="True"
                                 ToolTipService.ToolTip="{x:Bind ViewModel.VideoJoinOutputDirectoryDisplayText, Mode=OneWay}"
                                 Text="{x:Bind ViewModel.VideoJoinOutputDirectoryDisplayText, Mode=OneWay}"
-                                PlaceholderText="预设视频目录" />
+                                PlaceholderText="{x:Bind ViewModel.VideoJoinOutputDirectoryPlaceholderText, Mode=OneWay}" />
                             <Button
                                 Grid.Column="1"
                                 Command="{x:Bind ViewModel.BrowseOutputDirectoryCommand, Mode=OneWay}"
-                                Content="选择目录" />
+                                Content="{x:Bind ViewModel.SelectOutputDirectoryButtonText, Mode=OneWay}" />
                             <Button
                                 Grid.Column="2"
                                 Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
-                                Content="清空" />
+                                Content="{x:Bind ViewModel.ClearOutputDirectoryButtonText, Mode=OneWay}" />
                         </Grid>
                         <TextBlock
                             Opacity="0.72"
@@ -1515,9 +1515,9 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.VideoJoinOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="输出文件名" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutputFileNameLabelText, Mode=OneWay}" />
                         <TextBox
-                            PlaceholderText="留空时自动生成"
+                            PlaceholderText="{x:Bind ViewModel.AutoGeneratedOutputFileNamePlaceholderText, Mode=OneWay}"
                             Text="{x:Bind ViewModel.VideoJoinOutputFileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock
                             Opacity="0.72"
@@ -1528,19 +1528,19 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.VideoJoinOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="分辨率处理" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.ResolutionHandlingLabelText, Mode=OneWay}" />
                         <TextBlock
                             Opacity="0.72"
                             Style="{StaticResource CaptionTextStyle}"
                             Text="{x:Bind ViewModel.VideoResolutionPresetSummaryText, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
-                        <TextBlock FontWeight="SemiBold" Text="较小分辨率视频" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SmallerResolutionVideoLabelText, Mode=OneWay}" />
                         <RadioButton
-                            Content="填充黑边"
+                            Content="{x:Bind ViewModel.PadWithBlackBarsOptionText, Mode=OneWay}"
                             GroupName="SmallerResolutionStrategy"
                             IsChecked="{x:Bind ViewModel.IsPadSmallerVideoWithBlackBarsSelected, Mode=TwoWay}" />
                         <RadioButton
-                            Content="拉伸填充"
+                            Content="{x:Bind ViewModel.StretchToFillOptionText, Mode=OneWay}"
                             GroupName="SmallerResolutionStrategy"
                             IsChecked="{x:Bind ViewModel.IsStretchSmallerVideoToFillSelected, Mode=TwoWay}" />
                     </StackPanel>
@@ -1548,13 +1548,13 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.VideoJoinOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="较大分辨率视频" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.LargerResolutionVideoLabelText, Mode=OneWay}" />
                         <RadioButton
-                            Content="挤压"
+                            Content="{x:Bind ViewModel.SqueezeOptionText, Mode=OneWay}"
                             GroupName="LargerResolutionStrategy"
                             IsChecked="{x:Bind ViewModel.IsSqueezeLargerVideoToFitSelected, Mode=TwoWay}" />
                         <RadioButton
-                            Content="裁剪"
+                            Content="{x:Bind ViewModel.CropOptionText, Mode=OneWay}"
                             GroupName="LargerResolutionStrategy"
                             IsChecked="{x:Bind ViewModel.IsCropLargerVideoToFillSelected, Mode=TwoWay}" />
                     </StackPanel>
@@ -1562,7 +1562,7 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioJoinOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="输出格式" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutputFormatLabelText, Mode=OneWay}" />
                         <ComboBox
                             DisplayMemberPath="DisplayName"
                             ItemsSource="{x:Bind ViewModel.AudioJoinOutputFormats, Mode=OneWay}"
@@ -1576,31 +1576,31 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioJoinOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="参数模式" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.ParameterModeLabelText, Mode=OneWay}" />
                         <RadioButton
-                            Content="均衡模式"
+                            Content="{x:Bind ViewModel.BalancedAudioJoinParameterModeText, Mode=OneWay}"
                             GroupName="AudioJoinParameterMode"
                             IsChecked="{x:Bind ViewModel.IsBalancedAudioJoinParameterModeSelected, Mode=TwoWay}" />
                         <TextBlock
                             Opacity="0.72"
                             Style="{StaticResource CaptionTextStyle}"
-                            Text="不锁定单个预设音频，按全部有效音轨的整体情况统一采样率与码率，更偏向稳定听感和输出兼容性。"
+                            Text="{x:Bind ViewModel.BalancedAudioJoinParameterModeDescriptionText, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
                         <RadioButton
-                            Content="指定预设模式"
+                            Content="{x:Bind ViewModel.PresetAudioJoinParameterModeText, Mode=OneWay}"
                             GroupName="AudioJoinParameterMode"
                             IsChecked="{x:Bind ViewModel.IsPresetAudioJoinParameterModeSelected, Mode=TwoWay}" />
                         <TextBlock
                             Opacity="0.72"
                             Style="{StaticResource CaptionTextStyle}"
-                            Text="以音频轨道中选中的参数预设为目标，低于目标的补齐到目标，高于目标的压到目标，匹配的保持不动。"
+                            Text="{x:Bind ViewModel.PresetAudioJoinParameterModeDescriptionText, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioJoinOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="输出目录" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutputDirectoryLabelText, Mode=OneWay}" />
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -1612,15 +1612,15 @@
                                 IsReadOnly="True"
                                 ToolTipService.ToolTip="{x:Bind ViewModel.AudioJoinOutputDirectoryDisplayText, Mode=OneWay}"
                                 Text="{x:Bind ViewModel.AudioJoinOutputDirectoryDisplayText, Mode=OneWay}"
-                                PlaceholderText="预设音频目录" />
+                                PlaceholderText="{x:Bind ViewModel.AudioJoinOutputDirectoryPlaceholderText, Mode=OneWay}" />
                             <Button
                                 Grid.Column="1"
                                 Command="{x:Bind ViewModel.BrowseOutputDirectoryCommand, Mode=OneWay}"
-                                Content="选择目录" />
+                                Content="{x:Bind ViewModel.SelectOutputDirectoryButtonText, Mode=OneWay}" />
                             <Button
                                 Grid.Column="2"
                                 Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
-                                Content="清空" />
+                                Content="{x:Bind ViewModel.ClearOutputDirectoryButtonText, Mode=OneWay}" />
                         </Grid>
                         <TextBlock
                             Opacity="0.72"
@@ -1631,9 +1631,9 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioJoinOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="输出文件名" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutputFileNameLabelText, Mode=OneWay}" />
                         <TextBox
-                            PlaceholderText="留空时自动生成"
+                            PlaceholderText="{x:Bind ViewModel.AutoGeneratedOutputFileNamePlaceholderText, Mode=OneWay}"
                             Text="{x:Bind ViewModel.AudioJoinOutputFileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock
                             Opacity="0.72"
@@ -1644,7 +1644,7 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioJoinOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="参数基准" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.ParameterBaselineLabelText, Mode=OneWay}" />
                         <Border
                             Padding="12"
                             CornerRadius="12"
@@ -1662,7 +1662,7 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioVideoComposeOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="输出格式" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutputFormatLabelText, Mode=OneWay}" />
                         <ComboBox
                             DisplayMemberPath="DisplayName"
                             ItemsSource="{x:Bind ViewModel.AudioVideoComposeOutputFormats, Mode=OneWay}"
@@ -1676,7 +1676,7 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioVideoComposeOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="输出目录" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutputDirectoryLabelText, Mode=OneWay}" />
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -1688,15 +1688,15 @@
                                 IsReadOnly="True"
                                 ToolTipService.ToolTip="{x:Bind ViewModel.AudioVideoComposeOutputDirectoryDisplayText, Mode=OneWay}"
                                 Text="{x:Bind ViewModel.AudioVideoComposeOutputDirectoryDisplayText, Mode=OneWay}"
-                                PlaceholderText="当前视频目录" />
+                                PlaceholderText="{x:Bind ViewModel.AudioVideoComposeOutputDirectoryPlaceholderText, Mode=OneWay}" />
                             <Button
                                 Grid.Column="1"
                                 Command="{x:Bind ViewModel.BrowseOutputDirectoryCommand, Mode=OneWay}"
-                                Content="选择目录" />
+                                Content="{x:Bind ViewModel.SelectOutputDirectoryButtonText, Mode=OneWay}" />
                             <Button
                                 Grid.Column="2"
                                 Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
-                                Content="清空" />
+                                Content="{x:Bind ViewModel.ClearOutputDirectoryButtonText, Mode=OneWay}" />
                         </Grid>
                         <TextBlock
                             Opacity="0.72"
@@ -1707,9 +1707,9 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioVideoComposeOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="输出文件名" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.OutputFileNameLabelText, Mode=OneWay}" />
                         <TextBox
-                            PlaceholderText="留空时自动生成"
+                            PlaceholderText="{x:Bind ViewModel.AutoGeneratedOutputFileNamePlaceholderText, Mode=OneWay}"
                             Text="{x:Bind ViewModel.AudioVideoComposeOutputFileName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock
                             Opacity="0.72"
@@ -1720,7 +1720,7 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioVideoComposeOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="智能对齐策略" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SmartAlignmentStrategyLabelText, Mode=OneWay}" />
                         <Border
                             Padding="12"
                             CornerRadius="12"
@@ -1741,7 +1741,7 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioVideoComposeOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="导入音频处理" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.ImportedAudioProcessingLabelText, Mode=OneWay}" />
                         <Border
                             Padding="12"
                             CornerRadius="12"
@@ -1756,7 +1756,7 @@
                                     <TextBlock
                                         VerticalAlignment="Center"
                                         FontWeight="SemiBold"
-                                        Text="导入音频音量" />
+                                        Text="{x:Bind ViewModel.ImportedAudioVolumeLabelText, Mode=OneWay}" />
                                     <TextBlock
                                         Grid.Column="1"
                                         VerticalAlignment="Center"
@@ -1772,24 +1772,24 @@
                         </Border>
                         <TextBlock
                             Opacity="0.72"
-                            Text="导入音频的整体音量在这里统一调整，导出时会按当前分贝直接生效。"
+                            Text="{x:Bind ViewModel.ImportedAudioProcessingHintText, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioVideoComposeOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="混音" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.MixingLabelText, Mode=OneWay}" />
                         <Border
                             Padding="12"
                             CornerRadius="12"
                             Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <StackPanel Spacing="10">
                                 <ToggleSwitch
-                                    Header="保留原视频声音并与导入音频混合"
+                                    Header="{x:Bind ViewModel.MixOriginalAudioHeaderText, Mode=OneWay}"
                                     IsOn="{x:Bind ViewModel.IsAudioVideoComposeMixOriginalAudioEnabled, Mode=TwoWay}"
-                                    OffContent="关闭"
-                                    OnContent="开启" />
+                                    OffContent="{x:Bind ViewModel.ToggleOffText, Mode=OneWay}"
+                                    OnContent="{x:Bind ViewModel.ToggleOnText, Mode=OneWay}" />
                                 <TextBlock
                                     Opacity="0.72"
                                     Text="{x:Bind ViewModel.AudioVideoComposeMixOriginalAudioAvailabilityText, Mode=OneWay}"
@@ -1806,7 +1806,7 @@
                                         <TextBlock
                                             VerticalAlignment="Center"
                                             FontWeight="SemiBold"
-                                            Text="原视频声音音量" />
+                                            Text="{x:Bind ViewModel.OriginalVideoAudioVolumeLabelText, Mode=OneWay}" />
                                         <TextBlock
                                             Grid.Column="1"
                                             VerticalAlignment="Center"
@@ -1826,31 +1826,31 @@
                     <StackPanel
                         Spacing="8"
                         Visibility="{x:Bind ViewModel.AudioVideoComposeOutputSettingsVisibility, Mode=OneWay}">
-                        <TextBlock FontWeight="SemiBold" Text="淡入淡出" />
+                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.FadeSectionTitleText, Mode=OneWay}" />
                         <Border
                             Padding="12"
                             CornerRadius="12"
                             Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <StackPanel Spacing="12">
                                 <ToggleSwitch
-                                    Header="导入音频淡入"
+                                    Header="{x:Bind ViewModel.FadeInHeaderText, Mode=OneWay}"
                                     IsOn="{x:Bind ViewModel.IsAudioVideoComposeFadeInEnabled, Mode=TwoWay}"
-                                    OffContent="关闭"
-                                    OnContent="开启" />
+                                    OffContent="{x:Bind ViewModel.ToggleOffText, Mode=OneWay}"
+                                    OnContent="{x:Bind ViewModel.ToggleOnText, Mode=OneWay}" />
                                 <NumberBox
-                                    Header="淡入时长（秒）"
+                                    Header="{x:Bind ViewModel.FadeInDurationHeaderText, Mode=OneWay}"
                                     IsEnabled="{x:Bind ViewModel.IsAudioVideoComposeFadeInEnabled, Mode=OneWay}"
                                     Minimum="0"
                                     SmallChange="0.5"
                                     SpinButtonPlacementMode="Compact"
                                     Value="{x:Bind ViewModel.AudioVideoComposeFadeInSeconds, Mode=TwoWay}" />
                                 <ToggleSwitch
-                                    Header="导入音频淡出"
+                                    Header="{x:Bind ViewModel.FadeOutHeaderText, Mode=OneWay}"
                                     IsOn="{x:Bind ViewModel.IsAudioVideoComposeFadeOutEnabled, Mode=TwoWay}"
-                                    OffContent="关闭"
-                                    OnContent="开启" />
+                                    OffContent="{x:Bind ViewModel.ToggleOffText, Mode=OneWay}"
+                                    OnContent="{x:Bind ViewModel.ToggleOnText, Mode=OneWay}" />
                                 <NumberBox
-                                    Header="淡出时长（秒）"
+                                    Header="{x:Bind ViewModel.FadeOutDurationHeaderText, Mode=OneWay}"
                                     IsEnabled="{x:Bind ViewModel.IsAudioVideoComposeFadeOutEnabled, Mode=OneWay}"
                                     Minimum="0"
                                     SmallChange="0.5"

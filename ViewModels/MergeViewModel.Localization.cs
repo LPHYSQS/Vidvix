@@ -39,6 +39,7 @@ public sealed partial class MergeViewModel
         OnPropertyChanged(nameof(VideoJoinTimelineVisibility));
         OnPropertyChanged(nameof(AudioJoinTimelineVisibility));
         OnPropertyChanged(nameof(StandardTimelineVisibility));
+        RaiseUiTextPropertiesChanged();
         RaiseTrackStatePropertiesChanged();
         RefreshLocalizedRuntimeText();
     }

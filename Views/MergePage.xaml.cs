@@ -192,7 +192,7 @@ public sealed partial class MergePage : Page
             XamlRoot = XamlRoot,
             Title = title,
             Content = message,
-            CloseButtonText = "知道了",
+            CloseButtonText = ViewModel.InvalidTrackDialogCloseButtonText,
             DefaultButton = ContentDialogButton.Close
         };
 
@@ -209,7 +209,7 @@ public sealed partial class MergePage : Page
         }
 
         e.AcceptedOperation = DataPackageOperation.Copy;
-        e.DragUIOverride.Caption = "将文件或文件夹拖到这里导入素材";
+        e.DragUIOverride.Caption = ViewModel.MediaListDragDropCaptionText;
         e.DragUIOverride.IsCaptionVisible = true;
         e.DragUIOverride.IsContentVisible = true;
         e.Handled = true;

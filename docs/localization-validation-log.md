@@ -99,3 +99,15 @@
 - 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行超过 `10` 秒，`MainWindowHandle` 为 `24773294`，窗口标题为 `Vidvix`，`Responding = True`，未出现黑屏、白屏或闪退。
 - 刷新链路验证：`ApplicationConfiguration.MergeModeProfiles` 已改用 `merge.mode.*` 前缀承接显示名、模式切换提示、时间线提示与空轨道文本；`MergeViewModel.RefreshLocalization()` 会重建模式摘要、音视频合成策略 / 时长摘要、输出提示与当前 `StatusMessage`，`SetStatusMessage()` / `LocalizedArgument()` / `ResolveMergeTranscodingMessage()` 则保证处理中锁定提示、转码回退说明和完成 / 失败消息在语言切换后不保留旧语言字符串。
 - 回归补记：本轮把原先散落在 `common.mergeMode.*` 和硬编码中文中的合并状态层文案统一收敛到 `merge.json`，因此 `R10` 可以直接复用现有的 `merge.*` 资源与摘要刷新链路，只补界面层按钮、标签和说明文案。
+
+## R10 · 2026-04-22 10:50
+
+- 轮次范围：合并模块界面层迁移，仅处理 `Views/MergePage.xaml`、`Views/MergePage.xaml.cs` 与合并页直连的 UI 文本属性，不回头修改 `R9` 已稳定的状态 / 进度 resolver。
+- 构建命令：`dotnet build .\Vidvix.sln -c Debug -v minimal`
+- 构建结果：通过，`0` 警告，`0` 错误。
+- 资源验证：`Resources/Localization/zh-CN/merge.json` 与 `Resources/Localization/en-US/merge.json` key 对齐校验通过，双语均为 `317` 个 key，`MISSING_IN_EN=0`、`MISSING_IN_ZH=0`。
+- 界面层残留扫描：`Views/MergePage.xaml` 与 `Views/MergePage.xaml.cs` 的中文硬编码扫描结果为 `0`，本轮界面层主标题、按钮、Tooltip、占位符、拖拽提示与对话框关闭按钮均已转为语言 key 绑定。
+- 热切换验证：临时项目 `dotnet run -c Debug --project %TEMP%\VidvixR10Smoke\VidvixR10Smoke.csproj` 通过，确认 `MediaLibrarySectionTitleText`、`OutputSettingsSectionTitleText`、`MixOriginalAudioHeaderText`、`MediaListDragDropCaptionText` 与 `InvalidTrackDialogCloseButtonText` 在 `zh-CN -> en-US -> zh-CN` 往返切换下均可即时重算，无需重启应用。
+- 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行超过 `10` 秒，`MainWindowHandle` 为 `461484`，窗口标题为 `Vidvix`，`Responding = True`，未出现黑屏、白屏或闪退。
+- 刷新链路验证：新增 `ViewModels/MergeViewModel.UiText.cs` 后，`MergeViewModel.RefreshLocalization()` 已会统一触发合并页界面属性的 `PropertyChanged`；`MergePage.xaml` 不再保留静态中文，也不需要再引入单独的页面级刷新总线。
+- 回归补记：本轮把失效轨道对话框关闭按钮和拖拽导入 caption 也纳入了 `merge.dialog.*` / `merge.page.*`，因此 `R11` 可以把精力集中在全仓残余 fallback 中文、英语补齐与 key 收敛，而不是回头补漏合并页界面层。

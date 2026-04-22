@@ -76,6 +76,7 @@
 | `splitAudio.executionPlan.*` | `split-audio.json` | Demucs 执行方案、GPU 回退与设备切换摘要 | `R7` |
 | `splitAudio.planner.*` | `split-audio.json` | Demucs 设备探测与启动脚本校验消息 | `R7` |
 | `splitAudio.runtime.*` | `split-audio.json` | Demucs 运行时包、模型仓与 Python 环境缺失提示 | `R7` |
+| `merge.page.*` | `merge.json` | 合并页主界面层标题、说明、轨道标题、输出设置字段、拖拽提示与按钮短文案 | `R10` |
 
 ## 已注册 Key
 
@@ -348,8 +349,35 @@
 | `merge.status.audioJoin.completed.withPresetTranscoding` | `merge` | `merge.json` | `音频拼接完成：{fileName}。参数预设来源：{presetName} · {summary}。{transcoding}` | `Audio join completed: {fileName}. Parameter preset source: {presetName} · {summary}. {transcoding}` | `Active` | `R9` |
 | `merge.status.audioVideoCompose.completed.withTranscoding` | `merge` | `merge.json` | `音视频合成完成：{fileName}。{strategy}；输出时长 {duration}。{mix}{fade}{transcoding}` | `Audio-video compose completed: {fileName}. {strategy}; output duration {duration}. {mix}{fade}{transcoding}` | `Active` | `R9` |
 
+## R10 批量登记
+
+- 本轮把合并模块主界面层标题、按钮、Tooltip、占位符、拖拽提示、对话框按钮与三种模式输出设置区字段统一收敛到 `Resources/Localization/zh-CN/merge.json` 与 `Resources/Localization/en-US/merge.json`，不回头修改 `R9` 已完成的状态 resolver。
+- 已登记的 R10 key family：
+  - `merge.page.mediaLibrary.*`
+  - `merge.page.workspace.*`
+  - `merge.page.track.*`
+  - `merge.page.audioVideoCompose.*`
+  - `merge.page.output.*`
+  - `merge.page.action.*`
+  - `merge.page.dragDrop.*`
+  - `merge.dialog.invalidTrackItems.*`
+- R10 刷新补记：
+  - 新增 `MergeViewModel.UiText.cs` 作为合并页界面层本地化入口，`MergeViewModel.RefreshLocalization()` 现会统一触发这些页面属性的 `PropertyChanged`，因此 `MergePage.xaml` 无需新增独立刷新总线也能在运行时同步更新标题、按钮、占位符和 Tooltip。
+  - `Views/MergePage.xaml` 与 `Views/MergePage.xaml.cs` 中的主界面中文已清空，拖拽提示与失效轨道对话框关闭按钮也改为走 `merge.page.*` / `merge.dialog.*` 语言 key；`R11` 再统一处理合并模块剩余的 fallback 中文与全仓零散残留。
+- R10 代表性 key：
+
+| Key | 模块 | 资源文件 | `zh-CN` | `en-US` | 状态 | 首次建立轮次 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `merge.page.mediaLibrary.title` | `merge` | `merge.json` | `素材列表` | `Media library` | `Active` | `R10` |
+| `merge.page.workspace.description` | `merge` | `merge.json` | `在不同合并模式之间切换，按需将素材编排到视频轨道或音频轨道。` | `Switch between merge modes and arrange clips onto the video track or audio track as needed.` | `Active` | `R10` |
+| `merge.page.output.field.smartAlignment` | `merge` | `merge.json` | `智能对齐策略` | `Smart alignment strategy` | `Active` | `R10` |
+| `merge.page.output.option.extendFreeze` | `merge` | `merge.json` | `冻结最后一帧到音频结束` | `Freeze the last frame until the audio ends` | `Active` | `R10` |
+| `merge.page.action.setVideoResolutionPreset.tooltip` | `merge` | `merge.json` | `设为分辨率预设` | `Set as the resolution preset` | `Active` | `R10` |
+| `merge.page.dragDrop.caption` | `merge` | `merge.json` | `将文件或文件夹拖到这里导入素材` | `Drop files or folders here to import media` | `Active` | `R10` |
+| `merge.dialog.invalidTrackItems.closeButton` | `merge` | `merge.json` | `知道了` | `Got it` | `Active` | `R10` |
+
 ## 下一轮接入提示
 
-- `R10` 只处理合并模块主界面层文案，集中在 `Views/MergePage.xaml` 以及与界面直连的按钮、标签、说明和模式专属操作文案，不要重新打开 `R9` 已完成的状态 resolver。
-- `R10` 直接复用现有 `merge.*` 资源与 `MergeViewModel.RefreshLocalization()` 摘要刷新链路；新增界面层 key 时优先沿用 `merge.summary.*` / `merge.audioVideoCompose.*` 的现有分层，不要再把合并模块私有文案塞回 `common.json` 或 `main-window.json`。
-- `R10` 完成后需要补做三种模式界面热切换采样，重点看主按钮、卡片标题、空态说明和界面进度标题；同时不要扩大到 `terminal`、`media-details`、`trim`、`split-audio` 范围。
+- `R11` 开始清理全仓剩余零散 P0/P1 文案与英语补齐，优先回收合并模块、主窗口和其他模块中仍保留的 fallback 中文 / 近义重复 key，不要回头拆掉 `R10` 刚完成的页面绑定方案。
+- `R11` 继续沿用现有 `merge.page.*` / `merge.status.*` 分层，优先做 key 收敛和英语可用性补齐，不要为了清理残余文案再引入新一层本地化框架或重构合并流程。
+- `R11` 完成前不要提前进入 `R12` 总回归与冻结收尾；`terminal`、`media-details`、`trim`、`split-audio` 只处理明确盘点出的残余高优先级文案，不要重新扩张模块范围。
