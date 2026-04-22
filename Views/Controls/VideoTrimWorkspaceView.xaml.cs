@@ -22,6 +22,9 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly DispatcherQueueTimer _positionTimer;
     private readonly DispatcherQueueTimer _scrubPreviewTimer;
+    private readonly MenuFlyout _timelineContextFlyout;
+    private readonly MenuFlyoutItem _timelineMarkInPointMenuItem;
+    private readonly MenuFlyoutItem _timelineMarkOutPointMenuItem;
     private readonly ToolTip _volumeToolTip;
     private readonly long _visibilityPropertyChangedCallbackToken;
     private XamlRoot? _previewViewportXamlRoot;
@@ -56,6 +59,14 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         PreviewPlayer.Visibility = Visibility.Collapsed;
         PreviewPlayer.IsHitTestVisible = false;
         RegisterTimelineInteractionHandlers();
+        _timelineContextFlyout = new MenuFlyout();
+        _timelineMarkInPointMenuItem = new MenuFlyoutItem();
+        _timelineMarkOutPointMenuItem = new MenuFlyoutItem();
+        _timelineMarkInPointMenuItem.Click += OnTimelineMarkInPointMenuItemClick;
+        _timelineMarkOutPointMenuItem.Click += OnTimelineMarkOutPointMenuItemClick;
+        _timelineContextFlyout.Items.Add(_timelineMarkInPointMenuItem);
+        _timelineContextFlyout.Items.Add(_timelineMarkOutPointMenuItem);
+        RefreshTimelineContextMenuText();
         _volumeToolTip = new ToolTip();
         ToolTipService.SetToolTip(VolumeButton, _volumeToolTip);
         UpdateVolumeToolTip();
@@ -106,6 +117,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         }
 
         control.UpdateVolumeToolTip();
+        control.RefreshTimelineContextMenuText();
         if (!control._isControlLoaded)
         {
             return;
@@ -120,6 +132,7 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         TimelineSlider.AddHandler(PointerMovedEvent, new PointerEventHandler(OnTimelineSliderPointerMoved), true);
         TimelineSlider.AddHandler(PointerReleasedEvent, new PointerEventHandler(OnTimelineSliderPointerReleased), true);
         TimelineSlider.AddHandler(PointerCaptureLostEvent, new PointerEventHandler(OnTimelineSliderPointerCaptureLost), true);
+        TimelineSlider.AddHandler(RightTappedEvent, new RightTappedEventHandler(OnTimelineSliderRightTapped), true);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -281,6 +294,13 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
 
     private void OnTimelineSliderPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        var pointerPoint = e.GetCurrentPoint(TimelineSlider);
+        if (e.Pointer.PointerDeviceType == Microsoft.UI.Input.PointerDeviceType.Mouse &&
+            !pointerPoint.Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
         StopPositionTimer();
         StopScrubPreviewTimer();
         _hasPendingScrubPreviewPosition = false;
@@ -328,6 +348,51 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private void OnTimelineSliderPointerCaptureLost(object sender, PointerRoutedEventArgs e)
     {
         _ = FinalizeTimelineInteractionAsync();
+    }
+
+    private void OnTimelineSliderRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (ViewModel is null ||
+            !ViewModel.HasInput ||
+            ViewModel.IsPlaying ||
+            ViewModel.IsSeeking ||
+            ViewModel.IsDragging ||
+            ViewModel.IsBusy ||
+            _isTimelinePointerPressed)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        ClearSelectionInputFocus(TimelineSlider);
+        RefreshTimelineContextMenuText();
+        _timelineContextFlyout.ShowAt(
+            TimelineSlider,
+            new FlyoutShowOptions
+            {
+                Position = e.GetPosition(TimelineSlider)
+            });
+        e.Handled = true;
+    }
+
+    private async void OnTimelineMarkInPointMenuItemClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel is null || ViewModel.IsPlaying || ViewModel.IsSeeking || ViewModel.IsDragging)
+        {
+            return;
+        }
+
+        await ViewModel.MarkSelectionStartFromCurrentPositionAsync();
+    }
+
+    private async void OnTimelineMarkOutPointMenuItemClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel is null || ViewModel.IsPlaying || ViewModel.IsSeeking || ViewModel.IsDragging)
+        {
+            return;
+        }
+
+        await ViewModel.MarkSelectionEndFromCurrentPositionAsync();
     }
 
     private void OnTimelineSliderValueChanged(object sender, RangeBaseValueChangedEventArgs e)
@@ -378,6 +443,13 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
         if (e.PropertyName == nameof(VideoTrimWorkspaceViewModel.VolumeToolTipText))
         {
             UpdateVolumeToolTip();
+            return;
+        }
+
+        if (e.PropertyName == nameof(VideoTrimWorkspaceViewModel.TimelineContextMarkInPointText) ||
+            e.PropertyName == nameof(VideoTrimWorkspaceViewModel.TimelineContextMarkOutPointText))
+        {
+            RefreshTimelineContextMenuText();
             return;
         }
 
@@ -751,6 +823,12 @@ public sealed partial class VideoTrimWorkspaceView : UserControl
     private void UpdateVolumeToolTip()
     {
         _volumeToolTip.Content = ViewModel?.VolumeToolTipText ?? ViewModel?.VolumeTitleText ?? string.Empty;
+    }
+
+    private void RefreshTimelineContextMenuText()
+    {
+        _timelineMarkInPointMenuItem.Text = ViewModel?.TimelineContextMarkInPointText ?? string.Empty;
+        _timelineMarkOutPointMenuItem.Text = ViewModel?.TimelineContextMarkOutPointText ?? string.Empty;
     }
 
     private void AttachPreviewViewportXamlRootChangedHandler()

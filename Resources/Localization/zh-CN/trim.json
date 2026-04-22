@@ -19,6 +19,8 @@
   "trim.preview.jumpToStart": "跳转到裁剪入点",
   "trim.preview.jumpToEnd": "跳转到裁剪出点",
   "trim.preview.timelineAutomation": "时间轴定位",
+  "trim.preview.context.markInPoint": "标记入点",
+  "trim.preview.context.markOutPoint": "标记出点",
   "trim.preview.volume": "音量",
   "trim.preview.volumeTooltip": "音量：{percent}",
   "trim.preview.preparing.generic": "正在准备预览...",

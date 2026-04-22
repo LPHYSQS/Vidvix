@@ -92,9 +92,15 @@ public sealed partial class MainViewModel
 
     public string MergeWorkspaceButtonText => GetWorkspaceProfile(ProcessingWorkspaceKind.Merge).MediaLabel;
 
-    public string SplitAudioWorkspaceButtonText => GetWorkspaceProfile(ProcessingWorkspaceKind.SplitAudio).MediaLabel;
+    public string SplitAudioWorkspaceButtonText =>
+        GetLocalizedText(
+            "common.workspace.splitAudio.sidebarLabel",
+            GetWorkspaceProfile(ProcessingWorkspaceKind.SplitAudio).MediaLabel);
 
-    public string TerminalWorkspaceButtonText => GetWorkspaceProfile(ProcessingWorkspaceKind.Terminal).MediaLabel;
+    public string TerminalWorkspaceButtonText =>
+        GetLocalizedText(
+            "common.workspace.terminal.sidebarLabel",
+            GetWorkspaceProfile(ProcessingWorkspaceKind.Terminal).MediaLabel);
 
     public string MainWindowImportFilesButtonLabel =>
         GetLocalizedText("mainWindow.toolbar.importFiles", "导入文件");

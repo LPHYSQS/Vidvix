@@ -19,6 +19,8 @@
   "trim.preview.jumpToStart": "Jump to trim start",
   "trim.preview.jumpToEnd": "Jump to trim end",
   "trim.preview.timelineAutomation": "Timeline seek",
+  "trim.preview.context.markInPoint": "Mark in point",
+  "trim.preview.context.markOutPoint": "Mark out point",
   "trim.preview.volume": "Volume",
   "trim.preview.volumeTooltip": "Volume: {percent}",
   "trim.preview.preparing.generic": "Preparing the preview...",

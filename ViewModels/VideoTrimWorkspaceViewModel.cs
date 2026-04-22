@@ -546,6 +546,14 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         "trim.preview.timelineAutomation",
         "\u65f6\u95f4\u8f74\u5b9a\u4f4d");
 
+    public string TimelineContextMarkInPointText => GetLocalizedText(
+        "trim.preview.context.markInPoint",
+        "\u6807\u8bb0\u5165\u70b9");
+
+    public string TimelineContextMarkOutPointText => GetLocalizedText(
+        "trim.preview.context.markOutPoint",
+        "\u6807\u8bb0\u51fa\u70b9");
+
     public string VolumeTitleText => GetLocalizedText(
         "trim.preview.volume",
         "\u97f3\u91cf");
@@ -812,6 +820,41 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
     public void CommitSelectionEndInput()
     {
         CommitSelectionInput(SelectionInputKind.End);
+    }
+
+    public async Task MarkSelectionStartFromCurrentPositionAsync()
+    {
+        if (!HasInput || IsBusy)
+        {
+            return;
+        }
+
+        var previousStart = _selectionStart;
+        var previousEnd = _selectionEnd;
+        SetSelectionStart(_currentPosition);
+        if (AreClose(previousStart, _selectionStart) && AreClose(previousEnd, _selectionEnd))
+        {
+            return;
+        }
+
+        await HandleSelectionRangeChangedAsync();
+    }
+
+    public async Task MarkSelectionEndFromCurrentPositionAsync()
+    {
+        if (!HasInput || IsBusy)
+        {
+            return;
+        }
+
+        var previousEnd = _selectionEnd;
+        SetSelectionEnd(_currentPosition);
+        if (AreClose(previousEnd, _selectionEnd))
+        {
+            return;
+        }
+
+        await HandleSelectionRangeChangedAsync();
     }
 
     public bool IsPotentialSelectionInputText(string? text)
@@ -1214,6 +1257,8 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
         OnPropertyChanged(nameof(JumpToSelectionStartText));
         OnPropertyChanged(nameof(JumpToSelectionEndText));
         OnPropertyChanged(nameof(TimelineSliderAutomationName));
+        OnPropertyChanged(nameof(TimelineContextMarkInPointText));
+        OnPropertyChanged(nameof(TimelineContextMarkOutPointText));
         OnPropertyChanged(nameof(VolumeTitleText));
         OnPropertyChanged(nameof(SelectionRangeSectionTitle));
         OnPropertyChanged(nameof(SelectionStartLabelText));
