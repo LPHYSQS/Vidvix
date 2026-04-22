@@ -32,7 +32,7 @@ await localizationService.InitializeAsync();
 var packageSource = new FFmpegPackageSource(configuration, logger);
 var ffmpegRuntimeService = new FFmpegRuntimeService(configuration, packageSource, logger);
 var ffmpegService = new FFmpegService(logger);
-var mediaInfoService = new MediaInfoService(ffmpegRuntimeService, configuration, logger);
+var mediaInfoService = new MediaInfoService(ffmpegRuntimeService, configuration, localizationService, logger);
 var commandBuilder = new FFmpegCommandBuilder(configuration.FFmpegExecutableFileName);
 var mediaProcessingCommandFactory = new MediaProcessingCommandFactory(configuration, commandBuilder);
 var demucsRuntimeService = new DemucsRuntimeService(configuration, localizationService, logger);

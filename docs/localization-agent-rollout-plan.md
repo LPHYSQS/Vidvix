@@ -8,10 +8,10 @@
 - 项目：`Vidvix`
 - 当前阶段：`Stage 3`
 - 当前轮次：`R12`
-- 当前状态：`Pending`
-- 当前执行 Agent：`Unassigned`
-- 最近完成轮次：`R11`
-- 最近完成时间：`2026-04-22 11:03`
+- 当前状态：`Completed`
+- 当前执行 Agent：`Codex`
+- 最近完成轮次：`R12`
+- 最近完成时间：`2026-04-22 13:14`
 - 构建验证：`Passed`
 - 热切换验证：`Passed`
 - 字符串盘点产物：`docs/localization-string-inventory.csv`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已清理主窗口导入 / 输出目录残余高优先级反馈文案，补齐 `mainWindow.message.*` 双语 key；已将合并页素材卡 / 轨道卡的类型、摘要、未知参数、预设标签与素材失效提示统一迁移为 `merge.page.item.*`，并补上 `MediaItem` / `TrackItem` 运行时热切换刷新；已为 `MediaDetailField` 补充稳定 `Key`，让合并模块与裁剪模块在 `en-US` 下不再依赖中文字段标签解析媒体信息。
-- 本轮修改文件：`Core/Models/MediaDetailField.cs`、`Core/Models/MediaItem.cs`、`Core/Models/MergeMediaMetadataParser.cs`、`Core/Models/TrackItem.cs`、`Resources/Localization/zh-CN/main-window.json`、`Resources/Localization/en-US/main-window.json`、`Resources/Localization/zh-CN/merge.json`、`Resources/Localization/en-US/merge.json`、`Services/MediaInfo/MediaInfoService.Snapshot.cs`、`ViewModels/MainViewModel.Import.cs`、`ViewModels/MainViewModel.ProcessingMessages.cs`、`ViewModels/MergeViewModel.Localization.cs`、`ViewModels/MergeViewModel.MediaMetadata.cs`、`ViewModels/MergeViewModel.cs`、`ViewModels/VideoTrimWorkspaceViewModel.cs`、`docs/localization-agent-rollout-plan.md`、`docs/localization-key-registry.md`、`docs/localization-validation-log.md`
-- 本轮新增文件：`无`
-- 本轮验证结果：`dotnet build .\\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；`Resources/Localization/zh-CN/main-window.json` 与 `Resources/Localization/en-US/main-window.json` key 对齐校验通过，双语均为 `146` 个 key；`Resources/Localization/zh-CN/merge.json` 与 `Resources/Localization/en-US/merge.json` key 对齐校验通过，双语均为 `330` 个 key；临时热切换烟测 `dotnet run -c Debug --project %TEMP%\\VidvixR11Smoke\\VidvixR11Smoke.csproj` 通过，确认主窗口导入 / 输出目录消息、`MediaItem` / `TrackItem` 条目文案与 `MergeMediaMetadataParser` 的稳定 key 解析在 `zh-CN -> en-US -> zh-CN` 往返切换下均可即时重算；启动 `bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\Vidvix.exe` 前台持续运行超过 `12` 秒并保持响应，`MainWindowHandle` 为 `1638822`，窗口标题为 `Vidvix`，未出现黑屏、白屏或闪退。
-- 当前遗留问题：无新增阻塞项；允许保留的少量中文仅限非 UI 的安全回退 / 诊断位置，例如 `MediaItem`、`TrackItem`、`MergeMediaMetadataParser` 中的兜底 fallback 文本与少量日志 / 异常消息，不影响 `en-US` 可用性，也不会造成成片 key 缺失。
-- 下一轮必须处理：执行 `R12`，做总回归、状态冻结、最终文档收尾，并确认现有少量非 UI 中文兜底是否继续保留为安全默认值。
-- 下一轮禁止扩展：不要回头重构已稳定的本地化架构，不要再开启新的大面积文案迁移；`R12` 只允许做小范围修复、最终校验与收尾整理。
+- 本轮完成项：已完成 `R12` 最终回归与冻结：修复 `SplitAudioOfflineSmoke` 对 `MediaInfoService` 构造函数签名的回归失配，并为测试工程补上默认隔离 `OutDir` / `ProjectReference` 透传；已重导字符串盘点、完成双语 key 对齐校验、补齐最终热切换烟测与前台启动冒烟；已新增 `docs/localization-agent-quick-reference.md`，为后续 AI agent 提供精确的本地化定位说明。
+- 本轮修改文件：`tests/SplitAudioOfflineSmoke/Program.cs`、`tests/SplitAudioOfflineSmoke/SplitAudioOfflineSmoke.csproj`、`docs/localization-agent-rollout-plan.md`、`docs/localization-string-inventory.csv`、`docs/localization-validation-log.md`
+- 本轮新增文件：`docs/localization-agent-quick-reference.md`
+- 本轮验证结果：`dotnet build .\\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；`dotnet build .\\tests\\SplitAudioOfflineSmoke\\SplitAudioOfflineSmoke.csproj -c Debug -p:UseAppHost=false -v minimal` 通过，`0` 警告、`0` 错误；`powershell -ExecutionPolicy Bypass -File .\\scripts\\test-split-audio-offline.ps1 -RepoRoot .` 通过；双语 key 对齐校验通过，`common=164`、`settings=42`、`main-window=146`、`trim=130`、`split-audio=120`、`merge=330`、`terminal=30`、`media-details=72`，全部 `MISSING_IN_EN=0` / `MISSING_IN_ZH=0`；临时热切换烟测 `dotnet run -c Debug --project %TEMP%\\VidvixR12Smoke-79b338f332ca4e94b81c12ff24a9f8f7\\VidvixR12Smoke-79b338f332ca4e94b81c12ff24a9f8f7.csproj` 通过；启动 `bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\Vidvix.exe` 前台持续运行超过 `12` 秒并保持响应，`MainWindowHandle` 为 `5441680`，窗口标题为 `Vidvix`，未出现黑屏、白屏或闪退。
+- 当前遗留问题：无阻塞项；允许保留的少量中文仍仅限非 UI 的安全 fallback / 诊断文本，不影响 `en-US` 可用性，也不会造成成片 key 缺失。
+- 下一轮必须处理：无；本计划已在 `R12` 完成并冻结，下一轮为 `N/A`。
+- 下一轮禁止扩展：不要再以 `R13` 形式继续扩张本地化迁移；后续新增功能 / 新文案 / 新语言仅按 `docs/localization-agent-quick-reference.md` 做增量维护。
 
 ## 执行协议
 
@@ -234,7 +234,7 @@ splitAudio.progress.step = 正在处理第 {index} / {total} 项
 | R9 | Stage 2 | 合并模块状态层迁移 | Completed | Codex | 2026-04-22 | ~~未开始~~ 已完成合并模块状态层与模式层文案迁移，补齐 `merge.*` 双语资源、模式切换 / 轨道空态 / 状态摘要热切换刷新链路；构建、R9 临时烟测与前台启动冒烟通过。 |
 | R10 | Stage 2 | 合并模块界面层迁移 | Completed | Codex | 2026-04-22 | ~~未开始~~ 已完成合并模块主界面层文案迁移，`MergePage` 全量改为 `merge.page.*` / `merge.dialog.*` 绑定，输出设置 / 拖拽提示 / 对话框按钮支持热切换；构建、R10 烟测与前台启动验证通过。 |
 | R11 | Stage 3 | 残余文案清理与英语补齐 | Completed | Codex | 2026-04-22 | ~~未开始~~ 已清理主窗口导入 / 输出目录残余反馈、补齐 `merge.page.item.*` 双语资源，并改为按稳定 `mediaDetails.field.*` key 解析媒体字段；构建、R11 热切换烟测与前台启动验证通过。 |
-| R12 | Stage 3 | 总回归、冻结与收尾 | Pending | Unassigned | Not Recorded | 未开始 |
+| R12 | Stage 3 | 总回归、冻结与收尾 | Completed | Codex | 2026-04-22 | ~~未开始~~ 已完成最终构建、离线 smoke、热切换与启动回归，并新增后续 AI agent 本地化快速定位手册。 |
 
 ## 各轮详细执行说明
 

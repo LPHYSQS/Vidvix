@@ -123,3 +123,17 @@
 - 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行超过 `12` 秒，`MainWindowHandle` 为 `1638822`，窗口标题为 `Vidvix`，`Responding = True`，未出现黑屏、白屏或闪退。
 - 刷新链路验证：`MediaInfoService.Snapshot` 现会持久化 `MediaDetailField.Key`，`MergeMediaMetadataParser` 与 `VideoTrimWorkspaceViewModel` 已改为 key-first 解析；`MergeViewModel.RefreshLocalization()` 现会联动刷新现有 `MediaItem` / `TrackItem` 集合，因此合并页已有素材卡片和轨道卡在语言切换后不再保留旧语言摘要或未知值占位。
 - 回归补记：本轮保留的少量中文仅限非 UI 的安全 fallback / 诊断文本，不影响 `en-US` 主要页面可用性；`R12` 只需在总回归阶段决定这些安全默认值是否继续保留，不应再回头拆改本轮已稳定的 key-first 解析与条目刷新方案。
+
+## R12 · 2026-04-22 13:14
+
+- 轮次范围：总回归、冻结与收尾，仅处理最终验证、离线 smoke 回归、文档冻结与后续 AI agent 快速定位说明，不再扩张本地化迁移范围。
+- 构建命令：`dotnet build .\Vidvix.sln -c Debug -v minimal`
+- 构建结果：通过，`0` 警告，`0` 错误。
+- 测试构建回归：`dotnet build .\tests\SplitAudioOfflineSmoke\SplitAudioOfflineSmoke.csproj -c Debug -p:UseAppHost=false -v minimal` 通过，`0` 警告，`0` 错误；本轮同步修复了 `SplitAudioOfflineSmoke` 因 `MediaInfoService` 新增 `ILocalizationService` / `ILogger` 依赖而失配的问题，并为测试工程补上默认隔离 `OutDir` 与 `ProjectReference` 透传，避免 WinUI 引用工程在默认构建路径下出现 XAML / PRI 编译冲突。
+- 离线烟测：`powershell -ExecutionPolicy Bypass -File .\scripts\test-split-audio-offline.ps1 -RepoRoot .` 通过；CPU 音频与 GPU 优先视频样例均成功导出四轨结果，日志最终输出 `Offline smoke regression passed.`。
+- 资源验证：双语 key 对齐校验通过，`common.json=164`、`settings.json=42`、`main-window.json=146`、`trim.json=130`、`split-audio.json=120`、`merge.json=330`、`terminal.json=30`、`media-details.json=72`，均为 `MISSING_IN_EN=0`、`MISSING_IN_ZH=0`。
+- 字符串盘点：`scripts/export-localization-inventory.ps1` 已重新导出 `docs/localization-string-inventory.csv`，最终记录数为 `1185`；热点仍集中在 `merge`、`main-window`、`split-audio`。
+- 运行态往返热切换烟测：临时项目 `dotnet run -c Debug --project %TEMP%\VidvixR12Smoke-79b338f332ca4e94b81c12ff24a9f8f7\VidvixR12Smoke-79b338f332ca4e94b81c12ff24a9f8f7.csproj` 通过，确认主窗口设置入口、设置页语言标题、裁剪页占位文案、拆音页占位文案、合并页素材区标题、终端输入区标题与媒体详情节标题在 `zh-CN -> en-US -> zh-CN` 往返切换下均会即时重算。
+- 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行超过 `12` 秒，`MainWindowHandle` 为 `5441680`，窗口标题为 `Vidvix`，`Responding = True`，未出现黑屏、白屏或闪退。
+- 文档冻结：已新增 `docs/localization-agent-quick-reference.md`，用于后续 AI agent 精准定位资源文件、模块入口、刷新链路与新增语言接入步骤。
+- 最终结论：本地化迁移 `R1` 至 `R12` 全部完成，设置页可切换语言，主窗口 / 裁剪 / 拆音 / 合并 / 终端 / 媒体详情均能在不重启的前提下完成热切换；允许保留的少量中文仅限非 UI 安全 fallback / 诊断文本，不影响 `en-US` 可用性。

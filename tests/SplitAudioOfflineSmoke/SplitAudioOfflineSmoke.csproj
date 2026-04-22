@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
     <UseWinUI>false</UseWinUI>
     <EnableDefaultItems>false</EnableDefaultItems>
+    <BaseOutputPath Condition="'$(BaseOutputPath)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\artifacts\split-audio-offline-smoke\local\'))\</BaseOutputPath>
+    <OutDir Condition="'$(OutDir)' == ''">$(BaseOutputPath)$(Configuration)\$(TargetFramework)\</OutDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Vidvix.csproj" />
+    <ProjectReference Include="..\..\Vidvix.csproj" AdditionalProperties="OutDir=$(OutDir)" />
   </ItemGroup>
 
   <ItemGroup>
