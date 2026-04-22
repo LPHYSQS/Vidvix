@@ -77,6 +77,7 @@
 | `splitAudio.planner.*` | `split-audio.json` | Demucs 设备探测与启动脚本校验消息 | `R7` |
 | `splitAudio.runtime.*` | `split-audio.json` | Demucs 运行时包、模型仓与 Python 环境缺失提示 | `R7` |
 | `merge.page.*` | `merge.json` | 合并页主界面层标题、说明、轨道标题、输出设置字段、拖拽提示与按钮短文案 | `R10` |
+| `merge.page.item.*` | `merge.json` | 合并页素材卡 / 轨道卡的类型、摘要、未知参数、预设标签与素材可用性状态 | `R11` |
 
 ## 已注册 Key
 
@@ -376,8 +377,28 @@
 | `merge.page.dragDrop.caption` | `merge` | `merge.json` | `将文件或文件夹拖到这里导入素材` | `Drop files or folders here to import media` | `Active` | `R10` |
 | `merge.dialog.invalidTrackItems.closeButton` | `merge` | `merge.json` | `知道了` | `Got it` | `Active` | `R10` |
 
+## R11 批量登记
+
+- 本轮把主窗口导入 / 输出目录残余高优先级反馈补充进既有 `mainWindow.message.*`，并将合并页素材卡 / 轨道卡显示文本统一收敛到 `Resources/Localization/zh-CN/merge.json` 与 `Resources/Localization/en-US/merge.json` 的 `merge.page.item.*`。
+- 已登记的 R11 key family：
+  - `mainWindow.message.*`（补齐导入繁忙、导入取消 / 失败、输出目录选择 / 清空与队列清空反馈）
+  - `merge.page.item.*`
+- R11 刷新补记：
+  - `MediaItem` / `TrackItem` 不再把“未知时长 / 未知分辨率 / 视频片段”等本地化文案固化进模型状态，而是保留原始值并在访问属性或调用 `RefreshLocalization()` 时按当前语言实时重算，避免 `en-US` 与 `zh-CN` 往返切换后继续持有旧语言缓存。
+  - `MediaInfoService.Snapshot` 现为 `MediaDetailField` 持久化稳定 `Key`；`MergeMediaMetadataParser` 与 `VideoTrimWorkspaceViewModel` 改为优先按 `mediaDetails.field.*` key 解析字段，仅在旧快照场景下回退到标签匹配，因此英文标签不会再把分辨率 / 帧率 / 采样率 / 码率解析链路打断。
+- R11 代表性 key：
+
+| Key | 模块 | 资源文件 | `zh-CN` | `en-US` | 状态 | 首次建立轮次 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `mainWindow.message.importBusy` | `mainWindow` | `main-window.json` | `当前正在处理任务，请等待完成或先取消。` | `A task is currently running. Wait for it to finish or cancel it first.` | `Active` | `R11` |
+| `mainWindow.message.outputDirectorySelected` | `mainWindow` | `main-window.json` | `已将输出目录设置为：{path}` | `Output folder set to: {path}` | `Active` | `R11` |
+| `merge.page.item.mediaType.video` | `merge` | `merge.json` | `视频` | `Video` | `Active` | `R11` |
+| `merge.page.item.summary` | `merge` | `merge.json` | `{type} · {duration}` | `{type} · {duration}` | `Active` | `R11` |
+| `merge.page.item.sourceUnavailable` | `merge` | `merge.json` | `素材已从列表移除，不参与当前合并` | `This media item was removed from the library and will not be included in the current merge.` | `Active` | `R11` |
+| `merge.page.item.unknown.audioParameters` | `merge` | `merge.json` | `未知音频参数` | `Unknown audio parameters` | `Active` | `R11` |
+
 ## 下一轮接入提示
 
-- `R11` 开始清理全仓剩余零散 P0/P1 文案与英语补齐，优先回收合并模块、主窗口和其他模块中仍保留的 fallback 中文 / 近义重复 key，不要回头拆掉 `R10` 刚完成的页面绑定方案。
-- `R11` 继续沿用现有 `merge.page.*` / `merge.status.*` 分层，优先做 key 收敛和英语可用性补齐，不要为了清理残余文案再引入新一层本地化框架或重构合并流程。
-- `R11` 完成前不要提前进入 `R12` 总回归与冻结收尾；`terminal`、`media-details`、`trim`、`split-audio` 只处理明确盘点出的残余高优先级文案，不要重新扩张模块范围。
+- `R12` 只做总回归、状态冻结与文档收尾，优先验证主窗口、裁剪、拆音、合并、终端和媒体详情在 `zh-CN -> en-US -> zh-CN` 往返切换下的完整可用性，不要再开启新的大面积 key 迁移。
+- `R12` 继续沿用现有 `mainWindow.*`、`trim.*`、`splitAudio.*`、`merge.*`、`terminal.*`、`mediaDetails.*` 分层，若发现缺陷，仅允许做小范围修复，不要重构已稳定的刷新链路。
+- `R12` 需要最终确认当前保留的少量非 UI 中文 fallback / 诊断文本是否继续作为安全默认值保留，并把结论写回冻结文档与最终交接说明。

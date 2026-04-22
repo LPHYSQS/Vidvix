@@ -111,3 +111,15 @@
 - 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行超过 `10` 秒，`MainWindowHandle` 为 `461484`，窗口标题为 `Vidvix`，`Responding = True`，未出现黑屏、白屏或闪退。
 - 刷新链路验证：新增 `ViewModels/MergeViewModel.UiText.cs` 后，`MergeViewModel.RefreshLocalization()` 已会统一触发合并页界面属性的 `PropertyChanged`；`MergePage.xaml` 不再保留静态中文，也不需要再引入单独的页面级刷新总线。
 - 回归补记：本轮把失效轨道对话框关闭按钮和拖拽导入 caption 也纳入了 `merge.dialog.*` / `merge.page.*`，因此 `R11` 可以把精力集中在全仓残余 fallback 中文、英语补齐与 key 收敛，而不是回头补漏合并页界面层。
+
+## R11 · 2026-04-22 11:03
+
+- 轮次范围：残余文案清理与英语补齐，优先处理主窗口导入 / 输出目录残余反馈、合并页素材卡 / 轨道卡条目文案，以及会在 `en-US` 下破坏媒体参数解析的字段标签耦合问题，不扩展到新的页面重构。
+- 构建命令：`dotnet build .\Vidvix.sln -c Debug -v minimal`
+- 构建结果：通过，`0` 警告，`0` 错误。
+- 资源验证：`Resources/Localization/zh-CN/main-window.json` 与 `Resources/Localization/en-US/main-window.json` key 对齐校验通过，双语均为 `146` 个 key；`Resources/Localization/zh-CN/merge.json` 与 `Resources/Localization/en-US/merge.json` key 对齐校验通过，双语均为 `330` 个 key；未发现新增 `MISSING_IN_EN` 或 `MISSING_IN_ZH`。
+- 运行态往返热切换烟测：临时项目 `dotnet run -c Debug --project %TEMP%\VidvixR11Smoke\VidvixR11Smoke.csproj` 通过，确认 `mainWindow.message.importBusy` / `mainWindow.message.outputDirectorySelected` 双语格式化正常，`MediaItem` / `TrackItem` 在 `RefreshLocalization()` 后会为 `DurationText`、`ResolutionText`、`TypeDisplayText`、`SummaryText`、`ResolutionDisplayText` 等属性重新发出通知，且在 `zh-CN -> en-US -> zh-CN` 往返切换下能即时切换为目标语言。
+- 稳定 key 解析验证：同一份 `R11` 烟测额外验证了英文标签场景下的 `MediaDetailsSnapshot`，确认 `MergeMediaMetadataParser` 现可通过 `mediaDetails.field.resolution`、`mediaDetails.field.frameRate`、`mediaDetails.field.sampleRate`、`mediaDetails.field.audioBitrate` 等稳定 key 成功解析分辨率、帧率、采样率与码率；`128000 bits/s` 英文码率写法也可被正确识别。
+- 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行超过 `12` 秒，`MainWindowHandle` 为 `1638822`，窗口标题为 `Vidvix`，`Responding = True`，未出现黑屏、白屏或闪退。
+- 刷新链路验证：`MediaInfoService.Snapshot` 现会持久化 `MediaDetailField.Key`，`MergeMediaMetadataParser` 与 `VideoTrimWorkspaceViewModel` 已改为 key-first 解析；`MergeViewModel.RefreshLocalization()` 现会联动刷新现有 `MediaItem` / `TrackItem` 集合，因此合并页已有素材卡片和轨道卡在语言切换后不再保留旧语言摘要或未知值占位。
+- 回归补记：本轮保留的少量中文仅限非 UI 的安全 fallback / 诊断文本，不影响 `en-US` 主要页面可用性；`R12` 只需在总回归阶段决定这些安全默认值是否继续保留，不应再回头拆改本轮已稳定的 key-first 解析与条目刷新方案。

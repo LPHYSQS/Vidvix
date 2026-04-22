@@ -22,8 +22,8 @@ internal static class MergeMediaMetadataParser
 
         var resolutionText = snapshot is null
             ? trackItem.ResolutionText
-            : TryGetDetailFieldValue(snapshot.VideoFields, "分辨率") ??
-              TryGetDetailFieldValue(snapshot.OverviewFields, "分辨率") ??
+            : TryGetDetailFieldValue(snapshot.VideoFields, "mediaDetails.field.resolution", "分辨率") ??
+              TryGetDetailFieldValue(snapshot.OverviewFields, "mediaDetails.field.resolution", "分辨率") ??
               trackItem.ResolutionText;
 
         return TryParseResolutionText(resolutionText, out width, out height);
@@ -43,7 +43,7 @@ internal static class MergeMediaMetadataParser
             return false;
         }
 
-        var frameRateText = TryGetDetailFieldValue(snapshot.VideoFields, "帧率");
+        var frameRateText = TryGetDetailFieldValue(snapshot.VideoFields, "mediaDetails.field.frameRate", "帧率");
         if (string.IsNullOrWhiteSpace(frameRateText))
         {
             return false;
@@ -70,7 +70,7 @@ internal static class MergeMediaMetadataParser
 
         var sampleRateText = snapshot is null
             ? trackItem.ResolutionText
-            : TryGetDetailFieldValue(snapshot.AudioFields, "采样率") ??
+            : TryGetDetailFieldValue(snapshot.AudioFields, "mediaDetails.field.sampleRate", "采样率") ??
               trackItem.ResolutionText;
 
         return TryParseSampleRateText(sampleRateText, out sampleRate);
@@ -83,7 +83,7 @@ internal static class MergeMediaMetadataParser
     {
         var bitrateText = snapshot is null
             ? trackItem.ResolutionText
-            : TryGetDetailFieldValue(snapshot.AudioFields, "音频码率") ??
+            : TryGetDetailFieldValue(snapshot.AudioFields, "mediaDetails.field.audioBitrate", "音频码率") ??
               trackItem.ResolutionText;
 
         return TryParseBitrateText(bitrateText, out bitrate);
@@ -105,26 +105,26 @@ internal static class MergeMediaMetadataParser
             ? null
             : snapshot.PrimaryAudioCodecName;
 
-    public static string ResolveResolutionText(MediaDetailsSnapshot snapshot)
+    public static string ResolveResolutionText(MediaDetailsSnapshot snapshot, string unknownResolutionText = "未知分辨率")
     {
         var resolutionText = snapshot.PrimaryVideoWidth is > 0 && snapshot.PrimaryVideoHeight is > 0
             ? $"{snapshot.PrimaryVideoWidth} x {snapshot.PrimaryVideoHeight}"
-            : TryGetDetailFieldValue(snapshot.VideoFields, "分辨率") ??
-              TryGetDetailFieldValue(snapshot.OverviewFields, "分辨率");
-        return string.IsNullOrWhiteSpace(resolutionText) ? "未知分辨率" : resolutionText;
+            : TryGetDetailFieldValue(snapshot.VideoFields, "mediaDetails.field.resolution", "分辨率") ??
+              TryGetDetailFieldValue(snapshot.OverviewFields, "mediaDetails.field.resolution", "分辨率");
+        return string.IsNullOrWhiteSpace(resolutionText) ? unknownResolutionText : resolutionText;
     }
 
-    public static string ResolveAudioParameterText(MediaDetailsSnapshot snapshot)
+    public static string ResolveAudioParameterText(MediaDetailsSnapshot snapshot, string unknownAudioParameterText = "未知音频参数")
     {
         var sampleRateText = snapshot.PrimaryAudioSampleRate is > 0
             ? snapshot.PrimaryAudioSampleRate >= 1_000
                 ? $"{snapshot.PrimaryAudioSampleRate / 1_000d:0.###} kHz"
                 : $"{snapshot.PrimaryAudioSampleRate:0} Hz"
-            : TryGetDetailFieldValue(snapshot.AudioFields, "采样率");
-        var bitrateText = TryGetDetailFieldValue(snapshot.AudioFields, "音频码率");
+            : TryGetDetailFieldValue(snapshot.AudioFields, "mediaDetails.field.sampleRate", "采样率");
+        var bitrateText = TryGetDetailFieldValue(snapshot.AudioFields, "mediaDetails.field.audioBitrate", "音频码率");
         if (string.IsNullOrWhiteSpace(sampleRateText) && string.IsNullOrWhiteSpace(bitrateText))
         {
-            return "未知音频参数";
+            return unknownAudioParameterText;
         }
 
         if (string.IsNullOrWhiteSpace(sampleRateText))
@@ -140,11 +140,18 @@ internal static class MergeMediaMetadataParser
         return $"{sampleRateText} · {bitrateText}";
     }
 
-    public static string? TryGetDetailFieldValue(IReadOnlyList<MediaDetailField> fields, string label)
+    public static string? TryGetDetailFieldValue(
+        IReadOnlyList<MediaDetailField> fields,
+        string key,
+        string? fallbackLabel = null)
     {
         foreach (var field in fields)
         {
-            if (string.Equals(field.Label, label, StringComparison.OrdinalIgnoreCase) &&
+            var matchesKey = !string.IsNullOrWhiteSpace(key) &&
+                             string.Equals(field.Key, key, StringComparison.OrdinalIgnoreCase);
+            var matchesLabel = !string.IsNullOrWhiteSpace(fallbackLabel) &&
+                               string.Equals(field.Label, fallbackLabel, StringComparison.OrdinalIgnoreCase);
+            if ((matchesKey || matchesLabel) &&
                 !string.IsNullOrWhiteSpace(field.Value))
             {
                 return field.Value;
@@ -223,6 +230,7 @@ internal static class MergeMediaMetadataParser
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var candidate = segments.FirstOrDefault(segment =>
             segment.Contains("bps", StringComparison.OrdinalIgnoreCase) ||
+            segment.Contains("bits/s", StringComparison.OrdinalIgnoreCase) ||
             segment.Contains("比特/秒", StringComparison.Ordinal));
         if (string.IsNullOrWhiteSpace(candidate))
         {

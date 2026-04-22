@@ -2317,13 +2317,13 @@ public sealed partial class MergeViewModel : ObservableObject
     {
         var fileName = Path.GetFileName(filePath);
         var isVideo = IsVideoByExtension(filePath);
-        var durationText = "未知时长";
+        var durationText = string.Empty;
         var durationSeconds = 0;
-        var resolutionText = isVideo ? "未知分辨率" : "未知音频参数";
+        var resolutionText = string.Empty;
 
         if (_mediaInfoService is null)
         {
-            return new MediaItem(fileName, durationText, durationSeconds, isVideo, filePath, resolutionText);
+            return new MediaItem(fileName, durationText, durationSeconds, isVideo, filePath, resolutionText, _localizationService);
         }
 
         try
@@ -2338,8 +2338,8 @@ public sealed partial class MergeViewModel : ObservableObject
                 fileName = string.IsNullOrWhiteSpace(snapshot.FileName) ? fileName : snapshot.FileName;
                 isVideo = ResolveIsVideo(snapshot, filePath);
                 resolutionText = isVideo
-                    ? MergeMediaMetadataParser.ResolveResolutionText(snapshot)
-                    : MergeMediaMetadataParser.ResolveAudioParameterText(snapshot);
+                    ? MergeMediaMetadataParser.ResolveResolutionText(snapshot, string.Empty)
+                    : MergeMediaMetadataParser.ResolveAudioParameterText(snapshot, string.Empty);
 
                 if (snapshot.MediaDuration is { } mediaDuration && mediaDuration > TimeSpan.Zero)
                 {
@@ -2361,7 +2361,7 @@ public sealed partial class MergeViewModel : ObservableObject
             _logger?.Log(LogLevel.Warning, $"读取素材信息失败：{fileName}，已按基础信息导入。", exception);
         }
 
-        return new MediaItem(fileName, durationText, durationSeconds, isVideo, filePath, resolutionText);
+        return new MediaItem(fileName, durationText, durationSeconds, isVideo, filePath, resolutionText, _localizationService);
     }
 
     private void SetMergeMode(MergeWorkspaceMode mergeMode)

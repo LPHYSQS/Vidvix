@@ -1117,17 +1117,17 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
             new MediaDetailField
             {
                 Label = GetLocalizedText("trim.mediaInfo.field.resolution", "\u5206\u8fa8\u7387"),
-                Value = GetFieldValue(snapshot.VideoFields, "\u5206\u8fa8\u7387")
+                Value = GetFieldValue(snapshot.VideoFields, "mediaDetails.field.resolution", "\u5206\u8fa8\u7387")
             },
             new MediaDetailField
             {
                 Label = GetLocalizedText("trim.mediaInfo.field.frameRate", "\u5e27\u7387"),
-                Value = GetFieldValue(snapshot.VideoFields, "\u5e27\u7387")
+                Value = GetFieldValue(snapshot.VideoFields, "mediaDetails.field.frameRate", "\u5e27\u7387")
             },
             new MediaDetailField
             {
                 Label = GetLocalizedText("trim.mediaInfo.field.codec", "\u7f16\u7801"),
-                Value = GetFieldValue(snapshot.VideoFields, "\u7f16\u7801")
+                Value = GetFieldValue(snapshot.VideoFields, "mediaDetails.field.codec", "\u7f16\u7801")
             }
         };
 
@@ -1137,23 +1137,25 @@ public sealed partial class VideoTrimWorkspaceViewModel : ObservableObject, IDis
             new MediaDetailField
             {
                 Label = GetLocalizedText("trim.mediaInfo.field.codec", "\u7f16\u7801"),
-                Value = GetFieldValue(snapshot.AudioFields, "\u7f16\u7801")
+                Value = GetFieldValue(snapshot.AudioFields, "mediaDetails.field.codec", "\u7f16\u7801")
             },
             new MediaDetailField
             {
                 Label = GetLocalizedText("trim.mediaInfo.field.sampleRate", "\u91c7\u6837\u7387"),
-                Value = GetFieldValue(snapshot.AudioFields, "\u91c7\u6837\u7387")
+                Value = GetFieldValue(snapshot.AudioFields, "mediaDetails.field.sampleRate", "\u91c7\u6837\u7387")
             },
             new MediaDetailField
             {
                 Label = GetLocalizedText("trim.mediaInfo.field.channels", "\u58f0\u9053"),
-                Value = GetFieldValue(snapshot.AudioFields, "\u58f0\u9053")
+                Value = GetFieldValue(snapshot.AudioFields, "mediaDetails.field.channelLayout", "\u58f0\u9053")
             }
         };
 
-    private string GetFieldValue(IEnumerable<MediaDetailField> fields, string label)
+    private string GetFieldValue(IEnumerable<MediaDetailField> fields, string key, string fallbackLabel)
     {
-        var value = fields.FirstOrDefault(field => string.Equals(field.Label, label, StringComparison.Ordinal))?.Value;
+        var value = fields.FirstOrDefault(field =>
+            string.Equals(field.Key, key, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(field.Label, fallbackLabel, StringComparison.Ordinal))?.Value;
         return string.IsNullOrWhiteSpace(value)
             ? GetLocalizedText("trim.mediaInfo.unknown", "\u672a\u77e5")
             : value;

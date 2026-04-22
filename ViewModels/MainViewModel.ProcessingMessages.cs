@@ -27,6 +27,78 @@ public sealed partial class MainViewModel
             ("count", count))
     };
 
+    private string GetImportBusyMessage() =>
+        GetLocalizedText(
+            "mainWindow.message.importBusy",
+            "当前正在处理任务，请等待完成或先取消。");
+
+    private string GetImportOrganizingMessage() =>
+        GetLocalizedText(
+            "mainWindow.message.importOrganizing",
+            "正在整理导入内容...");
+
+    private string GetFileImportCancelledMessage() =>
+        GetLocalizedText(
+            "mainWindow.message.importFilesCancelled",
+            "已取消文件导入。");
+
+    private string GetFileImportFailedMessage() =>
+        GetLocalizedText(
+            "mainWindow.message.importFilesFailed",
+            "导入文件失败。");
+
+    private string GetFolderImportCancelledMessage() =>
+        GetLocalizedText(
+            "mainWindow.message.importFolderCancelled",
+            "已取消文件夹导入。");
+
+    private string GetFolderImportFailedMessage() =>
+        GetLocalizedText(
+            "mainWindow.message.importFolderFailed",
+            "导入文件夹失败。");
+
+    private string GetOutputDirectorySelectionCancelledMessage() =>
+        GetLocalizedText(
+            "mainWindow.message.outputDirectorySelectionCancelled",
+            "已取消选择输出目录。");
+
+    private string CreateOutputDirectorySelectedMessage(string outputDirectory) =>
+        FormatLocalizedText(
+            "mainWindow.message.outputDirectorySelected",
+            $"已将输出目录设置为：{outputDirectory}",
+            ("path", outputDirectory));
+
+    private string GetOutputDirectorySelectionFailedMessage() =>
+        GetLocalizedText(
+            "mainWindow.message.outputDirectorySelectionFailed",
+            "选择输出目录失败。");
+
+    private string GetQueueClearedMessage() =>
+        GetLocalizedText(
+            "mainWindow.message.queueCleared",
+            "已清空待处理列表。");
+
+    private string GetOutputDirectoryClearedMessage() =>
+        GetLocalizedText(
+            "mainWindow.message.outputDirectoryCleared",
+            "已清空输出目录，留空时将使用原文件夹输出。");
+
+    private string CreateQueueItemRemovedMessage(string fileName) =>
+        FormatLocalizedText(
+            "mainWindow.message.queueItemRemoved",
+            $"已从待处理列表移除 {fileName}。",
+            ("fileName", fileName));
+
+    private string GetImportDuplicateMessage() =>
+        GetLocalizedText(
+            "mainWindow.message.importDuplicate",
+            "导入内容已存在于列表中。");
+
+    private string GetImportNoNewFilesMessage() =>
+        GetLocalizedText(
+            "mainWindow.message.importNoNewFiles",
+            "未发现新的可处理文件。");
+
     private string CreateReasonDetail(string reason) =>
         FormatLocalizedText(
             "mainWindow.queue.item.status.reason",

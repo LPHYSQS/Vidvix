@@ -17,7 +17,7 @@ public sealed partial class MainViewModel
 
         if (IsBusy)
         {
-            StatusMessage = "当前正在处理任务，请等待完成或先取消。";
+            StatusMessage = GetImportBusyMessage();
             return;
         }
 
@@ -32,7 +32,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        StatusMessage = "正在整理导入内容...";
+        StatusMessage = GetImportOrganizingMessage();
 
         var allowedInputFileTypes = GetCurrentSupportedInputFileTypes();
         var discovery = await Task.Run(() => _mediaImportDiscoveryService.Discover(normalizedPaths, allowedInputFileTypes));
@@ -72,7 +72,7 @@ public sealed partial class MainViewModel
 
             if (selectedFiles.Count == 0)
             {
-                StatusMessage = "已取消文件导入。";
+                StatusMessage = GetFileImportCancelledMessage();
                 return;
             }
 
@@ -80,11 +80,11 @@ public sealed partial class MainViewModel
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = "已取消文件导入。";
+            StatusMessage = GetFileImportCancelledMessage();
         }
         catch (Exception exception)
         {
-            StatusMessage = "导入文件失败。";
+            StatusMessage = GetFileImportFailedMessage();
             _logger.Log(LogLevel.Error, "导入文件时发生异常。", exception);
         }
     }
@@ -97,7 +97,7 @@ public sealed partial class MainViewModel
 
             if (string.IsNullOrWhiteSpace(selectedFolder))
             {
-                StatusMessage = "已取消文件夹导入。";
+                StatusMessage = GetFolderImportCancelledMessage();
                 return;
             }
 
@@ -105,11 +105,11 @@ public sealed partial class MainViewModel
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = "已取消文件夹导入。";
+            StatusMessage = GetFolderImportCancelledMessage();
         }
         catch (Exception exception)
         {
-            StatusMessage = "导入文件夹失败。";
+            StatusMessage = GetFolderImportFailedMessage();
             _logger.Log(LogLevel.Error, "导入文件夹时发生异常。", exception);
         }
     }
@@ -123,20 +123,20 @@ public sealed partial class MainViewModel
 
             if (string.IsNullOrWhiteSpace(selectedFolder))
             {
-                StatusMessage = "已取消选择输出目录。";
+                StatusMessage = GetOutputDirectorySelectionCancelledMessage();
                 return;
             }
 
             OutputDirectory = selectedFolder;
-            StatusMessage = $"已将输出目录设置为：{OutputDirectory}";
+            StatusMessage = CreateOutputDirectorySelectedMessage(OutputDirectory);
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = "已取消选择输出目录。";
+            StatusMessage = GetOutputDirectorySelectionCancelledMessage();
         }
         catch (Exception exception)
         {
-            StatusMessage = "选择输出目录失败。";
+            StatusMessage = GetOutputDirectorySelectionFailedMessage();
             _logger.Log(LogLevel.Error, "选择输出目录时发生异常。", exception);
         }
     }
@@ -150,7 +150,7 @@ public sealed partial class MainViewModel
 
         CloseMediaDetails();
         ImportItems.Clear();
-        StatusMessage = "已清空待处理列表。";
+        StatusMessage = GetQueueClearedMessage();
     }
 
     private void ClearOutputDirectory()
@@ -161,7 +161,7 @@ public sealed partial class MainViewModel
         }
 
         OutputDirectory = string.Empty;
-        StatusMessage = "已清空输出目录，留空时将使用原文件夹输出。";
+        StatusMessage = GetOutputDirectoryClearedMessage();
     }
 
     private void RemoveImportItem(object? parameter)
@@ -172,7 +172,7 @@ public sealed partial class MainViewModel
         }
 
         CloseMediaDetailsIfShowing(item.InputPath);
-        StatusMessage = $"已从待处理列表移除 {item.InputFileName}。";
+        StatusMessage = CreateQueueItemRemovedMessage(item.InputFileName);
     }
 
     private bool CanClearQueue() => !IsBusy && ImportItems.Count > 0;
@@ -193,11 +193,11 @@ public sealed partial class MainViewModel
 
         if (duplicateCount > 0)
         {
-            return "导入内容已存在于列表中。";
+            return GetImportDuplicateMessage();
         }
 
         return discovery.UnsupportedEntries > 0 || discovery.MissingEntries > 0
             ? CreateNoProcessableImportMessage()
-            : "未发现新的可处理文件。";
+            : GetImportNoNewFilesMessage();
     }
 }

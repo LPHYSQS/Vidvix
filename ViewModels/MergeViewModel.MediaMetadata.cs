@@ -47,14 +47,15 @@ public sealed partial class MergeViewModel
         return new TrackItem(
             mediaItem.FileName,
             mediaItem.SourcePath,
-            mediaItem.DurationText,
+            mediaItem.RawDurationText,
             mediaItem.DurationSeconds,
-            mediaItem.ResolutionText,
+            mediaItem.RawResolutionText,
             visualWidth,
             mediaItem.IsVideo,
             index,
             isSourceAvailable,
-            ResolveMediaItemHasEmbeddedAudio(mediaItem));
+            ResolveMediaItemHasEmbeddedAudio(mediaItem),
+            _localizationService);
     }
 
     private bool ResolveMediaItemHasEmbeddedAudio(MediaItem mediaItem)

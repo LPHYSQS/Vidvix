@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
+using Vidvix.Core.Interfaces;
 using Vidvix.Utils;
 
 namespace Vidvix.Core.Models;
 
 public sealed class MediaItem : ObservableObject
 {
+    private readonly ILocalizationService? _localizationService;
     private string _fileName;
     private string _sourcePath;
     private string _durationText;
@@ -18,22 +21,20 @@ public sealed class MediaItem : ObservableObject
         int durationSeconds,
         bool isVideo,
         string? sourcePath = null,
-        string? resolutionText = null)
+        string? resolutionText = null,
+        ILocalizationService? localizationService = null)
     {
+        _localizationService = localizationService;
         _fileName = string.IsNullOrWhiteSpace(fileName)
             ? throw new ArgumentException("素材文件名不能为空。", nameof(fileName))
             : fileName;
         _sourcePath = sourcePath ?? string.Empty;
-        _durationText = string.IsNullOrWhiteSpace(durationText)
-            ? throw new ArgumentException("素材时长文本不能为空。", nameof(durationText))
-            : durationText;
+        _durationText = NormalizeDisplayValue(durationText);
         _durationSeconds = durationSeconds >= 0
             ? durationSeconds
             : throw new ArgumentOutOfRangeException(nameof(durationSeconds));
         _isVideo = isVideo;
-        _resolutionText = string.IsNullOrWhiteSpace(resolutionText)
-            ? "未知参数"
-            : resolutionText;
+        _resolutionText = NormalizeDisplayValue(resolutionText);
     }
 
     public string FileName
@@ -50,13 +51,14 @@ public sealed class MediaItem : ObservableObject
 
     public string DurationText
     {
-        get => _durationText;
+        get => string.IsNullOrWhiteSpace(_durationText)
+            ? GetLocalizedText("merge.page.item.unknown.duration", "未知时长")
+            : _durationText;
         set
         {
-            if (SetProperty(ref _durationText, value))
+            if (SetProperty(ref _durationText, NormalizeDisplayValue(value)))
             {
                 OnPropertyChanged(nameof(SummaryText));
-                OnPropertyChanged(nameof(TypeDisplayText));
             }
         }
     }
@@ -82,17 +84,73 @@ public sealed class MediaItem : ObservableObject
 
     public string ResolutionText
     {
-        get => _resolutionText;
+        get => string.IsNullOrWhiteSpace(_resolutionText)
+            ? GetLocalizedText(
+                IsVideo ? "merge.page.item.unknown.resolution" : "merge.page.item.unknown.audioParameters",
+                IsVideo ? "未知分辨率" : "未知音频参数")
+            : _resolutionText;
         set
         {
-            var normalizedValue = string.IsNullOrWhiteSpace(value) ? "未知参数" : value;
-            SetProperty(ref _resolutionText, normalizedValue);
+            SetProperty(ref _resolutionText, NormalizeDisplayValue(value));
         }
     }
 
     public bool IsAudio => !IsVideo;
 
-    public string TypeDisplayText => IsVideo ? "视频" : "音频";
+    internal string RawDurationText => _durationText;
 
-    public string SummaryText => $"{TypeDisplayText} · {DurationText}";
+    internal string RawResolutionText => _resolutionText;
+
+    public string TypeDisplayText =>
+        GetLocalizedText(
+            IsVideo ? "merge.page.item.mediaType.video" : "merge.page.item.mediaType.audio",
+            IsVideo ? "视频" : "音频");
+
+    public string SummaryText =>
+        FormatLocalizedText(
+            "merge.page.item.summary",
+            "{type} · {duration}",
+            ("type", TypeDisplayText),
+            ("duration", DurationText));
+
+    public void RefreshLocalization()
+    {
+        OnPropertyChanged(nameof(DurationText));
+        OnPropertyChanged(nameof(ResolutionText));
+        OnPropertyChanged(nameof(TypeDisplayText));
+        OnPropertyChanged(nameof(SummaryText));
+    }
+
+    private string GetLocalizedText(string key, string fallback) =>
+        _localizationService?.GetString(key, fallback) ?? fallback;
+
+    private string FormatLocalizedText(string key, string fallback, params (string Name, object? Value)[] arguments)
+    {
+        if (_localizationService is null)
+        {
+            var formattedFallback = fallback;
+            foreach (var argument in arguments)
+            {
+                formattedFallback = formattedFallback.Replace(
+                    $"{{{argument.Name}}}",
+                    argument.Value?.ToString() ?? string.Empty,
+                    StringComparison.Ordinal);
+            }
+
+            return formattedFallback;
+        }
+
+        var localizedArguments = new Dictionary<string, object?>(arguments.Length, StringComparer.Ordinal);
+        foreach (var argument in arguments)
+        {
+            localizedArguments[argument.Name] = argument.Value;
+        }
+
+        return _localizationService.Format(key, localizedArguments, fallback);
+    }
+
+    private static string NormalizeDisplayValue(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : value.Trim();
 }

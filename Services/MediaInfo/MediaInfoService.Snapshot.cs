@@ -310,6 +310,7 @@ public sealed partial class MediaInfoService
     private MediaDetailField CreateField(string key, string fallback, string value) =>
         new()
         {
+            Key = key,
             Label = GetLocalizedText(key, fallback),
             Value = value
         };

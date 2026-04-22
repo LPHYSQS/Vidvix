@@ -39,6 +39,7 @@ public sealed partial class MergeViewModel
         OnPropertyChanged(nameof(VideoJoinTimelineVisibility));
         OnPropertyChanged(nameof(AudioJoinTimelineVisibility));
         OnPropertyChanged(nameof(StandardTimelineVisibility));
+        RefreshLocalizedItemText();
         RaiseUiTextPropertiesChanged();
         RaiseTrackStatePropertiesChanged();
         RefreshLocalizedRuntimeText();
@@ -158,6 +159,39 @@ public sealed partial class MergeViewModel
         }
 
         apply(ResolveLocalizedText(state));
+    }
+
+    private void RefreshLocalizedItemText()
+    {
+        foreach (var mediaItem in _mediaItems)
+        {
+            mediaItem.RefreshLocalization();
+        }
+
+        foreach (var trackItem in _videoJoinVideoTrackItems)
+        {
+            trackItem.RefreshLocalization();
+        }
+
+        foreach (var trackItem in _audioJoinAudioTrackItems)
+        {
+            trackItem.RefreshLocalization();
+        }
+
+        foreach (var trackItem in _audioVideoComposeVideoTrackItems)
+        {
+            trackItem.RefreshLocalization();
+        }
+
+        foreach (var trackItem in _audioVideoComposeAudioTrackItems)
+        {
+            trackItem.RefreshLocalization();
+        }
+
+        foreach (var trackItem in _emptyTrackItems)
+        {
+            trackItem.RefreshLocalization();
+        }
     }
 
     private string ResolveLocalizedText(LocalizedTextState state) =>
