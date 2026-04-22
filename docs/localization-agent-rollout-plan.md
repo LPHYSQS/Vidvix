@@ -7,11 +7,11 @@
 - 计划版本：`v2`
 - 项目：`Vidvix`
 - 当前阶段：`Stage 2`
-- 当前轮次：`R9`
+- 当前轮次：`R10`
 - 当前状态：`Pending`
 - 当前执行 Agent：`Unassigned`
-- 最近完成轮次：`R8`
-- 最近完成时间：`2026-04-21 17:49`
+- 最近完成轮次：`R9`
+- 最近完成时间：`2026-04-22 09:54`
 - 构建验证：`Passed`
 - 热切换验证：`Passed`
 - 字符串盘点产物：`docs/localization-string-inventory.csv`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已将终端区与媒体详情浮层的私有页面 / 状态 / 服务层用户可见文案统一迁移为 `terminal.*` 与 `mediaDetails.*` 语言 key，补齐 `terminal.json`、`media-details.json` 双语资源，接入终端运行态失败原因 resolver 刷新与详情浮层重建刷新链路，保证当前页在语言切换后不继续持有旧语言字符串。
-- 本轮修改文件：`Core/Models/TerminalCommandExecutionResult.cs`、`Resources/Localization/zh-CN/terminal.json`、`Resources/Localization/en-US/terminal.json`、`Resources/Localization/zh-CN/media-details.json`、`Resources/Localization/en-US/media-details.json`、`Services/FFmpeg/FFmpegTerminalService.cs`、`Services/MediaInfo/MediaInfoService.Formatting.cs`、`Services/MediaInfo/MediaInfoService.Models.cs`、`Services/MediaInfo/MediaInfoService.Probe.cs`、`Services/MediaInfo/MediaInfoService.Snapshot.cs`、`Services/MediaInfo/MediaInfoService.cs`、`Utils/AppCompositionRoot.cs`、`ViewModels/MainViewModel.Copy.cs`、`ViewModels/MainViewModel.Details.cs`、`ViewModels/MainViewModel.Localization.cs`、`ViewModels/MainViewModel.cs`、`ViewModels/MediaDetailPanelViewModel.cs`、`ViewModels/TerminalOutputEntryViewModel.cs`、`ViewModels/TerminalWorkspaceViewModel.cs`、`Views/MainWindow.xaml`、`docs/localization-agent-rollout-plan.md`、`docs/localization-key-registry.md`、`docs/localization-validation-log.md`
+- 本轮完成项：已将合并模块状态层与模式层用户可见文案统一迁移为 `merge.*` 语言 key，补齐 `merge.json` 双语资源，并接入 `MergeViewModel` 的模式切换提示、轨道空态、状态摘要、运行态进度 / 完成 / 失败消息与热切换刷新链路，保证当前页在语言切换后不继续持有旧语言字符串。
+- 本轮修改文件：`Core/Models/ApplicationConfiguration.cs`、`Resources/Localization/zh-CN/merge.json`、`Resources/Localization/en-US/merge.json`、`ViewModels/MergeViewModel.AudioVideoCompose.cs`、`ViewModels/MergeViewModel.Localization.cs`、`ViewModels/MergeViewModel.Progress.cs`、`ViewModels/MergeViewModel.TrackState.cs`、`ViewModels/MergeViewModel.cs`、`docs/localization-agent-rollout-plan.md`、`docs/localization-key-registry.md`、`docs/localization-validation-log.md`
 - 本轮新增文件：`None`
-- 本轮验证结果：`dotnet build .\\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；`Resources/Localization/zh-CN/terminal.json` 与 `Resources/Localization/en-US/terminal.json` key 对齐校验通过，双语均为 `30` 个 key；`Resources/Localization/zh-CN/media-details.json` 与 `Resources/Localization/en-US/media-details.json` key 对齐校验通过，双语均为 `72` 个 key；终端与媒体详情代码引用 key 扫描结果为 `102` 个引用、`0` 个缺失；临时运行态烟测 `dotnet run -c Debug --project %TEMP%\\VidvixR8Smoke\\VidvixR8Smoke.csproj` 通过，确认终端已有输出项与媒体详情打开态在 `zh-CN -> en-US -> zh-CN` 往返切换下可即时刷新；启动 `bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\Vidvix.exe` 前台持续运行并保持响应，`MainWindowHandle` 为 `330182`，前台截图可见主窗口壳层与拆音页入口，未出现黑屏、白屏或闪退。
-- 当前遗留问题：`terminal` / `media-details` 模块本轮范围内的 `P0 / P1` 用户可见文案已按计划收口，`R8` 无新增阻塞项。
-- 下一轮必须处理：执行 `R9`，仅迁移合并模块状态层与模式层文案，优先处理 `MergeViewModel` 状态摘要、轨道空态、模式切换提示与 `MergeWorkspaceModeState`。
-- 下一轮禁止扩展：不要提前触碰 `Views/MergePage.xaml` 的主界面文案，那部分留给 `R10`；也不要回头扩大 `terminal`、`media-details`、`trim`、`split-audio` 范围。
+- 本轮验证结果：`dotnet build .\\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；`Resources/Localization/zh-CN/merge.json` 与 `Resources/Localization/en-US/merge.json` key 对齐校验通过，双语均为 `256` 个 key；模式前缀 `merge.mode.videoJoin`、`merge.mode.audioJoin`、`merge.mode.audioVideoCompose` 的动态展开项已在双语资源中补齐；临时运行态烟测 `dotnet run -c Debug --project %TEMP%\\VidvixR9Smoke\\VidvixR9Smoke.csproj` 通过，确认 `TimelineHintText`、`AudioVideoComposeDurationSummaryText`、`AudioVideoComposeStrategySummaryText`、`AudioVideoComposeOutputDirectoryHintText`、`AudioVideoComposeOutputNameHintText` 与处理锁定 `StatusMessage` 在 `zh-CN -> en-US -> zh-CN` 往返切换下可即时刷新；启动 `bin\\x64\\Debug\\net8.0-windows10.0.19041.0\\Vidvix.exe` 前台持续运行超过 `10` 秒并保持响应，`MainWindowHandle` 为 `24773294`，窗口标题为 `Vidvix`，未出现黑屏、白屏或闪退。
+- 当前遗留问题：`merge` 模块状态层与模式层范围内无新增阻塞项；主界面按钮、标签、说明与三种模式的界面层文案仍留给 `R10`。
+- 下一轮必须处理：执行 `R10`，仅迁移合并模块主界面层文案，优先处理 `Views/MergePage.xaml` 以及三种模式下的按钮、标签、说明与界面进度文案。
+- 下一轮禁止扩展：不要回头重做 `R9` 已完成的状态 resolver、模式前缀与摘要刷新链路；也不要扩大到 `terminal`、`media-details`、`trim`、`split-audio` 或其他主窗口模块。
 
 ## 执行协议
 
@@ -231,7 +231,7 @@ splitAudio.progress.step = 正在处理第 {index} / {total} 项
 | R6 | Stage 2 | 裁剪模块迁移 | Completed | Codex | 2026-04-21 | ~~未开始~~ 已完成裁剪模块页面层、预览层与工作流层文案迁移，并补齐导出进度、导入校验、smart trim 回退与运行时热切换刷新链路。 |
 | R7 | Stage 2 | 拆音模块迁移 | Completed | Codex | 2026-04-21 | ~~未开始~~ 已完成拆音页、运行态状态、结果卡片与服务层用户可见文案迁移，补齐 `splitAudio.*` 双语资源、Demucs 运行时回退消息与拆音页往返热切换验证。 |
 | R8 | Stage 2 | 终端与媒体详情迁移 | Completed | Codex | 2026-04-21 | ~~未开始~~ 已完成终端页与媒体详情浮层文案迁移，补齐 `terminal.*` / `mediaDetails.*` 双语资源、终端失败原因 resolver 刷新与详情浮层重建刷新链路；构建、运行态往返热切换烟测与前台启动截图验证通过。 |
-| R9 | Stage 2 | 合并模块状态层迁移 | Pending | Unassigned | Not Recorded | 未开始 |
+| R9 | Stage 2 | 合并模块状态层迁移 | Completed | Codex | 2026-04-22 | ~~未开始~~ 已完成合并模块状态层与模式层文案迁移，补齐 `merge.*` 双语资源、模式切换 / 轨道空态 / 状态摘要热切换刷新链路；构建、R9 临时烟测与前台启动冒烟通过。 |
 | R10 | Stage 2 | 合并模块界面层迁移 | Pending | Unassigned | Not Recorded | 未开始 |
 | R11 | Stage 3 | 残余文案清理与英语补齐 | Pending | Unassigned | Not Recorded | 未开始 |
 | R12 | Stage 3 | 总回归、冻结与收尾 | Pending | Unassigned | Not Recorded | 未开始 |

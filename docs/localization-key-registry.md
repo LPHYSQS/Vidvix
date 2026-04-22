@@ -318,8 +318,38 @@
 | `mediaDetails.copy.feedback.section` | `mediaDetails` | `media-details.json` | `已复制{section}` | `Copied {section}` | `Active` | `R8` |
 | `mediaDetails.diagnostic.jsonParseFailed` | `mediaDetails` | `media-details.json` | `ffprobe 输出解析失败：{message}` | `Failed to parse ffprobe output: {message}` | `Active` | `R8` |
 
+## R9 批量登记
+
+- 本轮把合并模块模式态、轨道空态、状态摘要、音视频合成策略摘要、运行态进度 / 完成 / 失败消息，以及合并模式本地化前缀统一收敛到 `Resources/Localization/zh-CN/merge.json` 与 `Resources/Localization/en-US/merge.json`。
+- 已登记的 R9 key family：
+  - `merge.mode.*`
+  - `merge.label.*`
+  - `merge.summary.*`
+  - `merge.audioVideoCompose.*`
+  - `merge.progress.*`
+  - `merge.status.*`
+  - `merge.dialog.*`
+  - `merge.common.*`
+- R9 刷新补记：
+  - `ApplicationConfiguration.MergeModeProfiles` 现已改用 `merge.mode.*` 前缀，因此合并模式显示名、模式切换提示、时间线提示与轨道空态文案都回到 `merge.json` 内聚管理，不再继续占用 `common.mergeMode.*`。
+  - `MergeViewModel.RefreshLocalization()` 现在会联动重建模式摘要、音视频合成时长 / 策略摘要、输出目录提示、输出名称提示与当前 `StatusMessage`；处理锁定、完成、失败与转码回退提示通过 `SetStatusMessage()`、`LocalizedArgument()` 与 resolver 动态重算，避免语言切换后保留旧语言字符串。
+  - `merge.progress.*` 与 `merge.status.*` 已把视频拼接、音频拼接、音视频合成三条运行态链路统一收敛，`R10` 可以直接复用这些状态 key，不需要再回头重写进度 / 完成 / 失败消息。
+- R9 代表性 key：
+
+| Key | 模块 | 资源文件 | `zh-CN` | `en-US` | 状态 | 首次建立轮次 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `merge.mode.audioVideoCompose.selectionMessage` | `merge` | `merge.json` | `已切换到音视频合成模式。` | `Switched to Audio-video compose mode.` | `Active` | `R9` |
+| `merge.summary.outputDirectoryHint.audioVideoCompose` | `merge` | `merge.json` | `默认跟随当前视频素材所在文件夹；设置后，音视频合成结果会统一输出到所选目录。` | `By default, the output follows the current video source folder. After you set a folder, Audio-video compose results are written there consistently.` | `Active` | `R9` |
+| `merge.audioVideoCompose.durationSummary.mismatch` | `merge` | `merge.json` | `当前视频 {videoDuration}，音频 {audioDuration}，请选择以哪一轨作为长度预设。` | `Video {videoDuration}, audio {audioDuration}. Choose which track should drive the output duration.` | `Active` | `R9` |
+| `merge.audioVideoCompose.strategySummary.referenceVideoLoopAudio` | `merge` | `merge.json` | `当前以视频为准：导入音频会循环补齐到视频长度，最后一轮仅保留满足时长的部分。` | `Video is the reference: imported audio is looped to match the video duration, and the final loop keeps only the required portion.` | `Active` | `R9` |
+| `merge.progress.detail.processedTotal` | `merge` | `merge.json` | `当前进度 {percent} · 已处理 {processed} / {total}` | `Current progress {percent} · Processed {processed} / {total}` | `Active` | `R9` |
+| `merge.status.processingLocked.moduleOperation` | `merge` | `merge.json` | `当前{module}任务处理中，若需{operation}，请先取消当前任务。` | `A {module} task is currently running. Cancel it before you {operation}.` | `Active` | `R9` |
+| `merge.status.videoJoin.completed.withTranscoding` | `merge` | `merge.json` | `视频拼接完成：{fileName}。预设分辨率来源：{presetName} · {resolution}；较小分辨率视频：{smallerStrategy}；较大分辨率视频：{largerStrategy}。{transcoding}` | `Video join completed: {fileName}. Resolution preset source: {presetName} · {resolution}; smaller videos: {smallerStrategy}; larger videos: {largerStrategy}. {transcoding}` | `Active` | `R9` |
+| `merge.status.audioJoin.completed.withPresetTranscoding` | `merge` | `merge.json` | `音频拼接完成：{fileName}。参数预设来源：{presetName} · {summary}。{transcoding}` | `Audio join completed: {fileName}. Parameter preset source: {presetName} · {summary}. {transcoding}` | `Active` | `R9` |
+| `merge.status.audioVideoCompose.completed.withTranscoding` | `merge` | `merge.json` | `音视频合成完成：{fileName}。{strategy}；输出时长 {duration}。{mix}{fade}{transcoding}` | `Audio-video compose completed: {fileName}. {strategy}; output duration {duration}. {mix}{fade}{transcoding}` | `Active` | `R9` |
+
 ## 下一轮接入提示
 
-- `R9` 只处理合并模块状态层与模式层文案，优先落在现有 `merge.json` 中，不要把合并模块私有状态提示继续塞回 `main-window.json` 或 `common.json`。
-- `R9` 直接复用 `R8` 已验证通过的“缓存原始数据 + 视图层重建快照 / resolver”的热切换模式；对于合并模块的轨道空态、模式摘要、状态提示，优先保存结构化状态而不是保存最终中文句子。
-- `R9` 不要提前触碰 `Views/MergePage.xaml` 的主界面按钮、标签和说明文案，那部分留给 `R10`；也不要回头扩大 `terminal`、`media-details`、`trim`、`split-audio` 范围。
+- `R10` 只处理合并模块主界面层文案，集中在 `Views/MergePage.xaml` 以及与界面直连的按钮、标签、说明和模式专属操作文案，不要重新打开 `R9` 已完成的状态 resolver。
+- `R10` 直接复用现有 `merge.*` 资源与 `MergeViewModel.RefreshLocalization()` 摘要刷新链路；新增界面层 key 时优先沿用 `merge.summary.*` / `merge.audioVideoCompose.*` 的现有分层，不要再把合并模块私有文案塞回 `common.json` 或 `main-window.json`。
+- `R10` 完成后需要补做三种模式界面热切换采样，重点看主按钮、卡片标题、空态说明和界面进度标题；同时不要扩大到 `terminal`、`media-details`、`trim`、`split-audio` 范围。

@@ -51,7 +51,10 @@ public sealed partial class MergeViewModel
                 OnPropertyChanged(nameof(AudioVideoComposeResolvedOutputFileName));
                 OnPropertyChanged(nameof(AudioVideoComposeOutputNameHintText));
                 PersistAudioVideoComposePreferences();
-                StatusMessage = $"音视频合成输出格式已切换为 {value.DisplayName}。";
+                SetStatusMessage(
+                    "merge.status.audioVideoCompose.outputFormat.changed",
+                    "音视频合成输出格式已切换为 {format}。",
+                    LocalizedArgument("format", () => SelectedAudioVideoComposeOutputFormat.DisplayName));
             }
         }
     }
@@ -82,7 +85,9 @@ public sealed partial class MergeViewModel
             : GetDefaultAudioVideoComposeOutputDirectory() ?? string.Empty;
 
     public string AudioVideoComposeOutputDirectoryHintText =>
-        "默认跟随当前视频素材所在文件夹；设置后，音视频合成结果会统一输出到所选目录。";
+        GetLocalizedText(
+            "merge.summary.outputDirectoryHint.audioVideoCompose",
+            "默认跟随当前视频素材所在文件夹；设置后，音视频合成结果会统一输出到所选目录。");
 
     public string AudioVideoComposeOutputFileName
     {
@@ -103,7 +108,14 @@ public sealed partial class MergeViewModel
         $"{GetEffectiveAudioVideoComposeOutputBaseName()}{SelectedAudioVideoComposeOutputFormat.Extension}";
 
     public string AudioVideoComposeOutputNameHintText =>
-        $"{(string.IsNullOrWhiteSpace(AudioVideoComposeOutputFileName) ? "留空时默认使用" : "当前将输出为")} {AudioVideoComposeResolvedOutputFileName}；若目标目录中已存在同名文件，系统会自动追加序号，避免覆盖原始文件。";
+        FormatLocalizedText(
+            string.IsNullOrWhiteSpace(AudioVideoComposeOutputFileName)
+                ? "merge.summary.outputNameHint.default"
+                : "merge.summary.outputNameHint.custom",
+            string.IsNullOrWhiteSpace(AudioVideoComposeOutputFileName)
+                ? "留空时默认使用 {fileName}；若目标目录中已存在同名文件，系统会自动追加序号，避免覆盖原始文件。"
+                : "当前将输出为 {fileName}；若目标目录中已存在同名文件，系统会自动追加序号，避免覆盖原始文件。",
+            ("fileName", AudioVideoComposeResolvedOutputFileName));
 
     public Visibility AudioVideoComposeOutputSettingsVisibility =>
         IsAudioVideoComposeModeSelected ? Visibility.Visible : Visibility.Collapsed;
@@ -180,7 +192,9 @@ public sealed partial class MergeViewModel
         {
             if (value && !AudioVideoComposeCanMixOriginalAudio)
             {
-                StatusMessage = "当前暂无可用于混音的音频来源，请先添加带声音的视频或音频素材。";
+                SetStatusMessage(
+                    "merge.status.audioVideoCompose.mixOriginalAudio.unavailable",
+                    "当前暂无可用于混音的音频来源，请先添加带声音的视频或音频素材。");
                 OnPropertyChanged(nameof(IsAudioVideoComposeMixOriginalAudioEnabled));
                 return;
             }
@@ -190,11 +204,17 @@ public sealed partial class MergeViewModel
                 OnPropertyChanged(nameof(AudioVideoComposeMixOriginalAudioAvailabilityText));
                 OnPropertyChanged(nameof(AudioVideoComposeOriginalAudioControlsVisibility));
                 PersistAudioVideoComposePreferences();
-                StatusMessage = value
-                    ? GetAudioVideoComposeVideoHasEmbeddedAudio()
-                        ? "已开启原视频声音混音。"
-                        : "已开启混音处理；当前导出将继续以导入音频为主。"
-                    : "已关闭原视频声音混音，导出时仅保留导入音频。";
+                SetStatusMessage(
+                    value
+                        ? GetAudioVideoComposeVideoHasEmbeddedAudio()
+                            ? "merge.status.audioVideoCompose.mixOriginalAudio.enabledWithEmbeddedAudio"
+                            : "merge.status.audioVideoCompose.mixOriginalAudio.enabledImportedOnly"
+                        : "merge.status.audioVideoCompose.mixOriginalAudio.disabled",
+                    value
+                        ? GetAudioVideoComposeVideoHasEmbeddedAudio()
+                            ? "已开启原视频声音混音。"
+                            : "已开启混音处理；当前导出将继续以导入音频为主。"
+                        : "已关闭原视频声音混音，导出时仅保留导入音频。");
             }
         }
     }
@@ -207,21 +227,29 @@ public sealed partial class MergeViewModel
         {
             if (!HasAudioVideoComposeAnyTrackItem())
             {
-                return "添加视频或音频素材后，即可根据当前可用音频源开启混音。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.mixAvailability.empty",
+                    "添加视频或音频素材后，即可根据当前可用音频源开启混音。");
             }
 
             if (GetAudioVideoComposeAudioTrackItem() is not null &&
                 GetAudioVideoComposeVideoHasEmbeddedAudio())
             {
-                return "当前已检测到导入音频与视频原声，可按需开启混音并分别调整两路音量。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.mixAvailability.withImportedAndOriginal",
+                    "当前已检测到导入音频与视频原声，可按需开启混音并分别调整两路音量。");
             }
 
             if (GetAudioVideoComposeAudioTrackItem() is not null)
             {
-                return "当前已有导入音频；若源视频不含原声，导出时将仅保留导入音频。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.mixAvailability.importedOnly",
+                    "当前已有导入音频；若源视频不含原声，导出时将仅保留导入音频。");
             }
 
-            return "当前视频检测到可用原声；添加导入音频后可与原声一起参与混音。";
+            return GetLocalizedText(
+                "merge.audioVideoCompose.mixAvailability.originalOnly",
+                "当前视频检测到可用原声；添加导入音频后可与原声一起参与混音。");
         }
     }
 
@@ -255,7 +283,11 @@ public sealed partial class MergeViewModel
             if (SetProperty(ref _isAudioVideoComposeFadeInEnabled, value))
             {
                 PersistAudioVideoComposePreferences();
-                StatusMessage = value ? "已启用导入音频淡入。" : "已关闭导入音频淡入。";
+                SetStatusMessage(
+                    value
+                        ? "merge.status.audioVideoCompose.fadeIn.enabled"
+                        : "merge.status.audioVideoCompose.fadeIn.disabled",
+                    value ? "已启用导入音频淡入。" : "已关闭导入音频淡入。");
             }
         }
     }
@@ -282,7 +314,11 @@ public sealed partial class MergeViewModel
             if (SetProperty(ref _isAudioVideoComposeFadeOutEnabled, value))
             {
                 PersistAudioVideoComposePreferences();
-                StatusMessage = value ? "已启用导入音频淡出。" : "已关闭导入音频淡出。";
+                SetStatusMessage(
+                    value
+                        ? "merge.status.audioVideoCompose.fadeOut.enabled"
+                        : "merge.status.audioVideoCompose.fadeOut.disabled",
+                    value ? "已启用导入音频淡出。" : "已关闭导入音频淡出。");
             }
         }
     }
@@ -308,10 +344,15 @@ public sealed partial class MergeViewModel
             var targetDuration = GetAudioVideoComposeTargetDuration();
             if (targetDuration is not { } duration || duration <= TimeSpan.Zero)
             {
-                return "添加完整的 1 个视频和 1 个音频后，淡入和淡出秒数会自动限制在目标输出时长之内。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.fadeHint.empty",
+                    "添加完整的 1 个视频和 1 个音频后，淡入和淡出秒数会自动限制在目标输出时长之内。");
             }
 
-            return $"当前目标输出时长为 {FormatDuration(duration)}；淡入和淡出秒数都会自动限制在这个范围内。";
+            return FormatLocalizedText(
+                "merge.audioVideoCompose.fadeHint.value",
+                "当前目标输出时长为 {duration}；淡入和淡出秒数都会自动限制在这个范围内。",
+                ("duration", FormatDuration(duration)));
         }
     }
 
@@ -321,12 +362,22 @@ public sealed partial class MergeViewModel
         {
             if (!TryGetAudioVideoComposeDurations(out var videoDuration, out var audioDuration))
             {
-                return "请在音视频合成模式下分别放入 1 个视频和 1 个音频。再次添加同类型素材时，会自动替换当前轨道内容。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.durationSummary.empty",
+                    "请在音视频合成模式下分别放入 1 个视频和 1 个音频。再次添加同类型素材时，会自动替换当前轨道内容。");
             }
 
             return HasAudioVideoComposeDurationMismatch()
-                ? $"当前视频 {FormatDuration(videoDuration)}，音频 {FormatDuration(audioDuration)}，请选择以哪一轨作为长度预设。"
-                : $"当前视频 {FormatDuration(videoDuration)}，音频 {FormatDuration(audioDuration)}，两者时长已自然对齐。";
+                ? FormatLocalizedText(
+                    "merge.audioVideoCompose.durationSummary.mismatch",
+                    "当前视频 {videoDuration}，音频 {audioDuration}，请选择以哪一轨作为长度预设。",
+                    ("videoDuration", FormatDuration(videoDuration)),
+                    ("audioDuration", FormatDuration(audioDuration)))
+                : FormatLocalizedText(
+                    "merge.audioVideoCompose.durationSummary.aligned",
+                    "当前视频 {videoDuration}，音频 {audioDuration}，两者时长已自然对齐。",
+                    ("videoDuration", FormatDuration(videoDuration)),
+                    ("audioDuration", FormatDuration(audioDuration)));
         }
     }
 
@@ -336,29 +387,43 @@ public sealed partial class MergeViewModel
         {
             if (!TryGetAudioVideoComposeDurations(out var videoDuration, out var audioDuration))
             {
-                return "音视频合成模式不提供精细时间轴，只围绕单视频 + 单音频做智能对齐和导出。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.strategySummary.empty",
+                    "音视频合成模式不提供精细时间轴，只围绕单视频 + 单音频做智能对齐和导出。");
             }
 
             if (!HasAudioVideoComposeDurationMismatch())
             {
-                return "当前无需额外裁剪或补齐，导出时会直接使用原视频画面并对齐导入音频。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.strategySummary.aligned",
+                    "当前无需额外裁剪或补齐，导出时会直接使用原视频画面并对齐导入音频。");
             }
 
             if (GetEffectiveAudioVideoComposeReferenceMode() == AudioVideoComposeReferenceMode.Video)
             {
                 return audioDuration >= videoDuration
-                    ? "当前以视频为准：导入音频会自动裁剪到视频长度。"
-                    : "当前以视频为准：导入音频会循环补齐到视频长度，最后一轮仅保留满足时长的部分。";
+                    ? GetLocalizedText(
+                        "merge.audioVideoCompose.strategySummary.referenceVideoTrimAudio",
+                        "当前以视频为准：导入音频会自动裁剪到视频长度。")
+                    : GetLocalizedText(
+                        "merge.audioVideoCompose.strategySummary.referenceVideoLoopAudio",
+                        "当前以视频为准：导入音频会循环补齐到视频长度，最后一轮仅保留满足时长的部分。");
             }
 
             if (videoDuration >= audioDuration)
             {
-                return "当前以音频为准：视频会自动裁剪到音频长度。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.strategySummary.referenceAudioTrimVideo",
+                    "当前以音频为准：视频会自动裁剪到音频长度。");
             }
 
             return _selectedAudioVideoComposeVideoExtendMode == AudioVideoComposeVideoExtendMode.Loop
-                ? "当前以音频为准：视频会循环延长到音频长度。"
-                : "当前以音频为准：视频会冻结最后一帧延长到音频长度。";
+                ? GetLocalizedText(
+                    "merge.audioVideoCompose.strategySummary.referenceAudioLoopVideo",
+                    "当前以音频为准：视频会循环延长到音频长度。")
+                : GetLocalizedText(
+                    "merge.audioVideoCompose.strategySummary.referenceAudioFreezeVideo",
+                    "当前以音频为准：视频会冻结最后一帧延长到音频长度。");
         }
     }
 
@@ -378,31 +443,51 @@ public sealed partial class MergeViewModel
         {
             if (GetAudioVideoComposeVideoTrackItem() is null)
             {
-                return "从素材列表添加 1 个视频后，这里会负责画面输出和原视频声音混音。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.videoTrackSummary.empty",
+                    "从素材列表添加 1 个视频后，这里会负责画面输出和原视频声音混音。");
             }
 
             return GetAudioVideoComposeVideoHasEmbeddedAudio()
-                ? "当前视频包含可用原声，可按需与导入音频混合输出。"
-                : "当前视频不包含可用原声，导出时会直接使用导入音频。";
+                ? GetLocalizedText(
+                    "merge.audioVideoCompose.videoTrackSummary.withEmbeddedAudio",
+                    "当前视频包含可用原声，可按需与导入音频混合输出。")
+                : GetLocalizedText(
+                    "merge.audioVideoCompose.videoTrackSummary.withoutEmbeddedAudio",
+                    "当前视频不包含可用原声，导出时会直接使用导入音频。");
         }
     }
 
     public string AudioVideoComposeAudioTrackSummaryText =>
         GetAudioVideoComposeAudioTrackItem() is null
-            ? "从素材列表添加 1 个音频后，这里会负责配乐、解说等导入音轨处理。"
-            : "导入音频可在右侧统一调整音量、淡入、淡出和混音策略。";
+            ? GetLocalizedText(
+                "merge.audioVideoCompose.audioTrackSummary.empty",
+                "从素材列表添加 1 个音频后，这里会负责配乐、解说等导入音轨处理。")
+            : GetLocalizedText(
+                "merge.audioVideoCompose.audioTrackSummary.filled",
+                "导入音频可在右侧统一调整音量、淡入、淡出和混音策略。");
 
     public string AudioVideoComposeVideoDurationText =>
         GetAudioVideoComposeVideoTrackItem() is not null &&
         TryResolveAudioVideoComposeTrackDuration(GetAudioVideoComposeVideoTrackItem(), out var duration)
-            ? $"原始时长 · {FormatDuration(duration)}"
-            : "原始时长 · --:--:--";
+            ? FormatLocalizedText(
+                "merge.audioVideoCompose.durationText.value",
+                "原始时长 · {duration}",
+                ("duration", FormatDuration(duration)))
+            : GetLocalizedText(
+                "merge.audioVideoCompose.durationText.empty",
+                "原始时长 · --:--:--");
 
     public string AudioVideoComposeAudioDurationText =>
         GetAudioVideoComposeAudioTrackItem() is not null &&
         TryResolveAudioVideoComposeTrackDuration(GetAudioVideoComposeAudioTrackItem(), out var duration)
-            ? $"原始时长 · {FormatDuration(duration)}"
-            : "原始时长 · --:--:--";
+            ? FormatLocalizedText(
+                "merge.audioVideoCompose.durationText.value",
+                "原始时长 · {duration}",
+                ("duration", FormatDuration(duration)))
+            : GetLocalizedText(
+                "merge.audioVideoCompose.durationText.empty",
+                "原始时长 · --:--:--");
 
     public Visibility AudioVideoComposePresetSelectionVisibility =>
         HasAudioVideoComposeAnyTrackItem() ? Visibility.Visible : Visibility.Collapsed;
@@ -420,29 +505,43 @@ public sealed partial class MergeViewModel
         {
             if (GetAudioVideoComposeVideoTrackItem() is null)
             {
-                return "视频轨道只保留 1 个素材，再次添加视频时会自动替换当前视频。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.videoCardStrategy.empty",
+                    "视频轨道只保留 1 个素材，再次添加视频时会自动替换当前视频。");
             }
 
             if (!TryGetAudioVideoComposeDurations(out var videoDuration, out var audioDuration))
             {
-                return "当前视频将作为唯一画面源参与输出。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.videoCardStrategy.singleTrack",
+                    "当前视频将作为唯一画面源参与输出。");
             }
 
             if (!HasAudioVideoComposeDurationMismatch())
             {
-                return "当前视频时长与音频一致，无需额外延长或裁剪。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.videoCardStrategy.aligned",
+                    "当前视频时长与音频一致，无需额外延长或裁剪。");
             }
 
             if (GetEffectiveAudioVideoComposeReferenceMode() == AudioVideoComposeReferenceMode.Video)
             {
-                return "当前视频被设为长度预设，画面会完整保留到导出结束。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.videoCardStrategy.reference",
+                    "当前视频被设为长度预设，画面会完整保留到导出结束。");
             }
 
             return videoDuration >= audioDuration
-                ? "当前视频长于音频，导出时会按音频长度自动裁剪视频。"
+                ? GetLocalizedText(
+                    "merge.audioVideoCompose.videoCardStrategy.trimToAudio",
+                    "当前视频长于音频，导出时会按音频长度自动裁剪视频。")
                 : _selectedAudioVideoComposeVideoExtendMode == AudioVideoComposeVideoExtendMode.Loop
-                    ? "当前视频短于音频，导出时会循环延长视频直到满足音频时长。"
-                    : "当前视频短于音频，导出时会冻结最后一帧直到满足音频时长。";
+                    ? GetLocalizedText(
+                        "merge.audioVideoCompose.videoCardStrategy.extendLoop",
+                        "当前视频短于音频，导出时会循环延长视频直到满足音频时长。")
+                    : GetLocalizedText(
+                        "merge.audioVideoCompose.videoCardStrategy.extendFreeze",
+                        "当前视频短于音频，导出时会冻结最后一帧直到满足音频时长。");
         }
     }
 
@@ -452,27 +551,39 @@ public sealed partial class MergeViewModel
         {
             if (GetAudioVideoComposeAudioTrackItem() is null)
             {
-                return "音频轨道只保留 1 个素材，再次添加音频时会自动替换当前音频。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.audioCardStrategy.empty",
+                    "音频轨道只保留 1 个素材，再次添加音频时会自动替换当前音频。");
             }
 
             if (!TryGetAudioVideoComposeDurations(out var videoDuration, out var audioDuration))
             {
-                return "当前导入音频会作为主要输出音轨参与合成。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.audioCardStrategy.singleTrack",
+                    "当前导入音频会作为主要输出音轨参与合成。");
             }
 
             if (!HasAudioVideoComposeDurationMismatch())
             {
-                return "当前音频时长与视频一致，可直接按原始长度参与输出。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.audioCardStrategy.aligned",
+                    "当前音频时长与视频一致，可直接按原始长度参与输出。");
             }
 
             if (GetEffectiveAudioVideoComposeReferenceMode() == AudioVideoComposeReferenceMode.Audio)
             {
-                return "当前音频被设为长度预设，导出时会完整保留到结束。";
+                return GetLocalizedText(
+                    "merge.audioVideoCompose.audioCardStrategy.reference",
+                    "当前音频被设为长度预设，导出时会完整保留到结束。");
             }
 
             return audioDuration >= videoDuration
-                ? "当前音频长于视频，导出时会按视频长度自动裁剪导入音频。"
-                : "当前音频短于视频，导出时会循环补齐到视频长度，最后一轮仅保留满足时长的部分。";
+                ? GetLocalizedText(
+                    "merge.audioVideoCompose.audioCardStrategy.trimToVideo",
+                    "当前音频长于视频，导出时会按视频长度自动裁剪导入音频。")
+                : GetLocalizedText(
+                    "merge.audioVideoCompose.audioCardStrategy.extendLoop",
+                    "当前音频短于视频，导出时会循环补齐到视频长度，最后一轮仅保留满足时长的部分。");
         }
     }
 
@@ -504,13 +615,13 @@ public sealed partial class MergeViewModel
     {
         if (!CanStartAudioVideoComposeProcessing())
         {
-            StatusMessage = GetAudioVideoComposeCannotStartMessage();
+            SetStatusMessage(CreateAudioVideoComposeCannotStartStatusState());
             return;
         }
 
         if (_audioVideoComposeWorkflowService is null || _mergeMediaAnalysisService is null)
         {
-            StatusMessage = "当前环境暂不支持音视频合成输出。";
+            SetStatusMessage("merge.status.audioVideoCompose.cannotStart.unsupported", "当前环境暂不支持音视频合成输出。");
             return;
         }
 
@@ -521,13 +632,17 @@ public sealed partial class MergeViewModel
 
         if (!IsAudioVideoComposeTrackProcessable(videoTrackItem))
         {
-            StatusMessage = "当前视频轨道素材不可用，请移除后重新添加。";
+            SetStatusMessage(
+                "merge.status.audioVideoCompose.trackUnavailable.video",
+                "当前视频轨道素材不可用，请移除后重新添加。");
             return;
         }
 
         if (!IsAudioVideoComposeTrackProcessable(audioTrackItem))
         {
-            StatusMessage = "当前音频轨道素材不可用，请移除后重新添加。";
+            SetStatusMessage(
+                "merge.status.audioVideoCompose.trackUnavailable.audio",
+                "当前音频轨道素材不可用，请移除后重新添加。");
             return;
         }
 
@@ -538,8 +653,12 @@ public sealed partial class MergeViewModel
         try
         {
             IsVideoJoinProcessing = true;
-            ShowProcessingPreparationProgress("音视频合成", "正在检查音视频素材并准备合成参数...");
-            StatusMessage = "正在检查音视频素材并准备合成参数...";
+            ShowProcessingPreparationProgress(
+                "merge.progress.audioVideoCompose.summary",
+                "音视频合成",
+                "merge.progress.audioVideoCompose.preparing",
+                "正在检查音视频素材并准备合成参数...");
+            SetStatusMessage("merge.progress.audioVideoCompose.preparing", "正在检查音视频素材并准备合成参数...");
 
             EnsureAudioVideoComposeOutputDirectoryExists();
 
@@ -552,40 +671,47 @@ public sealed partial class MergeViewModel
                 audioTrackItem,
                 sourceAnalysis);
 
-            StatusMessage = "正在准备 FFmpeg 运行时...";
+            SetStatusMessage("merge.status.runtime.preparing", "正在准备 FFmpeg 运行时...");
             await _audioVideoComposeWorkflowService.EnsureRuntimeReadyAsync(cancellationToken);
 
-            StatusMessage = $"FFmpeg 已就绪，正在合成音视频：{FormatDuration(request.OutputDuration)}";
+            SetStatusMessage(
+                "merge.status.audioVideoCompose.runtimeReady",
+                "FFmpeg 已就绪，正在合成音视频：{duration}",
+                ("duration", FormatDuration(request.OutputDuration)));
             var progressReporter = new Progress<FFmpegProgressUpdate>(HandleAudioVideoComposeProgress);
             var exportResult = await _audioVideoComposeWorkflowService.ExportAsync(
                 request,
                 progressReporter,
-                () => StatusMessage = "GPU 编码失败，已自动回退为 CPU 重试一次。",
+                () => SetStatusMessage("merge.status.transcoding.gpuFallback", "GPU 编码失败，已自动回退为 CPU 重试一次。"),
                 cancellationToken);
             var result = exportResult.ExecutionResult;
 
             if (result.WasSuccessful && File.Exists(exportResult.Request.OutputPath))
             {
-                StatusMessage = AppendTranscodingMessage(
-                    BuildAudioVideoComposeCompletionMessage(exportResult.Request),
-                    exportResult.TranscodingMessage);
+                SetAudioVideoComposeCompletionStatusMessage(exportResult.Request, exportResult.TranscodingMessage);
                 TryRevealVideoJoinOutputFile(exportResult.Request.OutputPath);
                 return;
             }
 
-            StatusMessage = result.WasCancelled
-                ? "已取消音视频合成任务。"
-                : AppendTranscodingMessage(
-                    $"音视频合成失败：{ExtractFriendlyVideoJoinFailureMessage(result)}",
-                    exportResult.TranscodingMessage);
+            if (result.WasCancelled)
+            {
+                SetStatusMessage("merge.status.audioVideoCompose.cancelled", "已取消音视频合成任务。");
+            }
+            else
+            {
+                SetAudioVideoComposeFailureStatusMessage(result, exportResult.TranscodingMessage);
+            }
         }
         catch (OperationCanceledException) when (_videoJoinProcessingCancellationSource?.IsCancellationRequested == true)
         {
-            StatusMessage = "已取消音视频合成任务。";
+            SetStatusMessage("merge.status.audioVideoCompose.cancelled", "已取消音视频合成任务。");
         }
         catch (Exception exception)
         {
-            StatusMessage = $"音视频合成任务执行失败：{exception.Message}";
+            SetStatusMessage(
+                "merge.status.audioVideoCompose.exception",
+                "音视频合成任务执行失败：{message}",
+                ("message", exception.Message));
             _logger?.Log(LogLevel.Error, "执行音视频合成任务时发生异常。", exception);
         }
         finally
@@ -648,34 +774,46 @@ public sealed partial class MergeViewModel
         GetAudioVideoComposeVideoTrackItem() is not null &&
         GetAudioVideoComposeAudioTrackItem() is not null;
 
-    private string GetAudioVideoComposeCannotStartMessage()
+    private LocalizedTextState CreateAudioVideoComposeCannotStartStatusState()
     {
         if (_selectedMergeMode != MergeWorkspaceMode.AudioVideoCompose)
         {
-            return "当前开始处理仅适用于音视频合成模式。";
+            return new LocalizedTextState(
+                "merge.status.audioVideoCompose.cannotStart.invalidMode",
+                "当前开始处理仅适用于音视频合成模式。");
         }
 
         if (IsVideoJoinProcessing)
         {
-            return "当前合并任务正在进行中。";
+            return new LocalizedTextState(
+                "merge.status.audioVideoCompose.cannotStart.processing",
+                "当前合并任务正在进行中。");
         }
 
         if (_audioVideoComposeWorkflowService is null)
         {
-            return "当前环境暂不支持音视频合成输出。";
+            return new LocalizedTextState(
+                "merge.status.audioVideoCompose.cannotStart.unsupported",
+                "当前环境暂不支持音视频合成输出。");
         }
 
         if (GetAudioVideoComposeVideoTrackItem() is null)
         {
-            return "请先向视频轨道添加 1 个有效视频。";
+            return new LocalizedTextState(
+                "merge.status.audioVideoCompose.cannotStart.missingVideo",
+                "请先向视频轨道添加 1 个有效视频。");
         }
 
         if (GetAudioVideoComposeAudioTrackItem() is null)
         {
-            return "请先向音频轨道添加 1 个有效音频。";
+            return new LocalizedTextState(
+                "merge.status.audioVideoCompose.cannotStart.missingAudio",
+                "请先向音频轨道添加 1 个有效音频。");
         }
 
-        return "当前音视频合成缺少可处理的素材。";
+        return new LocalizedTextState(
+            "merge.status.audioVideoCompose.cannotStart.missingTracks",
+            "当前音视频合成缺少可处理的素材。");
     }
 
     public void SetAudioVideoComposeVideoPreset(TrackItem trackItem)
@@ -684,7 +822,11 @@ public sealed partial class MergeViewModel
 
         if (IsVideoJoinProcessing)
         {
-            StatusMessage = "当前合并任务处理中，若需切换长度预设，请先取消当前任务。";
+            SetProcessingLockedStatusMessage(
+                "merge.label.module.merge",
+                "合并",
+                "merge.label.operation.switchLengthPreset",
+                "切换长度预设");
             return;
         }
 
@@ -695,7 +837,9 @@ public sealed partial class MergeViewModel
 
         if (!trackItem.CanSetAsResolutionPreset)
         {
-            StatusMessage = "当前视频源素材已失效，无法设为长度预设。";
+            SetStatusMessage(
+                "merge.status.audioVideoCompose.videoPreset.unavailable",
+                "当前视频源素材已失效，无法设为长度预设。");
             return;
         }
 
@@ -706,9 +850,13 @@ public sealed partial class MergeViewModel
         RefreshTrackCollection(_audioVideoComposeAudioTrackItems, supportsVideoPreset: false);
         RaiseAudioVideoComposeStatePropertiesChanged();
         PersistAudioVideoComposePreferences();
-        StatusMessage = GetAudioVideoComposeAudioTrackItem() is not null && HasAudioVideoComposeDurationMismatch()
-            ? "已切换为以视频为准，导入音频会自动匹配到视频长度。"
-            : "已将视频设为当前长度预设。";
+        SetStatusMessage(
+            GetAudioVideoComposeAudioTrackItem() is not null && HasAudioVideoComposeDurationMismatch()
+                ? "merge.status.audioVideoCompose.reference.videoMatched"
+                : "merge.status.audioVideoCompose.reference.videoPreset",
+            GetAudioVideoComposeAudioTrackItem() is not null && HasAudioVideoComposeDurationMismatch()
+                ? "已切换为以视频为准，导入音频会自动匹配到视频长度。"
+                : "已将视频设为当前长度预设。");
     }
 
     public void SetAudioVideoComposeAudioPreset(TrackItem trackItem)
@@ -717,7 +865,11 @@ public sealed partial class MergeViewModel
 
         if (IsVideoJoinProcessing)
         {
-            StatusMessage = "当前合并任务处理中，若需切换长度预设，请先取消当前任务。";
+            SetProcessingLockedStatusMessage(
+                "merge.label.module.merge",
+                "合并",
+                "merge.label.operation.switchLengthPreset",
+                "切换长度预设");
             return;
         }
 
@@ -728,7 +880,9 @@ public sealed partial class MergeViewModel
 
         if (!trackItem.CanSetAsResolutionPreset)
         {
-            StatusMessage = "当前音频源素材已失效，无法设为长度预设。";
+            SetStatusMessage(
+                "merge.status.audioVideoCompose.audioPreset.unavailable",
+                "当前音频源素材已失效，无法设为长度预设。");
             return;
         }
 
@@ -739,9 +893,13 @@ public sealed partial class MergeViewModel
         RefreshTrackCollection(_audioVideoComposeAudioTrackItems, supportsVideoPreset: false);
         RaiseAudioVideoComposeStatePropertiesChanged();
         PersistAudioVideoComposePreferences();
-        StatusMessage = GetAudioVideoComposeVideoTrackItem() is not null && HasAudioVideoComposeDurationMismatch()
-            ? "已切换为以音频为准，视频会按当前策略自动匹配到音频长度。"
-            : "已将音频设为当前长度预设。";
+        SetStatusMessage(
+            GetAudioVideoComposeVideoTrackItem() is not null && HasAudioVideoComposeDurationMismatch()
+                ? "merge.status.audioVideoCompose.reference.audioMatched"
+                : "merge.status.audioVideoCompose.reference.audioPreset",
+            GetAudioVideoComposeVideoTrackItem() is not null && HasAudioVideoComposeDurationMismatch()
+                ? "已切换为以音频为准，视频会按当前策略自动匹配到音频长度。"
+                : "已将音频设为当前长度预设。");
     }
 
     private void AddMediaToAudioVideoComposeTimeline(MediaItem mediaItem, ObservableCollection<TrackItem> trackItems)
@@ -753,9 +911,22 @@ public sealed partial class MergeViewModel
         trackItems.Clear();
         trackItems.Add(CreateTrackItem(mediaItem, 1, IsSourcePathAvailable(mediaItem.SourcePath)));
 
-        StatusMessage = isReplacement
-            ? $"{mediaItem.FileName} 已替换当前{(mediaItem.IsVideo ? "视频" : "音频")}轨道素材。"
-            : $"{mediaItem.FileName} 已加入{(mediaItem.IsVideo ? "视频" : "音频")}轨道。";
+        SetStatusMessage(
+            isReplacement
+                ? mediaItem.IsVideo
+                    ? "merge.status.audioVideoCompose.trackReplaced.video"
+                    : "merge.status.audioVideoCompose.trackReplaced.audio"
+                : mediaItem.IsVideo
+                    ? "merge.status.audioVideoCompose.trackAdded.video"
+                    : "merge.status.audioVideoCompose.trackAdded.audio",
+            isReplacement
+                ? mediaItem.IsVideo
+                    ? "{fileName} 已替换当前视频轨道素材。"
+                    : "{fileName} 已替换当前音频轨道素材。"
+                : mediaItem.IsVideo
+                    ? "{fileName} 已加入视频轨道。"
+                    : "{fileName} 已加入音频轨道。",
+            ("fileName", mediaItem.FileName));
     }
 
     private void SetAudioVideoComposeReferenceMode(AudioVideoComposeReferenceMode referenceMode)
@@ -767,7 +938,11 @@ public sealed partial class MergeViewModel
 
         if (IsVideoJoinProcessing)
         {
-            StatusMessage = "当前合并任务处理中，若需切换长度预设，请先取消当前任务。";
+            SetProcessingLockedStatusMessage(
+                "merge.label.module.merge",
+                "合并",
+                "merge.label.operation.switchLengthPreset",
+                "切换长度预设");
             OnPropertyChanged(nameof(IsAudioVideoComposeVideoReferenceSelected));
             OnPropertyChanged(nameof(IsAudioVideoComposeAudioReferenceSelected));
             return;
@@ -775,7 +950,9 @@ public sealed partial class MergeViewModel
 
         if (!HasAudioVideoComposeAnyTrackItem())
         {
-            StatusMessage = "请先在音视频合成轨道中添加素材，再切换预设参考。";
+            SetStatusMessage(
+                "merge.status.audioVideoCompose.reference.switchMissingTracks",
+                "请先在音视频合成轨道中添加素材，再切换预设参考。");
             OnPropertyChanged(nameof(IsAudioVideoComposeVideoReferenceSelected));
             OnPropertyChanged(nameof(IsAudioVideoComposeAudioReferenceSelected));
             return;
@@ -788,9 +965,13 @@ public sealed partial class MergeViewModel
         RefreshTrackCollection(_audioVideoComposeAudioTrackItems, supportsVideoPreset: false);
         RaiseAudioVideoComposeStatePropertiesChanged();
         PersistAudioVideoComposePreferences();
-        StatusMessage = referenceMode == AudioVideoComposeReferenceMode.Video
-            ? "已切换为以视频为准。"
-            : "已切换为以音频为准。";
+        SetStatusMessage(
+            referenceMode == AudioVideoComposeReferenceMode.Video
+                ? "merge.status.audioVideoCompose.reference.video"
+                : "merge.status.audioVideoCompose.reference.audio",
+            referenceMode == AudioVideoComposeReferenceMode.Video
+                ? "已切换为以视频为准。"
+                : "已切换为以音频为准。");
     }
 
     private void ApplyAudioVideoComposeReferenceModeSelection(AudioVideoComposeReferenceMode referenceMode)
@@ -802,7 +983,11 @@ public sealed partial class MergeViewModel
 
         if (IsVideoJoinProcessing)
         {
-            StatusMessage = "当前合并任务处理中，若需切换长度预设，请先取消当前任务。";
+            SetProcessingLockedStatusMessage(
+                "merge.label.module.merge",
+                "合并",
+                "merge.label.operation.switchLengthPreset",
+                "切换长度预设");
             OnPropertyChanged(nameof(IsAudioVideoComposeVideoReferenceSelected));
             OnPropertyChanged(nameof(IsAudioVideoComposeAudioReferenceSelected));
             return;
@@ -810,7 +995,9 @@ public sealed partial class MergeViewModel
 
         if (!HasAudioVideoComposeAnyTrackItem())
         {
-            StatusMessage = "请先在音视频合成轨道中添加素材，再选择预设参考。";
+            SetStatusMessage(
+                "merge.status.audioVideoCompose.reference.selectMissingTracks",
+                "请先在音视频合成轨道中添加素材，再选择预设参考。");
             OnPropertyChanged(nameof(IsAudioVideoComposeVideoReferenceSelected));
             OnPropertyChanged(nameof(IsAudioVideoComposeAudioReferenceSelected));
             return;
@@ -823,17 +1010,29 @@ public sealed partial class MergeViewModel
         RefreshTrackCollection(_audioVideoComposeAudioTrackItems, supportsVideoPreset: false);
         RaiseAudioVideoComposeStatePropertiesChanged();
         PersistAudioVideoComposePreferences();
-        StatusMessage = referenceMode switch
-        {
-            AudioVideoComposeReferenceMode.Video when HasAudioVideoComposeDurationMismatch() =>
-                "已切换为以视频为准，导入音频会自动匹配到视频长度。",
-            AudioVideoComposeReferenceMode.Audio when HasAudioVideoComposeDurationMismatch() =>
-                "已切换为以音频为准，视频会按当前策略自动匹配到音频长度。",
-            AudioVideoComposeReferenceMode.Video =>
-                "已将视频设为当前长度预设。",
-            _ =>
-                "已将音频设为当前长度预设。"
-        };
+        SetStatusMessage(
+            referenceMode switch
+            {
+                AudioVideoComposeReferenceMode.Video when HasAudioVideoComposeDurationMismatch() =>
+                    "merge.status.audioVideoCompose.reference.videoMatched",
+                AudioVideoComposeReferenceMode.Audio when HasAudioVideoComposeDurationMismatch() =>
+                    "merge.status.audioVideoCompose.reference.audioMatched",
+                AudioVideoComposeReferenceMode.Video =>
+                    "merge.status.audioVideoCompose.reference.videoPreset",
+                _ =>
+                    "merge.status.audioVideoCompose.reference.audioPreset"
+            },
+            referenceMode switch
+            {
+                AudioVideoComposeReferenceMode.Video when HasAudioVideoComposeDurationMismatch() =>
+                    "已切换为以视频为准，导入音频会自动匹配到视频长度。",
+                AudioVideoComposeReferenceMode.Audio when HasAudioVideoComposeDurationMismatch() =>
+                    "已切换为以音频为准，视频会按当前策略自动匹配到音频长度。",
+                AudioVideoComposeReferenceMode.Video =>
+                    "已将视频设为当前长度预设。",
+                _ =>
+                    "已将音频设为当前长度预设。"
+            });
     }
 
     private void SetAudioVideoComposeVideoExtendMode(AudioVideoComposeVideoExtendMode videoExtendMode)
@@ -845,7 +1044,11 @@ public sealed partial class MergeViewModel
 
         if (IsVideoJoinProcessing)
         {
-            StatusMessage = "当前合并任务处理中，若需切换延长策略，请先取消当前任务。";
+            SetProcessingLockedStatusMessage(
+                "merge.label.module.merge",
+                "合并",
+                "merge.label.operation.switchExtendStrategy",
+                "切换延长策略");
             OnPropertyChanged(nameof(IsAudioVideoComposeLoopVideoExtendModeSelected));
             OnPropertyChanged(nameof(IsAudioVideoComposeFreezeFrameVideoExtendModeSelected));
             return;
@@ -859,9 +1062,13 @@ public sealed partial class MergeViewModel
 
         if (AudioVideoComposeVideoExtendOptionsVisibility == Visibility.Visible)
         {
-            StatusMessage = videoExtendMode == AudioVideoComposeVideoExtendMode.Loop
-                ? "当前视频较短时，将通过循环延长到音频长度。"
-                : "当前视频较短时，将冻结最后一帧延长到音频长度。";
+            SetStatusMessage(
+                videoExtendMode == AudioVideoComposeVideoExtendMode.Loop
+                    ? "merge.status.audioVideoCompose.extendMode.loop"
+                    : "merge.status.audioVideoCompose.extendMode.freeze",
+                videoExtendMode == AudioVideoComposeVideoExtendMode.Loop
+                    ? "当前视频较短时，将通过循环延长到音频长度。"
+                    : "当前视频较短时，将冻结最后一帧延长到音频长度。");
         }
     }
 
@@ -1153,52 +1360,96 @@ public sealed partial class MergeViewModel
         }
     }
 
-    private string BuildAudioVideoComposeCompletionMessage(AudioVideoComposeExportRequest request)
+    private void SetAudioVideoComposeCompletionStatusMessage(
+        AudioVideoComposeExportRequest request,
+        string? transcodingMessage)
     {
-        var strategyText = request.ReferenceMode switch
+        if (string.IsNullOrWhiteSpace(transcodingMessage))
+        {
+            SetStatusMessage(
+                "merge.status.audioVideoCompose.completed",
+                "音视频合成完成：{fileName}。{strategy}；输出时长 {duration}。{mix}{fade}",
+                ("fileName", Path.GetFileName(request.OutputPath)),
+                LocalizedArgument("strategy", () => BuildAudioVideoComposeStrategyCompletionText(request)),
+                ("duration", FormatDuration(request.OutputDuration)),
+                LocalizedArgument("mix", () => BuildAudioVideoComposeMixCompletionText(request)),
+                LocalizedArgument("fade", () => BuildAudioVideoComposeFadeCompletionText(request)));
+            return;
+        }
+
+        SetStatusMessage(
+            "merge.status.audioVideoCompose.completed.withTranscoding",
+            "音视频合成完成：{fileName}。{strategy}；输出时长 {duration}。{mix}{fade} {transcoding}",
+            ("fileName", Path.GetFileName(request.OutputPath)),
+            LocalizedArgument("strategy", () => BuildAudioVideoComposeStrategyCompletionText(request)),
+            ("duration", FormatDuration(request.OutputDuration)),
+            LocalizedArgument("mix", () => BuildAudioVideoComposeMixCompletionText(request)),
+            LocalizedArgument("fade", () => BuildAudioVideoComposeFadeCompletionText(request)),
+            LocalizedArgument("transcoding", () => ResolveMergeTranscodingMessage(transcodingMessage)));
+    }
+
+    private void SetAudioVideoComposeFailureStatusMessage(
+        FFmpegExecutionResult result,
+        string? transcodingMessage)
+    {
+        if (string.IsNullOrWhiteSpace(transcodingMessage))
+        {
+            SetStatusMessage(
+                "merge.status.audioVideoCompose.failed",
+                "音视频合成失败：{reason}",
+                LocalizedArgument("reason", () => ExtractFriendlyVideoJoinFailureMessage(result)));
+            return;
+        }
+
+        SetStatusMessage(
+            "merge.status.audioVideoCompose.failed.withTranscoding",
+            "音视频合成失败：{reason} {transcoding}",
+            LocalizedArgument("reason", () => ExtractFriendlyVideoJoinFailureMessage(result)),
+            LocalizedArgument("transcoding", () => ResolveMergeTranscodingMessage(transcodingMessage)));
+    }
+
+    private string BuildAudioVideoComposeStrategyCompletionText(AudioVideoComposeExportRequest request) =>
+        request.ReferenceMode switch
         {
             AudioVideoComposeReferenceMode.Video when request.AudioDuration > request.VideoDuration =>
-                "以视频为准，导入音频已自动裁剪到视频长度",
+                GetLocalizedText(
+                    "merge.status.audioVideoCompose.completed.strategy.videoTrimAudio",
+                    "以视频为准，导入音频已自动裁剪到视频长度"),
             AudioVideoComposeReferenceMode.Video when request.AudioDuration < request.VideoDuration =>
-                "以视频为准，导入音频已循环补齐到视频长度",
+                GetLocalizedText(
+                    "merge.status.audioVideoCompose.completed.strategy.videoLoopAudio",
+                    "以视频为准，导入音频已循环补齐到视频长度"),
             AudioVideoComposeReferenceMode.Audio when request.VideoDuration > request.AudioDuration =>
-                "以音频为准，视频已自动裁剪到音频长度",
+                GetLocalizedText(
+                    "merge.status.audioVideoCompose.completed.strategy.audioTrimVideo",
+                    "以音频为准，视频已自动裁剪到音频长度"),
             AudioVideoComposeReferenceMode.Audio when request.VideoDuration < request.AudioDuration &&
                                                      request.VideoExtendMode == AudioVideoComposeVideoExtendMode.Loop =>
-                "以音频为准，视频已循环延长到音频长度",
+                GetLocalizedText(
+                    "merge.status.audioVideoCompose.completed.strategy.audioLoopVideo",
+                    "以音频为准，视频已循环延长到音频长度"),
             AudioVideoComposeReferenceMode.Audio when request.VideoDuration < request.AudioDuration =>
-                "以音频为准，视频已冻结最后一帧延长到音频长度",
-            _ => "音视频已按原始时长自然对齐"
+                GetLocalizedText(
+                    "merge.status.audioVideoCompose.completed.strategy.audioFreezeVideo",
+                    "以音频为准，视频已冻结最后一帧延长到音频长度"),
+            _ => GetLocalizedText(
+                "merge.status.audioVideoCompose.completed.strategy.aligned",
+                "音视频已按原始时长自然对齐")
         };
 
-        var mixText = request.IncludeOriginalVideoAudio
-            ? $"已保留原视频声音混音（原视频 {FormatAudioVideoComposeDecibelText(request.OriginalVideoAudioVolumeDecibels)} / 导入音频 {FormatAudioVideoComposeDecibelText(request.ImportedAudioVolumeDecibels)}）"
-            : $"仅使用导入音频（{FormatAudioVideoComposeDecibelText(request.ImportedAudioVolumeDecibels)}）";
-        var fadeText = BuildAudioVideoComposeFadeCompletionText(request);
-        return $"音视频合成完成：{Path.GetFileName(request.OutputPath)}。{strategyText}；输出时长 {FormatDuration(request.OutputDuration)}。{mixText}{fadeText}";
-    }
+    private string BuildAudioVideoComposeMixCompletionText(AudioVideoComposeExportRequest request) =>
+        request.IncludeOriginalVideoAudio
+            ? FormatLocalizedText(
+                "merge.status.audioVideoCompose.completed.mix.withOriginal",
+                "已保留原视频声音混音（原视频 {originalVolume} / 导入音频 {importedVolume}）",
+                ("originalVolume", FormatAudioVideoComposeDecibelText(request.OriginalVideoAudioVolumeDecibels)),
+                ("importedVolume", FormatAudioVideoComposeDecibelText(request.ImportedAudioVolumeDecibels)))
+            : FormatLocalizedText(
+                "merge.status.audioVideoCompose.completed.mix.importedOnly",
+                "仅使用导入音频（{importedVolume}）",
+                ("importedVolume", FormatAudioVideoComposeDecibelText(request.ImportedAudioVolumeDecibels)));
 
-    private void UpdateAudioVideoComposeProgress(FFmpegProgressUpdate progress)
-    {
-        if (progress.IsCompleted)
-        {
-            return;
-        }
-
-        if (progress.ProgressRatio is not double ratio)
-        {
-            StatusMessage = "正在合成音视频，FFmpeg 正在返回实时进度...";
-            return;
-        }
-
-        var normalized = Math.Clamp(ratio, 0d, 1d);
-        var percentText = $"{Math.Round(normalized * 100d):0}%";
-        StatusMessage = progress.ProcessedDuration is { } processedDuration && progress.TotalDuration is { } totalDuration
-            ? $"正在合成音视频：{percentText}（{FormatDuration(processedDuration)} / {FormatDuration(totalDuration)}）"
-            : $"正在合成音视频：{percentText}";
-    }
-
-    private static string BuildAudioVideoComposeFadeCompletionText(AudioVideoComposeExportRequest request)
+    private string BuildAudioVideoComposeFadeCompletionText(AudioVideoComposeExportRequest request)
     {
         if (!request.EnableImportedAudioFadeIn && !request.EnableImportedAudioFadeOut)
         {
@@ -1207,12 +1458,22 @@ public sealed partial class MergeViewModel
 
         if (request.EnableImportedAudioFadeIn && request.EnableImportedAudioFadeOut)
         {
-            return $"；导入音频淡入 {FormatAudioVideoComposeSeconds(request.ImportedAudioFadeInDuration.TotalSeconds)}，淡出 {FormatAudioVideoComposeSeconds(request.ImportedAudioFadeOutDuration.TotalSeconds)}";
+            return FormatLocalizedText(
+                "merge.status.audioVideoCompose.completed.fade.both",
+                "；导入音频淡入 {fadeIn}，淡出 {fadeOut}",
+                ("fadeIn", FormatAudioVideoComposeSeconds(request.ImportedAudioFadeInDuration.TotalSeconds)),
+                ("fadeOut", FormatAudioVideoComposeSeconds(request.ImportedAudioFadeOutDuration.TotalSeconds)));
         }
 
         return request.EnableImportedAudioFadeIn
-            ? $"；导入音频淡入 {FormatAudioVideoComposeSeconds(request.ImportedAudioFadeInDuration.TotalSeconds)}"
-            : $"；导入音频淡出 {FormatAudioVideoComposeSeconds(request.ImportedAudioFadeOutDuration.TotalSeconds)}";
+            ? FormatLocalizedText(
+                "merge.status.audioVideoCompose.completed.fade.in",
+                "；导入音频淡入 {fadeIn}",
+                ("fadeIn", FormatAudioVideoComposeSeconds(request.ImportedAudioFadeInDuration.TotalSeconds)))
+            : FormatLocalizedText(
+                "merge.status.audioVideoCompose.completed.fade.out",
+                "；导入音频淡出 {fadeOut}",
+                ("fadeOut", FormatAudioVideoComposeSeconds(request.ImportedAudioFadeOutDuration.TotalSeconds)));
     }
 
     private static double NormalizeAudioVideoComposeDecibels(double value) =>
@@ -1235,6 +1496,9 @@ public sealed partial class MergeViewModel
             : $"{rounded:0.#} dB";
     }
 
-    private static string FormatAudioVideoComposeSeconds(double seconds) =>
-        $"{Math.Round(seconds, 1, MidpointRounding.AwayFromZero):0.#} 秒";
+    private string FormatAudioVideoComposeSeconds(double seconds) =>
+        FormatLocalizedText(
+            "merge.summary.seconds.value",
+            "{value} 秒",
+            ("value", Math.Round(seconds, 1, MidpointRounding.AwayFromZero).ToString("0.#", CultureInfo.InvariantCulture)));
 }

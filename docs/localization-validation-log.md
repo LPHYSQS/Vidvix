@@ -88,3 +88,14 @@
 - 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行，`MainWindowHandle` 为 `330182`，进程保持响应；前台截图 `C:\Users\30106\AppData\Local\Temp\vidvix-r8-foreground.png` 可见主窗口壳层与拆音页入口，未出现黑屏、白屏或闪退。
 - 刷新链路验证：`TerminalWorkspaceViewModel.RefreshLocalization()` 已联动刷新现有 `OutputEntries`，`TerminalCommandExecutionResult` 现持有 failure reason resolver，因此“已拒绝 / 已取消 / 退出码 / 运行时不可用”等输出行不再锁定旧语言；`MediaInfoService` 以 probe 原始结果重建快照，`MainViewModel.RefreshMediaDetailsLocalization()` 与 `MediaDetailPanelViewModel.RefreshLocalization()` 会在详情浮层打开态下同步刷新节标题、字段标签和复制反馈。
 - 回归补记：本轮额外修复终端结果模型只保存静态失败文本导致的热切换残留问题，并将取消结果重新落到输出流中；终端页与详情浮层在现有内容已渲染的状态下都能正确跟随语言切换刷新。
+
+## R9 · 2026-04-22 09:54
+
+- 轮次范围：合并模块状态层迁移，仅处理 `MergeViewModel` 模式切换提示、轨道空态、状态摘要、运行态进度 / 完成 / 失败消息与 `ApplicationConfiguration` 中的合并模式本地化前缀，不扩展到 `Views/MergePage.xaml` 的主界面层文案。
+- 构建命令：`dotnet build .\Vidvix.sln -c Debug -v minimal`
+- 构建结果：通过，`0` 警告，`0` 错误。
+- 资源验证：`Resources/Localization/zh-CN/merge.json` 与 `Resources/Localization/en-US/merge.json` key 对齐校验通过，双语均为 `256` 个 key；`merge.mode.videoJoin`、`merge.mode.audioJoin`、`merge.mode.audioVideoCompose` 作为动态前缀的展开项也已在双语资源中补齐。
+- 运行态往返热切换烟测：临时项目 `dotnet run -c Debug --project %TEMP%\VidvixR9Smoke\VidvixR9Smoke.csproj` 通过，确认 `TimelineHintText`、`AudioVideoComposeDurationSummaryText`、`AudioVideoComposeStrategySummaryText`、`AudioVideoComposeOutputDirectoryHintText`、`AudioVideoComposeOutputNameHintText` 与处理锁定 `StatusMessage` 在 `zh-CN -> en-US -> zh-CN` 往返切换下都能即时重算，无需重启应用。
+- 启动冒烟：启动 `bin/x64/Debug/net8.0-windows10.0.19041.0/Vidvix.exe` 后持续运行超过 `10` 秒，`MainWindowHandle` 为 `24773294`，窗口标题为 `Vidvix`，`Responding = True`，未出现黑屏、白屏或闪退。
+- 刷新链路验证：`ApplicationConfiguration.MergeModeProfiles` 已改用 `merge.mode.*` 前缀承接显示名、模式切换提示、时间线提示与空轨道文本；`MergeViewModel.RefreshLocalization()` 会重建模式摘要、音视频合成策略 / 时长摘要、输出提示与当前 `StatusMessage`，`SetStatusMessage()` / `LocalizedArgument()` / `ResolveMergeTranscodingMessage()` 则保证处理中锁定提示、转码回退说明和完成 / 失败消息在语言切换后不保留旧语言字符串。
+- 回归补记：本轮把原先散落在 `common.mergeMode.*` 和硬编码中文中的合并状态层文案统一收敛到 `merge.json`，因此 `R10` 可以直接复用现有的 `merge.*` 资源与摘要刷新链路，只补界面层按钮、标签和说明文案。

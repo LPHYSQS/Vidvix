@@ -12,6 +12,9 @@ public sealed partial class MergeViewModel
     private string _processingProgressSummaryText = string.Empty;
     private string _processingProgressDetailText = string.Empty;
     private string _processingProgressPercentText = string.Empty;
+    private LocalizedTextState? _processingProgressSummaryTextState;
+    private LocalizedTextState? _processingProgressDetailTextState;
+    private LocalizedTextState? _processingProgressPercentTextState;
 
     public Visibility ProcessingProgressVisibility
     {
@@ -34,19 +37,31 @@ public sealed partial class MergeViewModel
     public string ProcessingProgressSummaryText
     {
         get => _processingProgressSummaryText;
-        private set => SetProperty(ref _processingProgressSummaryText, value);
+        private set
+        {
+            _processingProgressSummaryTextState = null;
+            SetProperty(ref _processingProgressSummaryText, value);
+        }
     }
 
     public string ProcessingProgressDetailText
     {
         get => _processingProgressDetailText;
-        private set => SetProperty(ref _processingProgressDetailText, value);
+        private set
+        {
+            _processingProgressDetailTextState = null;
+            SetProperty(ref _processingProgressDetailText, value);
+        }
     }
 
     public string ProcessingProgressPercentText
     {
         get => _processingProgressPercentText;
-        private set => SetProperty(ref _processingProgressPercentText, value);
+        private set
+        {
+            _processingProgressPercentTextState = null;
+            SetProperty(ref _processingProgressPercentText, value);
+        }
     }
 
     public bool CanModifyWorkspace => !IsVideoJoinProcessing;
@@ -54,41 +69,53 @@ public sealed partial class MergeViewModel
     public Visibility WorkspaceInteractionShieldVisibility =>
         IsVideoJoinProcessing ? Visibility.Visible : Visibility.Collapsed;
 
-    private void ShowProcessingPreparationProgress(string summaryText, string detailText)
+    private void ShowProcessingPreparationProgress(
+        string summaryKey,
+        string summaryFallback,
+        string detailKey,
+        string detailFallback)
     {
         ProcessingProgressVisibility = Visibility.Visible;
-        ProcessingProgressSummaryText = summaryText;
-        ProcessingProgressDetailText = detailText;
-        ProcessingProgressPercentText = "准备中";
+        SetProcessingProgressSummaryText(summaryKey, summaryFallback);
+        SetProcessingProgressDetailText(detailKey, detailFallback);
+        SetProcessingProgressPercentText("merge.progress.percent.preparing", "准备中");
         ProcessingProgressValue = 0d;
         IsProcessingProgressIndeterminate = true;
     }
 
     private void UpdateProcessingProgress(
-        string summaryText,
+        string summaryKey,
+        string summaryFallback,
         FFmpegProgressUpdate progress,
-        string indeterminateDetailText)
+        string actionKey,
+        string actionFallback,
+        params (string Name, object? Value)[] actionArguments)
     {
         ProcessingProgressVisibility = Visibility.Visible;
-        ProcessingProgressSummaryText = summaryText;
+        SetProcessingProgressSummaryText(summaryKey, summaryFallback);
 
         if (progress.ProgressRatio is not double ratio)
         {
             IsProcessingProgressIndeterminate = true;
             ProcessingProgressValue = 0d;
-            ProcessingProgressPercentText = "处理中";
-            ProcessingProgressDetailText = indeterminateDetailText;
+            SetProcessingProgressPercentText("merge.progress.percent.processing", "处理中");
+            SetProcessingProgressDetailText(
+                "merge.progress.detail.indeterminate",
+                "{action}，FFmpeg 正在返回实时进度...",
+                ("action", FormatLocalizedText(actionKey, actionFallback, actionArguments)));
             return;
         }
 
         var normalized = Math.Clamp(ratio, 0d, 1d);
         IsProcessingProgressIndeterminate = false;
         ProcessingProgressValue = Math.Round(normalized * 100d, 1);
-        ProcessingProgressPercentText = $"{Math.Round(normalized * 100d):0}%";
-        ProcessingProgressDetailText = CreateProcessingProgressDetail(
+        var percentText = $"{Math.Round(normalized * 100d):0}%";
+        SetProcessingProgressPercentText("merge.progress.percent.value", "{percent}", ("percent", percentText));
+        SetProcessingProgressDetailText(
+            CreateProcessingProgressDetailState(
             progress.ProcessedDuration,
             progress.TotalDuration,
-            normalized);
+            normalized));
     }
 
     private void ResetProcessingProgress()
@@ -96,12 +123,15 @@ public sealed partial class MergeViewModel
         ProcessingProgressVisibility = Visibility.Collapsed;
         IsProcessingProgressIndeterminate = false;
         ProcessingProgressValue = 0d;
+        _processingProgressSummaryTextState = null;
+        _processingProgressDetailTextState = null;
+        _processingProgressPercentTextState = null;
         ProcessingProgressSummaryText = string.Empty;
         ProcessingProgressDetailText = string.Empty;
         ProcessingProgressPercentText = string.Empty;
     }
 
-    private static string CreateProcessingProgressDetail(
+    private LocalizedTextState CreateProcessingProgressDetailState(
         TimeSpan? processedDuration,
         TimeSpan? totalDuration,
         double progressRatio)
@@ -110,15 +140,27 @@ public sealed partial class MergeViewModel
 
         if (processedDuration is { } processed && totalDuration is { } total && total > TimeSpan.Zero)
         {
-            return $"当前进度 {percentText} · 已处理 {FormatProcessingDuration(processed)} / {FormatProcessingDuration(total)}";
+            return new LocalizedTextState(
+                "merge.progress.detail.processedTotal",
+                "当前进度 {percent} · 已处理 {processed} / {total}",
+                ("percent", percentText),
+                ("processed", FormatProcessingDuration(processed)),
+                ("total", FormatProcessingDuration(total)));
         }
 
         if (processedDuration is { } processedOnly)
         {
-            return $"当前进度 {percentText} · 已处理 {FormatProcessingDuration(processedOnly)}";
+            return new LocalizedTextState(
+                "merge.progress.detail.processedOnly",
+                "当前进度 {percent} · 已处理 {processed}",
+                ("percent", percentText),
+                ("processed", FormatProcessingDuration(processedOnly)));
         }
 
-        return $"当前进度 {percentText}";
+        return new LocalizedTextState(
+            "merge.progress.detail.percentOnly",
+            "当前进度 {percent}",
+            ("percent", percentText));
     }
 
     private void HandleVideoJoinProgress(FFmpegProgressUpdate progress, int segmentCount)
@@ -129,14 +171,18 @@ public sealed partial class MergeViewModel
         }
 
         UpdateProcessingProgress(
+            "merge.progress.videoJoin.summary",
             "视频拼接",
             progress,
-            $"正在拼接 {segmentCount} 段视频，FFmpeg 正在返回实时进度...");
+            "merge.progress.videoJoin.action",
+            "正在拼接 {count} 段视频",
+            ("count", segmentCount));
 
-        StatusMessage = BuildLiveProgressStatusMessage(
+        SetLiveProgressStatusMessage(
             progress,
-            $"正在拼接 {segmentCount} 段视频",
-            "FFmpeg 正在返回实时进度...");
+            "merge.progress.videoJoin.action",
+            "正在拼接 {count} 段视频",
+            ("count", segmentCount));
     }
 
     private void HandleAudioJoinProgress(FFmpegProgressUpdate progress, int segmentCount)
@@ -147,14 +193,18 @@ public sealed partial class MergeViewModel
         }
 
         UpdateProcessingProgress(
+            "merge.progress.audioJoin.summary",
             "音频拼接",
             progress,
-            $"正在拼接 {segmentCount} 段音频，FFmpeg 正在返回实时进度...");
+            "merge.progress.audioJoin.action",
+            "正在拼接 {count} 段音频",
+            ("count", segmentCount));
 
-        StatusMessage = BuildLiveProgressStatusMessage(
+        SetLiveProgressStatusMessage(
             progress,
-            $"正在拼接 {segmentCount} 段音频",
-            "FFmpeg 正在返回实时进度...");
+            "merge.progress.audioJoin.action",
+            "正在拼接 {count} 段音频",
+            ("count", segmentCount));
     }
 
     private void HandleAudioVideoComposeProgress(FFmpegProgressUpdate progress)
@@ -165,32 +215,89 @@ public sealed partial class MergeViewModel
         }
 
         UpdateProcessingProgress(
+            "merge.progress.audioVideoCompose.summary",
             "音视频合成",
             progress,
-            "正在合成音视频，FFmpeg 正在返回实时进度...");
+            "merge.progress.audioVideoCompose.action",
+            "正在合成音视频");
 
-        StatusMessage = BuildLiveProgressStatusMessage(
+        SetLiveProgressStatusMessage(
             progress,
-            "正在合成音视频",
-            "FFmpeg 正在返回实时进度...");
+            "merge.progress.audioVideoCompose.action",
+            "正在合成音视频");
     }
 
-    private static string BuildLiveProgressStatusMessage(
+    private void SetLiveProgressStatusMessage(
         FFmpegProgressUpdate progress,
-        string actionText,
-        string indeterminateDetailText)
+        string actionKey,
+        string actionFallback,
+        params (string Name, object? Value)[] actionArguments)
     {
         if (progress.ProgressRatio is not double ratio)
         {
-            return $"{actionText}，{indeterminateDetailText}";
+            SetStatusMessage(
+                "merge.status.progress.indeterminate",
+                "{action}，FFmpeg 正在返回实时进度...",
+                LocalizedArgument("action", () => FormatLocalizedText(actionKey, actionFallback, actionArguments)));
+            return;
         }
 
         var normalized = Math.Clamp(ratio, 0d, 1d);
         var percentText = $"{Math.Round(normalized * 100d):0}%";
 
-        return progress.ProcessedDuration is { } processedDuration && progress.TotalDuration is { } totalDuration
-            ? $"{actionText}：{percentText}（{FormatProcessingDuration(processedDuration)} / {FormatProcessingDuration(totalDuration)}）"
-            : $"{actionText}：{percentText}";
+        if (progress.ProcessedDuration is { } processedDuration && progress.TotalDuration is { } totalDuration)
+        {
+            SetStatusMessage(
+                "merge.status.progress.valueWithDuration",
+                "{action}：{percent}（{processed} / {total}）",
+                LocalizedArgument("action", () => FormatLocalizedText(actionKey, actionFallback, actionArguments)),
+                ("percent", percentText),
+                ("processed", FormatProcessingDuration(processedDuration)),
+                ("total", FormatProcessingDuration(totalDuration)));
+            return;
+        }
+
+        SetStatusMessage(
+            "merge.status.progress.value",
+            "{action}：{percent}",
+            LocalizedArgument("action", () => FormatLocalizedText(actionKey, actionFallback, actionArguments)),
+            ("percent", percentText));
+    }
+
+    private void SetProcessingProgressSummaryText(string key, string fallback, params (string Name, object? Value)[] arguments)
+    {
+        _processingProgressSummaryTextState = new LocalizedTextState(key, fallback, arguments);
+        SetProperty(
+            ref _processingProgressSummaryText,
+            ResolveLocalizedText(_processingProgressSummaryTextState),
+            nameof(ProcessingProgressSummaryText));
+    }
+
+    private void SetProcessingProgressDetailText(string key, string fallback, params (string Name, object? Value)[] arguments)
+    {
+        _processingProgressDetailTextState = new LocalizedTextState(key, fallback, arguments);
+        SetProperty(
+            ref _processingProgressDetailText,
+            ResolveLocalizedText(_processingProgressDetailTextState),
+            nameof(ProcessingProgressDetailText));
+    }
+
+    private void SetProcessingProgressDetailText(LocalizedTextState state)
+    {
+        _processingProgressDetailTextState = state;
+        SetProperty(
+            ref _processingProgressDetailText,
+            ResolveLocalizedText(_processingProgressDetailTextState),
+            nameof(ProcessingProgressDetailText));
+    }
+
+    private void SetProcessingProgressPercentText(string key, string fallback, params (string Name, object? Value)[] arguments)
+    {
+        _processingProgressPercentTextState = new LocalizedTextState(key, fallback, arguments);
+        SetProperty(
+            ref _processingProgressPercentText,
+            ResolveLocalizedText(_processingProgressPercentTextState),
+            nameof(ProcessingProgressPercentText));
     }
 
     private static string FormatProcessingDuration(TimeSpan duration) =>

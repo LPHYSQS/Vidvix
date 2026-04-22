@@ -191,18 +191,41 @@ public sealed partial class MergeViewModel
         RaiseAudioVideoComposeStatePropertiesChanged();
     }
 
-    private void SetModeMismatchWarningVisibility(bool isVisible, string? message = null)
+    private void SetModeMismatchWarningVisibility(bool isVisible)
     {
-        if (message is not null && _modeMismatchWarningMessage != message)
-        {
-            _modeMismatchWarningMessage = message;
-            OnPropertyChanged(nameof(ModeMismatchWarningMessage));
-        }
-
         if (_isModeMismatchWarningVisible != isVisible)
         {
             _isModeMismatchWarningVisible = isVisible;
             OnPropertyChanged(nameof(ModeMismatchWarningVisibility));
+        }
+    }
+
+    private void SetModeMismatchWarningVisibility(
+        bool isVisible,
+        string key,
+        string fallback,
+        params (string Name, object? Value)[] arguments)
+    {
+        _modeMismatchWarningMessageState = new LocalizedTextState(key, fallback, arguments);
+        UpdateModeMismatchWarningMessage(ResolveLocalizedText(_modeMismatchWarningMessageState));
+        SetModeMismatchWarningVisibility(isVisible);
+    }
+
+    private void ClearModeMismatchWarningMessageLocalizationState() => _modeMismatchWarningMessageState = null;
+
+    private void ClearModeMismatchWarning()
+    {
+        ClearModeMismatchWarningMessageLocalizationState();
+        UpdateModeMismatchWarningMessage(string.Empty);
+        SetModeMismatchWarningVisibility(false);
+    }
+
+    private void UpdateModeMismatchWarningMessage(string message)
+    {
+        if (_modeMismatchWarningMessage != message)
+        {
+            _modeMismatchWarningMessage = message;
+            OnPropertyChanged(nameof(ModeMismatchWarningMessage));
         }
     }
 

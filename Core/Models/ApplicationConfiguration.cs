@@ -225,7 +225,7 @@ public sealed class ApplicationConfiguration
                 showsAudioJoinTimeline: false,
                 showsStandardTimeline: false,
                 rejectAudioInputMessage: "当前是视频拼接模式，请选择视频素材加入视频轨道。",
-                localizationKeyPrefix: "common.mergeMode.videoJoin"),
+                localizationKeyPrefix: "merge.mode.videoJoin"),
             [MergeWorkspaceMode.AudioJoin] = new(
                 MergeWorkspaceMode.AudioJoin,
                 displayName: "音频拼接",
@@ -241,7 +241,7 @@ public sealed class ApplicationConfiguration
                 showsAudioJoinTimeline: true,
                 showsStandardTimeline: false,
                 rejectVideoInputMessage: "当前是音频拼接模式，请选择音频素材加入音频轨道。",
-                localizationKeyPrefix: "common.mergeMode.audioJoin"),
+                localizationKeyPrefix: "merge.mode.audioJoin"),
             [MergeWorkspaceMode.AudioVideoCompose] = new(
                 MergeWorkspaceMode.AudioVideoCompose,
                 displayName: "音视频合成",
@@ -256,7 +256,7 @@ public sealed class ApplicationConfiguration
                 showsVideoJoinTimeline: false,
                 showsAudioJoinTimeline: false,
                 showsStandardTimeline: true,
-                localizationKeyPrefix: "common.mergeMode.audioVideoCompose")
+                localizationKeyPrefix: "merge.mode.audioVideoCompose")
         };
 
     public IReadOnlyList<ProcessingModeOption> SupportedProcessingModes { get; init; } =
