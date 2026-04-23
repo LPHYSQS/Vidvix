@@ -7,10 +7,10 @@
 - 计划版本：`v5`
 - 项目：`Vidvix`
 - 当前阶段：`Stage 1`
-- 当前轮次：`R2`
+- 当前轮次：`R3`
 - 当前状态：`Completed`
 - 当前执行 Agent：`Codex`
-- 最近完成轮次：`R2`
+- 最近完成轮次：`R3`
 - 最近完成时间：`2026-04-23`
 - 构建验证：`Passed`
 - 运行验证：`Passed`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已完成 `R2`，把 AI 工作区作为独立模块接入左侧导航、集中式配置、组合根和空页面；同步补齐 `common.json` / `ai.json` 双语资源与资源清单注册。
-- 本轮修改文件：`Core/Models/ApplicationConfiguration.cs`, `Core/Models/ProcessingWorkspaceKind.cs`, `Services/LocalizationService.cs`, `Utils/AppCompositionRoot.cs`, `ViewModels/MainViewModel.cs`, `ViewModels/MainViewModel.Ai.cs`, `ViewModels/MainViewModel.Localization.cs`, `ViewModels/MainViewModel.UiState.cs`, `ViewModels/MainViewModel.Workspace.cs`, `Views/MainWindow.xaml`, `Views/MainWindow.DragDrop.cs`, `Resources/Localization/manifest.json`, `Resources/Localization/zh-CN/common.json`, `Resources/Localization/en-US/common.json`, `DOCS/ai-module-agent-execution-plan.md`
-- 本轮新增文件：`ViewModels/AiWorkspaceViewModel.cs`, `Views/AiPage.xaml`, `Views/AiPage.xaml.cs`, `Resources/Localization/zh-CN/ai.json`, `Resources/Localization/en-US/ai.json`
-- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；Debug 产物已成功启动，`8s` 内未闪退，且已拿到主窗口句柄后正常关闭。
-- 当前遗留问题：AI 页面当前仍为空壳；AI 导航选中态、图标精修、与合并模块的视觉对标、自适应表现和壳层规范尚未做专项 UI 验证；素材列表、多视频导入但单视频激活约束、模式切换状态与输出设置状态尚未接入；`AI增强` 的 CPU fallback 仍未验证。
-- 下一轮必须处理：执行 `R3`，先对 AI 导航与 AI 页面做专项 UI 验证，输出与合并模块及现有导航规范的差异清单。
-- 下一轮禁止扩展：不要直接继续 `R5` 及其后的功能轮次；先完成 `R3` UI 验证与 `R4` UI 调整，再继续素材列表、runtime、workflow、发布和烟测开发。
+- 本轮完成项：已完成 `R3`，对 AI 导航入口与 AI 页面壳层完成专项 UI 验证，输出与合并模块及现有导航规范的差异清单，并确认 `AI` 选中态未进入一致的蓝色响应态。
+- 本轮修改文件：`DOCS/ai-module-agent-execution-plan.md`, `DOCS/ai-ui-validation-report.md`
+- 本轮新增文件：`DOCS/ai-ui-validation-report.md`
+- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；Debug 产物已成功启动，窗口 DPI `144`（`150%` 缩放）下运行 `8s` 内未黑屏、白屏或闪退；已完成 AI / 合并导航选中态对比与 AI 页面宽窗 / 窄窗壳层验证。
+- 当前遗留问题：`AI` 导航选中态缺少与既有模块一致的蓝色反馈；AI 页面存在与壳层 header 重复的二级 hero；`1100x900 @ 150%` 下右侧列出现明显裁切风险；AI 图标建议微调但无需更换；共享导航模板缺少显式悬停 / 按下反馈。
+- 下一轮必须处理：执行 `R4`，只修复本轮报告已确认的 AI 导航选中态、图标微调、页内层级与自适应问题，并回填验证结论。
+- 下一轮禁止扩展：不要提前进入 `R5` 素材列表、模式状态、输出设置、runtime、workflow、CPU fallback 或发布验证开发。
 
 ## 执行协议
 
@@ -263,7 +263,7 @@ Tools/
 | ---- | ------- | ------------------------------ | --------- | ---------- | ---------- | ---- |
 | R1   | Stage 1 | 计划冻结与执行手册重写         | Completed | Codex      | 2026-04-23 | 已按统一执行手册格式重写文档，冻结首发范围、模型路线、法务红线、轮次拆分与交接规则。 |
 | R2   | Stage 1 | AI 工作区骨架与配置接线        | Completed | Codex      | 2026-04-23 | 已接入 AI 导航、workspace profile、AiPage 空壳与双语资源注册，应用构建与启动验证通过。 |
-| R3   | Stage 1 | AI UI 专项验证与对标审查       | Pending   | N/A        | N/A        | 未开始 |
+| R3   | Stage 1 | AI UI 专项验证与对标审查       | Completed | Codex      | 2026-04-23 | 已输出 AI UI 验证报告，确认 AI 选中态未进入一致蓝色响应态，给出与合并模块的壳层差异、自适应问题和 R4 修复边界。 |
 | R4   | Stage 1 | AI UI 对齐调整与视觉收口       | Pending   | N/A        | N/A        | 未开始 |
 | R5   | Stage 1 | 素材列表、单视频约束与输出状态 | Pending   | N/A        | N/A        | 未开始 |
 | R6   | Stage 2 | AI 模型与配置下载、筛选、归位  | Pending   | N/A        | N/A        | 未开始 |
@@ -340,8 +340,8 @@ Tools/
 
 目标：
 
-- 对已接入的 AI 导航入口与 AI 页面壳层做专项 UI 验证，防止后续功能开发让界面风格、交互响应和布局规范继续跑偏。
-- 以现有左侧导航和“合并模块”为主要对标对象，系统记录 AI 模块当前的视觉、交互和自适应差异。
+- ~~对已接入的 AI 导航入口与 AI 页面壳层做专项 UI 验证，防止后续功能开发让界面风格、交互响应和布局规范继续跑偏。~~
+- ~~以现有左侧导航和“合并模块”为主要对标对象，系统记录 AI 模块当前的视觉、交互和自适应差异。~~
 
 允许范围：
 
@@ -357,28 +357,28 @@ Tools/
 
 必须交付：
 
-- `DOCS/ai-ui-validation-report.md`
-- AI 导航按钮选中态、悬停态、按下态、禁用态验证记录
-- AI 导航图标的尺寸、重心、清晰度、风格一致性验证记录
-- AI 页面与合并模块在边距、栅格、卡片层级、标题层级、控件密度上的对标记录
-- AI 页面在常见缩放与窗口宽度下的自适应验证记录
-- 明确的问题清单，区分“必须修”“建议修”“可延后”
+- ~~`DOCS/ai-ui-validation-report.md`~~
+- ~~AI 导航按钮选中态、悬停态、按下态、禁用态验证记录~~
+- ~~AI 导航图标的尺寸、重心、清晰度、风格一致性验证记录~~
+- ~~AI 页面与合并模块在边距、栅格、卡片层级、标题层级、控件密度上的对标记录~~
+- ~~AI 页面在常见缩放与窗口宽度下的自适应验证记录~~
+- ~~明确的问题清单，区分“必须修”“建议修”“可延后”~~
 
 验收标准：
 
-- 必须明确记录“点击 AI 按钮后，当前选中态是否与其他模块一致”，包括是否出现与既有模块一致的蓝色响应态
-- 必须明确给出 AI 图标“保留 / 微调 / 更换”的结论
-- 必须明确记录 AI 页面与合并模块哪些地方一致、哪些地方不一致
+- ~~必须明确记录“点击 AI 按钮后，当前选中态是否与其他模块一致”，包括是否出现与既有模块一致的蓝色响应态~~
+- ~~必须明确给出 AI 图标“保留 / 微调 / 更换”的结论~~
+- ~~必须明确记录 AI 页面与合并模块哪些地方一致、哪些地方不一致~~
 - 至少覆盖以下验证场景：
-  - 默认窗口宽度
-  - 较窄窗口宽度
-  - `100%`、`125%`、`150%` 缩放
-- 本轮输出的问题清单足以支撑下一轮独立完成 UI 调整
+  - ~~默认窗口宽度~~
+  - ~~较窄窗口宽度~~
+  - ~~`100%`、`125%`、`150%` 缩放~~
+- ~~本轮输出的问题清单足以支撑下一轮独立完成 UI 调整~~
 
 交接要求：
 
-- 明确写出下一轮 `R4` 只修复本轮已确认的 UI 问题，不顺手追加功能需求
-- 明确标出哪些问题是阻断继续功能开发的项，哪些问题可在后续轮次再处理
+- ~~明确写出下一轮 `R4` 只修复本轮已确认的 UI 问题，不顺手追加功能需求~~
+- ~~明确标出哪些问题是阻断继续功能开发的项，哪些问题可在后续轮次再处理~~
 
 ### R4 AI UI 对齐调整与视觉收口
 
