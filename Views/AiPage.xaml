@@ -80,27 +80,22 @@
         </Style>
     </Page.Resources>
 
-    <ScrollViewer
-        HorizontalScrollBarVisibility="Disabled"
-        HorizontalScrollMode="Disabled"
-        VerticalScrollBarVisibility="Auto"
-        VerticalScrollMode="Enabled">
-        <Grid
-            x:Name="LayoutRoot"
-            Background="Transparent"
-            ColumnSpacing="12"
-            Margin="8,6,8,0"
-            RowSpacing="12">
-            <Grid.RowDefinitions>
-                <RowDefinition x:Name="PrimaryRowDefinition" Height="Auto" />
-                <RowDefinition x:Name="SecondaryRowDefinition" Height="0" />
-                <RowDefinition x:Name="TertiaryRowDefinition" Height="0" />
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="MaterialsColumnDefinition" Width="260" />
-                <ColumnDefinition x:Name="WorkspaceColumnDefinition" Width="*" />
-                <ColumnDefinition x:Name="OutputColumnDefinition" Width="320" />
-            </Grid.ColumnDefinitions>
+    <Grid
+        x:Name="LayoutRoot"
+        Background="Transparent"
+        ColumnSpacing="12"
+        Margin="8,6,8,0"
+        RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition x:Name="PrimaryRowDefinition" Height="*" />
+            <RowDefinition x:Name="SecondaryRowDefinition" Height="0" />
+            <RowDefinition x:Name="TertiaryRowDefinition" Height="0" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="MaterialsColumnDefinition" Width="260" />
+            <ColumnDefinition x:Name="WorkspaceColumnDefinition" Width="*" />
+            <ColumnDefinition x:Name="OutputColumnDefinition" Width="320" />
+        </Grid.ColumnDefinitions>
 
             <Border
                 x:Name="MaterialsCard"
@@ -392,13 +387,12 @@
                         <Border
                             x:Name="InterpolationWorkspacePanel"
                             Padding="14"
-                            Style="{StaticResource InsetSurfaceCardBorderStyle}"
-                            VerticalAlignment="Top">
+                            Style="{StaticResource InsetSurfaceCardBorderStyle}">
                             <Grid RowSpacing="12">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
@@ -498,13 +492,12 @@
                             x:Name="EnhancementWorkspacePanel"
                             Padding="14"
                             Style="{StaticResource InsetSurfaceCardBorderStyle}"
-                            VerticalAlignment="Top"
                             Visibility="Collapsed">
                             <Grid RowSpacing="12">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
@@ -678,6 +671,5 @@
                     </StackPanel>
                 </ScrollViewer>
             </Border>
-        </Grid>
-    </ScrollViewer>
+    </Grid>
 </Page>

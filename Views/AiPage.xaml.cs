@@ -60,7 +60,7 @@ public sealed partial class AiPage : Page
         MaterialsColumnDefinition.Width = new GridLength(260);
         WorkspaceColumnDefinition.Width = new GridLength(1, GridUnitType.Star);
         OutputColumnDefinition.Width = new GridLength(320);
-        PrimaryRowDefinition.Height = GridLength.Auto;
+        PrimaryRowDefinition.Height = new GridLength(1, GridUnitType.Star);
         SecondaryRowDefinition.Height = new GridLength(0);
         TertiaryRowDefinition.Height = new GridLength(0);
 
@@ -82,9 +82,9 @@ public sealed partial class AiPage : Page
         MaterialsColumnDefinition.Width = new GridLength(1, GridUnitType.Star);
         WorkspaceColumnDefinition.Width = new GridLength(0);
         OutputColumnDefinition.Width = new GridLength(0);
-        PrimaryRowDefinition.Height = GridLength.Auto;
-        SecondaryRowDefinition.Height = GridLength.Auto;
-        TertiaryRowDefinition.Height = GridLength.Auto;
+        PrimaryRowDefinition.Height = new GridLength(1, GridUnitType.Star);
+        SecondaryRowDefinition.Height = new GridLength(1, GridUnitType.Star);
+        TertiaryRowDefinition.Height = new GridLength(1, GridUnitType.Star);
 
         Grid.SetRow(MaterialsCard, 0);
         Grid.SetColumn(MaterialsCard, 0);
