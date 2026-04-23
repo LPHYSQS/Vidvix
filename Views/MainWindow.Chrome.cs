@@ -66,6 +66,8 @@ public sealed partial class MainWindow
         TrimWorkspaceText.Foreground = ViewModel.IsTrimWorkspaceSelected ? accentBrush : defaultBrush;
         MergeWorkspaceIcon.Stroke = ViewModel.IsMergeWorkspaceSelected ? accentBrush : defaultBrush;
         MergeWorkspaceText.Foreground = ViewModel.IsMergeWorkspaceSelected ? accentBrush : defaultBrush;
+        AiWorkspaceIcon.Stroke = ViewModel.IsAiWorkspaceSelected ? accentBrush : defaultBrush;
+        AiWorkspaceText.Foreground = ViewModel.IsAiWorkspaceSelected ? accentBrush : defaultBrush;
         SplitAudioWorkspaceIcon.Stroke = ViewModel.IsSplitAudioWorkspaceSelected ? accentBrush : defaultBrush;
         SplitAudioWorkspaceText.Foreground = ViewModel.IsSplitAudioWorkspaceSelected ? accentBrush : defaultBrush;
         TerminalWorkspaceIcon.Stroke = ViewModel.IsTerminalWorkspaceSelected ? accentBrush : defaultBrush;

@@ -4,12 +4,22 @@
   "ai.page.description": "当前轮次仅完成独立 AI 工作区、导航与页面骨架接线；后续轮次会继续补齐素材列表、模式状态、输出设置与离线执行链路。",
   "ai.page.materials.title": "素材列表",
   "ai.page.materials.description": "后续轮次将在这里接入视频素材列表。首发冻结为视频-only 导入，支持格式：{formats}；允许导入多个视频，但单次只处理一个当前视频。",
+  "ai.page.materials.badge.videoOnly": "视频-only 导入",
+  "ai.page.materials.badge.singleSelection": "单次单视频执行",
+  "ai.page.materials.placeholder": "R5 将在这里接入素材列表、选中态和导入反馈，本轮只先收口稳定壳层。",
   "ai.page.workspace.title": "AI 工作区",
   "ai.page.workspace.description": "本轮只完成 AI补帧 / AI增强 的模式壳层和页面落点，不提前实现 runtime、参数区或推理执行。",
   "ai.page.output.title": "输出设置",
   "ai.page.output.description": "本区已预留为 AI 输出设置。首发范围冻结为 MP4 / MKV，默认保留原音轨；具体输出状态与约束将在下一轮接入。",
+  "ai.page.output.badge.formats": "输出：{formats}",
+  "ai.page.output.badge.audio": "默认保留原音轨",
+  "ai.page.output.placeholder": "R5 将补齐输出格式、目录与文件名状态，本轮只保留可承载真实控件的稳定面板。",
   "ai.interpolation.cardTitle": "AI补帧",
   "ai.interpolation.cardDescription": "首发路线冻结为 RIFE，后续将补齐素材输入、倍率参数、执行协调与取消控制。",
+  "ai.interpolation.engineBadge": "RIFE",
+  "ai.interpolation.placeholder": "R5 起再接入倍率、设备与执行协调，不在本轮提前打开推理链路。",
   "ai.enhancement.cardTitle": "AI增强",
-  "ai.enhancement.cardDescription": "首发路线冻结为 Real-ESRGAN，倍率范围冻结为 2x 到 16x；参数与工作流将在后续轮次增量接入。"
+  "ai.enhancement.cardDescription": "首发路线冻结为 Real-ESRGAN，倍率范围冻结为 2x 到 16x；参数与工作流将在后续轮次增量接入。",
+  "ai.enhancement.engineBadge": "Real-ESRGAN",
+  "ai.enhancement.placeholder": "倍率冻结为 2x 到 16x，默认 2x；参数区与高倍率提醒在后续轮次增量接入。"
 }

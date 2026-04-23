@@ -1,51 +1,54 @@
-﻿<Page
+<Page
     x:Class="Vidvix.Views.AiPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Name="RootPage"
     Background="Transparent"
+    Loaded="OnPageLoaded"
+    SizeChanged="OnPageSizeChanged"
     mc:Ignorable="d">
+
+    <Page.Resources>
+        <Style
+            x:Key="AiInsetCardBorderStyle"
+            BasedOn="{StaticResource InsetSurfaceCardBorderStyle}"
+            TargetType="Border">
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+    </Page.Resources>
 
     <ScrollViewer
         HorizontalScrollBarVisibility="Disabled"
         HorizontalScrollMode="Disabled"
         VerticalScrollBarVisibility="Auto"
         VerticalScrollMode="Enabled">
-        <StackPanel
+        <Grid
+            x:Name="LayoutRoot"
             Background="Transparent"
-            Padding="8,6,8,0"
-            Spacing="12">
+            ColumnSpacing="12"
+            Margin="8,6,8,0"
+            RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition x:Name="PrimaryRowDefinition" Height="Auto" />
+                <RowDefinition x:Name="SecondaryRowDefinition" Height="0" />
+                <RowDefinition x:Name="TertiaryRowDefinition" Height="0" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="MaterialsColumnDefinition" Width="260" />
+                <ColumnDefinition x:Name="WorkspaceColumnDefinition" Width="*" />
+                <ColumnDefinition x:Name="OutputColumnDefinition" Width="320" />
+            </Grid.ColumnDefinitions>
+
             <Border
-                Padding="22,18"
+                x:Name="MaterialsCard"
+                Grid.Column="0"
+                Padding="16"
                 Style="{StaticResource SurfaceCardBorderStyle}">
-                <StackPanel Spacing="6">
-                    <TextBlock
-                        Style="{StaticResource CaptionTextStyle}"
-                        Text="{x:Bind ViewModel.SectionCaptionText, Mode=OneWay}" />
-                    <TextBlock
-                        FontSize="24"
-                        FontWeight="SemiBold"
-                        Text="{x:Bind ViewModel.PageTitleText, Mode=OneWay}" />
-                    <TextBlock
-                        Opacity="0.78"
-                        Text="{x:Bind ViewModel.PageDescriptionText, Mode=OneWay}"
-                        TextWrapping="WrapWholeWords" />
-                </StackPanel>
-            </Border>
-
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="1.15*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <Border
-                    Grid.Column="0"
-                    Padding="18"
-                    Style="{StaticResource SurfaceCardBorderStyle}">
-                    <StackPanel Spacing="10">
+                <StackPanel Spacing="12">
+                    <StackPanel Spacing="4">
                         <TextBlock
                             Style="{StaticResource SectionTitleTextStyle}"
                             Text="{x:Bind ViewModel.MaterialsSectionTitleText, Mode=OneWay}" />
@@ -54,13 +57,45 @@
                             Text="{x:Bind ViewModel.MaterialsSectionDescriptionText, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
-                </Border>
 
-                <Border
-                    Grid.Column="1"
-                    Padding="18"
-                    Style="{StaticResource SurfaceCardBorderStyle}">
-                    <StackPanel Spacing="14">
+                    <StackPanel
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <Border
+                            Padding="10,4"
+                            Style="{StaticResource SubtleBadgeBorderStyle}">
+                            <TextBlock
+                                FontSize="12"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.VideoOnlyImportBadgeText, Mode=OneWay}" />
+                        </Border>
+                        <Border
+                            Padding="10,4"
+                            Style="{StaticResource SubtleBadgeBorderStyle}">
+                            <TextBlock
+                                FontSize="12"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.SingleVideoExecutionBadgeText, Mode=OneWay}" />
+                        </Border>
+                    </StackPanel>
+
+                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
+                        <TextBlock
+                            Opacity="0.82"
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="{x:Bind ViewModel.MaterialsPlaceholderText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <Border
+                x:Name="WorkspaceCard"
+                Grid.Column="1"
+                Padding="18"
+                Style="{StaticResource SurfaceCardBorderStyle}">
+                <StackPanel Spacing="14">
+                    <StackPanel Spacing="4">
                         <TextBlock
                             Style="{StaticResource SectionTitleTextStyle}"
                             Text="{x:Bind ViewModel.WorkspaceSectionTitleText, Mode=OneWay}" />
@@ -68,46 +103,90 @@
                             Opacity="0.78"
                             Text="{x:Bind ViewModel.WorkspaceSectionDescriptionText, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
+                    </StackPanel>
 
-                        <Border
-                            Padding="14"
-                            Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                            CornerRadius="16">
-                            <StackPanel Spacing="6">
+                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
                                 <TextBlock
                                     FontSize="16"
                                     FontWeight="SemiBold"
                                     Text="{x:Bind ViewModel.InterpolationCardTitleText, Mode=OneWay}" />
-                                <TextBlock
-                                    Opacity="0.78"
-                                    Text="{x:Bind ViewModel.InterpolationCardDescriptionText, Mode=OneWay}"
-                                    TextWrapping="WrapWholeWords" />
-                            </StackPanel>
-                        </Border>
 
-                        <Border
-                            Padding="14"
-                            Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                            CornerRadius="16">
-                            <StackPanel Spacing="6">
+                                <Border
+                                    Grid.Column="1"
+                                    Padding="10,4"
+                                    Background="{ThemeResource AccentFillColorSecondaryBrush}"
+                                    CornerRadius="10">
+                                    <TextBlock
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                        Text="{x:Bind ViewModel.InterpolationEngineBadgeText, Mode=OneWay}" />
+                                </Border>
+                            </Grid>
+
+                            <TextBlock
+                                Opacity="0.82"
+                                Text="{x:Bind ViewModel.InterpolationCardDescriptionText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.InterpolationPlaceholderText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
                                 <TextBlock
                                     FontSize="16"
                                     FontWeight="SemiBold"
                                     Text="{x:Bind ViewModel.EnhancementCardTitleText, Mode=OneWay}" />
-                                <TextBlock
-                                    Opacity="0.78"
-                                    Text="{x:Bind ViewModel.EnhancementCardDescriptionText, Mode=OneWay}"
-                                    TextWrapping="WrapWholeWords" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Border>
 
-                <Border
-                    Grid.Column="2"
-                    Padding="18"
-                    Style="{StaticResource SurfaceCardBorderStyle}">
-                    <StackPanel Spacing="10">
+                                <Border
+                                    Grid.Column="1"
+                                    Padding="10,4"
+                                    Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                    CornerRadius="10">
+                                    <TextBlock
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Text="{x:Bind ViewModel.EnhancementEngineBadgeText, Mode=OneWay}" />
+                                </Border>
+                            </Grid>
+
+                            <TextBlock
+                                Opacity="0.82"
+                                Text="{x:Bind ViewModel.EnhancementCardDescriptionText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.EnhancementPlaceholderText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <Border
+                x:Name="OutputCard"
+                Grid.Column="2"
+                Padding="16"
+                Style="{StaticResource SurfaceCardBorderStyle}">
+                <StackPanel Spacing="12">
+                    <StackPanel Spacing="4">
                         <TextBlock
                             Style="{StaticResource SectionTitleTextStyle}"
                             Text="{x:Bind ViewModel.OutputSectionTitleText, Mode=OneWay}" />
@@ -116,8 +195,37 @@
                             Text="{x:Bind ViewModel.OutputSectionDescriptionText, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
-                </Border>
-            </Grid>
-        </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <Border
+                            Padding="10,4"
+                            HorizontalAlignment="Left"
+                            Style="{StaticResource SubtleBadgeBorderStyle}">
+                            <TextBlock
+                                FontSize="12"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.OutputFormatsBadgeText, Mode=OneWay}" />
+                        </Border>
+                        <Border
+                            Padding="10,4"
+                            HorizontalAlignment="Left"
+                            Style="{StaticResource SubtleBadgeBorderStyle}">
+                            <TextBlock
+                                FontSize="12"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.OutputAudioBadgeText, Mode=OneWay}" />
+                        </Border>
+                    </StackPanel>
+
+                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
+                        <TextBlock
+                            Opacity="0.82"
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="{x:Bind ViewModel.OutputPlaceholderText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </Border>
+                </StackPanel>
+            </Border>
+        </Grid>
     </ScrollViewer>
 </Page>

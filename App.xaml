@@ -122,8 +122,19 @@
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup x:Name="CommonStates">
                                         <VisualState x:Name="Normal" />
-                                        <VisualState x:Name="PointerOver" />
-                                        <VisualState x:Name="Pressed" />
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="InteractionSurface.Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+                                                <Setter Target="InteractionSurface.BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="InteractionSurface.Background" Value="{ThemeResource ControlFillColorTertiaryBrush}" />
+                                                <Setter Target="InteractionSurface.BorderBrush" Value="{ThemeResource ControlStrokeColorSecondaryBrush}" />
+                                                <Setter Target="LayoutRoot.Opacity" Value="0.96" />
+                                            </VisualState.Setters>
+                                        </VisualState>
                                         <VisualState x:Name="Disabled">
                                             <Storyboard>
                                                 <DoubleAnimation
