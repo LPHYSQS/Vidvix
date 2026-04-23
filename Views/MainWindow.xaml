@@ -541,166 +541,173 @@
                         Padding="4,8"
                         VerticalAlignment="Stretch"
                         Style="{StaticResource SurfaceCardBorderStyle}">
-                        <StackPanel
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Top"
-                            Spacing="6">
-                            <ToggleButton
-                                x:Name="VideoWorkspaceToggle"
-                                Command="{x:Bind ViewModel.SwitchToVideoWorkspaceCommand, Mode=OneWay}"
-                                IsChecked="{x:Bind ViewModel.IsVideoWorkspaceSelected, Mode=OneWay}"
-                                IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
-                                Style="{StaticResource WorkspaceModeToggleButtonStyle}">
-                                <StackPanel
-                                    HorizontalAlignment="Center"
-                                    Spacing="5">
-                                    <SymbolIcon
-                                        x:Name="VideoWorkspaceIcon"
+                        <ScrollViewer
+                            HorizontalScrollBarVisibility="Disabled"
+                            HorizontalScrollMode="Disabled"
+                            Padding="0,0,8,0"
+                            VerticalScrollBarVisibility="Auto"
+                            VerticalScrollMode="Enabled">
+                            <StackPanel
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Top"
+                                Spacing="6">
+                                <ToggleButton
+                                    x:Name="VideoWorkspaceToggle"
+                                    Command="{x:Bind ViewModel.SwitchToVideoWorkspaceCommand, Mode=OneWay}"
+                                    IsChecked="{x:Bind ViewModel.IsVideoWorkspaceSelected, Mode=OneWay}"
+                                    IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                    Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                    <StackPanel
                                         HorizontalAlignment="Center"
-                                        Symbol="Video" />
-                                    <TextBlock
-                                        x:Name="VideoWorkspaceText"
-                                        HorizontalAlignment="Center"
-                                        FontSize="12"
-                                        FontWeight="SemiBold"
-                                        Text="{x:Bind ViewModel.VideoWorkspaceButtonText, Mode=OneWay}" />
-                                </StackPanel>
-                            </ToggleButton>
+                                        Spacing="5">
+                                        <SymbolIcon
+                                            x:Name="VideoWorkspaceIcon"
+                                            HorizontalAlignment="Center"
+                                            Symbol="Video" />
+                                        <TextBlock
+                                            x:Name="VideoWorkspaceText"
+                                            HorizontalAlignment="Center"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.VideoWorkspaceButtonText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </ToggleButton>
 
-                            <ToggleButton
-                                x:Name="AudioWorkspaceToggle"
-                                Command="{x:Bind ViewModel.SwitchToAudioWorkspaceCommand, Mode=OneWay}"
-                                IsChecked="{x:Bind ViewModel.IsAudioWorkspaceSelected, Mode=OneWay}"
-                                IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
-                                Style="{StaticResource WorkspaceModeToggleButtonStyle}">
-                                <StackPanel
-                                    HorizontalAlignment="Center"
-                                    Spacing="5">
-                                    <SymbolIcon
-                                        x:Name="AudioWorkspaceIcon"
+                                <ToggleButton
+                                    x:Name="AudioWorkspaceToggle"
+                                    Command="{x:Bind ViewModel.SwitchToAudioWorkspaceCommand, Mode=OneWay}"
+                                    IsChecked="{x:Bind ViewModel.IsAudioWorkspaceSelected, Mode=OneWay}"
+                                    IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                    Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                    <StackPanel
                                         HorizontalAlignment="Center"
-                                        Symbol="Audio" />
-                                    <TextBlock
-                                        x:Name="AudioWorkspaceText"
-                                        HorizontalAlignment="Center"
-                                        FontSize="12"
-                                        FontWeight="SemiBold"
-                                        Text="{x:Bind ViewModel.AudioWorkspaceButtonText, Mode=OneWay}" />
-                                </StackPanel>
-                            </ToggleButton>
+                                        Spacing="5">
+                                        <SymbolIcon
+                                            x:Name="AudioWorkspaceIcon"
+                                            HorizontalAlignment="Center"
+                                            Symbol="Audio" />
+                                        <TextBlock
+                                            x:Name="AudioWorkspaceText"
+                                            HorizontalAlignment="Center"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.AudioWorkspaceButtonText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </ToggleButton>
 
-                            <ToggleButton
-                                x:Name="TrimWorkspaceToggle"
-                                Command="{x:Bind ViewModel.SwitchToTrimWorkspaceCommand, Mode=OneWay}"
-                                IsChecked="{x:Bind ViewModel.IsTrimWorkspaceSelected, Mode=OneWay}"
-                                IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
-                                Style="{StaticResource WorkspaceModeToggleButtonStyle}">
-                                <StackPanel
-                                    HorizontalAlignment="Center"
-                                    Spacing="5">
-                                    <SymbolIcon
-                                        x:Name="TrimWorkspaceIcon"
+                                <ToggleButton
+                                    x:Name="TrimWorkspaceToggle"
+                                    Command="{x:Bind ViewModel.SwitchToTrimWorkspaceCommand, Mode=OneWay}"
+                                    IsChecked="{x:Bind ViewModel.IsTrimWorkspaceSelected, Mode=OneWay}"
+                                    IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                    Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                    <StackPanel
                                         HorizontalAlignment="Center"
-                                        Symbol="Cut" />
-                                    <TextBlock
-                                        x:Name="TrimWorkspaceText"
-                                        HorizontalAlignment="Center"
-                                        FontSize="12"
-                                        FontWeight="SemiBold"
-                                        Text="{x:Bind ViewModel.TrimWorkspaceButtonText, Mode=OneWay}" />
-                                </StackPanel>
-                            </ToggleButton>
+                                        Spacing="5">
+                                        <SymbolIcon
+                                            x:Name="TrimWorkspaceIcon"
+                                            HorizontalAlignment="Center"
+                                            Symbol="Cut" />
+                                        <TextBlock
+                                            x:Name="TrimWorkspaceText"
+                                            HorizontalAlignment="Center"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.TrimWorkspaceButtonText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </ToggleButton>
 
-                            <ToggleButton
-                                x:Name="MergeWorkspaceToggle"
-                                Command="{x:Bind ViewModel.SwitchToMergeWorkspaceCommand, Mode=OneWay}"
-                                IsChecked="{x:Bind ViewModel.IsMergeWorkspaceSelected, Mode=OneWay}"
-                                IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
-                                Style="{StaticResource WorkspaceModeToggleButtonStyle}">
-                                <StackPanel
-                                    HorizontalAlignment="Center"
-                                    Spacing="5">
-                                    <Path
-                                        x:Name="MergeWorkspaceIcon"
+                                <ToggleButton
+                                    x:Name="MergeWorkspaceToggle"
+                                    Command="{x:Bind ViewModel.SwitchToMergeWorkspaceCommand, Mode=OneWay}"
+                                    IsChecked="{x:Bind ViewModel.IsMergeWorkspaceSelected, Mode=OneWay}"
+                                    IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                    Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                    <StackPanel
                                         HorizontalAlignment="Center"
-                                        Width="18"
-                                        Height="18"
-                                        Stretch="Uniform"
-                                        Stroke="{ThemeResource TextFillColorPrimaryBrush}"
-                                        StrokeThickness="1.9"
-                                        StrokeStartLineCap="Round"
-                                        StrokeEndLineCap="Round"
-                                        StrokeLineJoin="Round"
-                                        Data="M4 7H10L14 12 M4 17H10L14 12 M14 12H20 M17 9L20 12L17 15" />
-                                    <TextBlock
-                                        x:Name="MergeWorkspaceText"
-                                        HorizontalAlignment="Center"
-                                        FontSize="12"
-                                        FontWeight="SemiBold"
-                                        Text="{x:Bind ViewModel.MergeWorkspaceButtonText, Mode=OneWay}" />
-                                </StackPanel>
-                            </ToggleButton>
+                                        Spacing="5">
+                                        <Path
+                                            x:Name="MergeWorkspaceIcon"
+                                            HorizontalAlignment="Center"
+                                            Width="18"
+                                            Height="18"
+                                            Stretch="Uniform"
+                                            Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                                            StrokeThickness="1.9"
+                                            StrokeStartLineCap="Round"
+                                            StrokeEndLineCap="Round"
+                                            StrokeLineJoin="Round"
+                                            Data="M4 7H10L14 12 M4 17H10L14 12 M14 12H20 M17 9L20 12L17 15" />
+                                        <TextBlock
+                                            x:Name="MergeWorkspaceText"
+                                            HorizontalAlignment="Center"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.MergeWorkspaceButtonText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </ToggleButton>
 
-                            <ToggleButton
-                                x:Name="SplitAudioWorkspaceToggle"
-                                Command="{x:Bind ViewModel.SwitchToSplitAudioWorkspaceCommand, Mode=OneWay}"
-                                IsChecked="{x:Bind ViewModel.IsSplitAudioWorkspaceSelected, Mode=OneWay}"
-                                IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
-                                Style="{StaticResource WorkspaceModeToggleButtonStyle}">
-                                <StackPanel
-                                    HorizontalAlignment="Center"
-                                    Spacing="5">
-                                    <Path
-                                        x:Name="SplitAudioWorkspaceIcon"
+                                <ToggleButton
+                                    x:Name="SplitAudioWorkspaceToggle"
+                                    Command="{x:Bind ViewModel.SwitchToSplitAudioWorkspaceCommand, Mode=OneWay}"
+                                    IsChecked="{x:Bind ViewModel.IsSplitAudioWorkspaceSelected, Mode=OneWay}"
+                                    IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                    Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                    <StackPanel
                                         HorizontalAlignment="Center"
-                                        Width="18"
-                                        Height="18"
-                                        Stretch="Uniform"
-                                        Stroke="{ThemeResource TextFillColorPrimaryBrush}"
-                                        StrokeThickness="1.9"
-                                        StrokeStartLineCap="Round"
-                                        StrokeEndLineCap="Round"
-                                        StrokeLineJoin="Round"
-                                        Data="M4 10H8 M8 10L12 6 M8 10L12 14 M12 6H15 M12 14H15 M5.5 7V13 M16.5 4V8 M16.5 12V16" />
-                                    <TextBlock
-                                        x:Name="SplitAudioWorkspaceText"
-                                        HorizontalAlignment="Center"
-                                        FontSize="12"
-                                        FontWeight="SemiBold"
-                                        Text="{x:Bind ViewModel.SplitAudioWorkspaceButtonText, Mode=OneWay}" />
-                                </StackPanel>
-                            </ToggleButton>
+                                        Spacing="5">
+                                        <Path
+                                            x:Name="SplitAudioWorkspaceIcon"
+                                            HorizontalAlignment="Center"
+                                            Width="18"
+                                            Height="18"
+                                            Stretch="Uniform"
+                                            Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                                            StrokeThickness="1.9"
+                                            StrokeStartLineCap="Round"
+                                            StrokeEndLineCap="Round"
+                                            StrokeLineJoin="Round"
+                                            Data="M4 10H8 M8 10L12 6 M8 10L12 14 M12 6H15 M12 14H15 M5.5 7V13 M16.5 4V8 M16.5 12V16" />
+                                        <TextBlock
+                                            x:Name="SplitAudioWorkspaceText"
+                                            HorizontalAlignment="Center"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.SplitAudioWorkspaceButtonText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </ToggleButton>
 
-                            <ToggleButton
-                                x:Name="TerminalWorkspaceToggle"
-                                Command="{x:Bind ViewModel.SwitchToTerminalWorkspaceCommand, Mode=OneWay}"
-                                IsChecked="{x:Bind ViewModel.IsTerminalWorkspaceSelected, Mode=OneWay}"
-                                IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
-                                Style="{StaticResource WorkspaceModeToggleButtonStyle}">
-                                <StackPanel
-                                    HorizontalAlignment="Center"
-                                    Spacing="5">
-                                    <Path
-                                        x:Name="TerminalWorkspaceIcon"
+                                <ToggleButton
+                                    x:Name="TerminalWorkspaceToggle"
+                                    Command="{x:Bind ViewModel.SwitchToTerminalWorkspaceCommand, Mode=OneWay}"
+                                    IsChecked="{x:Bind ViewModel.IsTerminalWorkspaceSelected, Mode=OneWay}"
+                                    IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                    Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                    <StackPanel
                                         HorizontalAlignment="Center"
-                                        Width="18"
-                                        Height="18"
-                                        Stretch="Uniform"
-                                        Stroke="{ThemeResource TextFillColorPrimaryBrush}"
-                                        StrokeThickness="1.9"
-                                        StrokeStartLineCap="Round"
-                                        StrokeEndLineCap="Round"
-                                        StrokeLineJoin="Round"
-                                        Data="M4 6.5H20V17.5H4Z M7.5 10L10.5 12L7.5 14 M12.5 14H16.5" />
-                                    <TextBlock
-                                        x:Name="TerminalWorkspaceText"
-                                        HorizontalAlignment="Center"
-                                        FontSize="12"
-                                        FontWeight="SemiBold"
-                                        Text="{x:Bind ViewModel.TerminalWorkspaceButtonText, Mode=OneWay}" />
-                                </StackPanel>
-                            </ToggleButton>
-                        </StackPanel>
+                                        Spacing="5">
+                                        <Path
+                                            x:Name="TerminalWorkspaceIcon"
+                                            HorizontalAlignment="Center"
+                                            Width="18"
+                                            Height="18"
+                                            Stretch="Uniform"
+                                            Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                                            StrokeThickness="1.9"
+                                            StrokeStartLineCap="Round"
+                                            StrokeEndLineCap="Round"
+                                            StrokeLineJoin="Round"
+                                            Data="M4 6.5H20V17.5H4Z M7.5 10L10.5 12L7.5 14 M12.5 14H16.5" />
+                                        <TextBlock
+                                            x:Name="TerminalWorkspaceText"
+                                            HorizontalAlignment="Center"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.TerminalWorkspaceButtonText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </ToggleButton>
+                            </StackPanel>
+                        </ScrollViewer>
                     </Border>
 
                     <Grid
