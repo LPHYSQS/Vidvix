@@ -1,4 +1,4 @@
-// 功能：主工作区视图模型（协调视频转换、音频转换与裁剪工作区的界面状态）
+﻿// 功能：主工作区视图模型（协调视频转换、音频转换与裁剪工作区的界面状态）
 // 模块：视频转换模块 / 音频转换模块 / 裁剪模块
 // 说明：可复用，负责状态与绑定，不直接承载底层 FFmpeg 业务实现。
 using System;
@@ -44,12 +44,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly ObservableCollection<LogEntry> _audioLogEntries;
     private readonly ObservableCollection<LogEntry> _trimLogEntries;
     private readonly ObservableCollection<LogEntry> _mergeLogEntries;
+    private readonly ObservableCollection<LogEntry> _aiLogEntries;
     private readonly ObservableCollection<LogEntry> _splitAudioLogEntries;
     private readonly ObservableCollection<LogEntry> _terminalLogEntries;
     private readonly ObservableCollection<MediaJobViewModel> _videoImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _audioImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _trimImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _mergeImportItems;
+    private readonly ObservableCollection<MediaJobViewModel> _aiImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _splitAudioImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _terminalImportItems;
     private readonly AsyncRelayCommand _selectFilesCommand;
@@ -99,6 +101,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         MainViewModelDependencies dependencies,
         VideoTrimWorkspaceViewModel trimWorkspace,
         MergeViewModel mergeWorkspace,
+        AiWorkspaceViewModel aiWorkspace,
         SplitAudioWorkspaceViewModel splitAudioWorkspace,
         TerminalWorkspaceViewModel terminalWorkspace)
     {
@@ -118,6 +121,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _desktopShortcutService = dependencies.DesktopShortcutService;
         TrimWorkspace = trimWorkspace ?? throw new ArgumentNullException(nameof(trimWorkspace));
         MergeWorkspace = mergeWorkspace ?? throw new ArgumentNullException(nameof(mergeWorkspace));
+        AiWorkspace = aiWorkspace ?? throw new ArgumentNullException(nameof(aiWorkspace));
         SplitAudioWorkspace = splitAudioWorkspace ?? throw new ArgumentNullException(nameof(splitAudioWorkspace));
         TerminalWorkspace = terminalWorkspace ?? throw new ArgumentNullException(nameof(terminalWorkspace));
         _statusMessage = GetRuntimePreparingMessage();
@@ -126,12 +130,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _audioLogEntries = new ObservableCollection<LogEntry>();
         _trimLogEntries = new ObservableCollection<LogEntry>();
         _mergeLogEntries = new ObservableCollection<LogEntry>();
+        _aiLogEntries = new ObservableCollection<LogEntry>();
         _splitAudioLogEntries = new ObservableCollection<LogEntry>();
         _terminalLogEntries = new ObservableCollection<LogEntry>();
         _videoImportItems = new ObservableCollection<MediaJobViewModel>();
         _audioImportItems = new ObservableCollection<MediaJobViewModel>();
         _trimImportItems = new ObservableCollection<MediaJobViewModel>();
         _mergeImportItems = new ObservableCollection<MediaJobViewModel>();
+        _aiImportItems = new ObservableCollection<MediaJobViewModel>();
         _splitAudioImportItems = new ObservableCollection<MediaJobViewModel>();
         _terminalImportItems = new ObservableCollection<MediaJobViewModel>();
         DetailPanel = new MediaDetailPanelViewModel(_localizationService);
@@ -170,6 +176,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _switchToAudioWorkspaceCommand = new AsyncRelayCommand(SwitchToAudioWorkspaceAsync, () => CanModifyInputs);
         _switchToTrimWorkspaceCommand = new AsyncRelayCommand(SwitchToTrimWorkspaceAsync, () => CanModifyInputs);
         _switchToMergeWorkspaceCommand = new AsyncRelayCommand(SwitchToMergeWorkspaceAsync, () => CanModifyInputs);
+        _switchToAiWorkspaceCommand = new AsyncRelayCommand(SwitchToAiWorkspaceAsync, () => CanModifyInputs);
         _switchToSplitAudioWorkspaceCommand = new AsyncRelayCommand(SwitchToSplitAudioWorkspaceAsync, () => CanModifyInputs);
         _switchToTerminalWorkspaceCommand = new AsyncRelayCommand(SwitchToTerminalWorkspaceAsync, () => CanModifyInputs);
 

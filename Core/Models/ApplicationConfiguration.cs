@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -21,6 +21,9 @@ public sealed class ApplicationConfiguration
 
     private static readonly IReadOnlyList<string> DefaultSupportedSplitAudioInputFileTypes =
         DefaultSupportedTrimInputFileTypes;
+
+    private static readonly IReadOnlyList<string> DefaultSupportedAiInputFileTypes =
+        DefaultSupportedVideoInputFileTypes;
 
     public string ApplicationTitle { get; init; } = "Vidvix";
 
@@ -144,6 +147,8 @@ public sealed class ApplicationConfiguration
 
     public IReadOnlyList<string> SupportedSplitAudioInputFileTypes { get; init; } = DefaultSupportedSplitAudioInputFileTypes;
 
+    public IReadOnlyList<string> SupportedAiInputFileTypes { get; init; } = DefaultSupportedAiInputFileTypes;
+
     public IReadOnlyDictionary<ProcessingWorkspaceKind, ProcessingWorkspaceProfile> WorkspaceProfiles { get; init; } =
         new Dictionary<ProcessingWorkspaceKind, ProcessingWorkspaceProfile>
         {
@@ -185,6 +190,14 @@ public sealed class ApplicationConfiguration
                 headerTitle: "媒体合并",
                 headerDescription: "拼接音视频并完成合成。",
                 localizationKeyPrefix: "common.workspace.merge"),
+            [ProcessingWorkspaceKind.Ai] = new(
+                ProcessingWorkspaceKind.Ai,
+                "AI",
+                "视频文件",
+                DefaultSupportedAiInputFileTypes,
+                headerTitle: "AI 工作区",
+                headerDescription: "承载 AI补帧 与 AI增强 的独立工作区。",
+                localizationKeyPrefix: "common.workspace.ai"),
             [ProcessingWorkspaceKind.SplitAudio] = new(
                 ProcessingWorkspaceKind.SplitAudio,
                 "拆音",

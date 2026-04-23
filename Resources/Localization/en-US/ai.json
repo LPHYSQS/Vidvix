@@ -1,0 +1,15 @@
+﻿{
+  "ai.page.caption": "AI workspace",
+  "ai.page.title": "AI module shell is connected",
+  "ai.page.description": "This round only wires up the dedicated AI workspace, navigation entry, and page shell. Later rounds will add the media list, mode state, output settings, and offline execution flow.",
+  "ai.page.materials.title": "Media list",
+  "ai.page.materials.description": "Later rounds will connect the video material list here. The launch scope is frozen to video-only import with supported formats: {formats}; multiple videos can be imported, but only one current video can be processed at a time.",
+  "ai.page.workspace.title": "AI workspace",
+  "ai.page.workspace.description": "This round only delivers the shell for AI interpolation and AI enhancement. It does not implement runtime integration, parameter panels, or inference execution yet.",
+  "ai.page.output.title": "Output settings",
+  "ai.page.output.description": "This area is reserved for AI output settings. The launch scope is frozen to MP4 and MKV with the original audio track preserved by default; concrete output state and constraints will be added in the next round.",
+  "ai.interpolation.cardTitle": "AI interpolation",
+  "ai.interpolation.cardDescription": "The launch route is frozen to RIFE. Later rounds will add media input, multiplier parameters, execution coordination, and cancellation control.",
+  "ai.enhancement.cardTitle": "AI enhancement",
+  "ai.enhancement.cardDescription": "The launch route is frozen to Real-ESRGAN with a multiplier range of 2x to 16x. Parameters and the workflow will be added incrementally in later rounds."
+}

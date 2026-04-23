@@ -1,4 +1,4 @@
-{
+﻿{
   "version": 1,
   "fallbackLanguage": "zh-CN",
   "supportedLanguages": [
@@ -17,6 +17,7 @@
     "common",
     "settings",
     "main-window",
+    "ai",
     "trim",
     "split-audio",
     "merge",

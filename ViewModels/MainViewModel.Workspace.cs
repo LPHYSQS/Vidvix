@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -26,6 +26,8 @@ public sealed partial class MainViewModel
 
     public bool IsMergeWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.Merge;
 
+    public bool IsAiWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.Ai;
+
     public bool IsSplitAudioWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.SplitAudio;
 
     public bool IsTerminalWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.Terminal;
@@ -36,6 +38,8 @@ public sealed partial class MainViewModel
     public Visibility TrimWorkspaceVisibility => IsTrimWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility MergeWorkspaceVisibility => IsMergeWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility AiWorkspaceVisibility => IsAiWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility SplitAudioWorkspaceVisibility => IsSplitAudioWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
@@ -91,6 +95,11 @@ public sealed partial class MainViewModel
     public string TrimWorkspaceButtonText => GetWorkspaceProfile(ProcessingWorkspaceKind.Trim).MediaLabel;
 
     public string MergeWorkspaceButtonText => GetWorkspaceProfile(ProcessingWorkspaceKind.Merge).MediaLabel;
+
+    public string AiWorkspaceButtonText =>
+        GetLocalizedText(
+            "common.workspace.ai.sidebarLabel",
+            GetWorkspaceProfile(ProcessingWorkspaceKind.Ai).MediaLabel);
 
     public string SplitAudioWorkspaceButtonText =>
         GetLocalizedText(
@@ -198,6 +207,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(AudioWorkspaceButtonText));
         OnPropertyChanged(nameof(TrimWorkspaceButtonText));
         OnPropertyChanged(nameof(MergeWorkspaceButtonText));
+        OnPropertyChanged(nameof(AiWorkspaceButtonText));
         OnPropertyChanged(nameof(SplitAudioWorkspaceButtonText));
         OnPropertyChanged(nameof(TerminalWorkspaceButtonText));
         OnPropertyChanged(nameof(MainWindowImportFilesButtonLabel));
@@ -250,6 +260,7 @@ public sealed partial class MainViewModel
             ProcessingWorkspaceKind.Audio => _audioImportItems,
             ProcessingWorkspaceKind.Trim => _trimImportItems,
             ProcessingWorkspaceKind.Merge => _mergeImportItems,
+            ProcessingWorkspaceKind.Ai => _aiImportItems,
             ProcessingWorkspaceKind.SplitAudio => _splitAudioImportItems,
             ProcessingWorkspaceKind.Terminal => _terminalImportItems,
             _ => _videoImportItems
@@ -264,6 +275,7 @@ public sealed partial class MainViewModel
             ProcessingWorkspaceKind.Audio => _audioLogEntries,
             ProcessingWorkspaceKind.Trim => _trimLogEntries,
             ProcessingWorkspaceKind.Merge => _mergeLogEntries,
+            ProcessingWorkspaceKind.Ai => _aiLogEntries,
             ProcessingWorkspaceKind.SplitAudio => _splitAudioLogEntries,
             ProcessingWorkspaceKind.Terminal => _terminalLogEntries,
             _ => _videoLogEntries
@@ -314,6 +326,8 @@ public sealed partial class MainViewModel
     private Task SwitchToTrimWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.Trim);
 
     private Task SwitchToMergeWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.Merge);
+
+    private Task SwitchToAiWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.Ai);
 
     private Task SwitchToSplitAudioWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.SplitAudio);
 
@@ -368,11 +382,13 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(IsAudioWorkspaceSelected));
         OnPropertyChanged(nameof(IsTrimWorkspaceSelected));
         OnPropertyChanged(nameof(IsMergeWorkspaceSelected));
+        OnPropertyChanged(nameof(IsAiWorkspaceSelected));
         OnPropertyChanged(nameof(IsSplitAudioWorkspaceSelected));
         OnPropertyChanged(nameof(IsTerminalWorkspaceSelected));
         OnPropertyChanged(nameof(ProcessingWorkspaceVisibility));
         OnPropertyChanged(nameof(TrimWorkspaceVisibility));
         OnPropertyChanged(nameof(MergeWorkspaceVisibility));
+        OnPropertyChanged(nameof(AiWorkspaceVisibility));
         OnPropertyChanged(nameof(SplitAudioWorkspaceVisibility));
         OnPropertyChanged(nameof(TerminalWorkspaceVisibility));
         OnPropertyChanged(nameof(VideoProcessingModeVisibility));

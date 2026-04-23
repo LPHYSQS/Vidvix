@@ -1,4 +1,4 @@
-// 功能：应用组合根（统一创建 ViewModel、Service 与窗口依赖关系）
+﻿// 功能：应用组合根（统一创建 ViewModel、Service 与窗口依赖关系）
 // 模块：应用基础架构
 // 说明：可复用，负责依赖装配，不承载具体业务规则。
 using System;
@@ -43,6 +43,7 @@ public sealed class AppCompositionRoot
         var workflows = CreateWorkflowServices(mediaRuntime, infrastructure.LocalizationService);
         var trimWorkspace = CreateTrimWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
         var mergeWorkspace = CreateMergeWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
+        var aiWorkspace = CreateAiWorkspaceViewModel(infrastructure);
         var splitAudioWorkspace = CreateSplitAudioWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
         var terminalWorkspace = CreateTerminalWorkspaceViewModel(mediaRuntime);
         _mainViewModel = CreateMainViewModel(
@@ -51,6 +52,7 @@ public sealed class AppCompositionRoot
             workflows,
             trimWorkspace,
             mergeWorkspace,
+            aiWorkspace,
             splitAudioWorkspace,
             terminalWorkspace);
     }
@@ -248,6 +250,9 @@ public sealed class AppCompositionRoot
         return new MergeViewModel(dependencies);
     }
 
+    private AiWorkspaceViewModel CreateAiWorkspaceViewModel(AppInfrastructureServices infrastructure) =>
+        new(Configuration, infrastructure.LocalizationService);
+
     private TerminalWorkspaceViewModel CreateTerminalWorkspaceViewModel(AppMediaRuntimeServices mediaRuntime) =>
         new(Configuration, _localizationService, mediaRuntime.TerminalService);
 
@@ -278,6 +283,7 @@ public sealed class AppCompositionRoot
         AppWorkflowServices workflows,
         VideoTrimWorkspaceViewModel trimWorkspace,
         MergeViewModel mergeWorkspace,
+        AiWorkspaceViewModel aiWorkspace,
         SplitAudioWorkspaceViewModel splitAudioWorkspace,
         TerminalWorkspaceViewModel terminalWorkspace)
     {
@@ -299,6 +305,7 @@ public sealed class AppCompositionRoot
             dependencies,
             trimWorkspace,
             mergeWorkspace,
+            aiWorkspace,
             splitAudioWorkspace,
             terminalWorkspace);
     }

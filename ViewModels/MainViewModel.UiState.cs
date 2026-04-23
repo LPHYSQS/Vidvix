@@ -25,6 +25,7 @@ public sealed partial class MainViewModel
         _switchToAudioWorkspaceCommand.NotifyCanExecuteChanged();
         _switchToTrimWorkspaceCommand.NotifyCanExecuteChanged();
         _switchToMergeWorkspaceCommand.NotifyCanExecuteChanged();
+        _switchToAiWorkspaceCommand.NotifyCanExecuteChanged();
         _switchToSplitAudioWorkspaceCommand.NotifyCanExecuteChanged();
         _switchToTerminalWorkspaceCommand.NotifyCanExecuteChanged();
     }

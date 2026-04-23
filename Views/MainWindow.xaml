@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Window
     x:Class="Vidvix.Views.MainWindow"
     x:Name="RootWindow"
@@ -111,6 +111,20 @@
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarSeparator />
+                    <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="{x:Bind ViewModel.MainWindowSettingsButtonLabel, Mode=OneWay}">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Setting" />
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+                </CommandBar>
+
+                <CommandBar
+                    Grid.Column="1"
+                    Background="Transparent"
+                    DefaultLabelPosition="Right"
+                    IsDynamicOverflowEnabled="True"
+                    VerticalAlignment="Center"
+                    Visibility="{x:Bind ViewModel.AiWorkspaceVisibility, Mode=OneWay}">
                     <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="{x:Bind ViewModel.MainWindowSettingsButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />
@@ -644,6 +658,36 @@
                                             FontSize="12"
                                             FontWeight="SemiBold"
                                             Text="{x:Bind ViewModel.MergeWorkspaceButtonText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </ToggleButton>
+
+                                <ToggleButton
+                                    x:Name="AiWorkspaceToggle"
+                                    Command="{x:Bind ViewModel.SwitchToAiWorkspaceCommand, Mode=OneWay}"
+                                    IsChecked="{x:Bind ViewModel.IsAiWorkspaceSelected, Mode=OneWay}"
+                                    IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                    Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                    <StackPanel
+                                        HorizontalAlignment="Center"
+                                        Spacing="5">
+                                        <Path
+                                            x:Name="AiWorkspaceIcon"
+                                            HorizontalAlignment="Center"
+                                            Width="18"
+                                            Height="18"
+                                            Stretch="Uniform"
+                                            Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                                            StrokeThickness="1.8"
+                                            StrokeStartLineCap="Round"
+                                            StrokeEndLineCap="Round"
+                                            StrokeLineJoin="Round"
+                                            Data="M12 4L13.6 8.4L18 10L13.6 11.6L12 16L10.4 11.6L6 10L10.4 8.4Z M18 15L18.8 17.2L21 18L18.8 18.8L18 21L17.2 18.8L15 18L17.2 17.2Z M6 3L6.8 5.2L9 6L6.8 6.8L6 9L5.2 6.8L3 6L5.2 5.2Z" />
+                                        <TextBlock
+                                            x:Name="AiWorkspaceText"
+                                            HorizontalAlignment="Center"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.AiWorkspaceButtonText, Mode=OneWay}" />
                                     </StackPanel>
                                 </ToggleButton>
 
@@ -1198,6 +1242,13 @@
                         VerticalAlignment="Stretch"
                         ViewModel="{x:Bind ViewModel.MergeWorkspace, Mode=OneWay}"
                         Visibility="{x:Bind ViewModel.MergeWorkspaceVisibility, Mode=OneWay}" />
+
+                    <views:AiPage
+                        Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        ViewModel="{x:Bind ViewModel.AiWorkspace, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.AiWorkspaceVisibility, Mode=OneWay}" />
 
                     <views:SplitAudioPage
                         Grid.Column="1"

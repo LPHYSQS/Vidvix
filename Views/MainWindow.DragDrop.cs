@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using Microsoft.UI.Xaml;
 using Windows.ApplicationModel.DataTransfer;
@@ -22,6 +22,7 @@ public sealed partial class MainWindow
         }
 
         if (ViewModel.IsMergeWorkspaceSelected ||
+            ViewModel.IsAiWorkspaceSelected ||
             ViewModel.IsTerminalWorkspaceSelected)
         {
             e.AcceptedOperation = DataPackageOperation.None;
@@ -58,6 +59,7 @@ public sealed partial class MainWindow
         }
 
         if (ViewModel.IsMergeWorkspaceSelected ||
+            ViewModel.IsAiWorkspaceSelected ||
             ViewModel.IsTerminalWorkspaceSelected)
         {
             return;

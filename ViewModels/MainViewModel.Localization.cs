@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -190,6 +190,7 @@ public sealed partial class MainViewModel
         DetailPanel.RefreshLocalization();
         TrimWorkspace.RefreshLocalization();
         MergeWorkspace.RefreshLocalization();
+        AiWorkspace.RefreshLocalization();
         SplitAudioWorkspace.RefreshLocalization();
         TerminalWorkspace.RefreshLocalization();
         RefreshMediaDetailsLocalization();
