@@ -6,7 +6,7 @@ namespace Vidvix.Views;
 
 public sealed partial class AiPage : Page
 {
-    private const double CompactLayoutThreshold = 980;
+    private const double CompactLayoutThreshold = 860;
     private bool _isCompactLayout;
 
     public AiPage()
@@ -26,8 +26,11 @@ public sealed partial class AiPage : Page
         typeof(AiPage),
         new PropertyMetadata(new AiWorkspaceViewModel()));
 
-    private void OnPageLoaded(object sender, RoutedEventArgs e) =>
+    private void OnPageLoaded(object sender, RoutedEventArgs e)
+    {
         UpdateLayoutState(ActualWidth);
+        SetWorkspaceMode(InterpolationModeButton?.IsChecked == true);
+    }
 
     private void OnPageSizeChanged(object sender, SizeChangedEventArgs e) =>
         UpdateLayoutState(e.NewSize.Width);
@@ -94,5 +97,22 @@ public sealed partial class AiPage : Page
         Grid.SetRow(OutputCard, 2);
         Grid.SetColumn(OutputCard, 0);
         Grid.SetColumnSpan(OutputCard, 1);
+    }
+
+    private void OnInterpolationModeChecked(object sender, RoutedEventArgs e) =>
+        SetWorkspaceMode(isInterpolationSelected: true);
+
+    private void OnEnhancementModeChecked(object sender, RoutedEventArgs e) =>
+        SetWorkspaceMode(isInterpolationSelected: false);
+
+    private void SetWorkspaceMode(bool isInterpolationSelected)
+    {
+        if (InterpolationWorkspacePanel is null || EnhancementWorkspacePanel is null)
+        {
+            return;
+        }
+
+        InterpolationWorkspacePanel.Visibility = isInterpolationSelected ? Visibility.Visible : Visibility.Collapsed;
+        EnhancementWorkspacePanel.Visibility = isInterpolationSelected ? Visibility.Collapsed : Visibility.Visible;
     }
 }

@@ -30,12 +30,12 @@ public sealed class AiWorkspaceViewModel : ObservableObject
         GetLocalizedText("ai.page.caption", "AI 工作区");
 
     public string PageTitleText =>
-        GetLocalizedText("ai.page.title", "AI 模块骨架已接入");
+        GetLocalizedText("ai.page.title", "AI 工作区");
 
     public string PageDescriptionText =>
         GetLocalizedText(
             "ai.page.description",
-            "当前轮次仅完成独立 AI 工作区、导航与页面骨架接线；后续轮次会继续补齐素材列表、模式状态、输出设置与离线执行链路。");
+            "当前页面已对齐合并模块的三栏布局与模式切换结构，本轮只调整 AI 模块 UI，不接入任何 AI 或合并底层工作流。");
 
     public string MaterialsSectionTitleText =>
         GetLocalizedText("ai.page.materials.title", "素材列表");
@@ -43,7 +43,7 @@ public sealed class AiWorkspaceViewModel : ObservableObject
     public string MaterialsSectionDescriptionText =>
         FormatLocalizedText(
             "ai.page.materials.description",
-            $"后续轮次将在这里接入视频素材列表。首发冻结为视频-only 导入，支持格式：{BuildSupportedInputFormatsSummary()}；允许导入多个视频，但单次只处理一个当前视频。",
+            $"参考合并模块改为纵向素材列表模板。首发仍冻结为视频-only 导入，支持格式：{BuildSupportedInputFormatsSummary()}；允许导入多个视频，但单次只处理一个当前视频。",
             ("formats", BuildSupportedInputFormatsSummary()));
 
     public string VideoOnlyImportBadgeText =>
@@ -55,7 +55,7 @@ public sealed class AiWorkspaceViewModel : ObservableObject
     public string MaterialsPlaceholderText =>
         GetLocalizedText(
             "ai.page.materials.placeholder",
-            "R5 将在这里接入素材列表、选中态和导入反馈，本轮只先收口稳定壳层。");
+            "这里将继续承接 AI 模块自己的素材导入、选中态和状态反馈，不复用合并模块的底层流程。");
 
     public string WorkspaceSectionTitleText =>
         GetLocalizedText("ai.page.workspace.title", "AI 工作区");
@@ -63,7 +63,7 @@ public sealed class AiWorkspaceViewModel : ObservableObject
     public string WorkspaceSectionDescriptionText =>
         GetLocalizedText(
             "ai.page.workspace.description",
-            "本轮只完成 AI补帧 / AI增强 的模式壳层和页面落点，不提前实现 runtime、参数区或推理执行。");
+            "AI补帧 / AI增强 的工作区排版已对齐合并模块的模式切换结构，本轮只调整布局与控件摆位，不提前实现 runtime、参数区或推理执行。");
 
     public string OutputSectionTitleText =>
         GetLocalizedText("ai.page.output.title", "输出设置");
@@ -71,7 +71,7 @@ public sealed class AiWorkspaceViewModel : ObservableObject
     public string OutputSectionDescriptionText =>
         GetLocalizedText(
             "ai.page.output.description",
-            "本区已预留为 AI 输出设置。首发范围冻结为 MP4 / MKV，默认保留原音轨；具体输出状态与约束将在下一轮接入。");
+            "输出设置先保留在右侧栏作为位置占位。首发范围仍冻结为 MP4 / MKV，默认保留原音轨；具体输出状态与约束后续再接 AI 模块自身逻辑。");
 
     public string InterpolationCardTitleText =>
         GetLocalizedText("ai.interpolation.cardTitle", "AI补帧");
@@ -117,7 +117,7 @@ public sealed class AiWorkspaceViewModel : ObservableObject
     public string OutputPlaceholderText =>
         GetLocalizedText(
             "ai.page.output.placeholder",
-            "R5 将补齐输出格式、目录与文件名状态，本轮只保留可承载真实控件的稳定面板。");
+            "输出格式、目录与文件名区域当前只做 UI 承载，不接底层输出工作流。");
 
     public void RefreshLocalization()
     {
