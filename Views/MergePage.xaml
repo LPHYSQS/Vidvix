@@ -513,7 +513,14 @@
                     BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
                     BorderThickness="1"
                     CornerRadius="20">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ScrollViewer
+                        HorizontalAlignment="Stretch"
+                        HorizontalScrollBarVisibility="Auto"
+                        HorizontalScrollMode="Enabled"
+                        Padding="0,0,0,10"
+                        VerticalScrollBarVisibility="Disabled"
+                        VerticalScrollMode="Disabled">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
 
                         <RadioButton
                             GroupName="MergeMode"
@@ -604,7 +611,8 @@
                                     TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                         </RadioButton>
-                    </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Border>
 
                 <TextBlock
