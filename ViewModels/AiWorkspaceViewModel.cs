@@ -12,7 +12,7 @@ using Vidvix.Utils;
 
 namespace Vidvix.ViewModels;
 
-public sealed class AiWorkspaceViewModel : ObservableObject
+public sealed partial class AiWorkspaceViewModel : ObservableObject
 {
     private static readonly HashSet<string> LaunchOutputFormatExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -41,6 +41,7 @@ public sealed class AiWorkspaceViewModel : ObservableObject
             localizationService: null,
             filePickerService: null,
             mediaImportDiscoveryService: null,
+            aiRuntimeCatalogService: null,
             logger: null)
     {
     }
@@ -50,12 +51,14 @@ public sealed class AiWorkspaceViewModel : ObservableObject
         ILocalizationService? localizationService,
         IFilePickerService? filePickerService,
         IMediaImportDiscoveryService? mediaImportDiscoveryService,
+        IAiRuntimeCatalogService? aiRuntimeCatalogService,
         ILogger? logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _localizationService = localizationService;
         _filePickerService = filePickerService;
         _mediaImportDiscoveryService = mediaImportDiscoveryService;
+        _aiRuntimeCatalogService = aiRuntimeCatalogService;
         _logger = logger;
 
         MaterialLibrary = new AiMaterialLibraryState();
@@ -247,14 +250,7 @@ public sealed class AiWorkspaceViewModel : ObservableObject
     public string CurrentOutputPreviewLabelText =>
         GetLocalizedText("ai.page.workspace.outputPreview", "当前输出文件名");
 
-    public string CurrentModeRuntimeNoteText =>
-        ModeState.SelectedMode == AiWorkspaceMode.Interpolation
-            ? GetLocalizedText(
-                "ai.interpolation.runtimeNote",
-                "R5 只完成输入与输出状态建模，不提前接入 RIFE runtime 或推理执行。")
-            : GetLocalizedText(
-                "ai.enhancement.runtimeNote",
-                "R5 只完成输入与输出状态建模，不提前接入 Real-ESRGAN runtime、倍率执行链路或高倍率告警。");
+    public string CurrentModeRuntimeNoteText => BuildCurrentModeRuntimeSummaryText();
 
     public string CurrentModeEngineBadgeText =>
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation
@@ -387,6 +383,7 @@ public sealed class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OutputFormatsBadgeText));
         OnPropertyChanged(nameof(OutputAudioBadgeText));
         OnPropertyChanged(nameof(OutputParameterSummaryText));
+        RefreshRuntimeLocalization();
 
         StatusText = InputState.HasCurrentMaterial
             ? CreateSelectedMaterialStatusMessage(InputState.CurrentInputFileName)
@@ -607,6 +604,7 @@ public sealed class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentModeEngineBadgeText));
         OnPropertyChanged(nameof(OutputFileNamePlaceholderText));
         OnPropertyChanged(nameof(OutputParameterSummaryText));
+        RefreshRuntimeLocalization();
         StatusText = CreateModeChangedStatusMessage(GetCurrentModeDisplayName());
     }
 

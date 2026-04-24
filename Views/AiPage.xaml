@@ -485,33 +485,41 @@
                             BorderBrush="#664CC2FF"
                             BorderThickness="1"
                             CornerRadius="12">
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-
-                                <Border
-                                    Width="20"
-                                    Height="20"
-                                    VerticalAlignment="Top"
-                                    Background="#FF4CC2FF"
-                                    CornerRadius="10">
-                                    <TextBlock
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        FontSize="12"
-                                        FontWeight="Bold"
-                                        Foreground="White"
-                                        Text="i" />
-                                </Border>
+                            <StackPanel Spacing="6">
                                 <TextBlock
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
+                                    FontWeight="SemiBold"
+                                    Foreground="White"
+                                    Text="{x:Bind ViewModel.CurrentModeRuntimeTitleText, Mode=OneWay}" />
+                                <TextBlock
                                     Foreground="#FFD9F4FF"
                                     Text="{x:Bind ViewModel.CurrentModeRuntimeNoteText, Mode=OneWay}"
                                     TextWrapping="WrapWholeWords" />
-                            </Grid>
+                                <TextBlock
+                                    Foreground="#FFD9F4FF"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.CurrentModeRuntimeVersionText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                                <TextBlock
+                                    Foreground="#FFD9F4FF"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.CurrentModeGpuStatusText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                                <TextBlock
+                                    Foreground="#FFD9F4FF"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.CurrentModeCpuStatusText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                                <TextBlock
+                                    Foreground="#FFD9F4FF"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.CurrentModeModelSummaryText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                                <TextBlock
+                                    Foreground="#FFD9F4FF"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.CurrentModePackageSummaryText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
                         </Border>
                     </Grid>
                 </Border>

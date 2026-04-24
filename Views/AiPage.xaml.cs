@@ -26,10 +26,11 @@ public sealed partial class AiPage : Page
         typeof(AiPage),
         new PropertyMetadata(new AiWorkspaceViewModel()));
 
-    private void OnPageLoaded(object sender, RoutedEventArgs e)
+    private async void OnPageLoaded(object sender, RoutedEventArgs e)
     {
         UpdateLayoutHeight(ActualHeight);
         UpdateLayoutState(ActualWidth);
+        await ViewModel.InitializeRuntimeAsync();
     }
 
     private void OnPageSizeChanged(object sender, SizeChangedEventArgs e)

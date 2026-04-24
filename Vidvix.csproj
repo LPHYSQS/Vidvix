@@ -135,6 +135,14 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup Condition="Exists('Tools\AI')">
+    <Content Include="Tools\AI\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+  </ItemGroup>
+
   <ItemGroup Condition="'$(PublishSingleFile)' == 'true'">
     <Content Update="Tools\**\*">
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
@@ -167,6 +175,51 @@
     <Error
       Condition="!Exists('$(MSBuildProjectDirectory)\Tools\mpv\mpv-1.dll')"
       Text="Offline publish bundle is missing Tools\mpv\mpv-1.dll." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Rife\Bin\rife-ncnn-vulkan.exe')"
+      Text="Offline publish bundle is missing Tools\AI\Rife\Bin\rife-ncnn-vulkan.exe." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Rife\Models\rife-v4.6\flownet.bin')"
+      Text="Offline publish bundle is missing Tools\AI\Rife\Models\rife-v4.6\flownet.bin." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Rife\Configs\rife-v4.6\flownet.param')"
+      Text="Offline publish bundle is missing Tools\AI\Rife\Configs\rife-v4.6\flownet.param." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Bin\realesrgan-ncnn-vulkan.exe')"
+      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Bin\realesrgan-ncnn-vulkan.exe." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Models\realesrgan-x4plus.bin')"
+      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Models\realesrgan-x4plus.bin." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Configs\realesrgan-x4plus.param')"
+      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Configs\realesrgan-x4plus.param." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Models\realesr-animevideov3-x2.bin')"
+      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Models\realesr-animevideov3-x2.bin." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Configs\realesr-animevideov3-x2.param')"
+      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Configs\realesr-animevideov3-x2.param." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Models\realesr-animevideov3-x4.bin')"
+      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Models\realesr-animevideov3-x4.bin." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Configs\realesr-animevideov3-x4.param')"
+      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Configs\realesr-animevideov3-x4.param." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Manifests\rife.json')"
+      Text="Offline publish bundle is missing Tools\AI\Manifests\rife.json." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Manifests\realesrgan.json')"
+      Text="Offline publish bundle is missing Tools\AI\Manifests\realesrgan.json." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Licenses\rife-ncnn-vulkan-LICENSE.txt')"
+      Text="Offline publish bundle is missing Tools\AI\Licenses\rife-ncnn-vulkan-LICENSE.txt." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Licenses\realesrgan-ncnn-vulkan-LICENSE.txt')"
+      Text="Offline publish bundle is missing Tools\AI\Licenses\realesrgan-ncnn-vulkan-LICENSE.txt." />
+    <Error
+      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Licenses\Real-ESRGAN-LICENSE.txt')"
+      Text="Offline publish bundle is missing Tools\AI\Licenses\Real-ESRGAN-LICENSE.txt." />
   </Target>
 
   <Target Name="CopyGeneratedPriToPublish" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="Exists('$(TargetDir)$(AssemblyName).pri') and Exists('$(PublishDir)$(AssemblyName).exe')">

@@ -8,6 +8,7 @@ using Microsoft.UI.Dispatching;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Services;
+using Vidvix.Services.AI;
 using Vidvix.Services.Demucs;
 using Vidvix.Services.FFmpeg;
 using Vidvix.Services.MediaInfo;
@@ -252,13 +253,19 @@ public sealed class AppCompositionRoot
 
     private AiWorkspaceViewModel CreateAiWorkspaceViewModel(
         AppInfrastructureServices infrastructure,
-        AppWorkflowServices workflows) =>
+        AppWorkflowServices workflows)
+    {
+        var aiRuntimeCatalogService = new AiRuntimeCatalogService(Configuration, Logger);
+
+        return
         new(
             Configuration,
             infrastructure.LocalizationService,
             infrastructure.FilePickerService,
             workflows.MediaImportDiscoveryService,
+            aiRuntimeCatalogService,
             Logger);
+    }
 
     private TerminalWorkspaceViewModel CreateTerminalWorkspaceViewModel(AppMediaRuntimeServices mediaRuntime) =>
         new(Configuration, _localizationService, mediaRuntime.TerminalService);

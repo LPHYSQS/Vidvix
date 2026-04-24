@@ -7,10 +7,10 @@
 - 计划版本：`v5`
 - 项目：`Vidvix`
 - 当前阶段：`Stage 2`
-- 当前轮次：`R6`
+- 当前轮次：`R7`
 - 当前状态：`Completed`
 - 当前执行 Agent：`Codex`
-- 最近完成轮次：`R6`
+- 最近完成轮次：`R7`
 - 最近完成时间：`2026-04-24`
 - 构建验证：`Passed`
 - 运行验证：`Passed`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已完成 `R6`，下载并筛选 `RIFE` / `Real-ESRGAN` 首发 runtime、模型、配置与许可证，归位到 `Tools/AI`，补齐可复用同步脚本、锁定清单与运行时资产清单；最终本地净保留体积约 `57.4 MiB`，未保留压缩包、示例媒体、调试库和历史冗余模型。
-- 本轮修改文件：`.gitignore`, `scripts/ai-runtime-lock.json`, `scripts/sync-ai-runtime-assets.ps1`, `docs/ai-runtime-asset-inventory.md`, `docs/ai-module-agent-execution-plan.md`
-- 本轮新增文件：`scripts/ai-runtime-lock.json`, `scripts/sync-ai-runtime-assets.ps1`, `docs/ai-runtime-asset-inventory.md`
-- 本轮验证结果：`powershell -ExecutionPolicy Bypass -File .\scripts\sync-ai-runtime-assets.ps1 -RepoRoot . -WorkingDirectory .\artifacts\ai-runtime-cache -KeepWorkingDirectory` 成功完成；`Tools/AI` 目录清洁度验证通过，仅保留 `exe`、运行库、模型、参数配置、许可证和 `manifest`；`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`；Debug / Release 产物均已成功启动，主窗口句柄就绪且 `Responding=True`，窗口标题为 `Vidvix`，持续运行期间未出现黑屏、白屏或闪退。
-- 当前遗留问题：`None`
-- 下一轮必须处理：执行 `R7`，接入 AI runtime 打包目录、模型描述与 GPU / CPU 能力探测，直接引用本轮已归位的 `Tools/AI` 资产路径。
-- 下一轮禁止扩展：不要提前进入 `R8/R9` workflow、`R10` 本地化硬化、`R11` 烟测封板或发布验证开发。
+- 本轮完成项：已完成 `R7`，接入 `Tools/AI` runtime 目录解析、`RIFE` / `Real-ESRGAN` 模型描述、GPU / CPU 能力探测、许可证随包输出与 UI 状态展示；当前目录结构固定为 `Tools/AI/{Rife,RealEsrgan,Licenses,Manifests}`，已接线版本为 `RIFE 20221029 + rife-v4.6 (flownet.param/bin)`、`Real-ESRGAN v0.2.5.0 + realesrgan-x4plus / realesr-animevideov3-x2 / realesr-animevideov3-x4`。
+- 本轮修改文件：`Core/Interfaces/IAiRuntimeCatalogService.cs`, `Core/Models/ApplicationConfiguration.cs`, `Core/Models/AiRuntimeCatalog.cs`, `Services/AI/AiRuntimeCatalogService.cs`, `Services/AI/AiRuntimeProbeExecutor.cs`, `Services/AI/RifeRuntimeParser.cs`, `Services/AI/RealEsrganRuntimeParser.cs`, `ViewModels/AiWorkspaceViewModel.cs`, `ViewModels/AiWorkspaceViewModel.Runtime.cs`, `Views/AiPage.xaml`, `Views/AiPage.xaml.cs`, `Resources/Localization/zh-CN/ai.json`, `Resources/Localization/en-US/ai.json`, `Utils/AppCompositionRoot.cs`, `Vidvix.csproj`, `docs/ai-module-agent-execution-plan.md`
+- 本轮新增文件：`Core/Interfaces/IAiRuntimeCatalogService.cs`, `Core/Models/AiRuntimeCatalog.cs`, `Services/AI/AiRuntimeCatalogService.cs`, `Services/AI/AiRuntimeProbeExecutor.cs`, `Services/AI/RifeRuntimeParser.cs`, `Services/AI/RealEsrganRuntimeParser.cs`, `ViewModels/AiWorkspaceViewModel.Runtime.cs`
+- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`；`dotnet publish .\Vidvix.csproj -c Release -p:PublishProfile=Offline-win-x64 -v minimal` 通过，发布产物与 `artifacts\publish-offline` 均已包含 `Tools/AI`、`Licenses` 与 `Manifests`；实机探测确认 `RIFE` 的 `GPU` 与 `CPU(-g -1)` 均可用，`Real-ESRGAN` 的 `GPU` 可用；已成功启动 `artifacts\publish\win-x64\Vidvix.exe`，主窗口标题为 `Vidvix`、`Responding=True`，AI 页面渲染正常，未出现黑屏、白屏或闪退。
+- 当前遗留问题：<span style="color:#ff4d4f">`AI增强 / Real-ESRGAN` 当前 `CPU fallback` 未打通；`realesrgan-ncnn-vulkan.exe -g -1` 实测返回 `invalid gpu device`，因此本轮 UI 已明确展示为 `Unsupported`，`R9` 之前不得把增强 CPU 路线当作已交付能力。</span>
+- 下一轮必须处理：执行 `R8`，在本轮已接入的 runtime 目录、模型描述与探测结果之上完成 `AI补帧` workflow，直接复用 `RIFE` runtime catalog、设备状态和离线随包路径，不要重新发明 runtime 发现逻辑。
+- 下一轮禁止扩展：不要提前进入 `R9` 增强 workflow、`R10` 本地化硬化、`R11` 烟测封板或发布验证开发。
 
 ## 执行协议
 
@@ -267,7 +267,7 @@ Tools/
 | R4   | Stage 1 | AI UI 对齐调整与视觉收口       | Completed | Codex      | 2026-04-23 | 已补齐 AI 导航蓝色选中态与共享 hover / pressed 反馈，微调 AI 图标，移除页内重复 hero，并将 AI 页面收口为 `260 / * / 320` 宽窗壳层与窄窗纵向自适应布局。 |
 | R5   | Stage 1 | 素材列表、单视频约束与输出状态 | Completed | Codex      | 2026-04-24 | 已接入视频-only 素材库、多素材导入但单视频激活约束、`AI补帧` / `AI增强` 模式壳层与 `MP4/MKV` 基础输出状态，构建、测试与启动验证通过。 |
 | R6   | Stage 2 | AI 模型与配置下载、筛选、归位  | Completed | Codex      | 2026-04-24 | 已归位 `RIFE v4.6` 与 `Real-ESRGAN Standard/Anime(x2/x4)` 首发资产，补齐许可证、manifest、同步脚本和资产清单，`Tools/AI` 清洁度验证与构建/启动验证通过。 |
-| R7   | Stage 2 | AI runtime 打包与能力探测      | Pending   | N/A        | N/A        | 未开始 |
+| R7   | Stage 2 | AI runtime 打包与能力探测      | Completed | Codex      | 2026-04-24 | 已接入 `RIFE` / `Real-ESRGAN` runtime catalog、GPU/CPU 探测、许可证随包输出与 UI 状态展示；`RIFE` CPU fallback 可用，`Real-ESRGAN` CPU fallback 当前明确为 `Unsupported`。 |
 | R8   | Stage 3 | AI补帧工作流                   | Pending   | N/A        | N/A        | 未开始 |
 | R9   | Stage 3 | AI增强工作流                   | Pending   | N/A        | N/A        | 未开始 |
 | R10  | Stage 4 | 本地化、交互硬化与错误收口     | Pending   | N/A        | N/A        | 未开始 |
@@ -505,7 +505,7 @@ Tools/
 
 目标：
 
-- 接入 AI runtime 目录、模型描述、GPU/CPU 能力探测和许可证随包输出方案。
+- ~~接入 AI runtime 目录、模型描述、GPU/CPU 能力探测和许可证随包输出方案。~~
 
 建议主文件范围：
 
@@ -516,23 +516,23 @@ Tools/
 
 必须交付：
 
-- `RIFE` runtime 解析器
-- `Real-ESRGAN` runtime 解析器
-- GPU/CPU 能力探测
-- AI runtime 打包目录
-- 第三方许可证随包输出方案
+- ~~`RIFE` runtime 解析器~~
+- ~~`Real-ESRGAN` runtime 解析器~~
+- ~~GPU/CPU 能力探测~~
+- ~~AI runtime 打包目录~~
+- ~~第三方许可证随包输出方案~~
 
 验收标准：
 
-- `win-x64` 发布产物里能找到 AI runtime
-- UI 能得到“GPU 可用 / CPU fallback 可用 / 缺失 runtime”的明确状态
-- 如果 `AI增强` CPU fallback 未打通，必须在交接区标红
+- ~~`win-x64` 发布产物里能找到 AI runtime~~
+- ~~UI 能得到“GPU 可用 / CPU fallback 可用 / 缺失 runtime”的明确状态~~
+- ~~如果 `AI增强` CPU fallback 未打通，必须在交接区标红~~
 
 交接要求：
 
-- 记录 runtime 目录结构
-- 记录各模型文件名与版本
-- 记录当前 CPU fallback 实际状态
+- ~~记录 runtime 目录结构~~
+- ~~记录各模型文件名与版本~~
+- ~~记录当前 CPU fallback 实际状态~~
 
 ### R8 AI补帧工作流
 

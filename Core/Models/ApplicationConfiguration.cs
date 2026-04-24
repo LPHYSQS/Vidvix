@@ -72,6 +72,60 @@ public sealed class ApplicationConfiguration
 
     public string DemucsDirectoryName { get; init; } = "Demucs";
 
+    public string AiRuntimeDirectoryName { get; init; } = "AI";
+
+    public string AiLicensesDirectoryName { get; init; } = "Licenses";
+
+    public string AiManifestsDirectoryName { get; init; } = "Manifests";
+
+    public string AiRuntimeProbeCacheDirectoryName { get; init; } = "ProbeCache";
+
+    public string RifeDirectoryName { get; init; } = "Rife";
+
+    public string RifeExecutableFileName { get; init; } = "rife-ncnn-vulkan.exe";
+
+    public IReadOnlyList<string> RifeSupportLibraryFileNames { get; init; } =
+        new[] { "vcomp140.dll" };
+
+    public string RifeManifestFileName { get; init; } = "rife.json";
+
+    public IReadOnlyList<string> RifeLicenseFileNames { get; init; } =
+        new[] { "rife-ncnn-vulkan-LICENSE.txt" };
+
+    public string RifeModelDirectoryName { get; init; } = "rife-v4.6";
+
+    public string RifeModelConfigFileName { get; init; } = "flownet.param";
+
+    public string RifeModelWeightFileName { get; init; } = "flownet.bin";
+
+    public string RealEsrganDirectoryName { get; init; } = "RealEsrgan";
+
+    public string RealEsrganExecutableFileName { get; init; } = "realesrgan-ncnn-vulkan.exe";
+
+    public IReadOnlyList<string> RealEsrganSupportLibraryFileNames { get; init; } =
+        new[] { "vcomp140.dll" };
+
+    public string RealEsrganManifestFileName { get; init; } = "realesrgan.json";
+
+    public IReadOnlyList<string> RealEsrganLicenseFileNames { get; init; } =
+        new[] { "realesrgan-ncnn-vulkan-LICENSE.txt", "Real-ESRGAN-LICENSE.txt" };
+
+    public string RealEsrganStandardModelName { get; init; } = "realesrgan-x4plus";
+
+    public string RealEsrganStandardModelConfigFileName { get; init; } = "realesrgan-x4plus.param";
+
+    public string RealEsrganStandardModelWeightFileName { get; init; } = "realesrgan-x4plus.bin";
+
+    public string RealEsrganAnimeModelName { get; init; } = "realesr-animevideov3";
+
+    public string RealEsrganAnimeX2ModelConfigFileName { get; init; } = "realesr-animevideov3-x2.param";
+
+    public string RealEsrganAnimeX2ModelWeightFileName { get; init; } = "realesr-animevideov3-x2.bin";
+
+    public string RealEsrganAnimeX4ModelConfigFileName { get; init; } = "realesr-animevideov3-x4.param";
+
+    public string RealEsrganAnimeX4ModelWeightFileName { get; init; } = "realesr-animevideov3-x4.bin";
+
     public string DemucsRuntimeDirectoryName { get; init; } = "Current";
 
     public string DemucsGpuRuntimeDirectoryName { get; init; } = "CurrentGpu";
