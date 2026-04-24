@@ -215,10 +215,9 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         GetLocalizedText("ai.page.materials.title", "素材列表");
 
     public string MaterialsSectionDescriptionText =>
-        FormatLocalizedText(
+        GetLocalizedText(
             "ai.page.materials.description",
-            $"仅接收视频素材，支持格式：{BuildSupportedInputFormatsSummary()}。允许导入多个视频，但单次只处理一个当前视频。",
-            ("formats", BuildSupportedInputFormatsSummary()));
+            "导入要处理的视频，\n再从列表中选择当前素材。");
 
     public string MaterialsImportButtonText =>
         GetLocalizedText("ai.page.materials.importFiles", "导入视频");
@@ -817,17 +816,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         _localizationService is null
             ? option
             : option.Localize(_localizationService);
-
-    private string BuildSupportedInputFormatsSummary()
-    {
-        var separator = _localizationService?.CurrentLanguage.StartsWith("zh", StringComparison.OrdinalIgnoreCase) == true
-            ? "、"
-            : ", ";
-
-        return string.Join(
-            separator,
-            _configuration.SupportedAiInputFileTypes.Select(extension => extension.TrimStart('.').ToUpperInvariant()));
-    }
 
     private string BuildLaunchOutputFormatsSummary() =>
         string.Join(" / ", OutputSettings.AvailableOutputFormats.Select(option => option.DisplayName));

@@ -3,7 +3,7 @@
   "ai.page.title": "AI 输入与输出状态",
   "ai.page.description": "R9 已交付 AI补帧 与 AI增强 首发闭环：支持 RIFE 2x / 4x 补帧，以及 Real-ESRGAN Standard / Anime、2x 到 16x 增强、超采样回缩、原音轨回填、进度反馈与取消清理。",
   "ai.page.materials.title": "素材列表",
-  "ai.page.materials.description": "仅接收视频素材，支持格式：{formats}。允许导入多个视频，但单次只处理一个当前视频。",
+  "ai.page.materials.description": "导入要处理的视频，\n再从列表中选择当前素材。",
   "ai.page.materials.importFiles": "导入视频",
   "ai.page.materials.count": "共 {count} 个素材",
   "ai.page.materials.badge.videoOnly": "视频-only 导入",

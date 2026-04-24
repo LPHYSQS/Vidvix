@@ -3,7 +3,7 @@
   "ai.page.title": "AI input and output state",
   "ai.page.description": "R9 delivers the launch AI interpolation and AI enhancement loops with RIFE 2x / 4x interpolation plus Real-ESRGAN Standard / Anime, 2x through 16x enhancement, overscale-and-downscale routing, original-audio mergeback, progress feedback, and cancellation cleanup.",
   "ai.page.materials.title": "Material list",
-  "ai.page.materials.description": "Only video materials are accepted. Supported formats: {formats}. Multiple videos can be imported, but only one current video can be processed at a time.",
+  "ai.page.materials.description": "Import the video you want to process,\nthen choose it from the list.",
   "ai.page.materials.importFiles": "Import videos",
   "ai.page.materials.count": "{count} materials",
   "ai.page.materials.badge.videoOnly": "Video-only import",
