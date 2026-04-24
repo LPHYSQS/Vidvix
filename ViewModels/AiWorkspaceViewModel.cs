@@ -1,6 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Windows.Input;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Utils;
@@ -12,6 +14,11 @@ public sealed class AiWorkspaceViewModel : ObservableObject
     private static readonly IReadOnlyList<string> LaunchOutputFormats = new[] { "MP4", "MKV" };
     private readonly ApplicationConfiguration _configuration;
     private readonly ILocalizationService? _localizationService;
+    private readonly AsyncRelayCommand _startProcessingCommand;
+    private readonly RelayCommand _cancelProcessingCommand;
+    private ICommand? _importFilesCommand;
+    private bool _hasImportedMaterials;
+    private bool _isProcessing;
 
     public AiWorkspaceViewModel()
         : this(new ApplicationConfiguration(), localizationService: null)
@@ -24,7 +31,51 @@ public sealed class AiWorkspaceViewModel : ObservableObject
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _localizationService = localizationService;
+        _startProcessingCommand = new AsyncRelayCommand(StartProcessingAsync, CanStartProcessingInternal);
+        _cancelProcessingCommand = new RelayCommand(CancelProcessing, () => IsProcessing);
     }
+
+    public ICommand? ImportFilesCommand
+    {
+        get => _importFilesCommand;
+        private set => SetProperty(ref _importFilesCommand, value);
+    }
+
+    public ICommand StartProcessingCommand => _startProcessingCommand;
+
+    public ICommand CancelProcessingCommand => _cancelProcessingCommand;
+
+    public bool HasImportedMaterials
+    {
+        get => _hasImportedMaterials;
+        private set
+        {
+            if (!SetProperty(ref _hasImportedMaterials, value))
+            {
+                return;
+            }
+
+            OnPropertyChanged(nameof(CanStartProcessing));
+            NotifyCommandStates();
+        }
+    }
+
+    public bool IsProcessing
+    {
+        get => _isProcessing;
+        private set
+        {
+            if (!SetProperty(ref _isProcessing, value))
+            {
+                return;
+            }
+
+            OnPropertyChanged(nameof(CanStartProcessing));
+            NotifyCommandStates();
+        }
+    }
+
+    public bool CanStartProcessing => HasImportedMaterials && !IsProcessing;
 
     public string SectionCaptionText =>
         GetLocalizedText("ai.page.caption", "AI 工作区");
@@ -118,6 +169,32 @@ public sealed class AiWorkspaceViewModel : ObservableObject
             "ai.page.output.placeholder",
             "输出格式、目录与文件名区域当前只做 UI 承载，不接底层输出工作流。");
 
+    public void ConfigureImportFilesCommand(ICommand importFilesCommand)
+    {
+        ArgumentNullException.ThrowIfNull(importFilesCommand);
+        ImportFilesCommand = importFilesCommand;
+    }
+
+    public void UpdateMaterialAvailability(bool hasImportedMaterials)
+    {
+        HasImportedMaterials = hasImportedMaterials;
+
+        if (!hasImportedMaterials && IsProcessing)
+        {
+            IsProcessing = false;
+        }
+    }
+
+    public void ResetProcessingState()
+    {
+        if (!IsProcessing)
+        {
+            return;
+        }
+
+        IsProcessing = false;
+    }
+
     public void RefreshLocalization()
     {
         OnPropertyChanged(nameof(SectionCaptionText));
@@ -177,4 +254,28 @@ public sealed class AiWorkspaceViewModel : ObservableObject
 
     private static string BuildLaunchOutputFormatsSummary() =>
         string.Join(" / ", LaunchOutputFormats);
+
+    private Task StartProcessingAsync()
+    {
+        IsProcessing = true;
+        return Task.CompletedTask;
+    }
+
+    private void CancelProcessing()
+    {
+        if (!IsProcessing)
+        {
+            return;
+        }
+
+        IsProcessing = false;
+    }
+
+    private bool CanStartProcessingInternal() => CanStartProcessing;
+
+    private void NotifyCommandStates()
+    {
+        _startProcessingCommand.NotifyCanExecuteChanged();
+        _cancelProcessingCommand.NotifyCanExecuteChanged();
+    }
 }

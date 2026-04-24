@@ -156,6 +156,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         _videoImportItems.CollectionChanged += OnImportItemsChanged;
         _audioImportItems.CollectionChanged += OnImportItemsChanged;
+        _aiImportItems.CollectionChanged += OnImportItemsChanged;
 
         _selectFilesCommand = new AsyncRelayCommand(SelectFilesAsync, () => CanModifyInputs);
         _selectFolderCommand = new AsyncRelayCommand(SelectFolderAsync, () => CanModifyInputs);
@@ -180,10 +181,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _switchToSplitAudioWorkspaceCommand = new AsyncRelayCommand(SwitchToSplitAudioWorkspaceAsync, () => CanModifyInputs);
         _switchToTerminalWorkspaceCommand = new AsyncRelayCommand(SwitchToTerminalWorkspaceAsync, () => CanModifyInputs);
 
+        AiWorkspace.ConfigureImportFilesCommand(_selectFilesCommand);
+        AiWorkspace.UpdateMaterialAvailability(_aiImportItems.Count > 0);
+
         _localizationService.LanguageChanged += OnLocalizationLanguageChanged;
         DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
         TrimWorkspace.PropertyChanged += OnTrimWorkspacePropertyChanged;
         MergeWorkspace.PropertyChanged += OnMergeWorkspacePropertyChanged;
+        AiWorkspace.PropertyChanged += OnAiWorkspacePropertyChanged;
         SplitAudioWorkspace.PropertyChanged += OnSplitAudioWorkspacePropertyChanged;
 
         _selectedProcessingMode = ResolveProcessingMode(userPreferences.PreferredProcessingMode);
@@ -471,6 +476,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         !IsBusy &&
         !TrimWorkspace.IsBusy &&
         !MergeWorkspace.IsVideoJoinProcessing &&
+        !AiWorkspace.IsProcessing &&
         !SplitAudioWorkspace.IsBusy;
 
     public string QueueSummaryText => CreateQueueSummaryText(ImportItems.Count);
@@ -489,8 +495,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _localizationService.LanguageChanged -= OnLocalizationLanguageChanged;
         _videoImportItems.CollectionChanged -= OnImportItemsChanged;
         _audioImportItems.CollectionChanged -= OnImportItemsChanged;
+        _aiImportItems.CollectionChanged -= OnImportItemsChanged;
         TrimWorkspace.PropertyChanged -= OnTrimWorkspacePropertyChanged;
         MergeWorkspace.PropertyChanged -= OnMergeWorkspacePropertyChanged;
+        AiWorkspace.PropertyChanged -= OnAiWorkspacePropertyChanged;
         SplitAudioWorkspace.PropertyChanged -= OnSplitAudioWorkspacePropertyChanged;
         DetailPanel.PropertyChanged -= OnDetailPanelPropertyChanged;
         TrimWorkspace.Dispose();
@@ -543,6 +551,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private void OnMergeWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MergeViewModel.IsVideoJoinProcessing))
+        {
+            OnPropertyChanged(nameof(CanModifyInputs));
+            NotifyCommandStates();
+        }
+    }
+
+    private void OnAiWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AiWorkspaceViewModel.IsProcessing))
         {
             OnPropertyChanged(nameof(CanModifyInputs));
             NotifyCommandStates();
