@@ -43,7 +43,7 @@ public sealed class AppCompositionRoot
         var workflows = CreateWorkflowServices(mediaRuntime, infrastructure.LocalizationService);
         var trimWorkspace = CreateTrimWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
         var mergeWorkspace = CreateMergeWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
-        var aiWorkspace = CreateAiWorkspaceViewModel(infrastructure);
+        var aiWorkspace = CreateAiWorkspaceViewModel(infrastructure, workflows);
         var splitAudioWorkspace = CreateSplitAudioWorkspaceViewModel(infrastructure, mediaRuntime, workflows);
         var terminalWorkspace = CreateTerminalWorkspaceViewModel(mediaRuntime);
         _mainViewModel = CreateMainViewModel(
@@ -250,8 +250,15 @@ public sealed class AppCompositionRoot
         return new MergeViewModel(dependencies);
     }
 
-    private AiWorkspaceViewModel CreateAiWorkspaceViewModel(AppInfrastructureServices infrastructure) =>
-        new(Configuration, infrastructure.LocalizationService);
+    private AiWorkspaceViewModel CreateAiWorkspaceViewModel(
+        AppInfrastructureServices infrastructure,
+        AppWorkflowServices workflows) =>
+        new(
+            Configuration,
+            infrastructure.LocalizationService,
+            infrastructure.FilePickerService,
+            workflows.MediaImportDiscoveryService,
+            Logger);
 
     private TerminalWorkspaceViewModel CreateTerminalWorkspaceViewModel(AppMediaRuntimeServices mediaRuntime) =>
         new(Configuration, _localizationService, mediaRuntime.TerminalService);

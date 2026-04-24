@@ -1,4 +1,4 @@
-﻿using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Vidvix.ViewModels;
 
@@ -30,7 +30,6 @@ public sealed partial class AiPage : Page
     {
         UpdateLayoutHeight(ActualHeight);
         UpdateLayoutState(ActualWidth);
-        SetWorkspaceMode(InterpolationModeButton?.IsChecked == true);
     }
 
     private void OnPageSizeChanged(object sender, SizeChangedEventArgs e)
@@ -113,22 +112,5 @@ public sealed partial class AiPage : Page
         Grid.SetRow(OutputCard, 2);
         Grid.SetColumn(OutputCard, 0);
         Grid.SetColumnSpan(OutputCard, 1);
-    }
-
-    private void OnInterpolationModeChecked(object sender, RoutedEventArgs e) =>
-        SetWorkspaceMode(isInterpolationSelected: true);
-
-    private void OnEnhancementModeChecked(object sender, RoutedEventArgs e) =>
-        SetWorkspaceMode(isInterpolationSelected: false);
-
-    private void SetWorkspaceMode(bool isInterpolationSelected)
-    {
-        if (InterpolationWorkspacePanel is null || EnhancementWorkspacePanel is null)
-        {
-            return;
-        }
-
-        InterpolationWorkspacePanel.Visibility = isInterpolationSelected ? Visibility.Visible : Visibility.Collapsed;
-        EnhancementWorkspacePanel.Visibility = isInterpolationSelected ? Visibility.Collapsed : Visibility.Visible;
     }
 }

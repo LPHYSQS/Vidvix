@@ -7,11 +7,11 @@
 - 计划版本：`v5`
 - 项目：`Vidvix`
 - 当前阶段：`Stage 1`
-- 当前轮次：`R4`
+- 当前轮次：`R5`
 - 当前状态：`Completed`
 - 当前执行 Agent：`Codex`
-- 最近完成轮次：`R4`
-- 最近完成时间：`2026-04-23`
+- 最近完成轮次：`R5`
+- 最近完成时间：`2026-04-24`
 - 构建验证：`Passed`
 - 运行验证：`Passed`
 - 首发发布目标：`Offline-win-x64`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已完成 `R4`，补齐 AI 导航选中态与共享悬停 / 按下反馈，微调 AI 图标，并将 AI 页面收口为与合并模块同级的三栏壳层与窄窗自适应布局。
-- 本轮修改文件：`App.xaml`, `Views/MainWindow.xaml`, `Views/MainWindow.Chrome.cs`, `Views/MainWindow.xaml.cs`, `Views/AiPage.xaml`, `Views/AiPage.xaml.cs`, `ViewModels/AiWorkspaceViewModel.cs`, `Resources/Localization/zh-CN/ai.json`, `Resources/Localization/en-US/ai.json`, `DOCS/ai-module-agent-execution-plan.md`, `DOCS/ai-ui-validation-report.md`
-- 本轮新增文件：`None`
-- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 通过，`0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`；Debug 产物已成功启动，主窗口句柄就绪，默认窗口与 `1100x900` 重设窄窗下持续运行未黑屏、白屏或闪退；AI 导航选中态、共享悬停 / 按下反馈、AI 图标微调与 AI 页面宽窗 / 窄窗壳层已完成回填验证。
-- 当前遗留问题：AI 页面仍为 `R5` 前的稳定壳层，占位素材列表、模式状态、输出设置与顶部命令栏扩展按计划留待下一轮接入；当前无 `R4` 阻断项。
-- 下一轮必须处理：执行 `R5`，只完成素材列表、单视频约束、模式切换壳层与基础输出状态，不提前接入 runtime 或推理执行。
-- 下一轮禁止扩展：不要提前进入 `R6` 资产下载、`R7` runtime 探测、`R8/R9` workflow、CPU fallback、烟测封板或发布验证开发。
+- 本轮完成项：已完成 `R5`，接入 AI 素材列表、视频-only 导入规则、多素材导入但单视频激活约束、`AI补帧` / `AI增强` 模式切换壳层，以及 `MP4/MKV` 基础输出目录与文件名状态；本轮仍按计划不启动实际 AI 推理。
+- 本轮修改文件：`Views/AiPage.xaml`, `Views/AiPage.xaml.cs`, `ViewModels/AiWorkspaceViewModel.cs`, `Utils/AppCompositionRoot.cs`, `ViewModels/MainViewModel.cs`, `ViewModels/MainViewModel.UiState.cs`, `Resources/Localization/zh-CN/ai.json`, `Resources/Localization/en-US/ai.json`, `DOCS/ai-module-agent-execution-plan.md`
+- 本轮新增文件：`ViewModels/AiMaterialItemViewModel.cs`, `ViewModels/AiInputState.cs`, `ViewModels/AiMaterialLibraryState.cs`, `ViewModels/AiModeState.cs`, `ViewModels/AiOutputSettingsState.cs`
+- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`（当前 `sln` 仅包含主项目）；Debug / Release 产物均已成功启动，主窗口句柄就绪且 `Responding=True`，窗口标题为 `Vidvix`，持续运行期间未出现黑屏、白屏或闪退。
+- 当前遗留问题：`R5` 无阻断项；`R6` 之后的 AI runtime、模型资产、能力探测与 workflow 仍保持未接入状态，这是按计划冻结的增量边界，不属于本轮缺陷。
+- 下一轮必须处理：执行 `R6`，下载、筛选并归位 `RIFE` / `Real-ESRGAN` 首发所需 runtime、模型、配置与许可证清单，确保 `Tools/AI` 目录只保留运行所需资产。
+- 下一轮禁止扩展：不要提前进入 `R7` runtime 探测、`R8/R9` workflow、CPU fallback、烟测封板或发布验证开发。
 
 ## 执行协议
 
@@ -265,7 +265,7 @@ Tools/
 | R2   | Stage 1 | AI 工作区骨架与配置接线        | Completed | Codex      | 2026-04-23 | 已接入 AI 导航、workspace profile、AiPage 空壳与双语资源注册，应用构建与启动验证通过。 |
 | R3   | Stage 1 | AI UI 专项验证与对标审查       | Completed | Codex      | 2026-04-23 | 已输出 AI UI 验证报告，确认 AI 选中态未进入一致蓝色响应态，给出与合并模块的壳层差异、自适应问题和 R4 修复边界。 |
 | R4   | Stage 1 | AI UI 对齐调整与视觉收口       | Completed | Codex      | 2026-04-23 | 已补齐 AI 导航蓝色选中态与共享 hover / pressed 反馈，微调 AI 图标，移除页内重复 hero，并将 AI 页面收口为 `260 / * / 320` 宽窗壳层与窄窗纵向自适应布局。 |
-| R5   | Stage 1 | 素材列表、单视频约束与输出状态 | Pending   | N/A        | N/A        | 未开始 |
+| R5   | Stage 1 | 素材列表、单视频约束与输出状态 | Completed | Codex      | 2026-04-24 | 已接入视频-only 素材库、多素材导入但单视频激活约束、`AI补帧` / `AI增强` 模式壳层与 `MP4/MKV` 基础输出状态，构建、测试与启动验证通过。 |
 | R6   | Stage 2 | AI 模型与配置下载、筛选、归位  | Pending   | N/A        | N/A        | 未开始 |
 | R7   | Stage 2 | AI runtime 打包与能力探测      | Pending   | N/A        | N/A        | 未开始 |
 | R8   | Stage 3 | AI补帧工作流                   | Pending   | N/A        | N/A        | 未开始 |
@@ -420,7 +420,7 @@ Tools/
 
 目标：
 
-- 完成 AI 页面的素材列表、模式切换壳层、单视频约束和基础输出设置状态。
+- ~~完成 AI 页面的素材列表、模式切换壳层、单视频约束和基础输出设置状态。~~
 
 建议主文件范围：
 
@@ -434,22 +434,22 @@ Tools/
 
 必须交付：
 
-- 视频-only 导入规则
-- 多素材导入但单视频激活约束
-- `AI补帧` / `AI增强` 模式切换壳层
-- 输出格式基础状态
+- ~~视频-only 导入规则~~
+- ~~多素材导入但单视频激活约束~~
+- ~~`AI补帧` / `AI增强` 模式切换壳层~~
+- ~~输出格式基础状态~~
 
 验收标准：
 
-- 可导入多个视频
-- 导入音频会被拒绝
-- 任一时刻只有一个当前处理对象
-- 模式切换不会污染输入状态
+- ~~可导入多个视频~~
+- ~~导入音频会被拒绝~~
+- ~~任一时刻只有一个当前处理对象~~
+- ~~模式切换不会污染输入状态~~
 
 交接要求：
 
-- 明确运行时所需的输入/输出参数模型
-- 不要在本轮启动实际 AI 推理
+- ~~明确运行时所需的输入/输出参数模型~~
+- ~~不要在本轮启动实际 AI 推理~~
 
 ### R6 AI 模型与配置下载、筛选、归位
 

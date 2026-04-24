@@ -41,7 +41,6 @@ public sealed partial class MainViewModel
     {
         OnPropertyChanged(nameof(QueueSummaryText));
         RecalculatePlannedOutputs();
-        AiWorkspace.UpdateMaterialAvailability(_aiImportItems.Count > 0);
         NotifyCommandStates();
     }
 

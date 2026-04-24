@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="using:Vidvix.ViewModels"
     x:Name="RootPage"
     Background="Transparent"
     Loaded="OnPageLoaded"
@@ -20,32 +21,16 @@
         </Style>
 
         <Style
-            x:Key="MergeMediaListViewItemStyle"
+            x:Key="AiMaterialListViewItemStyle"
             TargetType="ListViewItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="VerticalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0" />
             <Setter Property="MinHeight" Value="0" />
-            <Setter Property="UseSystemFocusVisuals" Value="False" />
-            <Setter Property="AllowDrop" Value="False" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListViewItem">
-                        <ContentPresenter
-                            Margin="{TemplateBinding Padding}"
-                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                            Content="{TemplateBinding Content}"
-                            ContentTemplate="{TemplateBinding ContentTemplate}"
-                            ContentTransitions="{TemplateBinding ContentTransitions}" />
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
         </Style>
 
         <Style
-            x:Key="MergeMediaRemoveButtonStyle"
+            x:Key="AiMaterialRemoveButtonStyle"
             TargetType="Button">
             <Setter Property="Width" Value="32" />
             <Setter Property="Height" Value="32" />
@@ -59,18 +44,18 @@
         </Style>
 
         <Style
-            x:Key="MergeMediaTypeTextStyle"
-            TargetType="TextBlock"
-            BasedOn="{StaticResource CaptionTextStyle}">
+            x:Key="AiMetadataLabelTextStyle"
+            BasedOn="{StaticResource CaptionTextStyle}"
+            TargetType="TextBlock">
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
-            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Top" />
         </Style>
 
         <Style
-            x:Key="MergeTrackEmptyTextStyle"
-            TargetType="TextBlock"
-            BasedOn="{StaticResource CaptionTextStyle}">
+            x:Key="AiTrackEmptyTextStyle"
+            BasedOn="{StaticResource CaptionTextStyle}"
+            TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="MaxWidth" Value="420" />
@@ -97,451 +82,560 @@
             <ColumnDefinition x:Name="OutputColumnDefinition" Width="320" />
         </Grid.ColumnDefinitions>
 
-            <Border
-                x:Name="MaterialsCard"
-                Grid.Column="0"
-                Padding="16"
-                VerticalAlignment="Stretch"
-                Style="{StaticResource SurfaceCardBorderStyle}">
-                <Grid RowSpacing="12">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+        <Border
+            x:Name="MaterialsCard"
+            Grid.Column="0"
+            Padding="16"
+            VerticalAlignment="Stretch"
+            Style="{StaticResource SurfaceCardBorderStyle}">
+            <Grid RowSpacing="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-                    <StackPanel Spacing="4">
-                        <TextBlock
-                            Style="{StaticResource SectionTitleTextStyle}"
-                            Text="{x:Bind ViewModel.MaterialsSectionTitleText, Mode=OneWay}" />
-                        <TextBlock
-                            Opacity="0.72"
-                            Text="{x:Bind ViewModel.MaterialsSectionDescriptionText, Mode=OneWay}"
-                            TextWrapping="WrapWholeWords" />
+                <StackPanel Spacing="4">
+                    <TextBlock
+                        Style="{StaticResource SectionTitleTextStyle}"
+                        Text="{x:Bind ViewModel.MaterialsSectionTitleText, Mode=OneWay}" />
+                    <TextBlock
+                        Opacity="0.72"
+                        Text="{x:Bind ViewModel.MaterialsSectionDescriptionText, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+
+                <StackPanel
+                    Grid.Row="1"
+                    Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border
+                            Padding="10,4"
+                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                            CornerRadius="999">
+                            <TextBlock
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.VideoOnlyImportBadgeText, Mode=OneWay}" />
+                        </Border>
+                        <Border
+                            Padding="10,4"
+                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                            CornerRadius="999">
+                            <TextBlock
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.SingleVideoExecutionBadgeText, Mode=OneWay}" />
+                        </Border>
                     </StackPanel>
 
+                    <Border
+                        HorizontalAlignment="Left"
+                        Padding="10,4"
+                        Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                        CornerRadius="999">
+                        <TextBlock
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="{x:Bind ViewModel.MaterialCountText, Mode=OneWay}" />
+                    </Border>
+                </StackPanel>
+
+                <StackPanel
+                    Grid.Row="2"
+                    Spacing="10">
                     <Button
-                        Grid.Row="1"
                         Command="{x:Bind ViewModel.ImportFilesCommand, Mode=OneWay}"
                         HorizontalAlignment="Stretch">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <SymbolIcon Symbol="OpenFile" />
-                            <TextBlock Text="导入文件" />
+                            <TextBlock Text="{x:Bind ViewModel.MaterialsImportButtonText, Mode=OneWay}" />
                         </StackPanel>
                     </Button>
 
-                    <Grid Grid.Row="2">
-                        <ListView
-                            Background="Transparent"
-                            BorderThickness="0"
-                            IsHitTestVisible="False"
-                            ItemContainerStyle="{StaticResource MergeMediaListViewItemStyle}"
-                            Padding="0,0,12,0"
-                            ScrollViewer.VerticalScrollBarVisibility="Auto"
-                            SelectionMode="None" />
-
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            MaxWidth="180"
-                            Opacity="0.72"
-                            Text="{x:Bind ViewModel.MaterialsPlaceholderText, Mode=OneWay}"
-                            TextAlignment="Center"
-                            TextWrapping="WrapWholeWords" />
-                    </Grid>
-                </Grid>
-            </Border>
-
-            <Border
-                x:Name="WorkspaceCard"
-                Grid.Column="1"
-                Padding="16"
-                VerticalAlignment="Stretch"
-                Style="{StaticResource SurfaceCardBorderStyle}">
-                <Grid RowSpacing="14">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <StackPanel Spacing="4">
-                        <TextBlock
-                            Style="{StaticResource SectionTitleTextStyle}"
-                            Text="{x:Bind ViewModel.WorkspaceSectionTitleText, Mode=OneWay}" />
-                        <TextBlock
-                            Opacity="0.72"
-                            Text="{x:Bind ViewModel.WorkspaceSectionDescriptionText, Mode=OneWay}"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-
                     <Border
-                        Grid.Row="1"
-                        HorizontalAlignment="Left"
-                        Padding="4"
-                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                        Padding="10,8"
+                        Background="{ThemeResource ControlFillColorTertiaryBrush}"
                         BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
                         BorderThickness="1"
-                        CornerRadius="20">
-                        <ScrollViewer
-                            HorizontalAlignment="Stretch"
-                            HorizontalScrollBarVisibility="Auto"
-                            HorizontalScrollMode="Enabled"
-                            Padding="0,0,0,10"
-                            VerticalScrollBarVisibility="Disabled"
-                            VerticalScrollMode="Disabled">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <RadioButton
-                                    x:Name="InterpolationModeButton"
-                                    Checked="OnInterpolationModeChecked"
-                                    GroupName="AiMode"
-                                    IsChecked="True"
-                                    Style="{StaticResource MergeModeSegmentRadioButtonStyle}">
-                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        CornerRadius="12">
+                        <TextBlock
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </Border>
+                </StackPanel>
+
+                <Grid Grid.Row="3">
+                    <ListView
+                        Background="Transparent"
+                        BorderThickness="0"
+                        ItemContainerStyle="{StaticResource AiMaterialListViewItemStyle}"
+                        ItemsSource="{Binding ViewModel.MaterialLibrary.Materials, ElementName=RootPage, Mode=OneWay}"
+                        Padding="0,0,12,0"
+                        ScrollViewer.VerticalScrollBarVisibility="Auto"
+                        SelectedItem="{Binding ViewModel.MaterialLibrary.SelectedMaterial, ElementName=RootPage, Mode=TwoWay}"
+                        SelectionMode="Single">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:AiMaterialItemViewModel">
+                                <Border
+                                    Margin="0,0,0,10"
+                                    Padding="12"
+                                    Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                    CornerRadius="14">
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
                                         <Border
-                                            Width="34"
-                                            Height="34"
-                                            Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                                            CornerRadius="10">
+                                            Width="36"
+                                            Height="36"
+                                            VerticalAlignment="Top"
+                                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                            CornerRadius="18">
                                             <SymbolIcon
                                                 HorizontalAlignment="Center"
                                                 VerticalAlignment="Center"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Symbol="Video" />
                                         </Border>
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            FontWeight="SemiBold"
-                                            Text="AI补帧"
-                                            TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                </RadioButton>
 
-                                <RadioButton
-                                    x:Name="EnhancementModeButton"
-                                    Checked="OnEnhancementModeChecked"
-                                    GroupName="AiMode"
-                                    Style="{StaticResource MergeModeSegmentRadioButtonStyle}">
-                                    <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Border
-                                            Width="34"
-                                            Height="34"
-                                            Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                                            CornerRadius="10">
-                                            <SymbolIcon
-                                                HorizontalAlignment="Center"
-                                                VerticalAlignment="Center"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Symbol="Switch" />
-                                        </Border>
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            FontWeight="SemiBold"
-                                            Text="AI增强"
-                                            TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                </RadioButton>
-                            </StackPanel>
-                        </ScrollViewer>
-                    </Border>
+                                        <StackPanel
+                                            Grid.Column="1"
+                                            Spacing="4">
+                                            <TextBlock
+                                                FontWeight="SemiBold"
+                                                Text="{x:Bind InputFileName, Mode=OneWay}"
+                                                TextTrimming="CharacterEllipsis" />
+                                            <TextBlock
+                                                Opacity="0.72"
+                                                Style="{StaticResource CaptionTextStyle}"
+                                                Text="{x:Bind InputPath, Mode=OneWay}"
+                                                TextTrimming="CharacterEllipsis" />
+                                            <Border
+                                                HorizontalAlignment="Left"
+                                                Padding="8,3"
+                                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                                CornerRadius="999">
+                                                <TextBlock
+                                                    Style="{StaticResource CaptionTextStyle}"
+                                                    Text="{x:Bind FileExtensionText, Mode=OneWay}" />
+                                            </Border>
+                                        </StackPanel>
+
+                                        <Button
+                                            Grid.Column="2"
+                                            Command="{Binding ViewModel.RemoveMaterialCommand, ElementName=RootPage, Mode=OneWay}"
+                                            CommandParameter="{x:Bind}"
+                                            Style="{StaticResource AiMaterialRemoveButtonStyle}">
+                                            <SymbolIcon Symbol="Delete" />
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
 
                     <TextBlock
-                        Grid.Row="2"
-                        Opacity="0.72"
-                        Text="参考合并模块默认窗口下的工作区关系：上方先选 AI 模式，下方直接进入对应的视频轨道卡片；这里只改 AI 模块 UI，不接合并模块底层工作流。"
-                        TextWrapping="WrapWholeWords" />
-
-                    <Grid Grid.Row="3">
-                        <Border
-                            x:Name="InterpolationWorkspacePanel"
-                            Padding="14"
-                            VerticalAlignment="Stretch"
-                            Style="{StaticResource InsetSurfaceCardBorderStyle}">
-                            <Grid RowSpacing="12">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <Grid ColumnSpacing="12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <TextBlock
-                                        FontSize="16"
-                                        FontWeight="SemiBold"
-                                        Text="视频轨道" />
-                                    <StackPanel
-                                        Grid.Column="1"
-                                        HorizontalAlignment="Right"
-                                        Spacing="2">
-                                        <TextBlock
-                                            HorizontalAlignment="Right"
-                                            Style="{StaticResource CaptionTextStyle}"
-                                            Text="未添加片段" />
-                                        <TextBlock
-                                            HorizontalAlignment="Right"
-                                            Opacity="0.72"
-                                            Style="{StaticResource CaptionTextStyle}"
-                                            Text="总时长：00:00:00" />
-                                    </StackPanel>
-                                </Grid>
-
-                                <StackPanel
-                                    Grid.Row="1"
-                                    Spacing="4">
-                                    <TextBlock
-                                        Style="{StaticResource CaptionTextStyle}"
-                                        Text="当前为 AI补帧模式，仅允许将单个视频素材添加到补帧轨道。" />
-                                    <TextBlock
-                                        Opacity="0.72"
-                                        Style="{StaticResource CaptionTextStyle}"
-                                        Text="后续倍率、设备和执行状态都继续挂在 AI 模块自己的工作区里，不复用合并模块的处理逻辑。"
-                                        TextWrapping="WrapWholeWords" />
-                                </StackPanel>
-
-                                <Grid
-                                    Grid.Row="2"
-                                    MinHeight="176">
-                                    <Border
-                                        Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                                        BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="18"
-                                        Opacity="0.46" />
-                                    <TextBlock
-                                        Style="{StaticResource MergeTrackEmptyTextStyle}"
-                                        Text="从素材列表单击视频文件，可将其添加到补帧轨道。" />
-                                </Grid>
-
-                                <Border
-                                    Grid.Row="3"
-                                    Margin="0,4,0,0"
-                                    Padding="10,8"
-                                    Background="#1F4CC2FF"
-                                    BorderBrush="#664CC2FF"
-                                    BorderThickness="1"
-                                    CornerRadius="12">
-                                    <Grid ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <Border
-                                            Width="20"
-                                            Height="20"
-                                            VerticalAlignment="Top"
-                                            Background="#FF4CC2FF"
-                                            CornerRadius="10">
-                                            <TextBlock
-                                                HorizontalAlignment="Center"
-                                                VerticalAlignment="Center"
-                                                FontSize="12"
-                                                FontWeight="Bold"
-                                                Foreground="White"
-                                                Text="i" />
-                                        </Border>
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            VerticalAlignment="Center"
-                                            Foreground="#FFD9F4FF"
-                                            Text="这里只复刻“视频轨道”这层布局关系，后续挂载的仍然只能是 AI 模块自己的素材状态与执行流程。"
-                                            TextWrapping="WrapWholeWords" />
-                                    </Grid>
-                                </Border>
-                            </Grid>
-                        </Border>
-
-                        <Border
-                            x:Name="EnhancementWorkspacePanel"
-                            Padding="14"
-                            VerticalAlignment="Stretch"
-                            Style="{StaticResource InsetSurfaceCardBorderStyle}"
-                            Visibility="Collapsed">
-                            <Grid RowSpacing="12">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <Grid ColumnSpacing="12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <TextBlock
-                                        FontSize="16"
-                                        FontWeight="SemiBold"
-                                        Text="视频轨道" />
-                                    <StackPanel
-                                        Grid.Column="1"
-                                        HorizontalAlignment="Right"
-                                        Spacing="2">
-                                        <TextBlock
-                                            HorizontalAlignment="Right"
-                                            Style="{StaticResource CaptionTextStyle}"
-                                            Text="未添加片段" />
-                                        <TextBlock
-                                            HorizontalAlignment="Right"
-                                            Opacity="0.72"
-                                            Style="{StaticResource CaptionTextStyle}"
-                                            Text="总时长：00:00:00" />
-                                    </StackPanel>
-                                </Grid>
-
-                                <StackPanel
-                                    Grid.Row="1"
-                                    Spacing="4">
-                                    <TextBlock
-                                        Style="{StaticResource CaptionTextStyle}"
-                                        Text="当前为 AI增强模式，视频素材会以单轨方式进入增强轨道。" />
-                                    <TextBlock
-                                        Opacity="0.72"
-                                        Style="{StaticResource CaptionTextStyle}"
-                                        Text="增强倍率、模型参数和导出状态后续仍由 AI 模块自己接入，这里只先对齐合并模块工作区的结构。"
-                                        TextWrapping="WrapWholeWords" />
-                                </StackPanel>
-
-                                <Grid
-                                    Grid.Row="2"
-                                    MinHeight="176">
-                                    <Border
-                                        Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                                        BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="18"
-                                        Opacity="0.46" />
-                                    <TextBlock
-                                        Style="{StaticResource MergeTrackEmptyTextStyle}"
-                                        Text="从素材列表单击视频文件，可将其添加到增强轨道。" />
-                                </Grid>
-
-                                <Border
-                                    Grid.Row="3"
-                                    Margin="0,4,0,0"
-                                    Padding="10,8"
-                                    Background="#1F4CC2FF"
-                                    BorderBrush="#664CC2FF"
-                                    BorderThickness="1"
-                                    CornerRadius="12">
-                                    <Grid ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <Border
-                                            Width="20"
-                                            Height="20"
-                                            VerticalAlignment="Top"
-                                            Background="#FF4CC2FF"
-                                            CornerRadius="10">
-                                            <TextBlock
-                                                HorizontalAlignment="Center"
-                                                VerticalAlignment="Center"
-                                                FontSize="12"
-                                                FontWeight="Bold"
-                                                Foreground="White"
-                                                Text="i" />
-                                        </Border>
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            VerticalAlignment="Center"
-                                            Foreground="#FFD9F4FF"
-                                            Text="增强模式同样只复制轨道区的 UI 关系，不接入合并模块底层能力，也不提前接 AI 执行链路。"
-                                            TextWrapping="WrapWholeWords" />
-                                    </Grid>
-                                </Border>
-                            </Grid>
-                        </Border>
-                    </Grid>
+                        Visibility="{x:Bind ViewModel.MaterialsEmptyVisibility, Mode=OneWay}"
+                        Style="{StaticResource AiTrackEmptyTextStyle}"
+                        Text="{x:Bind ViewModel.MaterialsPlaceholderText, Mode=OneWay}" />
                 </Grid>
-            </Border>
+            </Grid>
+        </Border>
 
-            <Border
-                x:Name="OutputCard"
-                Grid.Column="2"
-                Padding="16"
-                VerticalAlignment="Stretch"
-                Style="{StaticResource SurfaceCardBorderStyle}">
-                <ScrollViewer
-                    Padding="0,0,14,0"
-                    VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="16">
-                        <StackPanel Spacing="4">
+        <Border
+            x:Name="WorkspaceCard"
+            Grid.Column="1"
+            Padding="16"
+            VerticalAlignment="Stretch"
+            Style="{StaticResource SurfaceCardBorderStyle}">
+            <Grid RowSpacing="14">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Spacing="4">
+                    <TextBlock
+                        Style="{StaticResource SectionTitleTextStyle}"
+                        Text="{x:Bind ViewModel.WorkspaceSectionTitleText, Mode=OneWay}" />
+                    <TextBlock
+                        Opacity="0.72"
+                        Text="{x:Bind ViewModel.WorkspaceSectionDescriptionText, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+
+                <Border
+                    Grid.Row="1"
+                    HorizontalAlignment="Left"
+                    Padding="4"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                    BorderThickness="1"
+                    CornerRadius="20">
+                    <ScrollViewer
+                        HorizontalAlignment="Stretch"
+                        HorizontalScrollBarVisibility="Auto"
+                        HorizontalScrollMode="Enabled"
+                        Padding="0,0,0,10"
+                        VerticalScrollBarVisibility="Disabled"
+                        VerticalScrollMode="Disabled">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <RadioButton
+                                GroupName="AiMode"
+                                IsChecked="{Binding ViewModel.ModeState.IsInterpolationSelected, ElementName=RootPage, Mode=TwoWay}"
+                                Style="{StaticResource MergeModeSegmentRadioButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Border
+                                        Width="34"
+                                        Height="34"
+                                        Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                        CornerRadius="10">
+                                        <SymbolIcon
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Symbol="Video" />
+                                    </Border>
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
+                                        Text="{x:Bind ViewModel.InterpolationModeLabelText, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </RadioButton>
+
+                            <RadioButton
+                                GroupName="AiMode"
+                                IsChecked="{Binding ViewModel.ModeState.IsEnhancementSelected, ElementName=RootPage, Mode=TwoWay}"
+                                Style="{StaticResource MergeModeSegmentRadioButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Border
+                                        Width="34"
+                                        Height="34"
+                                        Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                        CornerRadius="10">
+                                        <SymbolIcon
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Symbol="Switch" />
+                                    </Border>
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontWeight="SemiBold"
+                                        Text="{x:Bind ViewModel.EnhancementModeLabelText, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </RadioButton>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <TextBlock
+                    Grid.Row="2"
+                    Opacity="0.72"
+                    Text="{x:Bind ViewModel.WorkspaceModeSwitchHintText, Mode=OneWay}"
+                    TextWrapping="WrapWholeWords" />
+
+                <Border
+                    Grid.Row="3"
+                    Padding="14"
+                    VerticalAlignment="Stretch"
+                    Style="{StaticResource InsetSurfaceCardBorderStyle}">
+                    <Grid RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
                             <TextBlock
-                                Style="{StaticResource SectionTitleTextStyle}"
-                                Text="{x:Bind ViewModel.OutputSectionTitleText, Mode=OneWay}" />
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.CurrentTrackTitleText, Mode=OneWay}" />
+
+                            <StackPanel
+                                Grid.Column="1"
+                                HorizontalAlignment="Right"
+                                Spacing="4">
+                                <Border
+                                    HorizontalAlignment="Right"
+                                    Padding="8,3"
+                                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                    CornerRadius="999">
+                                    <TextBlock
+                                        Style="{StaticResource CaptionTextStyle}"
+                                        Text="{x:Bind ViewModel.CurrentModeEngineBadgeText, Mode=OneWay}" />
+                                </Border>
+                                <TextBlock
+                                    HorizontalAlignment="Right"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.CurrentInputStatusText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel
+                            Grid.Row="1"
+                            Spacing="4">
+                            <TextBlock
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.CurrentModeDescriptionText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
                             <TextBlock
                                 Opacity="0.72"
-                                Text="{x:Bind ViewModel.OutputSectionDescriptionText, Mode=OneWay}"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.CurrentTrackHintText, Mode=OneWay}"
                                 TextWrapping="WrapWholeWords" />
                         </StackPanel>
 
-                        <Border Style="{StaticResource AiInsetCardBorderStyle}">
-                            <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="输出格式" />
-                                <ComboBox SelectedIndex="0">
-                                    <ComboBoxItem Content="MP4" />
-                                    <ComboBoxItem Content="MKV" />
-                                </ComboBox>
+                        <Grid
+                            Grid.Row="2"
+                            MinHeight="196">
+                            <Border
+                                Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                BorderThickness="1"
+                                CornerRadius="18"
+                                Opacity="0.46" />
+
+                            <TextBlock
+                                Visibility="{x:Bind ViewModel.CurrentTrackEmptyVisibility, Mode=OneWay}"
+                                Style="{StaticResource AiTrackEmptyTextStyle}"
+                                Text="{x:Bind ViewModel.CurrentTrackEmptyText, Mode=OneWay}" />
+
+                            <Border
+                                Visibility="{x:Bind ViewModel.CurrentTrackCardVisibility, Mode=OneWay}"
+                                Margin="12"
+                                Padding="16"
+                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                BorderThickness="1"
+                                CornerRadius="16">
+                                <StackPanel Spacing="10">
+                                    <TextBlock
+                                        FontSize="18"
+                                        FontWeight="SemiBold"
+                                        Text="{Binding ViewModel.InputState.CurrentInputFileName, ElementName=RootPage, Mode=OneWay}" />
+
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock
+                                            Style="{StaticResource AiMetadataLabelTextStyle}"
+                                            Text="{x:Bind ViewModel.SourceFileLabelText, Mode=OneWay}" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            Text="{Binding ViewModel.InputState.CurrentInputPath, ElementName=RootPage, Mode=OneWay}"
+                                            TextWrapping="WrapWholeWords" />
+                                    </Grid>
+
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock
+                                            Style="{StaticResource AiMetadataLabelTextStyle}"
+                                            Text="{x:Bind ViewModel.CurrentOutputDirectoryLabelText, Mode=OneWay}" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            Text="{Binding ViewModel.OutputSettings.EffectiveOutputDirectory, ElementName=RootPage, Mode=OneWay}"
+                                            TextWrapping="WrapWholeWords" />
+                                    </Grid>
+
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock
+                                            Style="{StaticResource AiMetadataLabelTextStyle}"
+                                            Text="{x:Bind ViewModel.CurrentOutputPreviewLabelText, Mode=OneWay}" />
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            Text="{Binding ViewModel.OutputSettings.EffectiveOutputFileNameWithExtension, ElementName=RootPage, Mode=OneWay}"
+                                            TextWrapping="WrapWholeWords" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Border
+                            Grid.Row="3"
+                            Margin="0,4,0,0"
+                            Padding="10,8"
+                            Background="#1F4CC2FF"
+                            BorderBrush="#664CC2FF"
+                            BorderThickness="1"
+                            CornerRadius="12">
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border
+                                    Width="20"
+                                    Height="20"
+                                    VerticalAlignment="Top"
+                                    Background="#FF4CC2FF"
+                                    CornerRadius="10">
+                                    <TextBlock
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        FontSize="12"
+                                        FontWeight="Bold"
+                                        Foreground="White"
+                                        Text="i" />
+                                </Border>
                                 <TextBlock
-                                    Opacity="0.72"
-                                    Style="{StaticResource CaptionTextStyle}"
-                                    Text="这里只先保留输出设置在右栏的位置，不接真实输出格式逻辑。"
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Foreground="#FFD9F4FF"
+                                    Text="{x:Bind ViewModel.CurrentModeRuntimeNoteText, Mode=OneWay}"
                                     TextWrapping="WrapWholeWords" />
-                            </StackPanel>
+                            </Grid>
                         </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
 
-                        <Border Style="{StaticResource AiInsetCardBorderStyle}">
-                            <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="输出目录" />
-                                <Grid ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
+        <Border
+            x:Name="OutputCard"
+            Grid.Column="2"
+            Padding="16"
+            VerticalAlignment="Stretch"
+            Style="{StaticResource SurfaceCardBorderStyle}">
+            <ScrollViewer
+                Padding="0,0,14,0"
+                VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="16">
+                    <StackPanel Spacing="4">
+                        <TextBlock
+                            Style="{StaticResource SectionTitleTextStyle}"
+                            Text="{x:Bind ViewModel.OutputSectionTitleText, Mode=OneWay}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.OutputSectionDescriptionText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
 
-                                    <TextBox
-                                        IsReadOnly="True"
-                                        PlaceholderText="预设为当前素材所在目录"
-                                        Text="预设视频目录" />
-                                    <Button Grid.Column="1" Content="选择目录" />
-                                    <Button Grid.Column="2" Content="清空" />
-                                </Grid>
-                                <TextBlock
-                                    Opacity="0.72"
-                                    Style="{StaticResource CaptionTextStyle}"
-                                    Text="目录区暂时只做占位，后续仍挂到 AI 模块自己的输出状态上。"
-                                    TextWrapping="WrapWholeWords" />
-                            </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border
+                            Padding="10,4"
+                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                            CornerRadius="999">
+                            <TextBlock
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.OutputFormatsBadgeText, Mode=OneWay}" />
                         </Border>
-
-                        <Border Style="{StaticResource AiInsetCardBorderStyle}">
-                            <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="输出文件名" />
-                                <TextBox
-                                    PlaceholderText="留空时自动生成"
-                                    Text="ai_preview_output" />
-                                <TextBlock
-                                    Opacity="0.72"
-                                    Style="{StaticResource CaptionTextStyle}"
-                                    Text="文件名输入当前只保留位置，不接命名规则与导出链路。"
-                                    TextWrapping="WrapWholeWords" />
-                            </StackPanel>
+                        <Border
+                            Padding="10,4"
+                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                            CornerRadius="999">
+                            <TextBlock
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.OutputAudioBadgeText, Mode=OneWay}" />
                         </Border>
                     </StackPanel>
-                </ScrollViewer>
-            </Border>
+
+                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.OutputFormatTitleText, Mode=OneWay}" />
+                            <ComboBox
+                                DisplayMemberPath="DisplayName"
+                                ItemsSource="{Binding ViewModel.OutputSettings.AvailableOutputFormats, ElementName=RootPage, Mode=OneWay}"
+                                SelectedItem="{Binding ViewModel.OutputSettings.SelectedOutputFormat, ElementName=RootPage, Mode=TwoWay}" />
+                            <TextBlock
+                                Opacity="0.72"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.OutputFormatDescriptionText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Opacity="0.72"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.OutputFormatHintText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.OutputDirectoryTitleText, Mode=OneWay}" />
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBox
+                                    IsReadOnly="True"
+                                    PlaceholderText="{x:Bind ViewModel.OutputDirectoryPlaceholderText, Mode=OneWay}"
+                                    Text="{Binding ViewModel.OutputSettings.OutputDirectoryDisplayText, ElementName=RootPage, Mode=OneWay}" />
+                                <Button
+                                    Grid.Column="1"
+                                    Command="{x:Bind ViewModel.SelectOutputDirectoryCommand, Mode=OneWay}"
+                                    Content="{x:Bind ViewModel.SelectOutputDirectoryButtonText, Mode=OneWay}" />
+                                <Button
+                                    Grid.Column="2"
+                                    Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
+                                    Content="{x:Bind ViewModel.ClearOutputDirectoryButtonText, Mode=OneWay}" />
+                            </Grid>
+                            <TextBlock
+                                Opacity="0.72"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.OutputDirectoryHintText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.OutputFileNameTitleText, Mode=OneWay}" />
+                            <TextBox
+                                PlaceholderText="{x:Bind ViewModel.OutputFileNamePlaceholderText, Mode=OneWay}"
+                                Text="{Binding ViewModel.OutputSettings.OutputFileName, ElementName=RootPage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock
+                                Opacity="0.72"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.OutputFileNameHintText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
+                        <TextBlock
+                            Opacity="0.78"
+                            Text="{x:Bind ViewModel.OutputParameterSummaryText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
     </Grid>
 </Page>

@@ -181,9 +181,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _switchToSplitAudioWorkspaceCommand = new AsyncRelayCommand(SwitchToSplitAudioWorkspaceAsync, () => CanModifyInputs);
         _switchToTerminalWorkspaceCommand = new AsyncRelayCommand(SwitchToTerminalWorkspaceAsync, () => CanModifyInputs);
 
-        AiWorkspace.ConfigureImportFilesCommand(_selectFilesCommand);
-        AiWorkspace.UpdateMaterialAvailability(_aiImportItems.Count > 0);
-
         _localizationService.LanguageChanged += OnLocalizationLanguageChanged;
         DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;
         TrimWorkspace.PropertyChanged += OnTrimWorkspacePropertyChanged;
