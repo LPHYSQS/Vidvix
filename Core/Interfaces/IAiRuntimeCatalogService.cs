@@ -7,4 +7,8 @@ namespace Vidvix.Core.Interfaces;
 public interface IAiRuntimeCatalogService
 {
     Task<AiRuntimeCatalog> GetCatalogAsync(CancellationToken cancellationToken = default);
+
+    Task<AiRuntimeCatalog> EnsureExecutionSupportAsync(
+        AiRuntimeKind runtimeKind,
+        CancellationToken cancellationToken = default);
 }

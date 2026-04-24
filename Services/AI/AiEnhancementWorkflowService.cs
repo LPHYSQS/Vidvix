@@ -65,7 +65,9 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
         }
 
         var ffmpegRuntime = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
-        var runtimeCatalog = await _aiRuntimeCatalogService.GetCatalogAsync(cancellationToken).ConfigureAwait(false);
+        var runtimeCatalog = await _aiRuntimeCatalogService
+            .EnsureExecutionSupportAsync(AiRuntimeKind.RealEsrgan, cancellationToken)
+            .ConfigureAwait(false);
         var realEsrganDescriptor = runtimeCatalog.RealEsrgan;
         var selectedModel = ResolveSelectedModel(realEsrganDescriptor, request.ModelTier);
         var mediaDetails = await LoadAndValidateMediaDetailsAsync(normalizedInputPath, cancellationToken).ConfigureAwait(false);

@@ -17,6 +17,8 @@ public sealed class AiRuntimeCatalogService : IAiRuntimeCatalogService
     private readonly AiRuntimeProbeExecutor _probeExecutor;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
     private AiRuntimeCatalog? _cachedCatalog;
+    private bool _hasRifeExecutionSupport;
+    private bool _hasRealEsrganExecutionSupport;
 
     public AiRuntimeCatalogService(ApplicationConfiguration configuration, ILogger logger)
     {
@@ -43,36 +45,93 @@ public sealed class AiRuntimeCatalogService : IAiRuntimeCatalogService
                 return _cachedCatalog;
             }
 
-            var packageRootRelativePath = Path.Combine(
-                _configuration.RuntimeDirectoryName,
-                _configuration.AiRuntimeDirectoryName);
-            var packageRootPath = ApplicationPaths.CombineFromExecutableDirectory(
-                _configuration.RuntimeDirectoryName,
-                _configuration.AiRuntimeDirectoryName);
-            var licensesRootPath = Path.Combine(packageRootPath, _configuration.AiLicensesDirectoryName);
-            var manifestRootPath = Path.Combine(packageRootPath, _configuration.AiManifestsDirectoryName);
-            var rifeDescriptor = _rifeRuntimeParser.Parse(packageRootPath, licensesRootPath, manifestRootPath);
-            var realEsrganDescriptor = _realEsrganRuntimeParser.Parse(packageRootPath, licensesRootPath, manifestRootPath);
-            var inspectedRifeDescriptor = await InspectRifeAsync(rifeDescriptor, cancellationToken).ConfigureAwait(false);
-            var inspectedRealEsrganDescriptor = await InspectRealEsrganAsync(realEsrganDescriptor, cancellationToken).ConfigureAwait(false);
-
-            _cachedCatalog = new AiRuntimeCatalog
-            {
-                PackageRootRelativePath = packageRootRelativePath,
-                PackageRootPath = packageRootPath,
-                LicensesRootPath = licensesRootPath,
-                ManifestRootPath = manifestRootPath,
-                Rife = inspectedRifeDescriptor,
-                RealEsrgan = inspectedRealEsrganDescriptor
-            };
-
-            _logger.Log(LogLevel.Info, "AI runtime catalog prepared successfully.");
+            _cachedCatalog = BuildCatalog();
+            _logger.Log(LogLevel.Info, "AI runtime catalog metadata prepared successfully.");
             return _cachedCatalog;
         }
         finally
         {
             _syncLock.Release();
         }
+    }
+
+    public async Task<AiRuntimeCatalog> EnsureExecutionSupportAsync(
+        AiRuntimeKind runtimeKind,
+        CancellationToken cancellationToken = default)
+    {
+        await _syncLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            _cachedCatalog ??= BuildCatalog();
+
+            switch (runtimeKind)
+            {
+                case AiRuntimeKind.Rife when !_hasRifeExecutionSupport:
+                    _cachedCatalog = _cachedCatalog with
+                    {
+                        Rife = await InspectRifeAsync(_cachedCatalog.Rife, cancellationToken).ConfigureAwait(false)
+                    };
+                    _hasRifeExecutionSupport = true;
+                    _logger.Log(LogLevel.Info, "RIFE execution support inspection completed.");
+                    break;
+                case AiRuntimeKind.RealEsrgan when !_hasRealEsrganExecutionSupport:
+                    _cachedCatalog = _cachedCatalog with
+                    {
+                        RealEsrgan = await InspectRealEsrganAsync(_cachedCatalog.RealEsrgan, cancellationToken).ConfigureAwait(false)
+                    };
+                    _hasRealEsrganExecutionSupport = true;
+                    _logger.Log(LogLevel.Info, "Real-ESRGAN execution support inspection completed.");
+                    break;
+            }
+
+            return _cachedCatalog;
+        }
+        finally
+        {
+            _syncLock.Release();
+        }
+    }
+
+    private AiRuntimeCatalog BuildCatalog()
+    {
+        var packageRootRelativePath = Path.Combine(
+            _configuration.RuntimeDirectoryName,
+            _configuration.AiRuntimeDirectoryName);
+        var packageRootPath = ApplicationPaths.CombineFromExecutableDirectory(
+            _configuration.RuntimeDirectoryName,
+            _configuration.AiRuntimeDirectoryName);
+        var licensesRootPath = Path.Combine(packageRootPath, _configuration.AiLicensesDirectoryName);
+        var manifestRootPath = Path.Combine(packageRootPath, _configuration.AiManifestsDirectoryName);
+        var rifeDescriptor = FinalizeParsedDescriptor(
+            _rifeRuntimeParser.Parse(packageRootPath, licensesRootPath, manifestRootPath));
+        var realEsrganDescriptor = FinalizeParsedDescriptor(
+            _realEsrganRuntimeParser.Parse(packageRootPath, licensesRootPath, manifestRootPath));
+
+        return new AiRuntimeCatalog
+        {
+            PackageRootRelativePath = packageRootRelativePath,
+            PackageRootPath = packageRootPath,
+            LicensesRootPath = licensesRootPath,
+            ManifestRootPath = manifestRootPath,
+            Rife = rifeDescriptor,
+            RealEsrgan = realEsrganDescriptor
+        };
+    }
+
+    private static AiRuntimeDescriptor FinalizeParsedDescriptor(AiRuntimeDescriptor descriptor)
+    {
+        if (descriptor.IsAvailable)
+        {
+            return descriptor;
+        }
+
+        var missingStatus = CreateMissingRuntimeStatus(descriptor);
+        return descriptor with
+        {
+            GpuSupport = missingStatus,
+            CpuSupport = missingStatus
+        };
     }
 
     private async Task<AiRuntimeDescriptor> InspectRifeAsync(

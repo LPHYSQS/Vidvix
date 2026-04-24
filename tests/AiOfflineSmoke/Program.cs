@@ -36,7 +36,12 @@ catch (Exception exception)
 static async Task<int> RunCatalogAsync()
 {
     var services = await CreateServicesAsync().ConfigureAwait(false);
-    var catalog = await services.RuntimeCatalogService.GetCatalogAsync().ConfigureAwait(false);
+    await services.RuntimeCatalogService
+        .EnsureExecutionSupportAsync(AiRuntimeKind.Rife)
+        .ConfigureAwait(false);
+    var catalog = await services.RuntimeCatalogService
+        .EnsureExecutionSupportAsync(AiRuntimeKind.RealEsrgan)
+        .ConfigureAwait(false);
 
     WriteKeyValue("RIFE_AVAILABILITY", catalog.Rife.Availability);
     WriteKeyValue("RIFE_RUNTIME_VERSION", catalog.Rife.RuntimeVersion);

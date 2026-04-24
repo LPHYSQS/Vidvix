@@ -20,7 +20,7 @@
   "ai.page.workspace.outputDirectory": "Current output directory",
   "ai.page.workspace.outputPreview": "Current output file name",
   "ai.page.runtime.title": "Runtime status",
-  "ai.page.runtime.ready": "The {engine} runtime has been resolved. Later workflows will reuse the packaged directory, model descriptors, and capability probe results directly.",
+  "ai.page.runtime.ready": "The {engine} runtime metadata is ready. Later workflows will reuse the packaged directory and model descriptors directly, and probe device capability on demand or reuse the cached result.",
   "ai.page.runtime.pending": "Inspecting the {engine} runtime, model payload, and device capability...",
   "ai.page.runtime.failed": "AI runtime inspection failed: {message}",
   "ai.page.runtime.error.generic": "AI runtime inspection failed. Please try again.",

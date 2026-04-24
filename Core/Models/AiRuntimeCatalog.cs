@@ -10,6 +10,12 @@ public enum AiRuntimeAvailability
     Invalid
 }
 
+public enum AiRuntimeKind
+{
+    Rife,
+    RealEsrgan
+}
+
 public enum AiExecutionSupportState
 {
     Pending,

@@ -66,7 +66,9 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
         }
 
         var ffmpegRuntime = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
-        var runtimeCatalog = await _aiRuntimeCatalogService.GetCatalogAsync(cancellationToken).ConfigureAwait(false);
+        var runtimeCatalog = await _aiRuntimeCatalogService
+            .EnsureExecutionSupportAsync(AiRuntimeKind.Rife, cancellationToken)
+            .ConfigureAwait(false);
         var rifeDescriptor = runtimeCatalog.Rife;
         var mediaDetails = await LoadAndValidateMediaDetailsAsync(normalizedInputPath, cancellationToken).ConfigureAwait(false);
         var executionDevice = ResolveExecutionDevice(rifeDescriptor, request.DevicePreference);
