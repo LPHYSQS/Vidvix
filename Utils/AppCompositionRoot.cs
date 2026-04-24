@@ -142,6 +142,7 @@ public sealed class AppCompositionRoot
             mediaRuntime.DemucsRuntimeService,
             localizationService,
             Logger);
+        var aiRuntimeCatalogService = new AiRuntimeCatalogService(Configuration, Logger);
         var mediaProcessingWorkflowService = new MediaProcessingWorkflowService(
             Configuration,
             mediaRuntime.RuntimeService,
@@ -198,11 +199,21 @@ public sealed class AppCompositionRoot
             audioTrimCommandFactory,
             transcodingDecisionResolver,
             localizationService);
+        var aiInterpolationWorkflowService = new AiInterpolationWorkflowService(
+            Configuration,
+            aiRuntimeCatalogService,
+            mediaRuntime.MediaInfoService,
+            mediaRuntime.RuntimeService,
+            mediaRuntime.FFmpegService,
+            localizationService,
+            Logger);
 
         return new AppWorkflowServices(
             new MediaImportDiscoveryService(),
             mediaProcessingWorkflowService,
             audioSeparationWorkflowService,
+            aiRuntimeCatalogService,
+            aiInterpolationWorkflowService,
             trimWorkflowService,
             mergeMediaAnalysisService,
             videoJoinWorkflowService,
@@ -255,15 +266,16 @@ public sealed class AppCompositionRoot
         AppInfrastructureServices infrastructure,
         AppWorkflowServices workflows)
     {
-        var aiRuntimeCatalogService = new AiRuntimeCatalogService(Configuration, Logger);
-
         return
         new(
             Configuration,
             infrastructure.LocalizationService,
             infrastructure.FilePickerService,
             workflows.MediaImportDiscoveryService,
-            aiRuntimeCatalogService,
+            workflows.AiRuntimeCatalogService,
+            workflows.AiInterpolationWorkflowService,
+            infrastructure.UserPreferencesService,
+            infrastructure.FileRevealService,
             Logger);
     }
 

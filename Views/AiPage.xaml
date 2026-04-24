@@ -250,280 +250,347 @@
             Padding="16"
             VerticalAlignment="Stretch"
             Style="{StaticResource SurfaceCardBorderStyle}">
-            <Grid RowSpacing="14">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+            <ScrollViewer
+                Padding="0,0,14,0"
+                VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="14">
+                    <StackPanel Spacing="4">
+                        <TextBlock
+                            Style="{StaticResource SectionTitleTextStyle}"
+                            Text="{x:Bind ViewModel.WorkspaceSectionTitleText, Mode=OneWay}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Text="{x:Bind ViewModel.WorkspaceSectionDescriptionText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
 
-                <StackPanel Spacing="4">
-                    <TextBlock
-                        Style="{StaticResource SectionTitleTextStyle}"
-                        Text="{x:Bind ViewModel.WorkspaceSectionTitleText, Mode=OneWay}" />
+                    <Border
+                        HorizontalAlignment="Left"
+                        Padding="4"
+                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                        BorderThickness="1"
+                        CornerRadius="20">
+                        <ScrollViewer
+                            HorizontalAlignment="Stretch"
+                            HorizontalScrollBarVisibility="Auto"
+                            HorizontalScrollMode="Enabled"
+                            Padding="0,0,0,10"
+                            VerticalScrollBarVisibility="Disabled"
+                            VerticalScrollMode="Disabled">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <RadioButton
+                                    GroupName="AiMode"
+                                    IsChecked="{Binding ViewModel.ModeState.IsInterpolationSelected, ElementName=RootPage, Mode=TwoWay}"
+                                    IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
+                                    Style="{StaticResource MergeModeSegmentRadioButtonStyle}">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Border
+                                            Width="34"
+                                            Height="34"
+                                            Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                            CornerRadius="10">
+                                            <SymbolIcon
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Symbol="Video" />
+                                        </Border>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.InterpolationModeLabelText, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </RadioButton>
+
+                                <RadioButton
+                                    GroupName="AiMode"
+                                    IsChecked="{Binding ViewModel.ModeState.IsEnhancementSelected, ElementName=RootPage, Mode=TwoWay}"
+                                    IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
+                                    Style="{StaticResource MergeModeSegmentRadioButtonStyle}">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Border
+                                            Width="34"
+                                            Height="34"
+                                            Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                            CornerRadius="10">
+                                            <SymbolIcon
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Symbol="Switch" />
+                                        </Border>
+                                        <TextBlock
+                                            VerticalAlignment="Center"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.EnhancementModeLabelText, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </RadioButton>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+
                     <TextBlock
                         Opacity="0.72"
-                        Text="{x:Bind ViewModel.WorkspaceSectionDescriptionText, Mode=OneWay}"
+                        Text="{x:Bind ViewModel.WorkspaceModeSwitchHintText, Mode=OneWay}"
                         TextWrapping="WrapWholeWords" />
-                </StackPanel>
 
-                <Border
-                    Grid.Row="1"
-                    HorizontalAlignment="Left"
-                    Padding="4"
-                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                    BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
-                    BorderThickness="1"
-                    CornerRadius="20">
-                    <ScrollViewer
-                        HorizontalAlignment="Stretch"
-                        HorizontalScrollBarVisibility="Auto"
-                        HorizontalScrollMode="Enabled"
-                        Padding="0,0,0,10"
-                        VerticalScrollBarVisibility="Disabled"
-                        VerticalScrollMode="Disabled">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <RadioButton
-                                GroupName="AiMode"
-                                IsChecked="{Binding ViewModel.ModeState.IsInterpolationSelected, ElementName=RootPage, Mode=TwoWay}"
-                                Style="{StaticResource MergeModeSegmentRadioButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Border
+                        Padding="14"
+                        Style="{StaticResource InsetSurfaceCardBorderStyle}">
+                        <Grid RowSpacing="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock
+                                    FontSize="16"
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ViewModel.CurrentTrackTitleText, Mode=OneWay}" />
+
+                                <StackPanel
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    Spacing="4">
                                     <Border
-                                        Width="34"
-                                        Height="34"
-                                        Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                                        CornerRadius="10">
-                                        <SymbolIcon
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Symbol="Video" />
+                                        HorizontalAlignment="Right"
+                                        Padding="8,3"
+                                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                        CornerRadius="999">
+                                        <TextBlock
+                                            Style="{StaticResource CaptionTextStyle}"
+                                            Text="{x:Bind ViewModel.CurrentModeEngineBadgeText, Mode=OneWay}" />
                                     </Border>
                                     <TextBlock
-                                        VerticalAlignment="Center"
-                                        FontWeight="SemiBold"
-                                        Text="{x:Bind ViewModel.InterpolationModeLabelText, Mode=OneWay}"
-                                        TextTrimming="CharacterEllipsis" />
+                                        HorizontalAlignment="Right"
+                                        Style="{StaticResource CaptionTextStyle}"
+                                        Text="{x:Bind ViewModel.CurrentInputStatusText, Mode=OneWay}"
+                                        TextWrapping="WrapWholeWords" />
                                 </StackPanel>
-                            </RadioButton>
-
-                            <RadioButton
-                                GroupName="AiMode"
-                                IsChecked="{Binding ViewModel.ModeState.IsEnhancementSelected, ElementName=RootPage, Mode=TwoWay}"
-                                Style="{StaticResource MergeModeSegmentRadioButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <Border
-                                        Width="34"
-                                        Height="34"
-                                        Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                                        CornerRadius="10">
-                                        <SymbolIcon
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Symbol="Switch" />
-                                    </Border>
-                                    <TextBlock
-                                        VerticalAlignment="Center"
-                                        FontWeight="SemiBold"
-                                        Text="{x:Bind ViewModel.EnhancementModeLabelText, Mode=OneWay}"
-                                        TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
-                            </RadioButton>
-                        </StackPanel>
-                    </ScrollViewer>
-                </Border>
-
-                <TextBlock
-                    Grid.Row="2"
-                    Opacity="0.72"
-                    Text="{x:Bind ViewModel.WorkspaceModeSwitchHintText, Mode=OneWay}"
-                    TextWrapping="WrapWholeWords" />
-
-                <Border
-                    Grid.Row="3"
-                    Padding="14"
-                    VerticalAlignment="Stretch"
-                    Style="{StaticResource InsetSurfaceCardBorderStyle}">
-                    <Grid RowSpacing="12">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <Grid ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <TextBlock
-                                FontSize="16"
-                                FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.CurrentTrackTitleText, Mode=OneWay}" />
+                            </Grid>
 
                             <StackPanel
-                                Grid.Column="1"
-                                HorizontalAlignment="Right"
+                                Grid.Row="1"
                                 Spacing="4">
-                                <Border
-                                    HorizontalAlignment="Right"
-                                    Padding="8,3"
-                                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                    CornerRadius="999">
-                                    <TextBlock
-                                        Style="{StaticResource CaptionTextStyle}"
-                                        Text="{x:Bind ViewModel.CurrentModeEngineBadgeText, Mode=OneWay}" />
-                                </Border>
                                 <TextBlock
-                                    HorizontalAlignment="Right"
                                     Style="{StaticResource CaptionTextStyle}"
-                                    Text="{x:Bind ViewModel.CurrentInputStatusText, Mode=OneWay}"
+                                    Text="{x:Bind ViewModel.CurrentModeDescriptionText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.CurrentTrackHintText, Mode=OneWay}"
                                     TextWrapping="WrapWholeWords" />
                             </StackPanel>
-                        </Grid>
 
-                        <StackPanel
-                            Grid.Row="1"
-                            Spacing="4">
+                            <Grid
+                                Grid.Row="2"
+                                MinHeight="196">
+                                <Border
+                                    Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                    BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="18"
+                                    Opacity="0.46" />
+
+                                <TextBlock
+                                    Visibility="{x:Bind ViewModel.CurrentTrackEmptyVisibility, Mode=OneWay}"
+                                    Style="{StaticResource AiTrackEmptyTextStyle}"
+                                    Text="{x:Bind ViewModel.CurrentTrackEmptyText, Mode=OneWay}" />
+
+                                <Border
+                                    Visibility="{x:Bind ViewModel.CurrentTrackCardVisibility, Mode=OneWay}"
+                                    Margin="12"
+                                    Padding="16"
+                                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                    BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="16">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock
+                                            FontSize="18"
+                                            FontWeight="SemiBold"
+                                            Text="{Binding ViewModel.InputState.CurrentInputFileName, ElementName=RootPage, Mode=OneWay}" />
+
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock
+                                                Style="{StaticResource AiMetadataLabelTextStyle}"
+                                                Text="{x:Bind ViewModel.SourceFileLabelText, Mode=OneWay}" />
+                                            <TextBlock
+                                                Grid.Column="1"
+                                                Text="{Binding ViewModel.InputState.CurrentInputPath, ElementName=RootPage, Mode=OneWay}"
+                                                TextWrapping="WrapWholeWords" />
+                                        </Grid>
+
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock
+                                                Style="{StaticResource AiMetadataLabelTextStyle}"
+                                                Text="{x:Bind ViewModel.CurrentOutputDirectoryLabelText, Mode=OneWay}" />
+                                            <TextBlock
+                                                Grid.Column="1"
+                                                Text="{Binding ViewModel.OutputSettings.EffectiveOutputDirectory, ElementName=RootPage, Mode=OneWay}"
+                                                TextWrapping="WrapWholeWords" />
+                                        </Grid>
+
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock
+                                                Style="{StaticResource AiMetadataLabelTextStyle}"
+                                                Text="{x:Bind ViewModel.CurrentOutputPreviewLabelText, Mode=OneWay}" />
+                                            <TextBlock
+                                                Grid.Column="1"
+                                                Text="{Binding ViewModel.OutputSettings.EffectiveOutputFileNameWithExtension, ElementName=RootPage, Mode=OneWay}"
+                                                TextWrapping="WrapWholeWords" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <Border
+                        Visibility="{x:Bind ViewModel.InterpolationControlsVisibility, Mode=OneWay}"
+                        Style="{StaticResource AiInsetCardBorderStyle}">
+                        <StackPanel Spacing="10">
                             <TextBlock
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.CurrentModeDescriptionText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.InterpolationSettingsTitleText, Mode=OneWay}" />
                             <TextBlock
                                 Opacity="0.72"
                                 Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.CurrentTrackHintText, Mode=OneWay}"
+                                Text="{x:Bind ViewModel.InterpolationSettingsDescriptionText, Mode=OneWay}"
                                 TextWrapping="WrapWholeWords" />
-                        </StackPanel>
 
-                        <Grid
-                            Grid.Row="2"
-                            MinHeight="196">
-                            <Border
-                                Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                                BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
-                                BorderThickness="1"
-                                CornerRadius="18"
-                                Opacity="0.46" />
-
-                            <TextBlock
-                                Visibility="{x:Bind ViewModel.CurrentTrackEmptyVisibility, Mode=OneWay}"
-                                Style="{StaticResource AiTrackEmptyTextStyle}"
-                                Text="{x:Bind ViewModel.CurrentTrackEmptyText, Mode=OneWay}" />
-
-                            <Border
-                                Visibility="{x:Bind ViewModel.CurrentTrackCardVisibility, Mode=OneWay}"
-                                Margin="12"
-                                Padding="16"
-                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
-                                BorderThickness="1"
-                                CornerRadius="16">
-                                <StackPanel Spacing="10">
-                                    <TextBlock
-                                        FontSize="18"
-                                        FontWeight="SemiBold"
-                                        Text="{Binding ViewModel.InputState.CurrentInputFileName, ElementName=RootPage, Mode=OneWay}" />
-
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <TextBlock
-                                            Style="{StaticResource AiMetadataLabelTextStyle}"
-                                            Text="{x:Bind ViewModel.SourceFileLabelText, Mode=OneWay}" />
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            Text="{Binding ViewModel.InputState.CurrentInputPath, ElementName=RootPage, Mode=OneWay}"
-                                            TextWrapping="WrapWholeWords" />
-                                    </Grid>
-
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <TextBlock
-                                            Style="{StaticResource AiMetadataLabelTextStyle}"
-                                            Text="{x:Bind ViewModel.CurrentOutputDirectoryLabelText, Mode=OneWay}" />
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            Text="{Binding ViewModel.OutputSettings.EffectiveOutputDirectory, ElementName=RootPage, Mode=OneWay}"
-                                            TextWrapping="WrapWholeWords" />
-                                    </Grid>
-
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <TextBlock
-                                            Style="{StaticResource AiMetadataLabelTextStyle}"
-                                            Text="{x:Bind ViewModel.CurrentOutputPreviewLabelText, Mode=OneWay}" />
-                                        <TextBlock
-                                            Grid.Column="1"
-                                            Text="{Binding ViewModel.OutputSettings.EffectiveOutputFileNameWithExtension, ElementName=RootPage, Mode=OneWay}"
-                                            TextWrapping="WrapWholeWords" />
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-                        </Grid>
-
-                        <Border
-                            Grid.Row="3"
-                            Margin="0,4,0,0"
-                            Padding="10,8"
-                            Background="#1F4CC2FF"
-                            BorderBrush="#664CC2FF"
-                            BorderThickness="1"
-                            CornerRadius="12">
                             <StackPanel Spacing="6">
                                 <TextBlock
                                     FontWeight="SemiBold"
-                                    Foreground="White"
-                                    Text="{x:Bind ViewModel.CurrentModeRuntimeTitleText, Mode=OneWay}" />
+                                    Text="{x:Bind ViewModel.InterpolationScaleTitleText, Mode=OneWay}" />
+                                <ComboBox
+                                    DisplayMemberPath="DisplayName"
+                                    IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
+                                    ItemsSource="{Binding ViewModel.InterpolationSettings.AvailableScaleFactors, ElementName=RootPage, Mode=OneWay}"
+                                    SelectedItem="{Binding ViewModel.InterpolationSettings.SelectedScaleFactor, ElementName=RootPage, Mode=TwoWay}" />
                                 <TextBlock
-                                    Foreground="#FFD9F4FF"
-                                    Text="{x:Bind ViewModel.CurrentModeRuntimeNoteText, Mode=OneWay}"
-                                    TextWrapping="WrapWholeWords" />
-                                <TextBlock
-                                    Foreground="#FFD9F4FF"
+                                    Opacity="0.72"
                                     Style="{StaticResource CaptionTextStyle}"
-                                    Text="{x:Bind ViewModel.CurrentModeRuntimeVersionText, Mode=OneWay}"
-                                    TextWrapping="WrapWholeWords" />
-                                <TextBlock
-                                    Foreground="#FFD9F4FF"
-                                    Style="{StaticResource CaptionTextStyle}"
-                                    Text="{x:Bind ViewModel.CurrentModeGpuStatusText, Mode=OneWay}"
-                                    TextWrapping="WrapWholeWords" />
-                                <TextBlock
-                                    Foreground="#FFD9F4FF"
-                                    Style="{StaticResource CaptionTextStyle}"
-                                    Text="{x:Bind ViewModel.CurrentModeCpuStatusText, Mode=OneWay}"
-                                    TextWrapping="WrapWholeWords" />
-                                <TextBlock
-                                    Foreground="#FFD9F4FF"
-                                    Style="{StaticResource CaptionTextStyle}"
-                                    Text="{x:Bind ViewModel.CurrentModeModelSummaryText, Mode=OneWay}"
-                                    TextWrapping="WrapWholeWords" />
-                                <TextBlock
-                                    Foreground="#FFD9F4FF"
-                                    Style="{StaticResource CaptionTextStyle}"
-                                    Text="{x:Bind ViewModel.CurrentModePackageSummaryText, Mode=OneWay}"
+                                    Text="{x:Bind ViewModel.InterpolationScaleHintText, Mode=OneWay}"
                                     TextWrapping="WrapWholeWords" />
                             </StackPanel>
-                        </Border>
-                    </Grid>
-                </Border>
-            </Grid>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ViewModel.InterpolationDeviceTitleText, Mode=OneWay}" />
+                                <ComboBox
+                                    DisplayMemberPath="DisplayName"
+                                    IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
+                                    ItemsSource="{Binding ViewModel.InterpolationSettings.AvailableDeviceOptions, ElementName=RootPage, Mode=OneWay}"
+                                    SelectedItem="{Binding ViewModel.InterpolationSettings.SelectedDeviceOption, ElementName=RootPage, Mode=TwoWay}" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.InterpolationDeviceHintText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <ToggleSwitch
+                                    Header="{x:Bind ViewModel.InterpolationUhdTitleText, Mode=OneWay}"
+                                    IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
+                                    IsOn="{Binding ViewModel.InterpolationSettings.EnableUhdMode, ElementName=RootPage, Mode=TwoWay}" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.InterpolationUhdHintText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        Visibility="{x:Bind ViewModel.EnhancementDeferredVisibility, Mode=OneWay}"
+                        Style="{StaticResource AiInsetCardBorderStyle}">
+                        <StackPanel Spacing="8">
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.EnhancementDeferredTitleText, Mode=OneWay}" />
+                            <TextBlock
+                                Opacity="0.72"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.EnhancementDeferredDescriptionText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        Margin="0,4,0,0"
+                        Padding="10,8"
+                        Background="#1F4CC2FF"
+                        BorderBrush="#664CC2FF"
+                        BorderThickness="1"
+                        CornerRadius="12">
+                        <StackPanel Spacing="6">
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Foreground="White"
+                                Text="{x:Bind ViewModel.CurrentModeRuntimeTitleText, Mode=OneWay}" />
+                            <TextBlock
+                                Foreground="#FFD9F4FF"
+                                Text="{x:Bind ViewModel.CurrentModeRuntimeNoteText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Foreground="#FFD9F4FF"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.CurrentModeRuntimeVersionText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Foreground="#FFD9F4FF"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.CurrentModeGpuStatusText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Foreground="#FFD9F4FF"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.CurrentModeCpuStatusText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Foreground="#FFD9F4FF"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.CurrentModeModelSummaryText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Foreground="#FFD9F4FF"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.CurrentModePackageSummaryText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <Border
@@ -572,6 +639,7 @@
                                 Text="{x:Bind ViewModel.OutputFormatTitleText, Mode=OneWay}" />
                             <ComboBox
                                 DisplayMemberPath="DisplayName"
+                                IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
                                 ItemsSource="{Binding ViewModel.OutputSettings.AvailableOutputFormats, ElementName=RootPage, Mode=OneWay}"
                                 SelectedItem="{Binding ViewModel.OutputSettings.SelectedOutputFormat, ElementName=RootPage, Mode=TwoWay}" />
                             <TextBlock
@@ -601,6 +669,7 @@
 
                                 <TextBox
                                     IsReadOnly="True"
+                                    IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
                                     PlaceholderText="{x:Bind ViewModel.OutputDirectoryPlaceholderText, Mode=OneWay}"
                                     Text="{Binding ViewModel.OutputSettings.OutputDirectoryDisplayText, ElementName=RootPage, Mode=OneWay}" />
                                 <Button
@@ -626,6 +695,7 @@
                                 FontWeight="SemiBold"
                                 Text="{x:Bind ViewModel.OutputFileNameTitleText, Mode=OneWay}" />
                             <TextBox
+                                IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
                                 PlaceholderText="{x:Bind ViewModel.OutputFileNamePlaceholderText, Mode=OneWay}"
                                 Text="{Binding ViewModel.OutputSettings.OutputFileName, ElementName=RootPage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock
@@ -641,6 +711,71 @@
                             Opacity="0.78"
                             Text="{x:Bind ViewModel.OutputParameterSummaryText, Mode=OneWay}"
                             TextWrapping="WrapWholeWords" />
+                    </Border>
+
+                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
+                        <StackPanel Spacing="10">
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.ProcessingActionsTitleText, Mode=OneWay}" />
+                            <TextBlock
+                                Opacity="0.72"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.ProcessingActionsHintText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Button
+                                    Command="{x:Bind ViewModel.StartProcessingCommand, Mode=OneWay}"
+                                    Content="{x:Bind ViewModel.StartProcessingButtonText, Mode=OneWay}" />
+                                <Button
+                                    Grid.Column="1"
+                                    Command="{x:Bind ViewModel.CancelProcessingCommand, Mode=OneWay}"
+                                    Content="{x:Bind ViewModel.CancelProcessingButtonText, Mode=OneWay}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
+                        <StackPanel Spacing="10">
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.InterpolationProgressTitleText, Mode=OneWay}" />
+                            <ProgressBar
+                                Maximum="100"
+                                Value="{Binding ViewModel.InterpolationExecution.ProgressValue, ElementName=RootPage, Mode=OneWay}" />
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.InterpolationProgressStageTitleText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Opacity="0.72"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.InterpolationProgressDetailText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Opacity="0.78"
+                                Text="{x:Bind ViewModel.InterpolationResultSummaryText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock
+                                    Style="{StaticResource AiMetadataLabelTextStyle}"
+                                    Text="{x:Bind ViewModel.LastInterpolationOutputLabelText, Mode=OneWay}" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    Text="{Binding ViewModel.InterpolationExecution.LastOutputPath, ElementName=RootPage, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </Grid>
+                        </StackPanel>
                     </Border>
                 </StackPanel>
             </ScrollViewer>

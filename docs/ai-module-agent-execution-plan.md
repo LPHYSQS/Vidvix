@@ -6,11 +6,11 @@
 
 - 计划版本：`v5`
 - 项目：`Vidvix`
-- 当前阶段：`Stage 2`
-- 当前轮次：`R7`
-- 当前状态：`Completed`
+- 当前阶段：`Stage 3`
+- 当前轮次：`R9`
+- 当前状态：`Pending`
 - 当前执行 Agent：`Codex`
-- 最近完成轮次：`R7`
+- 最近完成轮次：`R8`
 - 最近完成时间：`2026-04-24`
 - 构建验证：`Passed`
 - 运行验证：`Passed`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已完成 `R7`，接入 `Tools/AI` runtime 目录解析、`RIFE` / `Real-ESRGAN` 模型描述、GPU / CPU 能力探测、许可证随包输出与 UI 状态展示；当前目录结构固定为 `Tools/AI/{Rife,RealEsrgan,Licenses,Manifests}`，已接线版本为 `RIFE 20221029 + rife-v4.6 (flownet.param/bin)`、`Real-ESRGAN v0.2.5.0 + realesrgan-x4plus / realesr-animevideov3-x2 / realesr-animevideov3-x4`。
-- 本轮修改文件：`Core/Interfaces/IAiRuntimeCatalogService.cs`, `Core/Models/ApplicationConfiguration.cs`, `Core/Models/AiRuntimeCatalog.cs`, `Services/AI/AiRuntimeCatalogService.cs`, `Services/AI/AiRuntimeProbeExecutor.cs`, `Services/AI/RifeRuntimeParser.cs`, `Services/AI/RealEsrganRuntimeParser.cs`, `ViewModels/AiWorkspaceViewModel.cs`, `ViewModels/AiWorkspaceViewModel.Runtime.cs`, `Views/AiPage.xaml`, `Views/AiPage.xaml.cs`, `Resources/Localization/zh-CN/ai.json`, `Resources/Localization/en-US/ai.json`, `Utils/AppCompositionRoot.cs`, `Vidvix.csproj`, `docs/ai-module-agent-execution-plan.md`
-- 本轮新增文件：`Core/Interfaces/IAiRuntimeCatalogService.cs`, `Core/Models/AiRuntimeCatalog.cs`, `Services/AI/AiRuntimeCatalogService.cs`, `Services/AI/AiRuntimeProbeExecutor.cs`, `Services/AI/RifeRuntimeParser.cs`, `Services/AI/RealEsrganRuntimeParser.cs`, `ViewModels/AiWorkspaceViewModel.Runtime.cs`
-- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`；`dotnet publish .\Vidvix.csproj -c Release -p:PublishProfile=Offline-win-x64 -v minimal` 通过，发布产物与 `artifacts\publish-offline` 均已包含 `Tools/AI`、`Licenses` 与 `Manifests`；实机探测确认 `RIFE` 的 `GPU` 与 `CPU(-g -1)` 均可用，`Real-ESRGAN` 的 `GPU` 可用；已成功启动 `artifacts\publish\win-x64\Vidvix.exe`，主窗口标题为 `Vidvix`、`Responding=True`，AI 页面渲染正常，未出现黑屏、白屏或闪退。
-- 当前遗留问题：<span style="color:#ff4d4f">`AI增强 / Real-ESRGAN` 当前 `CPU fallback` 未打通；`realesrgan-ncnn-vulkan.exe -g -1` 实测返回 `invalid gpu device`，因此本轮 UI 已明确展示为 `Unsupported`，`R9` 之前不得把增强 CPU 路线当作已交付能力。</span>
-- 下一轮必须处理：执行 `R8`，在本轮已接入的 runtime 目录、模型描述与探测结果之上完成 `AI补帧` workflow，直接复用 `RIFE` runtime catalog、设备状态和离线随包路径，不要重新发明 runtime 发现逻辑。
-- 下一轮禁止扩展：不要提前进入 `R9` 增强 workflow、`R10` 本地化硬化、`R11` 烟测封板或发布验证开发。
+- 本轮完成项：已完成 `R8`，新增 `AI补帧` workflow service、执行协调器、请求/结果模型与补帧参数状态，接通 `FFmpeg` 抽帧、`RIFE` 2x / 4x 补帧、原音轨回填、输出视频、阶段进度反馈与取消清理；AI 页面已补齐补帧参数区、执行控制区与最近结果区，并继续直接复用 `R7` 的 runtime catalog、设备探测和离线随包路径。另已在工作流内固定把模型暂存到带 `rife-v4.6` 名称的目录，以匹配 `rife-ncnn-vulkan` 的模型判定规则并避免误加载旧版 `contextnet.*` 路径。
+- 本轮修改文件：`Core/Interfaces/IAiInterpolationWorkflowService.cs`, `Core/Models/AiInterpolationModels.cs`, `Services/AI/AiInterpolationWorkflowService.cs`, `ViewModels/AiInterpolationExecutionCoordinator.cs`, `ViewModels/AiInterpolationExecutionState.cs`, `ViewModels/AiInterpolationSettingsState.cs`, `ViewModels/AiWorkspaceViewModel.cs`, `ViewModels/AiWorkspaceViewModel.Interpolation.cs`, `Views/AiPage.xaml`, `Resources/Localization/zh-CN/ai.json`, `Resources/Localization/en-US/ai.json`, `Utils/AppCompositionRoot.ServiceSets.cs`, `Utils/AppCompositionRoot.cs`, `docs/ai-module-agent-execution-plan.md`
+- 本轮新增文件：`Core/Interfaces/IAiInterpolationWorkflowService.cs`, `Core/Models/AiInterpolationModels.cs`, `Services/AI/AiInterpolationWorkflowService.cs`, `ViewModels/AiInterpolationExecutionCoordinator.cs`, `ViewModels/AiInterpolationExecutionState.cs`, `ViewModels/AiInterpolationSettingsState.cs`, `ViewModels/AiWorkspaceViewModel.Interpolation.cs`
+- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`；`dotnet publish .\Vidvix.csproj -c Release -p:PublishProfile=Offline-win-x64 -v minimal` 通过。仓库外临时 harness 已用真实样例视频跑通当前工作流：`320x180 / 12fps / 2s / AAC mono` 样例可完成 `2x` 补帧，输出文件可被 `FFmpeg -f null` 成功解码、输出帧率实测为 `24 fps` 且保留音轨；`480x270 / 18fps / 3s` 样例已验证取消能力，临时目录计数 `0 -> 0`，确认取消后清理完成；阶段计时显示当前链路最慢步骤为 `InterpolatingFrames`（本轮样例约 `2.37s`）。`bin\x64\Debug\net8.0-windows10.0.19041.0\Vidvix.exe` 与 `artifacts\publish\win-x64\Vidvix.exe` 均已成功启动，主窗口标题为 `Vidvix`、`Responding=True`，未出现黑屏、白屏或闪退。
+- 当前遗留问题：<span style="color:#ff4d4f">`AI增强 / Real-ESRGAN` 当前 `CPU fallback` 仍未打通；`realesrgan-ncnn-vulkan.exe -g -1` 实测返回 `invalid gpu device`，因此 `R9` 必须把该限制继续明确为阻断正式交付的问题，不能误宣称增强 CPU 路线可用。</span>
+- 下一轮必须处理：执行 `R9`，完成 `AI增强` workflow，接入模型档位切换、`2x` 到 `16x` 倍率链路、超采样后回缩策略、原音轨回填、进度反馈、取消能力，并给出 `CPU fallback` 的最终验证结论或阻断说明。
+- 下一轮禁止扩展：不要提前进入 `R10` 本地化热切换与交互硬化、`R11` 烟测封板或最终发布定稿；不要改写本轮已稳定的 `AI补帧` 架构边界。
 
 ## 执行协议
 
@@ -268,7 +268,7 @@ Tools/
 | R5   | Stage 1 | 素材列表、单视频约束与输出状态 | Completed | Codex      | 2026-04-24 | 已接入视频-only 素材库、多素材导入但单视频激活约束、`AI补帧` / `AI增强` 模式壳层与 `MP4/MKV` 基础输出状态，构建、测试与启动验证通过。 |
 | R6   | Stage 2 | AI 模型与配置下载、筛选、归位  | Completed | Codex      | 2026-04-24 | 已归位 `RIFE v4.6` 与 `Real-ESRGAN Standard/Anime(x2/x4)` 首发资产，补齐许可证、manifest、同步脚本和资产清单，`Tools/AI` 清洁度验证与构建/启动验证通过。 |
 | R7   | Stage 2 | AI runtime 打包与能力探测      | Completed | Codex      | 2026-04-24 | 已接入 `RIFE` / `Real-ESRGAN` runtime catalog、GPU/CPU 探测、许可证随包输出与 UI 状态展示；`RIFE` CPU fallback 可用，`Real-ESRGAN` CPU fallback 当前明确为 `Unsupported`。 |
-| R8   | Stage 3 | AI补帧工作流                   | Pending   | N/A        | N/A        | 未开始 |
+| R8   | Stage 3 | AI补帧工作流                   | Completed | Codex      | 2026-04-24 | 已接通 `RIFE` 2x / 4x 补帧闭环、原音轨回填、进度反馈、取消清理与 AI 页面补帧参数/结果区，真实样例与启动验证通过。 |
 | R9   | Stage 3 | AI增强工作流                   | Pending   | N/A        | N/A        | 未开始 |
 | R10  | Stage 4 | 本地化、交互硬化与错误收口     | Pending   | N/A        | N/A        | 未开始 |
 | R11  | Stage 4 | 烟测、离线发布验证与封板       | Pending   | N/A        | N/A        | 未开始 |
@@ -538,41 +538,41 @@ Tools/
 
 目标：
 
-- 完成 `AI补帧` 的首发闭环。
+- ~~完成 `AI补帧` 的首发闭环。~~
 
 建议主文件范围：
 
-- `Services/IAiInterpolationWorkflowService.cs`
-- `Services/AiInterpolationWorkflowService.cs`
-- `ViewModels/AiInterpolationExecutionCoordinator.cs`
-- AI 补帧相关请求/结果模型
-- AI 页面补帧参数区
+- ~~`Services/IAiInterpolationWorkflowService.cs`~~
+- ~~`Services/AiInterpolationWorkflowService.cs`~~
+- ~~`ViewModels/AiInterpolationExecutionCoordinator.cs`~~
+- ~~AI 补帧相关请求/结果模型~~
+- ~~AI 页面补帧参数区~~
 
 必须交付：
 
-- 抽帧
-- 调用 `RIFE`
-- 合并原音轨
-- 输出视频
-- 进度反馈
-- 取消能力
+- ~~抽帧~~
+- ~~调用 `RIFE`~~
+- ~~合并原音轨~~
+- ~~输出视频~~
+- ~~进度反馈~~
+- ~~取消能力~~
 
 首发 UI 建议：
 
-- 倍率：`2x`、`4x`
-- 设备：`自动 / GPU优先 / CPU`
-- 高级开关：`UHD 模式`
+- ~~倍率：`2x`、`4x`~~
+- ~~设备：`自动 / GPU优先 / CPU`~~
+- ~~高级开关：`UHD 模式`~~
 
 验收标准：
 
-- 至少一条样例视频可完成 `2x` 补帧
-- 取消后能清理临时目录
-- 失败原因能区分 runtime 缺失、设备不可用、输入不合法、执行失败
+- ~~至少一条样例视频可完成 `2x` 补帧~~
+- ~~取消后能清理临时目录~~
+- ~~失败原因能区分 runtime 缺失、设备不可用、输入不合法、执行失败~~
 
 交接要求：
 
-- 记录推荐测试视频规格
-- 记录补帧链路中最慢步骤
+- ~~记录推荐测试视频规格~~
+- ~~记录补帧链路中最慢步骤~~
 
 ### R9 AI增强工作流
 

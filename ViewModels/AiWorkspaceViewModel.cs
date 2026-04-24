@@ -42,6 +42,9 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             filePickerService: null,
             mediaImportDiscoveryService: null,
             aiRuntimeCatalogService: null,
+            aiInterpolationWorkflowService: null,
+            userPreferencesService: null,
+            fileRevealService: null,
             logger: null)
     {
     }
@@ -52,6 +55,9 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         IFilePickerService? filePickerService,
         IMediaImportDiscoveryService? mediaImportDiscoveryService,
         IAiRuntimeCatalogService? aiRuntimeCatalogService,
+        IAiInterpolationWorkflowService? aiInterpolationWorkflowService,
+        IUserPreferencesService? userPreferencesService,
+        IFileRevealService? fileRevealService,
         ILogger? logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -65,7 +71,24 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         InputState = new AiInputState();
         ModeState = new AiModeState();
         OutputSettings = new AiOutputSettingsState(BuildLaunchOutputFormats());
+        InterpolationSettings = new AiInterpolationSettingsState(
+            BuildInterpolationScaleFactorOptions(),
+            BuildInterpolationDeviceOptions());
+        InterpolationExecution = new AiInterpolationExecutionState();
         _statusText = GetReadyStatusMessage();
+        _aiInterpolationExecutionCoordinator =
+            aiInterpolationWorkflowService is not null &&
+            localizationService is not null &&
+            userPreferencesService is not null &&
+            fileRevealService is not null &&
+            logger is not null
+                ? new AiInterpolationExecutionCoordinator(
+                    aiInterpolationWorkflowService,
+                    localizationService,
+                    userPreferencesService,
+                    fileRevealService,
+                    logger)
+                : null;
 
         _importFilesCommand = new AsyncRelayCommand(ImportFilesAsync, CanImportFilesInternal);
         _selectOutputDirectoryCommand = new AsyncRelayCommand(SelectOutputDirectoryAsync, CanSelectOutputDirectoryInternal);
@@ -79,6 +102,8 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OutputSettings.PropertyChanged += OnOutputSettingsPropertyChanged;
 
         RefreshOutputContext();
+        RefreshInterpolationLocalization();
+        RefreshInterpolationModeProperties();
     }
 
     public AiMaterialLibraryState MaterialLibrary { get; }
@@ -112,11 +137,15 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             }
 
             OnPropertyChanged(nameof(CanStartProcessing));
+            OnPropertyChanged(nameof(CanEditProcessingParameters));
             NotifyCommandStates();
         }
     }
 
-    public bool CanStartProcessing => InputState.HasCurrentMaterial && !IsProcessing;
+    public bool CanStartProcessing =>
+        InputState.HasCurrentMaterial &&
+        !IsProcessing &&
+        ModeState.SelectedMode == AiWorkspaceMode.Interpolation;
 
     public Visibility MaterialsEmptyVisibility =>
         MaterialLibrary.HasNoMaterials
@@ -148,7 +177,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string PageDescriptionText =>
         GetLocalizedText(
             "ai.page.description",
-            "本轮已接入素材列表、单视频激活、模式切换壳层与基础输出设置状态；仍不启动实际 AI 推理。");
+            "R8 已交付 AI补帧 首发闭环：支持抽帧、RIFE 2x/4x 补帧、原音轨回填、输出视频、进度反馈与取消清理。");
 
     public string MaterialsSectionTitleText =>
         GetLocalizedText("ai.page.materials.title", "素材列表");
@@ -193,7 +222,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string WorkspaceModeSwitchHintText =>
         GetLocalizedText(
             "ai.page.workspace.modeHint",
-            "AI补帧 与 AI增强 共用同一份素材库与当前视频选择，后续只在各自模式下接入独立 workflow。");
+            "AI补帧 与 AI增强 共用同一份素材库与当前视频选择；R8 只接通 AI补帧，AI增强 保持为 R9 的独立工作流。");
 
     public string InterpolationModeLabelText =>
         GetLocalizedText("ai.interpolation.modeLabel", "AI补帧");
@@ -205,7 +234,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation
             ? GetLocalizedText(
                 "ai.interpolation.modeDescription",
-                "首发路线冻结为 RIFE，后续将接入倍率、设备策略、取消控制与进度反馈。")
+                "首发路线固定为 RIFE，当前已支持 2x / 4x 补帧、设备策略、进度反馈、原音轨回填与取消清理。")
             : GetLocalizedText(
                 "ai.enhancement.modeDescription",
                 "首发路线冻结为 Real-ESRGAN，倍率范围固定为 2x 到 16x，后续按增量方式接入模型与执行链路。");
@@ -227,7 +256,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation
             ? GetLocalizedText(
                 "ai.interpolation.trackHint",
-                "当前为 AI补帧 模式，单次只会将一个视频作为补帧输入；后续倍率、设备与执行结果都挂在本模式下。")
+                "当前为 AI补帧 模式，单次只会将一个视频作为补帧输入；倍率、设备、进度和输出结果都挂在本模式下。")
             : GetLocalizedText(
                 "ai.enhancement.trackHint",
                 "当前为 AI增强 模式，单次只会将一个视频作为增强输入；后续模型档位、倍率链路与高倍率提醒都挂在本模式下。");
@@ -263,7 +292,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string OutputSectionDescriptionText =>
         GetLocalizedText(
             "ai.page.output.description",
-            "输出设置已具备首发基础状态：格式仅保留 MP4 / MKV，目录默认跟随当前素材，文件名留空时自动按模式生成。");
+            "输出设置已直接接入 AI补帧 工作流：格式仍冻结为 MP4 / MKV，目录默认跟随当前素材，文件名留空时自动按模式生成。");
 
     public string OutputFormatTitleText =>
         GetLocalizedText("ai.page.output.format.title", "输出格式");
@@ -384,6 +413,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OutputAudioBadgeText));
         OnPropertyChanged(nameof(OutputParameterSummaryText));
         RefreshRuntimeLocalization();
+        RefreshInterpolationLocalization();
 
         StatusText = InputState.HasCurrentMaterial
             ? CreateSelectedMaterialStatusMessage(InputState.CurrentInputFileName)
@@ -557,21 +587,9 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         NotifyCommandStates();
     }
 
-    private Task StartProcessingAsync()
-    {
-        StatusText = GetStartDeferredStatusMessage();
-        return Task.CompletedTask;
-    }
+    private Task StartProcessingAsync() => StartCurrentModeProcessingAsync();
 
-    private void CancelProcessing()
-    {
-        if (!IsProcessing)
-        {
-            return;
-        }
-
-        IsProcessing = false;
-    }
+    private void CancelProcessing() => CancelCurrentProcessing();
 
     private void OnMaterialLibraryPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -605,6 +623,8 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OutputFileNamePlaceholderText));
         OnPropertyChanged(nameof(OutputParameterSummaryText));
         RefreshRuntimeLocalization();
+        RefreshInterpolationModeProperties();
+        RefreshInterpolationLocalization();
         StatusText = CreateModeChangedStatusMessage(GetCurrentModeDisplayName());
     }
 
@@ -624,6 +644,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         InputState.SetCurrentMaterial(MaterialLibrary.SelectedMaterial);
         RefreshOutputContext();
         RefreshInputDependentProperties();
+        RefreshInterpolationModeProperties();
 
         if (updateStatus)
         {
@@ -643,6 +664,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OutputDirectoryPlaceholderText));
         OnPropertyChanged(nameof(OutputFileNamePlaceholderText));
         OnPropertyChanged(nameof(OutputParameterSummaryText));
+        OnPropertyChanged(nameof(ProcessingActionsHintText));
         _startProcessingCommand.NotifyCanExecuteChanged();
     }
 
