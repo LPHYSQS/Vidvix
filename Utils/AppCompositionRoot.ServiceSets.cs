@@ -30,6 +30,7 @@ internal sealed record AppWorkflowServices(
     IMediaProcessingWorkflowService MediaProcessingWorkflowService,
     IAudioSeparationWorkflowService AudioSeparationWorkflowService,
     IAiRuntimeCatalogService AiRuntimeCatalogService,
+    IAiEnhancementWorkflowService AiEnhancementWorkflowService,
     IAiInterpolationWorkflowService AiInterpolationWorkflowService,
     ITrimWorkflowService TrimWorkflowService,
     IMergeMediaAnalysisService MergeMediaAnalysisService,

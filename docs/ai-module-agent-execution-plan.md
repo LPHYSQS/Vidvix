@@ -6,11 +6,11 @@
 
 - 计划版本：`v5`
 - 项目：`Vidvix`
-- 当前阶段：`Stage 3`
-- 当前轮次：`R9`
+- 当前阶段：`Stage 4`
+- 当前轮次：`R10`
 - 当前状态：`Pending`
 - 当前执行 Agent：`Codex`
-- 最近完成轮次：`R8`
+- 最近完成轮次：`R9`
 - 最近完成时间：`2026-04-24`
 - 构建验证：`Passed`
 - 运行验证：`Passed`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已完成 `R8`，新增 `AI补帧` workflow service、执行协调器、请求/结果模型与补帧参数状态，接通 `FFmpeg` 抽帧、`RIFE` 2x / 4x 补帧、原音轨回填、输出视频、阶段进度反馈与取消清理；AI 页面已补齐补帧参数区、执行控制区与最近结果区，并继续直接复用 `R7` 的 runtime catalog、设备探测和离线随包路径。另已在工作流内固定把模型暂存到带 `rife-v4.6` 名称的目录，以匹配 `rife-ncnn-vulkan` 的模型判定规则并避免误加载旧版 `contextnet.*` 路径。
-- 本轮修改文件：`Core/Interfaces/IAiInterpolationWorkflowService.cs`, `Core/Models/AiInterpolationModels.cs`, `Services/AI/AiInterpolationWorkflowService.cs`, `ViewModels/AiInterpolationExecutionCoordinator.cs`, `ViewModels/AiInterpolationExecutionState.cs`, `ViewModels/AiInterpolationSettingsState.cs`, `ViewModels/AiWorkspaceViewModel.cs`, `ViewModels/AiWorkspaceViewModel.Interpolation.cs`, `Views/AiPage.xaml`, `Resources/Localization/zh-CN/ai.json`, `Resources/Localization/en-US/ai.json`, `Utils/AppCompositionRoot.ServiceSets.cs`, `Utils/AppCompositionRoot.cs`, `docs/ai-module-agent-execution-plan.md`
-- 本轮新增文件：`Core/Interfaces/IAiInterpolationWorkflowService.cs`, `Core/Models/AiInterpolationModels.cs`, `Services/AI/AiInterpolationWorkflowService.cs`, `ViewModels/AiInterpolationExecutionCoordinator.cs`, `ViewModels/AiInterpolationExecutionState.cs`, `ViewModels/AiInterpolationSettingsState.cs`, `ViewModels/AiWorkspaceViewModel.Interpolation.cs`
-- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`；`dotnet publish .\Vidvix.csproj -c Release -p:PublishProfile=Offline-win-x64 -v minimal` 通过。仓库外临时 harness 已用真实样例视频跑通当前工作流：`320x180 / 12fps / 2s / AAC mono` 样例可完成 `2x` 补帧，输出文件可被 `FFmpeg -f null` 成功解码、输出帧率实测为 `24 fps` 且保留音轨；`480x270 / 18fps / 3s` 样例已验证取消能力，临时目录计数 `0 -> 0`，确认取消后清理完成；阶段计时显示当前链路最慢步骤为 `InterpolatingFrames`（本轮样例约 `2.37s`）。`bin\x64\Debug\net8.0-windows10.0.19041.0\Vidvix.exe` 与 `artifacts\publish\win-x64\Vidvix.exe` 均已成功启动，主窗口标题为 `Vidvix`、`Responding=True`，未出现黑屏、白屏或闪退。
-- 当前遗留问题：<span style="color:#ff4d4f">`AI增强 / Real-ESRGAN` 当前 `CPU fallback` 仍未打通；`realesrgan-ncnn-vulkan.exe -g -1` 实测返回 `invalid gpu device`，因此 `R9` 必须把该限制继续明确为阻断正式交付的问题，不能误宣称增强 CPU 路线可用。</span>
-- 下一轮必须处理：执行 `R9`，完成 `AI增强` workflow，接入模型档位切换、`2x` 到 `16x` 倍率链路、超采样后回缩策略、原音轨回填、进度反馈、取消能力，并给出 `CPU fallback` 的最终验证结论或阻断说明。
-- 下一轮禁止扩展：不要提前进入 `R10` 本地化热切换与交互硬化、`R11` 烟测封板或最终发布定稿；不要改写本轮已稳定的 `AI补帧` 架构边界。
+- 本轮完成项：已完成 `R9`，新增 `AI增强` workflow service、执行协调器、请求/结果模型与增强参数状态，接通 `Real-ESRGAN Standard / Anime` 档位、`2x` 到 `16x` 倍率规划、原生直跑 / 多次组合放大 / 超采样后回缩、原音轨回填、进度反馈、取消清理与 AI 页面增强参数区、结果区和高倍率提醒；同时将 `Real-ESRGAN CPU fallback` 的 probe 诊断明确收口为 `Unsupported / invalid gpu device`，避免误报为可用路径。
+- 本轮修改文件：`Core/Interfaces/IAiEnhancementWorkflowService.cs`, `Core/Models/AiEnhancementModels.cs`, `Core/Models/AiEnhancementScalePlanning.cs`, `Services/AI/AiEnhancementWorkflowService.cs`, `Services/AI/AiRuntimeProbeExecutor.cs`, `ViewModels/AiEnhancementExecutionCoordinator.cs`, `ViewModels/AiEnhancementExecutionState.cs`, `ViewModels/AiEnhancementSettingsState.cs`, `ViewModels/AiWorkspaceViewModel.cs`, `ViewModels/AiWorkspaceViewModel.Enhancement.cs`, `ViewModels/AiWorkspaceViewModel.Interpolation.cs`, `Views/AiPage.xaml`, `Resources/Localization/zh-CN/ai.json`, `Resources/Localization/en-US/ai.json`, `Utils/AppCompositionRoot.ServiceSets.cs`, `Utils/AppCompositionRoot.cs`, `docs/ai-module-agent-execution-plan.md`
+- 本轮新增文件：`Core/Interfaces/IAiEnhancementWorkflowService.cs`, `Core/Models/AiEnhancementModels.cs`, `Core/Models/AiEnhancementScalePlanning.cs`, `Services/AI/AiEnhancementWorkflowService.cs`, `ViewModels/AiEnhancementExecutionCoordinator.cs`, `ViewModels/AiEnhancementExecutionState.cs`, `ViewModels/AiEnhancementSettingsState.cs`, `ViewModels/AiWorkspaceViewModel.Enhancement.cs`
+- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`；`dotnet publish .\Vidvix.csproj -c Release -p:PublishProfile=Offline-win-x64 -v minimal` 通过。仓库外临时 harness 已用真实样例视频跑通当前增强工作流：`64x36 / 12fps / 2s / AAC mono` 样例已验证 `Standard 4x` 原生直跑、`Anime 8x` 组合放大（`4x -> 2x`）与 `Standard 3x` 超采样后回缩（`4x -> 3x`），输出分别为 `256x144`、`512x288`、`192x108`，均保留原音轨且可被 `Tools\ffmpeg\ffmpeg.exe -v error -i <file> -f null -` 成功解码；`128x72 / 18fps / 3s / AAC mono` 样例已验证取消能力，临时目录计数 `0 -> 0`；`AiEnhancementHarness.exe --probe` 结果为 `GPU=Available`、`CPU=Unsupported`，直接执行 `realesrgan-ncnn-vulkan.exe -g -1` 原始输出包含 `invalid gpu device`；`bin\x64\Debug\net8.0-windows10.0.19041.0\Vidvix.exe` 与 `artifacts\publish\win-x64\Vidvix.exe` 均已成功启动，主窗口标题为 `Vidvix`、`Responding=True`，未出现黑屏、白屏或闪退。
+- 当前遗留问题：<span style="color:#ff4d4f">`AI增强 / Real-ESRGAN` 当前 `CPU fallback` 仍为阻断正式交付的问题；probe 与直接 CLI 均确认 `realesrgan-ncnn-vulkan.exe -g -1` 返回 `Unsupported / invalid gpu device`，因此后续轮次只能做文案、交互和错误收口，不能误宣称增强 CPU 路线可用。</span>
+- 下一轮必须处理：执行 `R10`，完成 `AI` 模块双语文案、语言热切换、运行中交互锁定、输出目录反馈与统一错误提示收口。
+- 下一轮禁止扩展：不要提前进入 `R11` 烟测封板、最终发布定稿或额外 runtime / 模型升级；不要改写本轮已稳定的 `AI补帧` 与 `AI增强` workflow 架构边界。
 
 ## 执行协议
 
@@ -269,7 +269,7 @@ Tools/
 | R6   | Stage 2 | AI 模型与配置下载、筛选、归位  | Completed | Codex      | 2026-04-24 | 已归位 `RIFE v4.6` 与 `Real-ESRGAN Standard/Anime(x2/x4)` 首发资产，补齐许可证、manifest、同步脚本和资产清单，`Tools/AI` 清洁度验证与构建/启动验证通过。 |
 | R7   | Stage 2 | AI runtime 打包与能力探测      | Completed | Codex      | 2026-04-24 | 已接入 `RIFE` / `Real-ESRGAN` runtime catalog、GPU/CPU 探测、许可证随包输出与 UI 状态展示；`RIFE` CPU fallback 可用，`Real-ESRGAN` CPU fallback 当前明确为 `Unsupported`。 |
 | R8   | Stage 3 | AI补帧工作流                   | Completed | Codex      | 2026-04-24 | 已接通 `RIFE` 2x / 4x 补帧闭环、原音轨回填、进度反馈、取消清理与 AI 页面补帧参数/结果区，真实样例与启动验证通过。 |
-| R9   | Stage 3 | AI增强工作流                   | Pending   | N/A        | N/A        | 未开始 |
+| R9   | Stage 3 | AI增强工作流                   | Completed | Codex      | 2026-04-24 | 已接通 `Real-ESRGAN Standard / Anime`、`2x` 到 `16x` 执行规划、超采样回缩、音轨回填、进度/取消与页面参数区；真实样例、发布验证与 `CPU fallback` 阻断结论均已完成。 |
 | R10  | Stage 4 | 本地化、交互硬化与错误收口     | Pending   | N/A        | N/A        | 未开始 |
 | R11  | Stage 4 | 烟测、离线发布验证与封板       | Pending   | N/A        | N/A        | 未开始 |
 
@@ -578,7 +578,7 @@ Tools/
 
 目标：
 
-- 完成 `AI增强` 的首发闭环，并独立验证 `2x` 到 `16x`、超采样回缩链路和 CPU fallback。
+- ~~完成 `AI增强` 的首发闭环，并独立验证 `2x` 到 `16x`、超采样回缩链路和 CPU fallback。~~
 
 建议主文件范围：
 
@@ -590,27 +590,27 @@ Tools/
 
 必须交付：
 
-- 模型档位切换：`Standard` / `Anime`
-- 倍率切换：`2x` 到 `16x`
-- 默认倍率：`2x`
-- 高倍率提醒：`>= 8x`
-- 原生倍率直跑策略
-- 非原生倍率超采样后回缩策略
-- 增强输出与原音轨回填
-- 进度反馈
-- 取消能力
+- ~~模型档位切换：`Standard` / `Anime`~~
+- ~~倍率切换：`2x` 到 `16x`~~
+- ~~默认倍率：`2x`~~
+- ~~高倍率提醒：`>= 8x`~~
+- ~~原生倍率直跑策略~~
+- ~~非原生倍率超采样后回缩策略~~
+- ~~增强输出与原音轨回填~~
+- ~~进度反馈~~
+- ~~取消能力~~
 
 验收标准：
 
-- `2x`、`4x`、`8x`、`16x` 中至少覆盖“原生倍率直跑”和“多次组合放大”两类路径
-- `3x`、`5x`、`6x`、`7x`、`9x` 到 `15x` 中至少覆盖一条“超采样后回缩”路径
-- CPU fallback 已验证，或被明确定义为阻断正式交付的问题
+- ~~`2x`、`4x`、`8x`、`16x` 中至少覆盖“原生倍率直跑”和“多次组合放大”两类路径~~
+- ~~`3x`、`5x`、`6x`、`7x`、`9x` 到 `15x` 中至少覆盖一条“超采样后回缩”路径~~
+- ~~CPU fallback 已验证，或被明确定义为阻断正式交付的问题~~
 
 交接要求：
 
-- 记录底层原生倍率集合到底是 `2x`、`4x`，还是两者同时可用
-- 记录高倍率告警阈值的实测结论是否需要从 `8x` 调整
-- 记录 CPU fallback 的验证结果和限制条件
+- ~~记录底层原生倍率集合到底是 `2x`、`4x`，还是两者同时可用~~
+- ~~记录高倍率告警阈值的实测结论是否需要从 `8x` 调整~~
+- ~~记录 CPU fallback 的验证结果和限制条件~~
 
 ### R10 本地化、交互硬化与错误收口
 

@@ -211,7 +211,7 @@ internal sealed class AiRuntimeProbeExecutor
                 return new AiExecutionSupportStatus
                 {
                     State = AiExecutionSupportState.Unsupported,
-                    DiagnosticMessage = SummarizeDiagnostic(result)
+                    DiagnosticMessage = BuildUnsupportedRealEsrganCpuDiagnostic(result)
                 };
             }
 
@@ -354,13 +354,50 @@ internal sealed class AiRuntimeProbeExecutor
             .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(line => line.Trim())
             .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
+
+        if (lines.Length == 0)
+        {
+            return $"Probe exited with code {result.ExitCode}.";
+        }
+
+        var priorityLines = lines
+            .Where(IsPriorityDiagnosticLine)
+            .Take(3)
+            .ToArray();
+        if (priorityLines.Length > 0)
+        {
+            return string.Join(" | ", priorityLines);
+        }
+
+        var summaryLines = lines
             .Take(3)
             .ToArray();
 
-        return lines.Length > 0
-            ? string.Join(" | ", lines)
-            : $"Probe exited with code {result.ExitCode}.";
+        return string.Join(" | ", summaryLines);
     }
+
+    private static string BuildUnsupportedRealEsrganCpuDiagnostic(ProbeProcessResult result)
+    {
+        const string fallbackMessage = "invalid gpu device";
+        var invalidGpuLine = result.CombinedOutput
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim())
+            .FirstOrDefault(line => line.Contains(fallbackMessage, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(invalidGpuLine))
+        {
+            return invalidGpuLine;
+        }
+
+        return fallbackMessage;
+    }
+
+    private static bool IsPriorityDiagnosticLine(string line) =>
+        line.Contains("invalid gpu device", StringComparison.OrdinalIgnoreCase) ||
+        line.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+        line.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
+        line.Contains("unsupported", StringComparison.OrdinalIgnoreCase);
 
     private static AiExecutionSupportStatus CreateProbeFailedStatus(string diagnosticMessage) =>
         new()

@@ -25,8 +25,8 @@ public sealed partial class AiWorkspaceViewModel
             ? Visibility.Visible
             : Visibility.Collapsed;
 
-    public Visibility EnhancementDeferredVisibility =>
-        ModeState.SelectedMode == AiWorkspaceMode.Enhancement
+    public Visibility InterpolationProgressVisibility =>
+        ModeState.SelectedMode == AiWorkspaceMode.Interpolation
             ? Visibility.Visible
             : Visibility.Collapsed;
 
@@ -67,14 +67,6 @@ public sealed partial class AiWorkspaceViewModel
             "ai.interpolation.settings.uhd.hint",
             "4K 或更高分辨率素材建议开启。该模式更稳，但显存占用和耗时都会明显上升。");
 
-    public string EnhancementDeferredTitleText =>
-        GetLocalizedText("ai.enhancement.pending.title", "AI增强待下一轮接入");
-
-    public string EnhancementDeferredDescriptionText =>
-        GetLocalizedText(
-            "ai.enhancement.pending.description",
-            "R8 只交付 AI补帧 工作流。AI增强 的模型档位、倍率链路与高倍率提醒会在 R9 独立接入。");
-
     public string ProcessingActionsTitleText =>
         GetLocalizedText("ai.page.processing.title", "执行控制");
 
@@ -85,12 +77,12 @@ public sealed partial class AiWorkspaceViewModel
                 "执行时会自动抽帧、运行 RIFE、回填原音轨并生成输出视频；处理中会锁定导入、模式和输出设置。")
             : GetLocalizedText(
                 "ai.enhancement.action.hint",
-                "当前模式尚未接入真实执行链路，请先切回 AI补帧，或等待 R9 完成 AI增强 工作流。");
+                "执行时会自动抽帧、运行 Real-ESRGAN、按规划组合放大或超采样回缩、回填原音轨并生成输出视频；处理中会锁定导入、模式和输出设置。");
 
     public string StartProcessingButtonText =>
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation
             ? GetLocalizedText("ai.interpolation.action.start", "开始补帧")
-            : GetLocalizedText("ai.enhancement.action.startPending", "AI增强待 R9 开放");
+            : GetLocalizedText("ai.enhancement.action.start", "开始增强");
 
     public string CancelProcessingButtonText =>
         GetLocalizedText("ai.interpolation.action.cancel", "取消任务");
@@ -126,7 +118,7 @@ public sealed partial class AiWorkspaceViewModel
     private Task StartCurrentModeProcessingAsync() =>
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation
             ? StartInterpolationProcessingAsync()
-            : StartEnhancementDeferredAsync();
+            : StartEnhancementProcessingAsync();
 
     private async Task StartInterpolationProcessingAsync()
     {
@@ -210,12 +202,6 @@ public sealed partial class AiWorkspaceViewModel
         }
     }
 
-    private Task StartEnhancementDeferredAsync()
-    {
-        StatusText = GetEnhancementDeferredStatusMessage();
-        return Task.CompletedTask;
-    }
-
     private void CancelCurrentProcessing()
     {
         if (!IsProcessing)
@@ -224,9 +210,17 @@ public sealed partial class AiWorkspaceViewModel
         }
 
         _processingCancellationSource?.Cancel();
-        InterpolationExecution.DetailText = GetInterpolationCancellingStatusMessage();
-        StatusText = GetInterpolationCancellingStatusMessage();
-        OnPropertyChanged(nameof(InterpolationProgressDetailText));
+        if (ModeState.SelectedMode == AiWorkspaceMode.Interpolation)
+        {
+            InterpolationExecution.DetailText = GetInterpolationCancellingStatusMessage();
+            StatusText = GetInterpolationCancellingStatusMessage();
+            OnPropertyChanged(nameof(InterpolationProgressDetailText));
+            return;
+        }
+
+        EnhancementExecution.DetailText = GetEnhancementCancellingStatusMessage();
+        StatusText = GetEnhancementCancellingStatusMessage();
+        OnPropertyChanged(nameof(EnhancementProgressDetailText));
     }
 
     private void RefreshInterpolationLocalization()
@@ -237,7 +231,7 @@ public sealed partial class AiWorkspaceViewModel
 
         OnPropertyChanged(nameof(CanEditProcessingParameters));
         OnPropertyChanged(nameof(InterpolationControlsVisibility));
-        OnPropertyChanged(nameof(EnhancementDeferredVisibility));
+        OnPropertyChanged(nameof(InterpolationProgressVisibility));
         OnPropertyChanged(nameof(InterpolationSettingsTitleText));
         OnPropertyChanged(nameof(InterpolationSettingsDescriptionText));
         OnPropertyChanged(nameof(InterpolationScaleTitleText));
@@ -246,8 +240,6 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(InterpolationDeviceHintText));
         OnPropertyChanged(nameof(InterpolationUhdTitleText));
         OnPropertyChanged(nameof(InterpolationUhdHintText));
-        OnPropertyChanged(nameof(EnhancementDeferredTitleText));
-        OnPropertyChanged(nameof(EnhancementDeferredDescriptionText));
         OnPropertyChanged(nameof(ProcessingActionsTitleText));
         OnPropertyChanged(nameof(ProcessingActionsHintText));
         OnPropertyChanged(nameof(StartProcessingButtonText));
@@ -265,7 +257,7 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(CanStartProcessing));
         OnPropertyChanged(nameof(CanEditProcessingParameters));
         OnPropertyChanged(nameof(InterpolationControlsVisibility));
-        OnPropertyChanged(nameof(EnhancementDeferredVisibility));
+        OnPropertyChanged(nameof(InterpolationProgressVisibility));
         OnPropertyChanged(nameof(InterpolationScaleHintText));
         OnPropertyChanged(nameof(InterpolationDeviceHintText));
         OnPropertyChanged(nameof(ProcessingActionsHintText));
@@ -367,11 +359,6 @@ public sealed partial class AiWorkspaceViewModel
         GetLocalizedText(
             "ai.status.interpolationUnavailable",
             "当前运行环境未接入 AI补帧 工作流服务，暂时无法启动补帧。");
-
-    private string GetEnhancementDeferredStatusMessage() =>
-        GetLocalizedText(
-            "ai.status.enhancementDeferred",
-            "R8 只交付 AI补帧 工作流；AI增强 将在 R9 独立接入。");
 
     private string GetInterpolationGenericFailureReason() =>
         GetLocalizedText("ai.interpolation.failure.unexpected", "补帧执行失败，请重试。");

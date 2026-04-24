@@ -207,12 +207,21 @@ public sealed class AppCompositionRoot
             mediaRuntime.FFmpegService,
             localizationService,
             Logger);
+        var aiEnhancementWorkflowService = new AiEnhancementWorkflowService(
+            Configuration,
+            aiRuntimeCatalogService,
+            mediaRuntime.MediaInfoService,
+            mediaRuntime.RuntimeService,
+            mediaRuntime.FFmpegService,
+            localizationService,
+            Logger);
 
         return new AppWorkflowServices(
             new MediaImportDiscoveryService(),
             mediaProcessingWorkflowService,
             audioSeparationWorkflowService,
             aiRuntimeCatalogService,
+            aiEnhancementWorkflowService,
             aiInterpolationWorkflowService,
             trimWorkflowService,
             mergeMediaAnalysisService,
@@ -273,6 +282,7 @@ public sealed class AppCompositionRoot
             infrastructure.FilePickerService,
             workflows.MediaImportDiscoveryService,
             workflows.AiRuntimeCatalogService,
+            workflows.AiEnhancementWorkflowService,
             workflows.AiInterpolationWorkflowService,
             infrastructure.UserPreferencesService,
             infrastructure.FileRevealService,

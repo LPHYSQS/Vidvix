@@ -42,6 +42,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             filePickerService: null,
             mediaImportDiscoveryService: null,
             aiRuntimeCatalogService: null,
+            aiEnhancementWorkflowService: null,
             aiInterpolationWorkflowService: null,
             userPreferencesService: null,
             fileRevealService: null,
@@ -55,6 +56,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         IFilePickerService? filePickerService,
         IMediaImportDiscoveryService? mediaImportDiscoveryService,
         IAiRuntimeCatalogService? aiRuntimeCatalogService,
+        IAiEnhancementWorkflowService? aiEnhancementWorkflowService,
         IAiInterpolationWorkflowService? aiInterpolationWorkflowService,
         IUserPreferencesService? userPreferencesService,
         IFileRevealService? fileRevealService,
@@ -71,11 +73,28 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         InputState = new AiInputState();
         ModeState = new AiModeState();
         OutputSettings = new AiOutputSettingsState(BuildLaunchOutputFormats());
+        EnhancementSettings = new AiEnhancementSettingsState(
+            BuildEnhancementModelTierOptions(),
+            BuildEnhancementScaleOptions());
+        EnhancementExecution = new AiEnhancementExecutionState();
         InterpolationSettings = new AiInterpolationSettingsState(
             BuildInterpolationScaleFactorOptions(),
             BuildInterpolationDeviceOptions());
         InterpolationExecution = new AiInterpolationExecutionState();
         _statusText = GetReadyStatusMessage();
+        _aiEnhancementExecutionCoordinator =
+            aiEnhancementWorkflowService is not null &&
+            localizationService is not null &&
+            userPreferencesService is not null &&
+            fileRevealService is not null &&
+            logger is not null
+                ? new AiEnhancementExecutionCoordinator(
+                    aiEnhancementWorkflowService,
+                    localizationService,
+                    userPreferencesService,
+                    fileRevealService,
+                    logger)
+                : null;
         _aiInterpolationExecutionCoordinator =
             aiInterpolationWorkflowService is not null &&
             localizationService is not null &&
@@ -100,10 +119,13 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         MaterialLibrary.PropertyChanged += OnMaterialLibraryPropertyChanged;
         ModeState.PropertyChanged += OnModeStatePropertyChanged;
         OutputSettings.PropertyChanged += OnOutputSettingsPropertyChanged;
+        EnhancementSettings.PropertyChanged += OnEnhancementSettingsPropertyChanged;
 
         RefreshOutputContext();
         RefreshInterpolationLocalization();
+        RefreshEnhancementLocalization();
         RefreshInterpolationModeProperties();
+        RefreshEnhancementModeProperties();
     }
 
     public AiMaterialLibraryState MaterialLibrary { get; }
@@ -144,8 +166,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
     public bool CanStartProcessing =>
         InputState.HasCurrentMaterial &&
-        !IsProcessing &&
-        ModeState.SelectedMode == AiWorkspaceMode.Interpolation;
+        !IsProcessing;
 
     public Visibility MaterialsEmptyVisibility =>
         MaterialLibrary.HasNoMaterials
@@ -177,7 +198,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string PageDescriptionText =>
         GetLocalizedText(
             "ai.page.description",
-            "R8 已交付 AI补帧 首发闭环：支持抽帧、RIFE 2x/4x 补帧、原音轨回填、输出视频、进度反馈与取消清理。");
+            "R9 已交付 AI补帧 与 AI增强 首发闭环：支持 RIFE 2x/4x 补帧，以及 Real-ESRGAN Standard / Anime、2x 到 16x 增强、超采样回缩、原音轨回填、进度反馈与取消清理。");
 
     public string MaterialsSectionTitleText =>
         GetLocalizedText("ai.page.materials.title", "素材列表");
@@ -222,7 +243,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string WorkspaceModeSwitchHintText =>
         GetLocalizedText(
             "ai.page.workspace.modeHint",
-            "AI补帧 与 AI增强 共用同一份素材库与当前视频选择；R8 只接通 AI补帧，AI增强 保持为 R9 的独立工作流。");
+            "AI补帧 与 AI增强 共用同一份素材库与当前视频选择；两个模式都已接入独立 workflow，切换模式不会污染当前输入与输出状态。");
 
     public string InterpolationModeLabelText =>
         GetLocalizedText("ai.interpolation.modeLabel", "AI补帧");
@@ -237,7 +258,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
                 "首发路线固定为 RIFE，当前已支持 2x / 4x 补帧、设备策略、进度反馈、原音轨回填与取消清理。")
             : GetLocalizedText(
                 "ai.enhancement.modeDescription",
-                "首发路线冻结为 Real-ESRGAN，倍率范围固定为 2x 到 16x，后续按增量方式接入模型与执行链路。");
+                "首发路线固定为 Real-ESRGAN，当前已支持 Standard / Anime、2x 到 16x 倍率、组合放大、超采样回缩、原音轨回填、进度反馈与取消清理。");
 
     public string CurrentTrackTitleText =>
         GetLocalizedText("ai.page.workspace.inputTrackTitle", "当前输入轨道");
@@ -259,7 +280,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
                 "当前为 AI补帧 模式，单次只会将一个视频作为补帧输入；倍率、设备、进度和输出结果都挂在本模式下。")
             : GetLocalizedText(
                 "ai.enhancement.trackHint",
-                "当前为 AI增强 模式，单次只会将一个视频作为增强输入；后续模型档位、倍率链路与高倍率提醒都挂在本模式下。");
+                "当前为 AI增强 模式，单次只会将一个视频作为增强输入；模型档位、倍率链路、高倍率提醒与最近结果都挂在本模式下。");
 
     public string CurrentTrackEmptyText =>
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation
@@ -292,7 +313,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string OutputSectionDescriptionText =>
         GetLocalizedText(
             "ai.page.output.description",
-            "输出设置已直接接入 AI补帧 工作流：格式仍冻结为 MP4 / MKV，目录默认跟随当前素材，文件名留空时自动按模式生成。");
+            "输出设置已直接接入 AI补帧 与 AI增强 workflow：格式仍冻结为 MP4 / MKV，目录默认跟随当前素材，文件名留空时自动按模式生成。");
 
     public string OutputFormatTitleText =>
         GetLocalizedText("ai.page.output.format.title", "输出格式");
@@ -358,13 +379,15 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         GetLocalizedText("ai.page.output.badge.audio", "默认保留原音轨");
 
     public string OutputParameterSummaryText =>
-        FormatLocalizedText(
-            "ai.page.output.summary",
-            $"当前参数状态：模式 {GetCurrentModeDisplayName()}，输入 {GetCurrentInputSummaryText()}，输出 {OutputSettings.SelectedOutputFormat.DisplayName}，文件名 {OutputSettings.EffectiveOutputFileName}，原音轨默认跟随源文件。",
-            ("mode", GetCurrentModeDisplayName()),
-            ("input", GetCurrentInputSummaryText()),
-            ("format", OutputSettings.SelectedOutputFormat.DisplayName),
-            ("fileName", OutputSettings.EffectiveOutputFileName));
+        ModeState.SelectedMode == AiWorkspaceMode.Interpolation
+            ? FormatLocalizedText(
+                "ai.page.output.summary",
+                $"当前参数状态：模式 {GetCurrentModeDisplayName()}，输入 {GetCurrentInputSummaryText()}，输出 {OutputSettings.SelectedOutputFormat.DisplayName}，文件名 {OutputSettings.EffectiveOutputFileName}，原音轨默认跟随源文件。",
+                ("mode", GetCurrentModeDisplayName()),
+                ("input", GetCurrentInputSummaryText()),
+                ("format", OutputSettings.SelectedOutputFormat.DisplayName),
+                ("fileName", OutputSettings.EffectiveOutputFileName))
+            : BuildEnhancementParameterSummaryText();
 
     public void RefreshLocalization()
     {
@@ -414,6 +437,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OutputParameterSummaryText));
         RefreshRuntimeLocalization();
         RefreshInterpolationLocalization();
+        RefreshEnhancementLocalization();
 
         StatusText = InputState.HasCurrentMaterial
             ? CreateSelectedMaterialStatusMessage(InputState.CurrentInputFileName)
@@ -625,6 +649,8 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         RefreshRuntimeLocalization();
         RefreshInterpolationModeProperties();
         RefreshInterpolationLocalization();
+        RefreshEnhancementModeProperties();
+        RefreshEnhancementLocalization();
         StatusText = CreateModeChangedStatusMessage(GetCurrentModeDisplayName());
     }
 
@@ -666,6 +692,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OutputParameterSummaryText));
         OnPropertyChanged(nameof(ProcessingActionsHintText));
         _startProcessingCommand.NotifyCanExecuteChanged();
+        RefreshEnhancementModeProperties();
     }
 
     private void RefreshOutputContext()

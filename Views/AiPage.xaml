@@ -532,17 +532,68 @@
                     </Border>
 
                     <Border
-                        Visibility="{x:Bind ViewModel.EnhancementDeferredVisibility, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.EnhancementControlsVisibility, Mode=OneWay}"
                         Style="{StaticResource AiInsetCardBorderStyle}">
-                        <StackPanel Spacing="8">
+                        <StackPanel Spacing="10">
                             <TextBlock
                                 FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.EnhancementDeferredTitleText, Mode=OneWay}" />
+                                Text="{x:Bind ViewModel.EnhancementSettingsTitleText, Mode=OneWay}" />
                             <TextBlock
                                 Opacity="0.72"
                                 Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.EnhancementDeferredDescriptionText, Mode=OneWay}"
+                                Text="{x:Bind ViewModel.EnhancementSettingsDescriptionText, Mode=OneWay}"
                                 TextWrapping="WrapWholeWords" />
+
+                            <StackPanel Spacing="6">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ViewModel.EnhancementModelTierTitleText, Mode=OneWay}" />
+                                <ComboBox
+                                    DisplayMemberPath="DisplayName"
+                                    IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
+                                    ItemsSource="{Binding ViewModel.EnhancementSettings.AvailableModelTierOptions, ElementName=RootPage, Mode=OneWay}"
+                                    SelectedItem="{Binding ViewModel.EnhancementSettings.SelectedModelTierOption, ElementName=RootPage, Mode=TwoWay}" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.EnhancementModelTierHintText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ViewModel.EnhancementScaleTitleText, Mode=OneWay}" />
+                                <ComboBox
+                                    DisplayMemberPath="DisplayName"
+                                    IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
+                                    ItemsSource="{Binding ViewModel.EnhancementSettings.AvailableScaleOptions, ElementName=RootPage, Mode=OneWay}"
+                                    SelectedItem="{Binding ViewModel.EnhancementSettings.SelectedScaleOption, ElementName=RootPage, Mode=TwoWay}" />
+                                <TextBlock
+                                    Opacity="0.72"
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.EnhancementScaleHintText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+
+                            <Border
+                                Visibility="{x:Bind ViewModel.EnhancementHighLoadWarningVisibility, Mode=OneWay}"
+                                Padding="12"
+                                Background="#1AF59E0B"
+                                BorderBrush="#66F59E0B"
+                                BorderThickness="1"
+                                CornerRadius="12">
+                                <StackPanel Spacing="4">
+                                    <TextBlock
+                                        FontWeight="SemiBold"
+                                        Text="{x:Bind ViewModel.EnhancementHighLoadTitleText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Opacity="0.82"
+                                        Style="{StaticResource CaptionTextStyle}"
+                                        Text="{x:Bind ViewModel.EnhancementHighLoadWarningText, Mode=OneWay}"
+                                        TextWrapping="WrapWholeWords" />
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
 
@@ -713,7 +764,9 @@
                             TextWrapping="WrapWholeWords" />
                     </Border>
 
-                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
+                    <Border
+                        Visibility="{x:Bind ViewModel.InterpolationProgressVisibility, Mode=OneWay}"
+                        Style="{StaticResource AiInsetCardBorderStyle}">
                         <StackPanel Spacing="10">
                             <TextBlock
                                 FontWeight="SemiBold"
@@ -773,6 +826,46 @@
                                 <TextBlock
                                     Grid.Column="1"
                                     Text="{Binding ViewModel.InterpolationExecution.LastOutputPath, ElementName=RootPage, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        Visibility="{x:Bind ViewModel.EnhancementProgressVisibility, Mode=OneWay}"
+                        Style="{StaticResource AiInsetCardBorderStyle}">
+                        <StackPanel Spacing="10">
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.EnhancementProgressTitleText, Mode=OneWay}" />
+                            <ProgressBar
+                                Maximum="100"
+                                Value="{Binding ViewModel.EnhancementExecution.ProgressValue, ElementName=RootPage, Mode=OneWay}" />
+                            <TextBlock
+                                FontWeight="SemiBold"
+                                Text="{x:Bind ViewModel.EnhancementProgressStageTitleText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Opacity="0.72"
+                                Style="{StaticResource CaptionTextStyle}"
+                                Text="{x:Bind ViewModel.EnhancementProgressDetailText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Opacity="0.78"
+                                Text="{x:Bind ViewModel.EnhancementResultSummaryText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock
+                                    Style="{StaticResource AiMetadataLabelTextStyle}"
+                                    Text="{x:Bind ViewModel.LastEnhancementOutputLabelText, Mode=OneWay}" />
+                                <TextBlock
+                                    Grid.Column="1"
+                                    Text="{Binding ViewModel.EnhancementExecution.LastOutputPath, ElementName=RootPage, Mode=OneWay}"
                                     TextWrapping="WrapWholeWords" />
                             </Grid>
                         </StackPanel>
