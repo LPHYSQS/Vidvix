@@ -116,18 +116,6 @@
                             <TextBlock Text="{x:Bind ViewModel.MaterialsImportButtonText, Mode=OneWay}" />
                         </StackPanel>
                     </Button>
-
-                    <Border
-                        Padding="10,8"
-                        Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                        BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
-                        BorderThickness="1"
-                        CornerRadius="12">
-                        <TextBlock
-                            Style="{StaticResource CaptionTextStyle}"
-                            Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                            TextWrapping="WrapWholeWords" />
-                    </Border>
                 </StackPanel>
 
                 <Grid Grid.Row="2">
