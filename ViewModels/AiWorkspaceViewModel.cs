@@ -222,18 +222,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string MaterialsImportButtonText =>
         GetLocalizedText("ai.page.materials.importFiles", "导入视频");
 
-    public string MaterialCountText =>
-        FormatLocalizedText(
-            "ai.page.materials.count",
-            $"共 {MaterialLibrary.MaterialCount} 个素材",
-            ("count", MaterialLibrary.MaterialCount));
-
-    public string VideoOnlyImportBadgeText =>
-        GetLocalizedText("ai.page.materials.badge.videoOnly", "视频-only 导入");
-
-    public string SingleVideoExecutionBadgeText =>
-        GetLocalizedText("ai.page.materials.badge.singleSelection", "单次单视频执行");
-
     public string MaterialsPlaceholderText =>
         GetLocalizedText(
             "ai.page.materials.placeholder",
@@ -412,9 +400,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(MaterialsSectionTitleText));
         OnPropertyChanged(nameof(MaterialsSectionDescriptionText));
         OnPropertyChanged(nameof(MaterialsImportButtonText));
-        OnPropertyChanged(nameof(MaterialCountText));
-        OnPropertyChanged(nameof(VideoOnlyImportBadgeText));
-        OnPropertyChanged(nameof(SingleVideoExecutionBadgeText));
         OnPropertyChanged(nameof(MaterialsPlaceholderText));
         OnPropertyChanged(nameof(RemoveMaterialButtonText));
         OnPropertyChanged(nameof(RevealLatestOutputButtonText));
@@ -676,7 +661,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         if (e.PropertyName == nameof(AiMaterialLibraryState.MaterialCount) ||
             e.PropertyName == nameof(AiMaterialLibraryState.HasMaterials))
         {
-            OnPropertyChanged(nameof(MaterialCountText));
             OnPropertyChanged(nameof(MaterialsEmptyVisibility));
             NotifyCommandStates();
         }

@@ -92,7 +92,6 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
@@ -108,39 +107,6 @@
 
                 <StackPanel
                     Grid.Row="1"
-                    Spacing="8">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Border
-                            Padding="10,4"
-                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                            CornerRadius="999">
-                            <TextBlock
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.VideoOnlyImportBadgeText, Mode=OneWay}" />
-                        </Border>
-                        <Border
-                            Padding="10,4"
-                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                            CornerRadius="999">
-                            <TextBlock
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.SingleVideoExecutionBadgeText, Mode=OneWay}" />
-                        </Border>
-                    </StackPanel>
-
-                    <Border
-                        HorizontalAlignment="Left"
-                        Padding="10,4"
-                        Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                        CornerRadius="999">
-                        <TextBlock
-                            Style="{StaticResource CaptionTextStyle}"
-                            Text="{x:Bind ViewModel.MaterialCountText, Mode=OneWay}" />
-                    </Border>
-                </StackPanel>
-
-                <StackPanel
-                    Grid.Row="2"
                     Spacing="10">
                     <Button
                         Command="{x:Bind ViewModel.ImportFilesCommand, Mode=OneWay}"
@@ -164,7 +130,7 @@
                     </Border>
                 </StackPanel>
 
-                <Grid Grid.Row="3">
+                <Grid Grid.Row="2">
                     <ListView
                         Background="Transparent"
                         BorderThickness="0"
