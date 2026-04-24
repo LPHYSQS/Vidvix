@@ -7,10 +7,10 @@
 - 计划版本：`v5`
 - 项目：`Vidvix`
 - 当前阶段：`Stage 4`
-- 当前轮次：`R10`
+- 当前轮次：`R11`
 - 当前状态：`Completed`
 - 当前执行 Agent：`Codex`
-- 最近完成轮次：`R10`
+- 最近完成轮次：`R11`
 - 最近完成时间：`2026-04-24`
 - 构建验证：`Passed`
 - 运行验证：`Passed`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已完成 `R10`，补齐 `AI` 模块双语资源与统一状态/错误文案，打通 `zh-CN -> en-US -> zh-CN` 页面热切换，补上运行中素材导入/切换/移除与输出目录相关交互锁定、结果文件定位反馈，并将执行结果与运行时错误提示统一收口为可热刷新的本地化文本；本轮使用的 AI key 前缀为 `ai.page.*`、`ai.interpolation.*`、`ai.enhancement.*`、`ai.status.*`、`ai.operation.*`，语言刷新入口位于 `ViewModels/AiWorkspaceViewModel.cs`、`ViewModels/AiWorkspaceViewModel.Interpolation.cs`、`ViewModels/AiWorkspaceViewModel.Enhancement.cs`、`ViewModels/AiWorkspaceViewModel.Runtime.cs` 与 `Views/AiPage.xaml`。
-- 本轮修改文件：`ViewModels/AiWorkspaceViewModel.cs`, `ViewModels/AiWorkspaceViewModel.Interpolation.cs`, `ViewModels/AiWorkspaceViewModel.Enhancement.cs`, `ViewModels/AiWorkspaceViewModel.Runtime.cs`, `Views/AiPage.xaml`, `Resources/Localization/zh-CN/ai.json`, `Resources/Localization/en-US/ai.json`, `docs/ai-module-agent-execution-plan.md`
-- 本轮新增文件：`None`
-- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`；`dotnet publish .\Vidvix.csproj -c Release -p:PublishProfile=Offline-win-x64 -v minimal` 通过；`zh-CN` 与 `en-US` 的 `ai.json` key parity 校验通过；AI 页面已完成 `zh-CN -> en-US -> zh-CN` 无重启热切换验证，`AI 工作区 / 素材列表 / 运行时状态` 与 `AI workspace / Material list / Runtime status` 均可即时刷新；`bin\x64\Debug\net8.0-windows10.0.19041.0\Vidvix.exe` 与 `artifacts\publish\win-x64\Vidvix.exe` 均已成功启动，主窗口标题为 `Vidvix`、`Responding=True`，未出现黑屏、白屏或闪退。
-- 当前遗留问题：<span style="color:#ff4d4f">`AI增强 / Real-ESRGAN` 当前 `CPU fallback` 仍为阻断正式交付的问题；probe 与直接 CLI 均确认 `realesrgan-ncnn-vulkan.exe -g -1` 返回 `Unsupported / invalid gpu device`，因此后续轮次只能做文案、交互和错误收口，不能误宣称增强 CPU 路线可用。</span>
-- 下一轮必须处理：执行 `R11`，完成 `tests/AiOfflineSmoke`、短样例脚本、离线发布清单与最终封板交接，补齐 `AI补帧` / `AI增强` 的最小可复现烟测。
-- 下一轮禁止扩展：不要提前做额外 runtime / 模型升级、UI 再设计或跨轮功能加码；只允许围绕烟测、发布验证和最终文档封板收口，且不得误宣称 `AI增强 / Real-ESRGAN` 的 `CPU fallback` 已可正式交付。
+- 本轮完成项：已完成 `R11`，补齐 `tests/AiOfflineSmoke` 控制台烟测工程、`scripts/new-ai-smoke-samples.ps1` 短样例生成脚本、`scripts/test-ai-offline.ps1` AI 离线 smoke 脚本与 `docs/ai-offline-publish-validation-checklist.md` 发布验证清单；本轮完成 `AI补帧 x2 + CPU fallback`、`AI增强 Anime 2x` 精确倍率与 `AI增强 Standard 3x -> 4x overscale -> 3x downscale` 超采样回缩三条最小可复现烟测，并对 Debug / publish 产物完成启动封板验证；按本计划冻结规则，`R11` 已封板完成，但由于 `Real-ESRGAN CPU fallback` 仍为 `Unsupported`，当前仍不能误宣称 AI 模块已达到“增强 CPU 路线正式交付”的最终标准。
+- 本轮修改文件：`tests/AiOfflineSmoke/AiOfflineSmoke.csproj`, `tests/AiOfflineSmoke/Program.cs`, `scripts/new-ai-smoke-samples.ps1`, `scripts/test-ai-offline.ps1`, `docs/ai-offline-publish-validation-checklist.md`, `docs/ai-module-agent-execution-plan.md`
+- 本轮新增文件：`tests/AiOfflineSmoke/AiOfflineSmoke.csproj`, `tests/AiOfflineSmoke/Program.cs`, `scripts/new-ai-smoke-samples.ps1`, `scripts/test-ai-offline.ps1`, `docs/ai-offline-publish-validation-checklist.md`
+- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`；`powershell -ExecutionPolicy Bypass -File .\scripts\test-ai-offline.ps1 -RepoRoot .` 通过，覆盖 `AI补帧 x2 + CPU`、`AI增强 Anime 2x` 精确倍率与 `AI增强 Standard 3x` 超采样回缩，且确认 `Real-ESRGAN CPU state = Unsupported`；`dotnet publish .\Vidvix.csproj -c Release -p:PublishProfile=Offline-win-x64 -v minimal` 通过；`bin\x64\Debug\net8.0-windows10.0.19041.0\Vidvix.exe` 与 `artifacts\publish\win-x64\Vidvix.exe` 均已成功启动，主窗口标题为 `Vidvix`、`Responding=True`，未出现黑屏、白屏或闪退；`artifacts\publish\win-x64` 中已确认存在 `Tools\AI\**`、`Tools\ffmpeg\**` 与 `Resources\Localization\{zh-CN,en-US}\ai.json`。
+- 当前遗留问题：<span style="color:#ff4d4f">`AI增强 / Real-ESRGAN` 当前 `CPU fallback` 仍未打通；本轮 smoke 与 runtime catalog 再次确认 `realesrgan-ncnn-vulkan.exe -g -1` 在当前机器返回 `Unsupported / invalid gpu device`，因此按已冻结规则，不能误宣称 AI 增强 CPU 路线已可正式交付。</span>
+- 下一轮必须处理：`None`（`R11` 为最后一轮；若后续仍要处理 `AI增强 / Real-ESRGAN CPU fallback`，必须新开独立计划，不存在既定 `R12`）
+- 下一轮禁止扩展：`None`（本计划已封板；不得在本手册内继续追加未冻结的 runtime / 模型 / UI 扩展）
 
 ## 执行协议
 
@@ -271,7 +271,7 @@ Tools/
 | R8   | Stage 3 | AI补帧工作流                   | Completed | Codex      | 2026-04-24 | 已接通 `RIFE` 2x / 4x 补帧闭环、原音轨回填、进度反馈、取消清理与 AI 页面补帧参数/结果区，真实样例与启动验证通过。 |
 | R9   | Stage 3 | AI增强工作流                   | Completed | Codex      | 2026-04-24 | 已接通 `Real-ESRGAN Standard / Anime`、`2x` 到 `16x` 执行规划、超采样回缩、音轨回填、进度/取消与页面参数区；真实样例、发布验证与 `CPU fallback` 阻断结论均已完成。 |
 | R10  | Stage 4 | 本地化、交互硬化与错误收口     | Completed | Codex      | 2026-04-24 | 已补齐 AI 双语文案与热切换、运行中交互锁定、结果文件定位反馈及统一错误提示收口，构建/发布/启动验证通过。 |
-| R11  | Stage 4 | 烟测、离线发布验证与封板       | Pending   | N/A        | N/A        | 未开始 |
+| R11  | Stage 4 | 烟测、离线发布验证与封板       | Completed | Codex      | 2026-04-24 | 已补齐 `AiOfflineSmoke`、短样例脚本、AI 离线 smoke 脚本与发布验证清单，完成补帧/增强精确倍率/增强超采样回缩烟测、离线发布与 Debug / publish 启动封板验证；`Real-ESRGAN CPU fallback` 仍保持 `Unsupported` 的真实阻断结论。 |
 
 ## 各轮详细执行说明
 
@@ -650,7 +650,7 @@ Tools/
 
 目标：
 
-- 完成 AI 模块最小可复现烟测、离线发布验证和最终文档封板。
+- ~~完成 AI 模块最小可复现烟测、离线发布验证和最终文档封板。~~
 
 建议主文件范围：
 
@@ -661,23 +661,23 @@ Tools/
 
 必须交付：
 
-- `tests/AiOfflineSmoke`
-- 生成短样例视频的脚本
-- 离线发布验证清单
-- 最终交接更新
+- ~~`tests/AiOfflineSmoke`~~
+- ~~生成短样例视频的脚本~~
+- ~~离线发布验证清单~~
+- ~~最终交接更新~~
 
 验收标准：
 
-- 不依赖仓库内置大视频素材
-- 使用 FFmpeg 生成短样例视频即可完成烟测
-- `AI补帧` 和 `AI增强` 至少各通过一条离线 smoke test
-- `AI增强` 的 smoke test 至少覆盖一条“精确倍率”路径和一条“超采样后回缩”路径
-- 发布产物在干净 `win-x64` 环境可启动、可运行、可输出
+- ~~不依赖仓库内置大视频素材~~
+- ~~使用 FFmpeg 生成短样例视频即可完成烟测~~
+- ~~`AI补帧` 和 `AI增强` 至少各通过一条离线 smoke test~~
+- ~~`AI增强` 的 smoke test 至少覆盖一条“精确倍率”路径和一条“超采样后回缩”路径~~
+- ~~发布产物在干净 `win-x64` 环境可启动、可运行、可输出~~
 
 交接要求：
 
-- 将本文件顶部状态区收口到最终状态
-- 明确 AI 模块是否达到正式交付标准
+- ~~将本文件顶部状态区收口到最终状态~~
+- ~~明确 AI 模块是否达到正式交付标准~~
 
 ## 每轮统一验证清单
 
