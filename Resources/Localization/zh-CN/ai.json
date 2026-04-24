@@ -5,6 +5,7 @@
   "ai.page.materials.title": "素材列表",
   "ai.page.materials.description": "导入要处理的视频，\n再从列表中选择当前素材。",
   "ai.page.materials.importFiles": "导入视频",
+  "ai.page.materials.unknownDuration": "未知时长",
   "ai.page.materials.placeholder": "先导入一个或多个视频，再从素材列表中锁定当前处理对象。",
   "ai.page.materials.remove": "移除",
   "ai.page.workspace.title": "AI 工作区",

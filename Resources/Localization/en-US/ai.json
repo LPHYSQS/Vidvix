@@ -5,6 +5,7 @@
   "ai.page.materials.title": "Material list",
   "ai.page.materials.description": "Import the video you want to process,\nthen choose it from the list.",
   "ai.page.materials.importFiles": "Import videos",
+  "ai.page.materials.unknownDuration": "Unknown duration",
   "ai.page.materials.placeholder": "Import one or more videos, then lock the current processing target from the material list.",
   "ai.page.materials.remove": "Remove",
   "ai.page.workspace.title": "AI workspace",

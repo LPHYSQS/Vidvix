@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using Vidvix.Core.Interfaces;
 using Vidvix.Utils;
 
 namespace Vidvix.ViewModels;
@@ -12,7 +13,13 @@ public readonly record struct AiMaterialImportResult(
 
 public sealed class AiMaterialLibraryState : ObservableObject
 {
+    private readonly ILocalizationService? _localizationService;
     private AiMaterialItemViewModel? _selectedMaterial;
+
+    public AiMaterialLibraryState(ILocalizationService? localizationService = null)
+    {
+        _localizationService = localizationService;
+    }
 
     public ObservableCollection<AiMaterialItemViewModel> Materials { get; } = new();
 
@@ -69,7 +76,49 @@ public sealed class AiMaterialLibraryState : ObservableObject
                 continue;
             }
 
-            Materials.Add(new AiMaterialItemViewModel(inputPath));
+            Materials.Add(new AiMaterialItemViewModel(inputPath, localizationService: _localizationService));
+            addedCount++;
+        }
+
+        if (SelectedMaterial is null && Materials.Count > 0)
+        {
+            SelectedMaterial = Materials[0];
+        }
+        else
+        {
+            UpdateCollectionStateProperties();
+            UpdateSelectionState();
+        }
+
+        return new AiMaterialImportResult(addedCount, duplicateCount);
+    }
+
+    public AiMaterialImportResult AddMaterials(IEnumerable<AiMaterialItemViewModel> materials)
+    {
+        ArgumentNullException.ThrowIfNull(materials);
+
+        var knownPaths = new HashSet<string>(
+            Materials.Select(item => item.InputPath),
+            StringComparer.OrdinalIgnoreCase);
+        var currentBatchPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var addedCount = 0;
+        var duplicateCount = 0;
+
+        foreach (var material in materials)
+        {
+            if (material is null)
+            {
+                continue;
+            }
+
+            if (!currentBatchPaths.Add(material.InputPath) || !knownPaths.Add(material.InputPath))
+            {
+                duplicateCount++;
+                continue;
+            }
+
+            Materials.Add(material);
             addedCount++;
         }
 
@@ -120,6 +169,14 @@ public sealed class AiMaterialLibraryState : ObservableObject
         }
 
         return true;
+    }
+
+    public void RefreshLocalization()
+    {
+        foreach (var material in Materials)
+        {
+            material.RefreshLocalization();
+        }
     }
 
     private void UpdateSelectionState()

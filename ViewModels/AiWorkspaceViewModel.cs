@@ -24,6 +24,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     private readonly ILocalizationService? _localizationService;
     private readonly IFilePickerService? _filePickerService;
     private readonly IMediaImportDiscoveryService? _mediaImportDiscoveryService;
+    private readonly IMediaInfoService? _mediaInfoService;
     private readonly IFileRevealService? _fileRevealService;
     private readonly ILogger? _logger;
     private readonly AsyncRelayCommand _importFilesCommand;
@@ -44,6 +45,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             localizationService: null,
             filePickerService: null,
             mediaImportDiscoveryService: null,
+            mediaInfoService: null,
             aiRuntimeCatalogService: null,
             aiEnhancementWorkflowService: null,
             aiInterpolationWorkflowService: null,
@@ -58,6 +60,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         ILocalizationService? localizationService,
         IFilePickerService? filePickerService,
         IMediaImportDiscoveryService? mediaImportDiscoveryService,
+        IMediaInfoService? mediaInfoService,
         IAiRuntimeCatalogService? aiRuntimeCatalogService,
         IAiEnhancementWorkflowService? aiEnhancementWorkflowService,
         IAiInterpolationWorkflowService? aiInterpolationWorkflowService,
@@ -69,11 +72,12 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         _localizationService = localizationService;
         _filePickerService = filePickerService;
         _mediaImportDiscoveryService = mediaImportDiscoveryService;
+        _mediaInfoService = mediaInfoService;
         _fileRevealService = fileRevealService;
         _aiRuntimeCatalogService = aiRuntimeCatalogService;
         _logger = logger;
 
-        MaterialLibrary = new AiMaterialLibraryState();
+        MaterialLibrary = new AiMaterialLibraryState(localizationService);
         InputState = new AiInputState();
         ModeState = new AiModeState();
         OutputSettings = new AiOutputSettingsState(BuildLaunchOutputFormats());
@@ -393,6 +397,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public void RefreshLocalization()
     {
         OutputSettings.ReloadAvailableOutputFormats(BuildLaunchOutputFormats());
+        MaterialLibrary.RefreshLocalization();
 
         OnPropertyChanged(nameof(SectionCaptionText));
         OnPropertyChanged(nameof(PageTitleText));
@@ -468,7 +473,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
                 return;
             }
 
-            ImportPaths(selectedFiles);
+            await ImportPathsAsync(selectedFiles);
         }
         catch (OperationCanceledException)
         {
@@ -481,7 +486,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         }
     }
 
-    private void ImportPaths(IEnumerable<string> inputPaths)
+    private async Task ImportPathsAsync(IEnumerable<string> inputPaths)
     {
         if (TrySetProcessingLockedStatus("ai.operation.importMaterials", "导入素材"))
         {
@@ -545,7 +550,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         _suppressSelectionStatus = true;
         try
         {
-            var importResult = MaterialLibrary.AddMaterials(discovery.SupportedFiles);
+            var importResult = await AddSupportedMaterialsAsync(discovery.SupportedFiles);
             SyncInputSelection(updateStatus: false);
             SetStatusText(() => CreateImportStatusMessage(importResult, rejectedCount));
         }
@@ -555,6 +560,74 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         }
 
         NotifyCommandStates();
+    }
+
+    private async Task<AiMaterialImportResult> AddSupportedMaterialsAsync(IEnumerable<string> filePaths)
+    {
+        ArgumentNullException.ThrowIfNull(filePaths);
+
+        var existingPaths = new HashSet<string>(
+            MaterialLibrary.Materials.Select(item => item.InputPath),
+            StringComparer.OrdinalIgnoreCase);
+
+        var newMaterials = new List<AiMaterialItemViewModel>();
+        var duplicateCount = 0;
+
+        foreach (var filePath in filePaths)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                continue;
+            }
+
+            var normalizedPath = Path.GetFullPath(filePath);
+            if (!existingPaths.Add(normalizedPath))
+            {
+                duplicateCount++;
+                continue;
+            }
+
+            newMaterials.Add(await CreateMaterialItemAsync(normalizedPath));
+        }
+
+        var importResult = MaterialLibrary.AddMaterials(newMaterials);
+        return new AiMaterialImportResult(importResult.AddedCount, duplicateCount + importResult.DuplicateCount);
+    }
+
+    private async Task<AiMaterialItemViewModel> CreateMaterialItemAsync(string filePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+
+        var durationText = string.Empty;
+
+        if (_mediaInfoService is not null)
+        {
+            try
+            {
+                var loadResult = _mediaInfoService.TryGetCachedDetails(filePath, out var cachedSnapshot)
+                    ? MediaDetailsLoadResult.Success(cachedSnapshot)
+                    : await _mediaInfoService.GetMediaDetailsAsync(filePath).ConfigureAwait(false);
+
+                if (loadResult.IsSuccess && loadResult.Snapshot?.MediaDuration is { } mediaDuration && mediaDuration > TimeSpan.Zero)
+                {
+                    durationText = FormatDuration(mediaDuration);
+                }
+                else if (!string.IsNullOrWhiteSpace(loadResult.ErrorMessage))
+                {
+                    _logger?.Log(LogLevel.Warning, $"读取 AI 素材信息失败：{Path.GetFileName(filePath)}，已按基础信息导入。");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger?.Log(LogLevel.Warning, $"读取 AI 素材信息失败：{Path.GetFileName(filePath)}，已按基础信息导入。", exception);
+            }
+        }
+
+        return new AiMaterialItemViewModel(filePath, durationText, _localizationService);
     }
 
     private async Task SelectOutputDirectoryAsync()
@@ -800,6 +873,8 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         _localizationService is null
             ? option
             : option.Localize(_localizationService);
+
+    private static string FormatDuration(TimeSpan duration) => duration.ToString(@"hh\:mm\:ss");
 
     private string BuildLaunchOutputFormatsSummary() =>
         string.Join(" / ", OutputSettings.AvailableOutputFormats.Select(option => option.DisplayName));

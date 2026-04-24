@@ -24,9 +24,24 @@
             x:Key="AiMaterialListViewItemStyle"
             TargetType="ListViewItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0" />
             <Setter Property="MinHeight" Value="0" />
+            <Setter Property="UseSystemFocusVisuals" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <ContentPresenter
+                            Margin="{TemplateBinding Padding}"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            ContentTransitions="{TemplateBinding ContentTransitions}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style
@@ -50,6 +65,15 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
             <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+
+        <Style
+            x:Key="AiMaterialTypeTextStyle"
+            BasedOn="{StaticResource CaptionTextStyle}"
+            TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
         <Style
@@ -133,58 +157,73 @@
                             <DataTemplate x:DataType="viewModels:AiMaterialItemViewModel">
                                 <Border
                                     Margin="0,0,0,10"
-                                    Padding="12"
-                                    Background="{ThemeResource ControlFillColorTertiaryBrush}"
-                                    CornerRadius="14">
-                                    <Grid ColumnSpacing="10">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-
+                                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                    BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="12">
+                                    <ToolTipService.ToolTip>
+                                        <ToolTip>
+                                            <TextBlock
+                                                MaxWidth="420"
+                                                Text="{x:Bind InputPathToolTipText, Mode=OneWay}"
+                                                TextWrapping="Wrap" />
+                                        </ToolTip>
+                                    </ToolTipService.ToolTip>
+                                    <Grid>
                                         <Border
-                                            Width="36"
-                                            Height="36"
-                                            VerticalAlignment="Top"
-                                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                            CornerRadius="18">
-                                            <SymbolIcon
-                                                HorizontalAlignment="Center"
-                                                VerticalAlignment="Center"
-                                                Symbol="Video" />
-                                        </Border>
+                                            BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                            BorderThickness="1.4"
+                                            CornerRadius="12"
+                                            Opacity="{x:Bind SelectionOutlineOpacity, Mode=OneWay}" />
 
-                                        <StackPanel
-                                            Grid.Column="1"
-                                            Spacing="4">
+                                        <Grid
+                                            Padding="12,10"
+                                            ColumnSpacing="10"
+                                            RowSpacing="6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
                                             <TextBlock
                                                 FontWeight="SemiBold"
+                                                MaxLines="1"
                                                 Text="{x:Bind InputFileName, Mode=OneWay}"
-                                                TextTrimming="CharacterEllipsis" />
+                                                TextTrimming="CharacterEllipsis"
+                                                TextWrapping="NoWrap" />
                                             <TextBlock
-                                                Opacity="0.72"
+                                                Grid.Row="1"
                                                 Style="{StaticResource CaptionTextStyle}"
-                                                Text="{x:Bind InputPath, Mode=OneWay}"
-                                                TextTrimming="CharacterEllipsis" />
-                                            <Border
-                                                HorizontalAlignment="Left"
-                                                Padding="8,3"
-                                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                                CornerRadius="999">
+                                                Text="{x:Bind DurationText, Mode=OneWay}" />
+
+                                            <StackPanel
+                                                Grid.Column="1"
+                                                Grid.RowSpan="2"
+                                                VerticalAlignment="Center"
+                                                Spacing="4">
+                                                <TextBlock
+                                                    Style="{StaticResource AiMaterialTypeTextStyle}"
+                                                    Text="{x:Bind MediaTypeText, Mode=OneWay}" />
                                                 <TextBlock
                                                     Style="{StaticResource CaptionTextStyle}"
                                                     Text="{x:Bind FileExtensionText, Mode=OneWay}" />
-                                            </Border>
-                                        </StackPanel>
+                                            </StackPanel>
 
-                                        <Button
-                                            Grid.Column="2"
-                                            Command="{Binding ViewModel.RemoveMaterialCommand, ElementName=RootPage, Mode=OneWay}"
-                                            CommandParameter="{x:Bind}"
-                                            Style="{StaticResource AiMaterialRemoveButtonStyle}">
-                                            <SymbolIcon Symbol="Delete" />
-                                        </Button>
+                                            <Button
+                                                Grid.Column="2"
+                                                Grid.RowSpan="2"
+                                                Command="{Binding ViewModel.RemoveMaterialCommand, ElementName=RootPage, Mode=OneWay}"
+                                                CommandParameter="{x:Bind}"
+                                                Style="{StaticResource AiMaterialRemoveButtonStyle}"
+                                                ToolTipService.ToolTip="{Binding ViewModel.RemoveMaterialButtonText, ElementName=RootPage, Mode=OneWay}">
+                                                <FontIcon FontSize="14" Glyph="&#xE74D;" />
+                                            </Button>
+                                        </Grid>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
