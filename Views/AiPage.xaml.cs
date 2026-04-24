@@ -28,12 +28,16 @@ public sealed partial class AiPage : Page
 
     private void OnPageLoaded(object sender, RoutedEventArgs e)
     {
+        UpdateLayoutHeight(ActualHeight);
         UpdateLayoutState(ActualWidth);
         SetWorkspaceMode(InterpolationModeButton?.IsChecked == true);
     }
 
-    private void OnPageSizeChanged(object sender, SizeChangedEventArgs e) =>
+    private void OnPageSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateLayoutHeight(e.NewSize.Height);
         UpdateLayoutState(e.NewSize.Width);
+    }
 
     private void UpdateLayoutState(double availableWidth)
     {
@@ -55,8 +59,19 @@ public sealed partial class AiPage : Page
         ApplyWideLayout();
     }
 
+    private void UpdateLayoutHeight(double availableHeight)
+    {
+        if (availableHeight <= 0 || LayoutRoot is null)
+        {
+            return;
+        }
+
+        LayoutRoot.MinHeight = availableHeight;
+    }
+
     private void ApplyWideLayout()
     {
+        LayoutRoot.RowSpacing = 0;
         MaterialsColumnDefinition.Width = new GridLength(260);
         WorkspaceColumnDefinition.Width = new GridLength(1, GridUnitType.Star);
         OutputColumnDefinition.Width = new GridLength(320);
@@ -79,6 +94,7 @@ public sealed partial class AiPage : Page
 
     private void ApplyCompactLayout()
     {
+        LayoutRoot.RowSpacing = 12;
         MaterialsColumnDefinition.Width = new GridLength(1, GridUnitType.Star);
         WorkspaceColumnDefinition.Width = new GridLength(0);
         OutputColumnDefinition.Width = new GridLength(0);

@@ -41,10 +41,9 @@ public sealed class AiWorkspaceViewModel : ObservableObject
         GetLocalizedText("ai.page.materials.title", "素材列表");
 
     public string MaterialsSectionDescriptionText =>
-        FormatLocalizedText(
+        GetLocalizedText(
             "ai.page.materials.description",
-            $"参考合并模块改为纵向素材列表模板。首发仍冻结为视频-only 导入，支持格式：{BuildSupportedInputFormatsSummary()}；允许导入多个视频，但单次只处理一个当前视频。",
-            ("formats", BuildSupportedInputFormatsSummary()));
+            "素材列表支持导入视频，单击素材列表中的素材可将素材添加至视频轨道。");
 
     public string VideoOnlyImportBadgeText =>
         GetLocalizedText("ai.page.materials.badge.videoOnly", "视频-only 导入");
@@ -55,7 +54,7 @@ public sealed class AiWorkspaceViewModel : ObservableObject
     public string MaterialsPlaceholderText =>
         GetLocalizedText(
             "ai.page.materials.placeholder",
-            "这里将继续承接 AI 模块自己的素材导入、选中态和状态反馈，不复用合并模块的底层流程。");
+            "导入后素材会显示在这里。");
 
     public string WorkspaceSectionTitleText =>
         GetLocalizedText("ai.page.workspace.title", "AI 工作区");
