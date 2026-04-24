@@ -98,7 +98,10 @@ public sealed partial class AiWorkspaceViewModel
             return FormatLocalizedText(
                 "ai.page.runtime.failed",
                 $"AI runtime 检查失败：{_runtimeInspectionErrorMessage}",
-                ("message", _runtimeInspectionErrorMessage));
+                ("message", NormalizeErrorMessage(
+                    _runtimeInspectionErrorMessage,
+                    "ai.page.runtime.error.generic",
+                    "AI runtime 检查失败，请重试。")));
         }
 
         var descriptor = GetCurrentModeRuntimeDescriptor();

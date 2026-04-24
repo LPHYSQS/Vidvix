@@ -13,6 +13,10 @@ public sealed partial class AiWorkspaceViewModel
 {
     private readonly AiInterpolationExecutionCoordinator? _aiInterpolationExecutionCoordinator;
     private CancellationTokenSource? _processingCancellationSource;
+    private AiInterpolationResult? _lastInterpolationResult;
+    private AiInterpolationFailureKind? _lastInterpolationFailureKind;
+    private Func<string>? _lastInterpolationFailureReasonResolver;
+    private AiExecutionFeedbackKind _lastInterpolationFeedbackKind;
 
     public AiInterpolationSettingsState InterpolationSettings { get; }
 
@@ -124,13 +128,15 @@ public sealed partial class AiWorkspaceViewModel
     {
         if (_aiInterpolationExecutionCoordinator is null)
         {
-            StatusText = GetInterpolationUnavailableStatusMessage();
+            SetStatusText(
+                "ai.status.interpolationUnavailable",
+                "当前运行环境未接入 AI补帧 工作流服务，暂时无法启动补帧。");
             return;
         }
 
         if (!InputState.HasCurrentMaterial)
         {
-            StatusText = GetReadyStatusMessage();
+            SetStatusText("ai.status.ready", "先导入一个或多个视频，再从素材列表中锁定当前处理对象。");
             return;
         }
 
@@ -143,6 +149,7 @@ public sealed partial class AiWorkspaceViewModel
 
         using var cancellationSource = new CancellationTokenSource();
         _processingCancellationSource = cancellationSource;
+        ResetInterpolationOutcomeTracking();
         var request = new AiInterpolationRequest(
             InputState.CurrentInputPath,
             OutputSettings.EffectiveOutputFileName,
@@ -156,9 +163,8 @@ public sealed partial class AiWorkspaceViewModel
         InterpolationExecution.ResetForExecution(
             GetLocalizedText("ai.interpolation.progress.stage.prepare", "准备补帧任务"),
             GetLocalizedText("ai.interpolation.progress.detail.prepare", "正在校验输入、运行时和输出路径…"));
-        OnPropertyChanged(nameof(InterpolationProgressStageTitleText));
-        OnPropertyChanged(nameof(InterpolationProgressDetailText));
-        StatusText = CreateInterpolationStartedStatusMessage();
+        RefreshInterpolationExecutionDisplay();
+        SetStatusText(() => CreateInterpolationStartedStatusMessage());
 
         try
         {
@@ -172,26 +178,17 @@ public sealed partial class AiWorkspaceViewModel
             switch (outcome.Kind)
             {
                 case AiInterpolationExecutionOutcomeKind.Succeeded:
-                    var result = outcome.Result!;
-                    InterpolationExecution.ApplySuccess(CreateInterpolationSuccessSummary(result), result.OutputPath);
-                    StatusText = CreateInterpolationCompletedStatusMessage(result);
+                    ApplyInterpolationSuccessOutcome(outcome.Result!);
                     break;
                 case AiInterpolationExecutionOutcomeKind.Cancelled:
-                    InterpolationExecution.ApplyFailure(GetInterpolationCancelledSummaryText());
-                    InterpolationExecution.DetailText = GetInterpolationCancelledSummaryText();
-                    StatusText = GetInterpolationCancelledStatusMessage();
-                    OnPropertyChanged(nameof(InterpolationProgressDetailText));
+                    ApplyInterpolationCancelledOutcome();
                     break;
                 default:
-                    var failureReason = outcome.FailureReason ?? GetInterpolationGenericFailureReason();
-                    InterpolationExecution.ApplyFailure(CreateInterpolationFailedSummary(failureReason, outcome.FailureKind));
-                    InterpolationExecution.DetailText = failureReason;
-                    StatusText = CreateInterpolationFailedSummary(failureReason, outcome.FailureKind);
-                    OnPropertyChanged(nameof(InterpolationProgressDetailText));
+                    ApplyInterpolationFailureOutcome(
+                        outcome.FailureKind,
+                        outcome.FailureReasonResolver ?? (() => GetInterpolationGenericFailureReason()));
                     break;
             }
-
-            OnPropertyChanged(nameof(InterpolationResultSummaryText));
         }
         finally
         {
@@ -213,13 +210,13 @@ public sealed partial class AiWorkspaceViewModel
         if (ModeState.SelectedMode == AiWorkspaceMode.Interpolation)
         {
             InterpolationExecution.DetailText = GetInterpolationCancellingStatusMessage();
-            StatusText = GetInterpolationCancellingStatusMessage();
-            OnPropertyChanged(nameof(InterpolationProgressDetailText));
+            RefreshInterpolationExecutionDisplay();
+            SetStatusText("ai.status.interpolationCancelling", "正在取消 AI补帧 任务并清理临时目录…");
             return;
         }
 
         EnhancementExecution.DetailText = GetEnhancementCancellingStatusMessage();
-        StatusText = GetEnhancementCancellingStatusMessage();
+        SetStatusText("ai.status.enhancementCancelling", "正在取消 AI增强 任务并清理临时目录…");
         OnPropertyChanged(nameof(EnhancementProgressDetailText));
     }
 
@@ -247,9 +244,7 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(InterpolationProgressTitleText));
         OnPropertyChanged(nameof(InterpolationProgressPlaceholderText));
         OnPropertyChanged(nameof(LastInterpolationOutputLabelText));
-        OnPropertyChanged(nameof(InterpolationProgressStageTitleText));
-        OnPropertyChanged(nameof(InterpolationProgressDetailText));
-        OnPropertyChanged(nameof(InterpolationResultSummaryText));
+        RefreshInterpolationExecutionDisplay();
     }
 
     private void RefreshInterpolationModeProperties()
@@ -362,4 +357,112 @@ public sealed partial class AiWorkspaceViewModel
 
     private string GetInterpolationGenericFailureReason() =>
         GetLocalizedText("ai.interpolation.failure.unexpected", "补帧执行失败，请重试。");
+
+    private void ResetInterpolationOutcomeTracking()
+    {
+        _lastInterpolationFailureReasonResolver = null;
+        _lastInterpolationFailureKind = null;
+        _lastInterpolationFeedbackKind = AiExecutionFeedbackKind.None;
+    }
+
+    private void ApplyInterpolationSuccessOutcome(AiInterpolationResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        _lastInterpolationResult = result;
+        _lastInterpolationFailureReasonResolver = null;
+        _lastInterpolationFailureKind = null;
+        _lastInterpolationFeedbackKind = AiExecutionFeedbackKind.Succeeded;
+
+        InterpolationExecution.ApplySuccess(CreateInterpolationSuccessSummary(result), result.OutputPath);
+        InterpolationExecution.StageTitle = GetLocalizedText("ai.interpolation.progress.stage.complete", "补帧完成");
+        InterpolationExecution.DetailText = FormatLocalizedText(
+            "ai.interpolation.progress.detail.complete",
+            "输出文件已生成：{fileName}",
+            ("fileName", result.OutputFileName));
+
+        SetStatusText(() => CreateInterpolationCompletedStatusMessage(result));
+        RefreshInterpolationExecutionDisplay();
+    }
+
+    private void ApplyInterpolationCancelledOutcome()
+    {
+        _lastInterpolationFailureReasonResolver = null;
+        _lastInterpolationFailureKind = null;
+        _lastInterpolationFeedbackKind = AiExecutionFeedbackKind.Cancelled;
+
+        var cancelledSummary = GetInterpolationCancelledSummaryText();
+        InterpolationExecution.ApplyFailure(cancelledSummary);
+        InterpolationExecution.StageTitle = GetLocalizedText("ai.interpolation.progress.stage.cancelled", "补帧已取消");
+        InterpolationExecution.DetailText = cancelledSummary;
+
+        SetStatusText("ai.status.interpolationCancelled", "已取消当前 AI补帧 任务，临时目录已开始清理。");
+        RefreshInterpolationExecutionDisplay();
+    }
+
+    private void ApplyInterpolationFailureOutcome(
+        AiInterpolationFailureKind? failureKind,
+        Func<string> failureReasonResolver)
+    {
+        ArgumentNullException.ThrowIfNull(failureReasonResolver);
+
+        _lastInterpolationFailureReasonResolver = failureReasonResolver;
+        _lastInterpolationFailureKind = failureKind;
+        _lastInterpolationFeedbackKind = AiExecutionFeedbackKind.Failed;
+
+        var failureReason = GetCurrentInterpolationFailureReasonText();
+        InterpolationExecution.ApplyFailure(CreateInterpolationFailedSummary(failureReason, failureKind));
+        InterpolationExecution.StageTitle = GetLocalizedText("ai.interpolation.progress.stage.failed", "补帧失败");
+        InterpolationExecution.DetailText = failureReason;
+
+        SetStatusText(() => CreateInterpolationFailedSummary(GetCurrentInterpolationFailureReasonText(), _lastInterpolationFailureKind));
+        RefreshInterpolationExecutionDisplay();
+    }
+
+    private string GetCurrentInterpolationFailureReasonText() =>
+        NormalizeErrorMessage(
+            _lastInterpolationFailureReasonResolver?.Invoke(),
+            "ai.interpolation.failure.unexpected",
+            "补帧执行失败，请重试。");
+
+    private void RefreshInterpolationOutcomeLocalization()
+    {
+        if (_lastInterpolationFeedbackKind == AiExecutionFeedbackKind.None)
+        {
+            return;
+        }
+
+        switch (_lastInterpolationFeedbackKind)
+        {
+            case AiExecutionFeedbackKind.Succeeded when _lastInterpolationResult is not null:
+                InterpolationExecution.StageTitle = GetLocalizedText("ai.interpolation.progress.stage.complete", "补帧完成");
+                InterpolationExecution.DetailText = FormatLocalizedText(
+                    "ai.interpolation.progress.detail.complete",
+                    "输出文件已生成：{fileName}",
+                    ("fileName", _lastInterpolationResult.OutputFileName));
+                InterpolationExecution.LastResultSummary = CreateInterpolationSuccessSummary(_lastInterpolationResult);
+                break;
+            case AiExecutionFeedbackKind.Cancelled:
+                var cancelledSummary = GetInterpolationCancelledSummaryText();
+                InterpolationExecution.StageTitle = GetLocalizedText("ai.interpolation.progress.stage.cancelled", "补帧已取消");
+                InterpolationExecution.DetailText = cancelledSummary;
+                InterpolationExecution.LastResultSummary = cancelledSummary;
+                break;
+            case AiExecutionFeedbackKind.Failed:
+                var failureReason = GetCurrentInterpolationFailureReasonText();
+                InterpolationExecution.StageTitle = GetLocalizedText("ai.interpolation.progress.stage.failed", "补帧失败");
+                InterpolationExecution.DetailText = failureReason;
+                InterpolationExecution.LastResultSummary = CreateInterpolationFailedSummary(failureReason, _lastInterpolationFailureKind);
+                break;
+        }
+
+        RefreshInterpolationExecutionDisplay();
+    }
+
+    private void RefreshInterpolationExecutionDisplay()
+    {
+        OnPropertyChanged(nameof(InterpolationProgressStageTitleText));
+        OnPropertyChanged(nameof(InterpolationProgressDetailText));
+        OnPropertyChanged(nameof(InterpolationResultSummaryText));
+    }
 }

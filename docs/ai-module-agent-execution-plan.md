@@ -8,9 +8,9 @@
 - 项目：`Vidvix`
 - 当前阶段：`Stage 4`
 - 当前轮次：`R10`
-- 当前状态：`Pending`
+- 当前状态：`Completed`
 - 当前执行 Agent：`Codex`
-- 最近完成轮次：`R9`
+- 最近完成轮次：`R10`
 - 最近完成时间：`2026-04-24`
 - 构建验证：`Passed`
 - 运行验证：`Passed`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已完成 `R9`，新增 `AI增强` workflow service、执行协调器、请求/结果模型与增强参数状态，接通 `Real-ESRGAN Standard / Anime` 档位、`2x` 到 `16x` 倍率规划、原生直跑 / 多次组合放大 / 超采样后回缩、原音轨回填、进度反馈、取消清理与 AI 页面增强参数区、结果区和高倍率提醒；同时将 `Real-ESRGAN CPU fallback` 的 probe 诊断明确收口为 `Unsupported / invalid gpu device`，避免误报为可用路径。
-- 本轮修改文件：`Core/Interfaces/IAiEnhancementWorkflowService.cs`, `Core/Models/AiEnhancementModels.cs`, `Core/Models/AiEnhancementScalePlanning.cs`, `Services/AI/AiEnhancementWorkflowService.cs`, `Services/AI/AiRuntimeProbeExecutor.cs`, `ViewModels/AiEnhancementExecutionCoordinator.cs`, `ViewModels/AiEnhancementExecutionState.cs`, `ViewModels/AiEnhancementSettingsState.cs`, `ViewModels/AiWorkspaceViewModel.cs`, `ViewModels/AiWorkspaceViewModel.Enhancement.cs`, `ViewModels/AiWorkspaceViewModel.Interpolation.cs`, `Views/AiPage.xaml`, `Resources/Localization/zh-CN/ai.json`, `Resources/Localization/en-US/ai.json`, `Utils/AppCompositionRoot.ServiceSets.cs`, `Utils/AppCompositionRoot.cs`, `docs/ai-module-agent-execution-plan.md`
-- 本轮新增文件：`Core/Interfaces/IAiEnhancementWorkflowService.cs`, `Core/Models/AiEnhancementModels.cs`, `Core/Models/AiEnhancementScalePlanning.cs`, `Services/AI/AiEnhancementWorkflowService.cs`, `ViewModels/AiEnhancementExecutionCoordinator.cs`, `ViewModels/AiEnhancementExecutionState.cs`, `ViewModels/AiEnhancementSettingsState.cs`, `ViewModels/AiWorkspaceViewModel.Enhancement.cs`
-- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`；`dotnet publish .\Vidvix.csproj -c Release -p:PublishProfile=Offline-win-x64 -v minimal` 通过。仓库外临时 harness 已用真实样例视频跑通当前增强工作流：`64x36 / 12fps / 2s / AAC mono` 样例已验证 `Standard 4x` 原生直跑、`Anime 8x` 组合放大（`4x -> 2x`）与 `Standard 3x` 超采样后回缩（`4x -> 3x`），输出分别为 `256x144`、`512x288`、`192x108`，均保留原音轨且可被 `Tools\ffmpeg\ffmpeg.exe -v error -i <file> -f null -` 成功解码；`128x72 / 18fps / 3s / AAC mono` 样例已验证取消能力，临时目录计数 `0 -> 0`；`AiEnhancementHarness.exe --probe` 结果为 `GPU=Available`、`CPU=Unsupported`，直接执行 `realesrgan-ncnn-vulkan.exe -g -1` 原始输出包含 `invalid gpu device`；`bin\x64\Debug\net8.0-windows10.0.19041.0\Vidvix.exe` 与 `artifacts\publish\win-x64\Vidvix.exe` 均已成功启动，主窗口标题为 `Vidvix`、`Responding=True`，未出现黑屏、白屏或闪退。
+- 本轮完成项：已完成 `R10`，补齐 `AI` 模块双语资源与统一状态/错误文案，打通 `zh-CN -> en-US -> zh-CN` 页面热切换，补上运行中素材导入/切换/移除与输出目录相关交互锁定、结果文件定位反馈，并将执行结果与运行时错误提示统一收口为可热刷新的本地化文本；本轮使用的 AI key 前缀为 `ai.page.*`、`ai.interpolation.*`、`ai.enhancement.*`、`ai.status.*`、`ai.operation.*`，语言刷新入口位于 `ViewModels/AiWorkspaceViewModel.cs`、`ViewModels/AiWorkspaceViewModel.Interpolation.cs`、`ViewModels/AiWorkspaceViewModel.Enhancement.cs`、`ViewModels/AiWorkspaceViewModel.Runtime.cs` 与 `Views/AiPage.xaml`。
+- 本轮修改文件：`ViewModels/AiWorkspaceViewModel.cs`, `ViewModels/AiWorkspaceViewModel.Interpolation.cs`, `ViewModels/AiWorkspaceViewModel.Enhancement.cs`, `ViewModels/AiWorkspaceViewModel.Runtime.cs`, `Views/AiPage.xaml`, `Resources/Localization/zh-CN/ai.json`, `Resources/Localization/en-US/ai.json`, `docs/ai-module-agent-execution-plan.md`
+- 本轮新增文件：`None`
+- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`；`dotnet publish .\Vidvix.csproj -c Release -p:PublishProfile=Offline-win-x64 -v minimal` 通过；`zh-CN` 与 `en-US` 的 `ai.json` key parity 校验通过；AI 页面已完成 `zh-CN -> en-US -> zh-CN` 无重启热切换验证，`AI 工作区 / 素材列表 / 运行时状态` 与 `AI workspace / Material list / Runtime status` 均可即时刷新；`bin\x64\Debug\net8.0-windows10.0.19041.0\Vidvix.exe` 与 `artifacts\publish\win-x64\Vidvix.exe` 均已成功启动，主窗口标题为 `Vidvix`、`Responding=True`，未出现黑屏、白屏或闪退。
 - 当前遗留问题：<span style="color:#ff4d4f">`AI增强 / Real-ESRGAN` 当前 `CPU fallback` 仍为阻断正式交付的问题；probe 与直接 CLI 均确认 `realesrgan-ncnn-vulkan.exe -g -1` 返回 `Unsupported / invalid gpu device`，因此后续轮次只能做文案、交互和错误收口，不能误宣称增强 CPU 路线可用。</span>
-- 下一轮必须处理：执行 `R10`，完成 `AI` 模块双语文案、语言热切换、运行中交互锁定、输出目录反馈与统一错误提示收口。
-- 下一轮禁止扩展：不要提前进入 `R11` 烟测封板、最终发布定稿或额外 runtime / 模型升级；不要改写本轮已稳定的 `AI补帧` 与 `AI增强` workflow 架构边界。
+- 下一轮必须处理：执行 `R11`，完成 `tests/AiOfflineSmoke`、短样例脚本、离线发布清单与最终封板交接，补齐 `AI补帧` / `AI增强` 的最小可复现烟测。
+- 下一轮禁止扩展：不要提前做额外 runtime / 模型升级、UI 再设计或跨轮功能加码；只允许围绕烟测、发布验证和最终文档封板收口，且不得误宣称 `AI增强 / Real-ESRGAN` 的 `CPU fallback` 已可正式交付。
 
 ## 执行协议
 
@@ -270,7 +270,7 @@ Tools/
 | R7   | Stage 2 | AI runtime 打包与能力探测      | Completed | Codex      | 2026-04-24 | 已接入 `RIFE` / `Real-ESRGAN` runtime catalog、GPU/CPU 探测、许可证随包输出与 UI 状态展示；`RIFE` CPU fallback 可用，`Real-ESRGAN` CPU fallback 当前明确为 `Unsupported`。 |
 | R8   | Stage 3 | AI补帧工作流                   | Completed | Codex      | 2026-04-24 | 已接通 `RIFE` 2x / 4x 补帧闭环、原音轨回填、进度反馈、取消清理与 AI 页面补帧参数/结果区，真实样例与启动验证通过。 |
 | R9   | Stage 3 | AI增强工作流                   | Completed | Codex      | 2026-04-24 | 已接通 `Real-ESRGAN Standard / Anime`、`2x` 到 `16x` 执行规划、超采样回缩、音轨回填、进度/取消与页面参数区；真实样例、发布验证与 `CPU fallback` 阻断结论均已完成。 |
-| R10  | Stage 4 | 本地化、交互硬化与错误收口     | Pending   | N/A        | N/A        | 未开始 |
+| R10  | Stage 4 | 本地化、交互硬化与错误收口     | Completed | Codex      | 2026-04-24 | 已补齐 AI 双语文案与热切换、运行中交互锁定、结果文件定位反馈及统一错误提示收口，构建/发布/启动验证通过。 |
 | R11  | Stage 4 | 烟测、离线发布验证与封板       | Pending   | N/A        | N/A        | 未开始 |
 
 ## 各轮详细执行说明
@@ -616,7 +616,7 @@ Tools/
 
 目标：
 
-- 完成 AI 模块双语文案、语言刷新、运行中锁定和错误提示收口。
+- ~~完成 AI 模块双语文案、语言刷新、运行中锁定和错误提示收口。~~
 
 建议主文件范围：
 
@@ -629,22 +629,22 @@ Tools/
 
 必须交付：
 
-- `ai.json` 双语资源
-- AI 页面语言刷新入口
-- 处理中锁定交互规则
-- 输出目录反馈
-- 统一错误提示
+- ~~`ai.json` 双语资源~~
+- ~~AI 页面语言刷新入口~~
+- ~~处理中锁定交互规则~~
+- ~~输出目录反馈~~
+- ~~统一错误提示~~
 
 验收标准：
 
-- `zh-CN -> en-US -> zh-CN` 切换时 AI 页面即时刷新
-- 处理中不能误触发重复执行
-- 文案缺失不会导致页面崩溃
+- ~~`zh-CN -> en-US -> zh-CN` 切换时 AI 页面即时刷新~~
+- ~~处理中不能误触发重复执行~~
+- ~~文案缺失不会导致页面崩溃~~
 
 交接要求：
 
-- 记录 AI 模块 key 前缀
-- 记录刷新入口位于哪些文件
+- ~~记录 AI 模块 key 前缀~~
+- ~~记录刷新入口位于哪些文件~~
 
 ### R11 烟测、离线发布验证与封板
 

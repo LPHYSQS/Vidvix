@@ -24,6 +24,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     private readonly ILocalizationService? _localizationService;
     private readonly IFilePickerService? _filePickerService;
     private readonly IMediaImportDiscoveryService? _mediaImportDiscoveryService;
+    private readonly IFileRevealService? _fileRevealService;
     private readonly ILogger? _logger;
     private readonly AsyncRelayCommand _importFilesCommand;
     private readonly AsyncRelayCommand _selectOutputDirectoryCommand;
@@ -31,9 +32,11 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     private readonly RelayCommand _removeMaterialCommand;
     private readonly AsyncRelayCommand _startProcessingCommand;
     private readonly RelayCommand _cancelProcessingCommand;
+    private readonly RelayCommand _revealLatestOutputCommand;
     private bool _isProcessing;
     private bool _suppressSelectionStatus;
     private string _statusText;
+    private Func<string>? _statusTextResolver;
 
     public AiWorkspaceViewModel()
         : this(
@@ -66,6 +69,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         _localizationService = localizationService;
         _filePickerService = filePickerService;
         _mediaImportDiscoveryService = mediaImportDiscoveryService;
+        _fileRevealService = fileRevealService;
         _aiRuntimeCatalogService = aiRuntimeCatalogService;
         _logger = logger;
 
@@ -81,7 +85,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             BuildInterpolationScaleFactorOptions(),
             BuildInterpolationDeviceOptions());
         InterpolationExecution = new AiInterpolationExecutionState();
-        _statusText = GetReadyStatusMessage();
+        _statusText = string.Empty;
         _aiEnhancementExecutionCoordinator =
             aiEnhancementWorkflowService is not null &&
             localizationService is not null &&
@@ -115,6 +119,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         _removeMaterialCommand = new RelayCommand(RemoveMaterial, CanRemoveMaterial);
         _startProcessingCommand = new AsyncRelayCommand(StartProcessingAsync, CanStartProcessingInternal);
         _cancelProcessingCommand = new RelayCommand(CancelProcessing, () => IsProcessing);
+        _revealLatestOutputCommand = new RelayCommand(RevealLatestOutput, CanRevealLatestOutput);
 
         MaterialLibrary.PropertyChanged += OnMaterialLibraryPropertyChanged;
         ModeState.PropertyChanged += OnModeStatePropertyChanged;
@@ -126,6 +131,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         RefreshEnhancementLocalization();
         RefreshInterpolationModeProperties();
         RefreshEnhancementModeProperties();
+        SetStatusText("ai.status.ready", "先导入一个或多个视频，再从素材列表中锁定当前处理对象。");
     }
 
     public AiMaterialLibraryState MaterialLibrary { get; }
@@ -148,6 +154,8 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
     public ICommand CancelProcessingCommand => _cancelProcessingCommand;
 
+    public ICommand RevealLatestOutputCommand => _revealLatestOutputCommand;
+
     public bool IsProcessing
     {
         get => _isProcessing;
@@ -160,6 +168,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
             OnPropertyChanged(nameof(CanStartProcessing));
             OnPropertyChanged(nameof(CanEditProcessingParameters));
+            OnPropertyChanged(nameof(CanModifyMaterials));
             NotifyCommandStates();
         }
     }
@@ -167,6 +176,8 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public bool CanStartProcessing =>
         InputState.HasCurrentMaterial &&
         !IsProcessing;
+
+    public bool CanModifyMaterials => !IsProcessing;
 
     public Visibility MaterialsEmptyVisibility =>
         MaterialLibrary.HasNoMaterials
@@ -231,6 +242,9 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
     public string RemoveMaterialButtonText =>
         GetLocalizedText("ai.page.materials.remove", "移除");
+
+    public string RevealLatestOutputButtonText =>
+        GetLocalizedText("ai.page.output.reveal", "定位文件");
 
     public string WorkspaceSectionTitleText =>
         GetLocalizedText("ai.page.workspace.title", "AI 工作区");
@@ -404,6 +418,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(SingleVideoExecutionBadgeText));
         OnPropertyChanged(nameof(MaterialsPlaceholderText));
         OnPropertyChanged(nameof(RemoveMaterialButtonText));
+        OnPropertyChanged(nameof(RevealLatestOutputButtonText));
         OnPropertyChanged(nameof(WorkspaceSectionTitleText));
         OnPropertyChanged(nameof(WorkspaceSectionDescriptionText));
         OnPropertyChanged(nameof(WorkspaceModeSwitchHintText));
@@ -438,17 +453,21 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         RefreshRuntimeLocalization();
         RefreshInterpolationLocalization();
         RefreshEnhancementLocalization();
-
-        StatusText = InputState.HasCurrentMaterial
-            ? CreateSelectedMaterialStatusMessage(InputState.CurrentInputFileName)
-            : GetReadyStatusMessage();
+        RefreshLocalizedStatusText();
+        RefreshInterpolationOutcomeLocalization();
+        RefreshEnhancementOutcomeLocalization();
     }
 
     private async Task ImportFilesAsync()
     {
+        if (TrySetProcessingLockedStatus("ai.operation.importMaterials", "导入素材"))
+        {
+            return;
+        }
+
         if (_filePickerService is null || _mediaImportDiscoveryService is null)
         {
-            StatusText = GetImportUnavailableStatusMessage();
+            SetStatusText("ai.status.importUnavailable", "当前运行环境未接入文件选择器，暂时无法导入 AI 视频素材。");
             return;
         }
 
@@ -461,7 +480,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
             if (selectedFiles.Count == 0)
             {
-                StatusText = GetImportCancelledStatusMessage();
+                SetStatusText("ai.status.importCancelled", "已取消视频导入。");
                 return;
             }
 
@@ -469,20 +488,25 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
-            StatusText = GetImportCancelledStatusMessage();
+            SetStatusText("ai.status.importCancelled", "已取消视频导入。");
         }
         catch (Exception exception)
         {
-            StatusText = GetImportFailedStatusMessage();
+            SetStatusText("ai.status.importFailed", "导入视频素材失败，请重试。");
             _logger?.Log(LogLevel.Error, "导入 AI 视频素材时发生异常。", exception);
         }
     }
 
     private void ImportPaths(IEnumerable<string> inputPaths)
     {
+        if (TrySetProcessingLockedStatus("ai.operation.importMaterials", "导入素材"))
+        {
+            return;
+        }
+
         if (_mediaImportDiscoveryService is null)
         {
-            StatusText = GetImportUnavailableStatusMessage();
+            SetStatusText("ai.status.importUnavailable", "当前运行环境未接入文件选择器，暂时无法导入 AI 视频素材。");
             return;
         }
 
@@ -513,9 +537,15 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
         if (normalizedPaths.Count == 0)
         {
-            StatusText = invalidEntryCount > 0
-                ? CreateRejectedOnlyStatusMessage(invalidEntryCount)
-                : GetNoProcessableImportMessage();
+            if (invalidEntryCount > 0)
+            {
+                SetStatusText(() => CreateRejectedOnlyStatusMessage(invalidEntryCount));
+            }
+            else
+            {
+                SetStatusText("ai.status.noProcessable", "没有发现可导入的视频文件。");
+            }
+
             return;
         }
 
@@ -533,7 +563,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         {
             var importResult = MaterialLibrary.AddMaterials(discovery.SupportedFiles);
             SyncInputSelection(updateStatus: false);
-            StatusText = CreateImportStatusMessage(importResult, rejectedCount);
+            SetStatusText(() => CreateImportStatusMessage(importResult, rejectedCount));
         }
         finally
         {
@@ -545,6 +575,11 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
     private async Task SelectOutputDirectoryAsync()
     {
+        if (TrySetProcessingLockedStatus("ai.operation.selectOutputDirectory", "选择输出目录"))
+        {
+            return;
+        }
+
         if (_filePickerService is null)
         {
             return;
@@ -557,38 +592,49 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
             if (string.IsNullOrWhiteSpace(selectedFolder))
             {
-                StatusText = GetOutputDirectorySelectionCancelledStatusMessage();
+                SetStatusText("ai.status.outputDirectorySelectionCancelled", "已取消选择输出目录。");
                 return;
             }
 
             if (OutputSettings.TrySetCustomOutputDirectory(selectedFolder))
             {
-                StatusText = CreateOutputDirectorySelectedStatusMessage(OutputSettings.CustomOutputDirectory);
+                var outputDirectory = OutputSettings.CustomOutputDirectory;
+                SetStatusText(() => CreateOutputDirectorySelectedStatusMessage(outputDirectory));
             }
         }
         catch (OperationCanceledException)
         {
-            StatusText = GetOutputDirectorySelectionCancelledStatusMessage();
+            SetStatusText("ai.status.outputDirectorySelectionCancelled", "已取消选择输出目录。");
         }
         catch (Exception exception)
         {
-            StatusText = GetOutputDirectorySelectionFailedStatusMessage();
+            SetStatusText("ai.status.outputDirectorySelectionFailed", "选择输出目录失败，请重试。");
             _logger?.Log(LogLevel.Error, "选择 AI 输出目录时发生异常。", exception);
         }
     }
 
     private void ClearOutputDirectory()
     {
+        if (TrySetProcessingLockedStatus("ai.operation.clearOutputDirectory", "清空输出目录"))
+        {
+            return;
+        }
+
         if (!OutputSettings.ClearCustomOutputDirectory())
         {
             return;
         }
 
-        StatusText = GetOutputDirectoryClearedStatusMessage();
+        SetStatusText("ai.status.outputDirectoryCleared", "已恢复为跟随当前素材目录输出。");
     }
 
     private void RemoveMaterial(object? parameter)
     {
+        if (TrySetProcessingLockedStatus("ai.operation.removeMaterial", "移除素材"))
+        {
+            return;
+        }
+
         if (parameter is not AiMaterialItemViewModel material || !MaterialLibrary.RemoveMaterial(material))
         {
             return;
@@ -604,9 +650,15 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             _suppressSelectionStatus = false;
         }
 
-        StatusText = MaterialLibrary.HasMaterials
-            ? CreateRemovedMaterialStatusMessage(material.InputFileName)
-            : GetLibraryClearedStatusMessage();
+        if (MaterialLibrary.HasMaterials)
+        {
+            var fileName = material.InputFileName;
+            SetStatusText(() => CreateRemovedMaterialStatusMessage(fileName));
+        }
+        else
+        {
+            SetStatusText("ai.status.libraryCleared", "素材列表已清空，当前没有可处理视频。");
+        }
 
         NotifyCommandStates();
     }
@@ -651,7 +703,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         RefreshInterpolationLocalization();
         RefreshEnhancementModeProperties();
         RefreshEnhancementLocalization();
-        StatusText = CreateModeChangedStatusMessage(GetCurrentModeDisplayName());
+        SetStatusText(() => CreateModeChangedStatusMessage(GetCurrentModeDisplayName()));
     }
 
     private void OnOutputSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -667,6 +719,28 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
     private void SyncInputSelection(bool updateStatus)
     {
+        if (IsProcessing &&
+            !ReferenceEquals(InputState.CurrentMaterial, MaterialLibrary.SelectedMaterial))
+        {
+            _suppressSelectionStatus = true;
+            try
+            {
+                MaterialLibrary.SelectedMaterial = InputState.CurrentMaterial;
+            }
+            finally
+            {
+                _suppressSelectionStatus = false;
+            }
+
+            SetStatusText(
+                () => FormatLocalizedText(
+                    "ai.status.processingLocked",
+                    "当前 {mode} 任务正在执行，请先取消后再{operation}。",
+                    ("mode", GetCurrentModeDisplayName()),
+                    ("operation", GetLocalizedText("ai.operation.selectMaterial", "切换当前素材"))));
+            return;
+        }
+
         InputState.SetCurrentMaterial(MaterialLibrary.SelectedMaterial);
         RefreshOutputContext();
         RefreshInputDependentProperties();
@@ -674,9 +748,14 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
         if (updateStatus)
         {
-            StatusText = InputState.HasCurrentMaterial
-                ? CreateSelectedMaterialStatusMessage(InputState.CurrentInputFileName)
-                : GetReadyStatusMessage();
+            if (InputState.HasCurrentMaterial)
+            {
+                SetStatusText(() => CreateSelectedMaterialStatusMessage(InputState.CurrentInputFileName));
+            }
+            else
+            {
+                SetStatusText("ai.status.ready", "先导入一个或多个视频，再从素材列表中锁定当前处理对象。");
+            }
         }
     }
 
@@ -841,21 +920,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             "ai.status.ready",
             "先导入一个或多个视频，再从素材列表中锁定当前处理对象。");
 
-    private string GetImportUnavailableStatusMessage() =>
-        GetLocalizedText(
-            "ai.status.importUnavailable",
-            "当前运行环境未接入文件选择器，暂时无法导入 AI 视频素材。");
-
-    private string GetImportCancelledStatusMessage() =>
-        GetLocalizedText(
-            "ai.status.importCancelled",
-            "已取消视频导入。");
-
-    private string GetImportFailedStatusMessage() =>
-        GetLocalizedText(
-            "ai.status.importFailed",
-            "导入视频素材失败，请重试。");
-
     private string GetImportDuplicateStatusMessage() =>
         GetLocalizedText(
             "ai.status.duplicateOnly",
@@ -865,31 +929,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         GetLocalizedText(
             "ai.status.noProcessable",
             "没有发现可导入的视频文件。");
-
-    private string GetLibraryClearedStatusMessage() =>
-        GetLocalizedText(
-            "ai.status.libraryCleared",
-            "素材列表已清空，当前没有可处理视频。");
-
-    private string GetOutputDirectorySelectionCancelledStatusMessage() =>
-        GetLocalizedText(
-            "ai.status.outputDirectorySelectionCancelled",
-            "已取消选择输出目录。");
-
-    private string GetOutputDirectorySelectionFailedStatusMessage() =>
-        GetLocalizedText(
-            "ai.status.outputDirectorySelectionFailed",
-            "选择输出目录失败，请重试。");
-
-    private string GetOutputDirectoryClearedStatusMessage() =>
-        GetLocalizedText(
-            "ai.status.outputDirectoryCleared",
-            "已恢复为跟随当前素材目录输出。");
-
-    private string GetStartDeferredStatusMessage() =>
-        GetLocalizedText(
-            "ai.status.startDeferred",
-            "R5 只完成输入与输出状态，不启动实际 AI 推理；下一轮开始继续接 runtime 与参数执行链路。");
 
     private string GetLocalizedText(string key, string fallback) =>
         _localizationService?.GetString(key, fallback) ?? fallback;
@@ -908,6 +947,22 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         }
 
         return _localizationService.Format(key, localizedArguments, fallback);
+    }
+
+    private string NormalizeErrorMessage(string? message, string fallbackKey, string fallback)
+    {
+        var normalized = string.IsNullOrWhiteSpace(message)
+            ? GetLocalizedText(fallbackKey, fallback)
+            : string.Join(
+                " ",
+                message
+                    .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(segment => segment.Trim())
+                    .Where(segment => !string.IsNullOrWhiteSpace(segment)));
+
+        return normalized.Length == 0
+            ? GetLocalizedText(fallbackKey, fallback)
+            : normalized;
     }
 
     private bool CanImportFilesInternal() =>
@@ -930,6 +985,73 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
     private bool CanStartProcessingInternal() => CanStartProcessing;
 
+    private void RevealLatestOutput(object? parameter)
+    {
+        if (_fileRevealService is null ||
+            parameter is not string outputPath ||
+            string.IsNullOrWhiteSpace(outputPath))
+        {
+            return;
+        }
+
+        try
+        {
+            _fileRevealService.RevealFile(outputPath);
+        }
+        catch (Exception exception)
+        {
+            _logger?.Log(LogLevel.Warning, "定位 AI 输出文件失败。", exception);
+            SetStatusText(
+                "ai.status.revealFailed",
+                "定位输出文件失败，请检查文件是否仍然存在。");
+        }
+    }
+
+    private bool CanRevealLatestOutput(object? parameter) =>
+        _fileRevealService is not null &&
+        parameter is string outputPath &&
+        !string.IsNullOrWhiteSpace(outputPath);
+
+    private bool TrySetProcessingLockedStatus(string operationKey, string operationFallback)
+    {
+        if (!IsProcessing)
+        {
+            return false;
+        }
+
+        SetStatusText(
+            () => FormatLocalizedText(
+                "ai.status.processingLocked",
+                "当前 {mode} 任务正在执行，请先取消后再{operation}。",
+                ("mode", GetCurrentModeDisplayName()),
+                ("operation", GetLocalizedText(operationKey, operationFallback))));
+        return true;
+    }
+
+    private void SetStatusText(Func<string> resolver)
+    {
+        ArgumentNullException.ThrowIfNull(resolver);
+
+        _statusTextResolver = resolver;
+        StatusText = resolver();
+    }
+
+    private void SetStatusText(string key, string fallback) =>
+        SetStatusText(() => GetLocalizedText(key, fallback));
+
+    private void RefreshLocalizedStatusText()
+    {
+        if (_statusTextResolver is not null)
+        {
+            StatusText = _statusTextResolver();
+            return;
+        }
+
+        StatusText = InputState.HasCurrentMaterial
+            ? CreateSelectedMaterialStatusMessage(InputState.CurrentInputFileName)
+            : GetReadyStatusMessage();
+    }
+
     private void NotifyCommandStates()
     {
         _importFilesCommand.NotifyCanExecuteChanged();
@@ -938,5 +1060,14 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         _removeMaterialCommand.NotifyCanExecuteChanged();
         _startProcessingCommand.NotifyCanExecuteChanged();
         _cancelProcessingCommand.NotifyCanExecuteChanged();
+        _revealLatestOutputCommand.NotifyCanExecuteChanged();
+    }
+
+    private enum AiExecutionFeedbackKind
+    {
+        None = 0,
+        Succeeded = 1,
+        Cancelled = 2,
+        Failed = 3
     }
 }

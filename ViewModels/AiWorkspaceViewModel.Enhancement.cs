@@ -14,6 +14,10 @@ public sealed partial class AiWorkspaceViewModel
 {
     private const int EnhancementHighLoadWarningThreshold = 8;
     private readonly AiEnhancementExecutionCoordinator? _aiEnhancementExecutionCoordinator;
+    private AiEnhancementResult? _lastEnhancementResult;
+    private AiEnhancementFailureKind? _lastEnhancementFailureKind;
+    private Func<string>? _lastEnhancementFailureReasonResolver;
+    private AiExecutionFeedbackKind _lastEnhancementFeedbackKind;
 
     public AiEnhancementSettingsState EnhancementSettings { get; }
 
@@ -114,13 +118,15 @@ public sealed partial class AiWorkspaceViewModel
     {
         if (_aiEnhancementExecutionCoordinator is null)
         {
-            StatusText = GetEnhancementUnavailableStatusMessage();
+            SetStatusText(
+                "ai.status.enhancementUnavailable",
+                "当前运行环境未接入 AI增强 工作流服务，暂时无法启动增强。");
             return;
         }
 
         if (!InputState.HasCurrentMaterial)
         {
-            StatusText = GetReadyStatusMessage();
+            SetStatusText("ai.status.ready", "先导入一个或多个视频，再从素材列表中锁定当前处理对象。");
             return;
         }
 
@@ -133,6 +139,7 @@ public sealed partial class AiWorkspaceViewModel
 
         using var cancellationSource = new CancellationTokenSource();
         _processingCancellationSource = cancellationSource;
+        ResetEnhancementOutcomeTracking();
         var request = new AiEnhancementRequest(
             InputState.CurrentInputPath,
             OutputSettings.EffectiveOutputFileName,
@@ -145,9 +152,8 @@ public sealed partial class AiWorkspaceViewModel
         EnhancementExecution.ResetForExecution(
             GetLocalizedText("ai.enhancement.progress.stage.prepare", "准备增强任务"),
             GetLocalizedText("ai.enhancement.progress.detail.prepare", "正在校验输入、运行时和输出路径…"));
-        OnPropertyChanged(nameof(EnhancementProgressStageTitleText));
-        OnPropertyChanged(nameof(EnhancementProgressDetailText));
-        StatusText = CreateEnhancementStartedStatusMessage();
+        RefreshEnhancementExecutionDisplay();
+        SetStatusText(() => CreateEnhancementStartedStatusMessage());
 
         try
         {
@@ -161,26 +167,17 @@ public sealed partial class AiWorkspaceViewModel
             switch (outcome.Kind)
             {
                 case AiEnhancementExecutionOutcomeKind.Succeeded:
-                    var result = outcome.Result!;
-                    EnhancementExecution.ApplySuccess(CreateEnhancementSuccessSummary(result), result.OutputPath);
-                    StatusText = CreateEnhancementCompletedStatusMessage(result);
+                    ApplyEnhancementSuccessOutcome(outcome.Result!);
                     break;
                 case AiEnhancementExecutionOutcomeKind.Cancelled:
-                    EnhancementExecution.ApplyFailure(GetEnhancementCancelledSummaryText());
-                    EnhancementExecution.DetailText = GetEnhancementCancelledSummaryText();
-                    StatusText = GetEnhancementCancelledStatusMessage();
-                    OnPropertyChanged(nameof(EnhancementProgressDetailText));
+                    ApplyEnhancementCancelledOutcome();
                     break;
                 default:
-                    var failureReason = outcome.FailureReason ?? GetEnhancementGenericFailureReason();
-                    EnhancementExecution.ApplyFailure(CreateEnhancementFailedSummary(failureReason, outcome.FailureKind));
-                    EnhancementExecution.DetailText = failureReason;
-                    StatusText = CreateEnhancementFailedSummary(failureReason, outcome.FailureKind);
-                    OnPropertyChanged(nameof(EnhancementProgressDetailText));
+                    ApplyEnhancementFailureOutcome(
+                        outcome.FailureKind,
+                        outcome.FailureReasonResolver ?? (() => GetEnhancementGenericFailureReason()));
                     break;
             }
-
-            OnPropertyChanged(nameof(EnhancementResultSummaryText));
         }
         finally
         {
@@ -220,9 +217,7 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(EnhancementProgressTitleText));
         OnPropertyChanged(nameof(EnhancementProgressPlaceholderText));
         OnPropertyChanged(nameof(LastEnhancementOutputLabelText));
-        OnPropertyChanged(nameof(EnhancementProgressStageTitleText));
-        OnPropertyChanged(nameof(EnhancementProgressDetailText));
-        OnPropertyChanged(nameof(EnhancementResultSummaryText));
+        RefreshEnhancementExecutionDisplay();
     }
 
     private void RefreshEnhancementModeProperties()
@@ -428,4 +423,112 @@ public sealed partial class AiWorkspaceViewModel
 
     private static string FormatEnhancementScale(int scaleFactor) =>
         scaleFactor.ToString(CultureInfo.InvariantCulture) + "x";
+
+    private void ResetEnhancementOutcomeTracking()
+    {
+        _lastEnhancementFailureReasonResolver = null;
+        _lastEnhancementFailureKind = null;
+        _lastEnhancementFeedbackKind = AiExecutionFeedbackKind.None;
+    }
+
+    private void ApplyEnhancementSuccessOutcome(AiEnhancementResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        _lastEnhancementResult = result;
+        _lastEnhancementFailureReasonResolver = null;
+        _lastEnhancementFailureKind = null;
+        _lastEnhancementFeedbackKind = AiExecutionFeedbackKind.Succeeded;
+
+        EnhancementExecution.ApplySuccess(CreateEnhancementSuccessSummary(result), result.OutputPath);
+        EnhancementExecution.StageTitle = GetLocalizedText("ai.enhancement.progress.stage.complete", "增强完成");
+        EnhancementExecution.DetailText = FormatLocalizedText(
+            "ai.enhancement.progress.detail.complete",
+            "输出文件已生成：{fileName}",
+            ("fileName", result.OutputFileName));
+
+        SetStatusText(() => CreateEnhancementCompletedStatusMessage(result));
+        RefreshEnhancementExecutionDisplay();
+    }
+
+    private void ApplyEnhancementCancelledOutcome()
+    {
+        _lastEnhancementFailureReasonResolver = null;
+        _lastEnhancementFailureKind = null;
+        _lastEnhancementFeedbackKind = AiExecutionFeedbackKind.Cancelled;
+
+        var cancelledSummary = GetEnhancementCancelledSummaryText();
+        EnhancementExecution.ApplyFailure(cancelledSummary);
+        EnhancementExecution.StageTitle = GetLocalizedText("ai.enhancement.progress.stage.cancelled", "增强已取消");
+        EnhancementExecution.DetailText = cancelledSummary;
+
+        SetStatusText("ai.status.enhancementCancelled", "已取消当前 AI增强 任务，临时目录已开始清理。");
+        RefreshEnhancementExecutionDisplay();
+    }
+
+    private void ApplyEnhancementFailureOutcome(
+        AiEnhancementFailureKind? failureKind,
+        Func<string> failureReasonResolver)
+    {
+        ArgumentNullException.ThrowIfNull(failureReasonResolver);
+
+        _lastEnhancementFailureReasonResolver = failureReasonResolver;
+        _lastEnhancementFailureKind = failureKind;
+        _lastEnhancementFeedbackKind = AiExecutionFeedbackKind.Failed;
+
+        var failureReason = GetCurrentEnhancementFailureReasonText();
+        EnhancementExecution.ApplyFailure(CreateEnhancementFailedSummary(failureReason, failureKind));
+        EnhancementExecution.StageTitle = GetLocalizedText("ai.enhancement.progress.stage.failed", "增强失败");
+        EnhancementExecution.DetailText = failureReason;
+
+        SetStatusText(() => CreateEnhancementFailedSummary(GetCurrentEnhancementFailureReasonText(), _lastEnhancementFailureKind));
+        RefreshEnhancementExecutionDisplay();
+    }
+
+    private string GetCurrentEnhancementFailureReasonText() =>
+        NormalizeErrorMessage(
+            _lastEnhancementFailureReasonResolver?.Invoke(),
+            "ai.enhancement.failure.unexpected",
+            "增强执行失败，请重试。");
+
+    private void RefreshEnhancementOutcomeLocalization()
+    {
+        if (_lastEnhancementFeedbackKind == AiExecutionFeedbackKind.None)
+        {
+            return;
+        }
+
+        switch (_lastEnhancementFeedbackKind)
+        {
+            case AiExecutionFeedbackKind.Succeeded when _lastEnhancementResult is not null:
+                EnhancementExecution.StageTitle = GetLocalizedText("ai.enhancement.progress.stage.complete", "增强完成");
+                EnhancementExecution.DetailText = FormatLocalizedText(
+                    "ai.enhancement.progress.detail.complete",
+                    "输出文件已生成：{fileName}",
+                    ("fileName", _lastEnhancementResult.OutputFileName));
+                EnhancementExecution.LastResultSummary = CreateEnhancementSuccessSummary(_lastEnhancementResult);
+                break;
+            case AiExecutionFeedbackKind.Cancelled:
+                var cancelledSummary = GetEnhancementCancelledSummaryText();
+                EnhancementExecution.StageTitle = GetLocalizedText("ai.enhancement.progress.stage.cancelled", "增强已取消");
+                EnhancementExecution.DetailText = cancelledSummary;
+                EnhancementExecution.LastResultSummary = cancelledSummary;
+                break;
+            case AiExecutionFeedbackKind.Failed:
+                var failureReason = GetCurrentEnhancementFailureReasonText();
+                EnhancementExecution.StageTitle = GetLocalizedText("ai.enhancement.progress.stage.failed", "增强失败");
+                EnhancementExecution.DetailText = failureReason;
+                EnhancementExecution.LastResultSummary = CreateEnhancementFailedSummary(failureReason, _lastEnhancementFailureKind);
+                break;
+        }
+
+        RefreshEnhancementExecutionDisplay();
+    }
+
+    private void RefreshEnhancementExecutionDisplay()
+    {
+        OnPropertyChanged(nameof(EnhancementProgressStageTitleText));
+        OnPropertyChanged(nameof(EnhancementProgressDetailText));
+        OnPropertyChanged(nameof(EnhancementResultSummaryText));
+    }
 }
