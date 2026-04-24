@@ -34,6 +34,7 @@ Resources/Localization/
     common.json
     settings.json
     main-window.json
+    ai.json
     trim.json
     split-audio.json
     merge.json
@@ -43,6 +44,7 @@ Resources/Localization/
     common.json
     settings.json
     main-window.json
+    ai.json
     trim.json
     split-audio.json
     merge.json
@@ -59,11 +61,13 @@ Resources/Localization/
 - 主要代码入口：
   - `Core/Models/ApplicationConfiguration.cs`
   - `ViewModels/MainViewModel.Localization.cs`
+  - `ViewModels/MainViewModel.Workspace.cs`
 - 适用场景：
   - 工作区标题、描述
   - 处理模式名称
   - 输出格式名称
   - 跨模块复用按钮 / 开关 / 语言名称
+  - AI 工作区在主窗口侧边栏、页头外壳中的入口文案
 
 ### 设置页
 
@@ -98,6 +102,61 @@ Resources/Localization/
   - 队列状态
   - 输出目录反馈
   - 导入 / 取消 / 失败提示
+
+### AI 模块（AI补帧 / AI增强）
+
+- 资源文件：`ai.json`
+- 典型前缀：
+  - `ai.page.*`
+  - `ai.status.*`
+  - `ai.operation.*`
+  - `ai.interpolation.*`
+  - `ai.enhancement.*`
+- 主要代码入口：
+  - `Views/AiPage.xaml`
+  - `Views/AiPage.xaml.cs`
+  - `ViewModels/MainViewModel.Ai.cs`
+  - `ViewModels/AiWorkspaceViewModel.cs`
+  - `ViewModels/AiWorkspaceViewModel.Runtime.cs`
+  - `ViewModels/AiWorkspaceViewModel.Interpolation.cs`
+  - `ViewModels/AiWorkspaceViewModel.Enhancement.cs`
+- 状态 / 子模型入口：
+  - `ViewModels/AiInputState.cs`
+  - `ViewModels/AiMaterialLibraryState.cs`
+  - `ViewModels/AiModeState.cs`
+  - `ViewModels/AiOutputSettingsState.cs`
+  - `ViewModels/AiInterpolationSettingsState.cs`
+  - `ViewModels/AiEnhancementSettingsState.cs`
+  - `ViewModels/AiInterpolationExecutionState.cs`
+  - `ViewModels/AiEnhancementExecutionState.cs`
+  - `ViewModels/AiInterpolationExecutionCoordinator.cs`
+  - `ViewModels/AiEnhancementExecutionCoordinator.cs`
+- 服务侧入口：
+  - `Services/AI/AiInterpolationWorkflowService.cs`
+  - `Services/AI/AiEnhancementWorkflowService.cs`
+  - `Services/AI/AiRuntimeCatalogService.cs`
+  - `Services/AI/AiRuntimeProbeExecutor.cs`
+  - `Services/AI/RifeRuntimeParser.cs`
+  - `Services/AI/RealEsrganRuntimeParser.cs`
+- 模型侧入口：
+  - `Core/Models/AiInterpolationModels.cs`
+  - `Core/Models/AiEnhancementModels.cs`
+  - `Core/Models/AiEnhancementScalePlanning.cs`
+  - `Core/Models/AiRuntimeCatalog.cs`
+- 适用场景：
+  - AI 页面主结构、素材列表、模式切换、输出设置
+  - AI 补帧参数、设备策略、UHD 开关、进度与结果摘要
+  - AI 增强档位、倍率规划、高倍率提醒、进度与结果摘要
+  - runtime 状态、模型摘要、GPU / CPU fallback 探测结果
+  - AI 补帧 / 增强 的成功、失败、取消、不可用反馈
+- 如果改的是 AI 工作区入口文案，而不是页内文案，同时看：
+  - `Resources/Localization/*/common.json`
+  - `Core/Models/ApplicationConfiguration.cs`
+  - `ViewModels/MainViewModel.Workspace.cs`
+- 如果改的是 AI 规格、离线 runtime 资产或发布验证，同时看：
+  - `docs/ai-module-agent-execution-plan.md`
+  - `docs/ai-runtime-asset-inventory.md`
+  - `docs/ai-offline-publish-validation-checklist.md`
 
 ### 裁剪模块
 
@@ -205,13 +264,14 @@ Resources/Localization/
 
 1. 先决定文案属于哪个资源文件，不要跨模块乱放。
 2. 在 `Resources/Localization/zh-CN/*.json` 和 `Resources/Localization/en-US/*.json` 同时补 key。
-3. key 命名继续使用 `docs/localization-key-registry.md` 里的前缀规范。
+3. key 命名继续沿用当前资源文件里的前缀规范；例如 AI 模块优先使用 `ai.page.*`、`ai.status.*`、`ai.interpolation.*`、`ai.enhancement.*`。
 4. 代码里统一使用 `GetString` / `Format` 或对应 ViewModel 的 `GetLocalizedText` / `FormatLocalizedText`。
 5. 如果文案会缓存到属性或条目对象里，必须补刷新入口。
 
 常见刷新入口：
 
 - 主窗口：`MainViewModel.ApplyLocalizationState()`
+- AI：`AiWorkspaceViewModel.RefreshLocalization()`
 - 裁剪：`VideoTrimWorkspaceViewModel.RefreshLocalization()`
 - 拆音：`SplitAudioWorkspaceViewModel.RefreshLocalization()`
 - 合并：`MergeViewModel.RefreshLocalization()`
@@ -227,6 +287,7 @@ Resources/Localization/
 ```text
 mainWindow.message.outputDirectorySelected = 已将输出目录设置为：{path}
 merge.status.processingLocked.moduleOperation = 当前{module}任务处理中，若需{operation}，请先取消当前任务。
+ai.status.enhancementStarted = 已开始 AI增强：{fileName}，档位 {tier}，目标倍率 {scale}。
 ```
 
 ## 如果新增的是“媒体详情字段”
@@ -267,12 +328,13 @@ merge.status.processingLocked.moduleOperation = 当前{module}任务处理中，
 ## 新增一种语言时怎么做
 
 1. 在 `Resources/Localization/` 下新增语言目录，例如 `ja-JP/`。
-2. 复制现有 8 个 JSON 文件结构，保持 key 全量一致。
+2. 复制现有 9 个 JSON 文件结构，保持 key 全量一致。
 3. 更新 `manifest.json`，把新语言登记进去。
 4. 在 `common.json` 中补语言显示名 key，例如 `common.language.option.ja-jp`。
 5. 切换语言后跑一次往返验证，至少覆盖：
    - 设置页
    - 主窗口
+   - AI 工作区
    - 裁剪
    - 拆音
    - 合并
@@ -286,7 +348,8 @@ merge.status.processingLocked.moduleOperation = 当前{module}任务处理中，
 - `dotnet build .\Vidvix.sln -c Debug -v minimal`
 - 资源 key 对齐校验：新增语言与现有语言不能缺 key
 - `zh-CN -> en-US -> zh-CN` 或目标语言往返热切换烟测
-- `powershell -ExecutionPolicy Bypass -File .\scripts\test-split-audio-offline.ps1 -RepoRoot .`
+- 若本轮改到 AI 模块：`powershell -ExecutionPolicy Bypass -File .\scripts\test-ai-offline.ps1 -RepoRoot .`
+- 若本轮改到拆音模块：`powershell -ExecutionPolicy Bypass -File .\scripts\test-split-audio-offline.ps1 -RepoRoot .`
 - 启动 `bin\x64\Debug\net8.0-windows10.0.19041.0\Vidvix.exe`，确认不黑屏、不白屏、不闪退
 
 ## 不要这样做
@@ -295,4 +358,4 @@ merge.status.processingLocked.moduleOperation = 当前{module}任务处理中，
 - 不要只补 `zh-CN` 不补 `en-US`。
 - 不要新增依赖中文标签解析的逻辑。
 - 不要为单个页面再造一套新的本地化服务或刷新总线。
-- 不要把 R12 之后的维护变成“大面积回炉重构”。
+- 不要把后续维护变成“大面积回炉重构”。
