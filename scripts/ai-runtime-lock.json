@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "targetRoot": "Tools/AI",
+  "managedDirectories": [
+    "Rife",
+    "RealEsrgan",
+    "Licenses",
+    "Manifests"
+  ],
+  "packages": [
+    {
+      "id": "rife",
+      "displayName": "RIFE NCNN Vulkan",
+      "sourceRepository": "https://github.com/nihui/rife-ncnn-vulkan",
+      "releaseTag": "20221029",
+      "releasePublishedAt": "2022-10-29T08:49:01Z",
+      "archiveFileName": "rife-ncnn-vulkan-20221029-windows.zip",
+      "downloadUrls": [
+        "https://github.com/nihui/rife-ncnn-vulkan/releases/download/20221029/rife-ncnn-vulkan-20221029-windows.zip"
+      ],
+      "files": [
+        {
+          "entryPath": "rife-ncnn-vulkan-20221029-windows/rife-ncnn-vulkan.exe",
+          "target": "Rife/Bin/rife-ncnn-vulkan.exe",
+          "purpose": "Windows runtime executable for offline RIFE inference"
+        },
+        {
+          "entryPath": "rife-ncnn-vulkan-20221029-windows/vcomp140.dll",
+          "target": "Rife/Bin/vcomp140.dll",
+          "purpose": "OpenMP runtime required by the packaged RIFE executable"
+        },
+        {
+          "entryPath": "rife-ncnn-vulkan-20221029-windows/rife-v4.6/flownet.bin",
+          "target": "Rife/Models/rife-v4.6/flownet.bin",
+          "purpose": "Selected launch weight file for the RIFE v4.6 model"
+        },
+        {
+          "entryPath": "rife-ncnn-vulkan-20221029-windows/rife-v4.6/flownet.param",
+          "target": "Rife/Configs/rife-v4.6/flownet.param",
+          "purpose": "Selected launch graph definition for the RIFE v4.6 model"
+        }
+      ],
+      "licenseDownloads": [
+        {
+          "url": "https://raw.githubusercontent.com/nihui/rife-ncnn-vulkan/master/LICENSE",
+          "target": "Licenses/rife-ncnn-vulkan-LICENSE.txt",
+          "purpose": "MIT license for the packaged RIFE runtime"
+        }
+      ],
+      "removedCategories": [
+        "Unselected RIFE model directories: rife, rife-anime, rife-HD, rife-UHD, rife-v2, rife-v2.3, rife-v2.4, rife-v3.0, rife-v3.1 and rife-v4",
+        "Upstream README copies and archive staging files",
+        "Any temporary extraction directories and downloaded archives"
+      ],
+      "notes": [
+        "R6 keeps only rife-v4.6 so R7 can wire a single canonical interpolation model path without inheriting all historical variants.",
+        "Future runtime assembly should treat Rife/Models/rife-v4.6 and Rife/Configs/rife-v4.6 as the selected launch asset pair."
+      ]
+    },
+    {
+      "id": "realesrgan",
+      "displayName": "Real-ESRGAN NCNN Vulkan",
+      "sourceRepository": "https://github.com/xinntao/Real-ESRGAN",
+      "runtimeRepository": "https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan",
+      "releaseTag": "v0.2.5.0",
+      "releasePublishedAt": "2022-04-24T12:09:56Z",
+      "archiveFileName": "realesrgan-ncnn-vulkan-20220424-windows.zip",
+      "downloadUrls": [
+        "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-windows.zip"
+      ],
+      "files": [
+        {
+          "entryPath": "realesrgan-ncnn-vulkan.exe",
+          "target": "RealEsrgan/Bin/realesrgan-ncnn-vulkan.exe",
+          "purpose": "Windows runtime executable for offline Real-ESRGAN inference"
+        },
+        {
+          "entryPath": "vcomp140.dll",
+          "target": "RealEsrgan/Bin/vcomp140.dll",
+          "purpose": "OpenMP runtime required by the packaged Real-ESRGAN executable"
+        },
+        {
+          "entryPath": "models/realesrgan-x4plus.bin",
+          "target": "RealEsrgan/Models/realesrgan-x4plus.bin",
+          "purpose": "Standard launch model weights"
+        },
+        {
+          "entryPath": "models/realesrgan-x4plus.param",
+          "target": "RealEsrgan/Configs/realesrgan-x4plus.param",
+          "purpose": "Standard launch model graph definition"
+        },
+        {
+          "entryPath": "models/realesr-animevideov3-x2.bin",
+          "target": "RealEsrgan/Models/realesr-animevideov3-x2.bin",
+          "purpose": "Anime launch model weights for native 2x execution"
+        },
+        {
+          "entryPath": "models/realesr-animevideov3-x2.param",
+          "target": "RealEsrgan/Configs/realesr-animevideov3-x2.param",
+          "purpose": "Anime launch model graph definition for native 2x execution"
+        },
+        {
+          "entryPath": "models/realesr-animevideov3-x4.bin",
+          "target": "RealEsrgan/Models/realesr-animevideov3-x4.bin",
+          "purpose": "Anime launch model weights for native 4x execution"
+        },
+        {
+          "entryPath": "models/realesr-animevideov3-x4.param",
+          "target": "RealEsrgan/Configs/realesr-animevideov3-x4.param",
+          "purpose": "Anime launch model graph definition for native 4x execution"
+        }
+      ],
+      "licenseDownloads": [
+        {
+          "url": "https://raw.githubusercontent.com/xinntao/Real-ESRGAN-ncnn-vulkan/master/LICENSE",
+          "target": "Licenses/realesrgan-ncnn-vulkan-LICENSE.txt",
+          "purpose": "MIT license for the packaged Real-ESRGAN NCNN runtime"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/xinntao/Real-ESRGAN/master/LICENSE",
+          "target": "Licenses/Real-ESRGAN-LICENSE.txt",
+          "purpose": "BSD-3-Clause license for the selected Real-ESRGAN model family"
+        }
+      ],
+      "removedCategories": [
+        "Sample inputs and demo media: input.jpg, input2.jpg and onepiece_demo.mp4",
+        "Unused debug library vcomp140d.dll",
+        "Unused model assets: realesr-animevideov3-x3 and realesrgan-x4plus-anime",
+        "Upstream README copies and archive staging files"
+      ],
+      "notes": [
+        "The packaged archive is sourced from the official Real-ESRGAN release because it contains the NCNN runtime plus the launch model payloads we need.",
+        "R6 intentionally keeps Standard x4 and Anime x2/x4 native variants to match the launch planning assumptions for later R9 chaining logic."
+      ]
+    }
+  ]
+}

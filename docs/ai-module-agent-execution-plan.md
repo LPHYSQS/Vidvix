@@ -6,11 +6,11 @@
 
 - 计划版本：`v5`
 - 项目：`Vidvix`
-- 当前阶段：`Stage 1`
-- 当前轮次：`R5`
+- 当前阶段：`Stage 2`
+- 当前轮次：`R6`
 - 当前状态：`Completed`
 - 当前执行 Agent：`Codex`
-- 最近完成轮次：`R5`
+- 最近完成轮次：`R6`
 - 最近完成时间：`2026-04-24`
 - 构建验证：`Passed`
 - 运行验证：`Passed`
@@ -21,13 +21,13 @@
 
 当前执行本计划的 AI Agent 在完成本轮后，必须只修改本区块内容，不得删除本区块字段。
 
-- 本轮完成项：已完成 `R5`，接入 AI 素材列表、视频-only 导入规则、多素材导入但单视频激活约束、`AI补帧` / `AI增强` 模式切换壳层，以及 `MP4/MKV` 基础输出目录与文件名状态；本轮仍按计划不启动实际 AI 推理。
-- 本轮修改文件：`Views/AiPage.xaml`, `Views/AiPage.xaml.cs`, `ViewModels/AiWorkspaceViewModel.cs`, `Utils/AppCompositionRoot.cs`, `ViewModels/MainViewModel.cs`, `ViewModels/MainViewModel.UiState.cs`, `Resources/Localization/zh-CN/ai.json`, `Resources/Localization/en-US/ai.json`, `DOCS/ai-module-agent-execution-plan.md`
-- 本轮新增文件：`ViewModels/AiMaterialItemViewModel.cs`, `ViewModels/AiInputState.cs`, `ViewModels/AiMaterialLibraryState.cs`, `ViewModels/AiModeState.cs`, `ViewModels/AiOutputSettingsState.cs`
-- 本轮验证结果：`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`（当前 `sln` 仅包含主项目）；Debug / Release 产物均已成功启动，主窗口句柄就绪且 `Responding=True`，窗口标题为 `Vidvix`，持续运行期间未出现黑屏、白屏或闪退。
-- 当前遗留问题：`R5` 无阻断项；`R6` 之后的 AI runtime、模型资产、能力探测与 workflow 仍保持未接入状态，这是按计划冻结的增量边界，不属于本轮缺陷。
-- 下一轮必须处理：执行 `R6`，下载、筛选并归位 `RIFE` / `Real-ESRGAN` 首发所需 runtime、模型、配置与许可证清单，确保 `Tools/AI` 目录只保留运行所需资产。
-- 下一轮禁止扩展：不要提前进入 `R7` runtime 探测、`R8/R9` workflow、CPU fallback、烟测封板或发布验证开发。
+- 本轮完成项：已完成 `R6`，下载并筛选 `RIFE` / `Real-ESRGAN` 首发 runtime、模型、配置与许可证，归位到 `Tools/AI`，补齐可复用同步脚本、锁定清单与运行时资产清单；最终本地净保留体积约 `57.4 MiB`，未保留压缩包、示例媒体、调试库和历史冗余模型。
+- 本轮修改文件：`.gitignore`, `scripts/ai-runtime-lock.json`, `scripts/sync-ai-runtime-assets.ps1`, `docs/ai-runtime-asset-inventory.md`, `docs/ai-module-agent-execution-plan.md`
+- 本轮新增文件：`scripts/ai-runtime-lock.json`, `scripts/sync-ai-runtime-assets.ps1`, `docs/ai-runtime-asset-inventory.md`
+- 本轮验证结果：`powershell -ExecutionPolicy Bypass -File .\scripts\sync-ai-runtime-assets.ps1 -RepoRoot . -WorkingDirectory .\artifacts\ai-runtime-cache -KeepWorkingDirectory` 成功完成；`Tools/AI` 目录清洁度验证通过，仅保留 `exe`、运行库、模型、参数配置、许可证和 `manifest`；`dotnet build .\Vidvix.sln -c Debug -v minimal` 与 `dotnet build .\Vidvix.sln -c Release -v minimal` 均通过，均为 `0` 警告、`0` 错误；`dotnet test .\Vidvix.sln -c Debug --no-build -v minimal` 退出码 `0`；Debug / Release 产物均已成功启动，主窗口句柄就绪且 `Responding=True`，窗口标题为 `Vidvix`，持续运行期间未出现黑屏、白屏或闪退。
+- 当前遗留问题：`None`
+- 下一轮必须处理：执行 `R7`，接入 AI runtime 打包目录、模型描述与 GPU / CPU 能力探测，直接引用本轮已归位的 `Tools/AI` 资产路径。
+- 下一轮禁止扩展：不要提前进入 `R8/R9` workflow、`R10` 本地化硬化、`R11` 烟测封板或发布验证开发。
 
 ## 执行协议
 
@@ -266,7 +266,7 @@ Tools/
 | R3   | Stage 1 | AI UI 专项验证与对标审查       | Completed | Codex      | 2026-04-23 | 已输出 AI UI 验证报告，确认 AI 选中态未进入一致蓝色响应态，给出与合并模块的壳层差异、自适应问题和 R4 修复边界。 |
 | R4   | Stage 1 | AI UI 对齐调整与视觉收口       | Completed | Codex      | 2026-04-23 | 已补齐 AI 导航蓝色选中态与共享 hover / pressed 反馈，微调 AI 图标，移除页内重复 hero，并将 AI 页面收口为 `260 / * / 320` 宽窗壳层与窄窗纵向自适应布局。 |
 | R5   | Stage 1 | 素材列表、单视频约束与输出状态 | Completed | Codex      | 2026-04-24 | 已接入视频-only 素材库、多素材导入但单视频激活约束、`AI补帧` / `AI增强` 模式壳层与 `MP4/MKV` 基础输出状态，构建、测试与启动验证通过。 |
-| R6   | Stage 2 | AI 模型与配置下载、筛选、归位  | Pending   | N/A        | N/A        | 未开始 |
+| R6   | Stage 2 | AI 模型与配置下载、筛选、归位  | Completed | Codex      | 2026-04-24 | 已归位 `RIFE v4.6` 与 `Real-ESRGAN Standard/Anime(x2/x4)` 首发资产，补齐许可证、manifest、同步脚本和资产清单，`Tools/AI` 清洁度验证与构建/启动验证通过。 |
 | R7   | Stage 2 | AI runtime 打包与能力探测      | Pending   | N/A        | N/A        | 未开始 |
 | R8   | Stage 3 | AI补帧工作流                   | Pending   | N/A        | N/A        | 未开始 |
 | R9   | Stage 3 | AI增强工作流                   | Pending   | N/A        | N/A        | 未开始 |
@@ -455,8 +455,8 @@ Tools/
 
 目标：
 
-- 从互联网下载 AI 模块首发所需的 runtime、模型权重和配置文件。
-- 在同一轮内完成筛选、删杂、归位，避免把上游仓库残骸带入项目。
+- ~~从互联网下载 AI 模块首发所需的 runtime、模型权重和配置文件。~~
+- ~~在同一轮内完成筛选、删杂、归位，避免把上游仓库残骸带入项目。~~
 
 建议主文件范围：
 
@@ -466,11 +466,11 @@ Tools/
 
 必须交付：
 
-- `RIFE` 所需的可执行文件、模型文件、配置文件
-- `Real-ESRGAN` 所需的可执行文件、模型文件、配置文件
-- `Tools/AI/Licenses/**`
-- `Tools/AI/Manifests/**`
-- `DOCS/ai-runtime-asset-inventory.md`
+- ~~`RIFE` 所需的可执行文件、模型文件、配置文件~~
+- ~~`Real-ESRGAN` 所需的可执行文件、模型文件、配置文件~~
+- ~~`Tools/AI/Licenses/**`~~
+- ~~`Tools/AI/Manifests/**`~~
+- ~~`DOCS/ai-runtime-asset-inventory.md`~~
 
 必须清理：
 
@@ -490,16 +490,16 @@ Tools/
 
 验收标准：
 
-- `Tools/AI` 下只有必要文件，没有整包上游仓库快照
-- 所有保留文件都有明确用途
-- 许可证文件已保留
-- 资产清单能追溯每个保留文件的来源与用途
+- ~~`Tools/AI` 下只有必要文件，没有整包上游仓库快照~~
+- ~~所有保留文件都有明确用途~~
+- ~~许可证文件已保留~~
+- ~~资产清单能追溯每个保留文件的来源与用途~~
 
 交接要求：
 
-- 记录最终保留的目录结构
-- 记录被删除的无用文件类别
-- 记录后续 `R7` 需要直接引用的可执行文件、模型和配置路径
+- ~~记录最终保留的目录结构~~
+- ~~记录被删除的无用文件类别~~
+- ~~记录后续 `R7` 需要直接引用的可执行文件、模型和配置路径~~
 
 ### R7 AI runtime 打包与能力探测
 

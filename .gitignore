@@ -54,6 +54,7 @@ $RECYCLE.BIN/
 # Third-party media runtime payloads kept local
 Tools/ffmpeg/
 Tools/mpv/
+Tools/AI/
 Tools/MediaEngine/**/bin/
 Tools/MediaEngine/**/doc/
 Tools/MediaEngine/**/presets/
