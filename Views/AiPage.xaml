@@ -695,30 +695,23 @@
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
-                    <Border
-                        Visibility="{x:Bind ViewModel.InterpolationProgressVisibility, Mode=OneWay}"
-                        Style="{StaticResource AiInsetCardBorderStyle}">
-                        <StackPanel Spacing="8">
-                            <TextBlock
-                                FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.OutputFormatTitleText, Mode=OneWay}" />
-                            <ComboBox
-                                DisplayMemberPath="DisplayName"
-                                IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
-                                ItemsSource="{Binding ViewModel.OutputSettings.AvailableOutputFormats, ElementName=RootPage, Mode=OneWay}"
-                                SelectedItem="{Binding ViewModel.OutputSettings.SelectedOutputFormat, ElementName=RootPage, Mode=TwoWay}" />
-                            <TextBlock
-                                Opacity="0.72"
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.OutputFormatDescriptionText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Opacity="0.72"
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.OutputFormatHintText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-                    </Border>
+                    <StackPanel
+                        Spacing="8"
+                        Visibility="{x:Bind ViewModel.InterpolationProgressVisibility, Mode=OneWay}">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="{x:Bind ViewModel.OutputFormatTitleText, Mode=OneWay}" />
+                        <ComboBox
+                            DisplayMemberPath="DisplayName"
+                            IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
+                            ItemsSource="{Binding ViewModel.OutputSettings.AvailableOutputFormats, ElementName=RootPage, Mode=OneWay}"
+                            SelectedItem="{Binding ViewModel.OutputSettings.SelectedOutputFormat, ElementName=RootPage, Mode=TwoWay}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="{x:Bind ViewModel.OutputFormatDescriptionText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
 
                     <Border Style="{StaticResource AiInsetCardBorderStyle}">
                         <StackPanel Spacing="8">

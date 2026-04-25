@@ -321,11 +321,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
     public string OutputFormatDescriptionText => OutputSettings.SelectedOutputFormatDescription;
 
-    public string OutputFormatHintText =>
-        GetLocalizedText(
-            "ai.page.output.format.hint",
-            "支持 MP4、MKV、MOV、AVI、WMV、M4V、FLV、WEBM、TS、M2TS、MPEG、MPG；下方说明会随所选格式同步更新，导出时也会按目标封装自动调整编码策略。");
-
     public string OutputDirectoryTitleText =>
         GetLocalizedText("ai.page.output.directory.title", "输出目录");
 
@@ -414,7 +409,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OutputSectionDescriptionText));
         OnPropertyChanged(nameof(OutputFormatTitleText));
         OnPropertyChanged(nameof(OutputFormatDescriptionText));
-        OnPropertyChanged(nameof(OutputFormatHintText));
         OnPropertyChanged(nameof(OutputDirectoryTitleText));
         OnPropertyChanged(nameof(SelectOutputDirectoryButtonText));
         OnPropertyChanged(nameof(ClearOutputDirectoryButtonText));

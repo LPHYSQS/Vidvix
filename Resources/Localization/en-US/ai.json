@@ -188,7 +188,6 @@
   "ai.page.output.title": "Output settings",
   "ai.page.output.description": "Configure the output format, folder, and file name.",
   "ai.page.output.format.title": "Output format",
-  "ai.page.output.format.hint": "Supports MP4, MKV, MOV, AVI, WMV, M4V, FLV, WEBM, TS, M2TS, MPEG, and MPG. The note below updates with the selected format, and export adapts the encoding strategy to match the target container.",
   "ai.page.output.directory.title": "Output directory",
   "ai.page.output.directory.select": "Choose folder",
   "ai.page.output.directory.clear": "Clear",
