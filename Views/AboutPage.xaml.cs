@@ -9,6 +9,8 @@ public sealed partial class AboutPage : Page
     public AboutPage()
     {
         InitializeComponent();
+        Loaded += OnLoaded;
+        ActualThemeChanged += OnActualThemeChanged;
     }
 
     public AboutWorkspaceViewModel ViewModel
@@ -22,4 +24,31 @@ public sealed partial class AboutPage : Page
         typeof(AboutWorkspaceViewModel),
         typeof(AboutPage),
         new PropertyMetadata(new AboutWorkspaceViewModel()));
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        ApplySectionButtonStyle();
+    }
+
+    private void OnActualThemeChanged(FrameworkElement sender, object args)
+    {
+        ApplySectionButtonStyle();
+    }
+
+    private void ApplySectionButtonStyle()
+    {
+        if (Resources["DefaultAboutSectionRadioButtonStyle"] is not Style defaultStyle ||
+            Resources["LightAboutSectionRadioButtonStyle"] is not Style lightStyle)
+        {
+            return;
+        }
+
+        var targetStyle = ActualTheme == ElementTheme.Light
+            ? lightStyle
+            : defaultStyle;
+
+        AboutSectionRadioButton.Style = targetStyle;
+        LicenseSectionRadioButton.Style = targetStyle;
+        PrivacySectionRadioButton.Style = targetStyle;
+    }
 }

@@ -10,7 +10,7 @@
 
     <Page.Resources>
         <Style
-            x:Key="AboutSectionRadioButtonStyle"
+            x:Key="DefaultAboutSectionRadioButtonStyle"
             TargetType="RadioButton"
             BasedOn="{StaticResource MergeModeSegmentRadioButtonStyle}">
             <Setter Property="MinWidth" Value="0" />
@@ -18,6 +18,106 @@
             <Setter Property="Padding" Value="18,16" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style
+            x:Key="LightAboutSectionRadioButtonStyle"
+            TargetType="RadioButton">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="72" />
+            <Setter Property="Padding" Value="18,16" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="#FFFFFFFF" />
+            <Setter Property="BorderBrush" Value="#30000000" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+            <Setter Property="UseSystemFocusVisuals" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid
+                            x:Name="LayoutRoot"
+                            MinHeight="{TemplateBinding MinHeight}">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="InteractionSurface.Background" Value="#FFF7F7F7" />
+                                            <Setter Target="InteractionSurface.BorderBrush" Value="#42000000" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="InteractionSurface.Opacity" Value="0.94" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="LayoutRoot.Opacity" Value="0.45" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+
+                                <VisualStateGroup x:Name="CheckStates">
+                                    <VisualState x:Name="Unchecked">
+                                        <VisualState.Setters>
+                                            <Setter Target="InteractionSurface.Background" Value="#FFFFFFFF" />
+                                            <Setter Target="InteractionSurface.BorderBrush" Value="#30000000" />
+                                            <Setter Target="SelectionIndicator.Opacity" Value="0" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Checked">
+                                        <VisualState.Setters>
+                                            <Setter Target="InteractionSurface.Background" Value="#FFF8FBFF" />
+                                            <Setter Target="InteractionSurface.BorderBrush" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                                            <Setter Target="SelectionIndicator.Opacity" Value="1" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Indeterminate">
+                                        <VisualState.Setters>
+                                            <Setter Target="InteractionSurface.Background" Value="#FFF8FBFF" />
+                                            <Setter Target="InteractionSurface.BorderBrush" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                                            <Setter Target="SelectionIndicator.Opacity" Value="1" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+
+                            <Border
+                                x:Name="InteractionSurface"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                Opacity="1"
+                                Padding="{TemplateBinding Padding}">
+                                <ContentPresenter
+                                    x:Name="ContentHost"
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                    ContentTransitions="{TemplateBinding ContentTransitions}" />
+                            </Border>
+
+                            <Border
+                                x:Name="SelectionIndicator"
+                                Width="34"
+                                Height="3"
+                                Margin="0,0,0,5"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                CornerRadius="999"
+                                Opacity="0" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style
             x:Key="AboutContentCardStyle"
@@ -43,10 +143,11 @@
             </Grid.ColumnDefinitions>
 
             <RadioButton
+                x:Name="AboutSectionRadioButton"
                 Command="{x:Bind ViewModel.SelectAboutSectionCommand, Mode=OneWay}"
                 GroupName="AboutSections"
                 IsChecked="{x:Bind ViewModel.IsAboutSectionSelected, Mode=OneWay}"
-                Style="{StaticResource AboutSectionRadioButtonStyle}">
+                Style="{StaticResource DefaultAboutSectionRadioButtonStyle}">
                 <TextBlock
                     FontSize="18"
                     FontWeight="SemiBold"
@@ -57,11 +158,12 @@
             </RadioButton>
 
             <RadioButton
+                x:Name="LicenseSectionRadioButton"
                 Grid.Column="1"
                 Command="{x:Bind ViewModel.SelectLicenseSectionCommand, Mode=OneWay}"
                 GroupName="AboutSections"
                 IsChecked="{x:Bind ViewModel.IsLicenseSectionSelected, Mode=OneWay}"
-                Style="{StaticResource AboutSectionRadioButtonStyle}">
+                Style="{StaticResource DefaultAboutSectionRadioButtonStyle}">
                 <TextBlock
                     FontSize="18"
                     FontWeight="SemiBold"
@@ -72,11 +174,12 @@
             </RadioButton>
 
             <RadioButton
+                x:Name="PrivacySectionRadioButton"
                 Grid.Column="2"
                 Command="{x:Bind ViewModel.SelectPrivacySectionCommand, Mode=OneWay}"
                 GroupName="AboutSections"
                 IsChecked="{x:Bind ViewModel.IsPrivacySectionSelected, Mode=OneWay}"
-                Style="{StaticResource AboutSectionRadioButtonStyle}">
+                Style="{StaticResource DefaultAboutSectionRadioButtonStyle}">
                 <TextBlock
                     FontSize="18"
                     FontWeight="SemiBold"
