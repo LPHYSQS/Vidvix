@@ -1311,6 +1311,13 @@
                         VerticalAlignment="Stretch"
                         ViewModel="{x:Bind ViewModel.TerminalWorkspace, Mode=OneWay}"
                         Visibility="{x:Bind ViewModel.TerminalWorkspaceVisibility, Mode=OneWay}" />
+
+                    <views:AboutPage
+                        Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        ViewModel="{x:Bind ViewModel.AboutWorkspace, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.AboutWorkspaceVisibility, Mode=OneWay}" />
                 </Grid>
             </SplitView.Content>
         </SplitView>

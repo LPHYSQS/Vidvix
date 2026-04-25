@@ -193,6 +193,7 @@ public sealed partial class MainViewModel
         AiWorkspace.RefreshLocalization();
         SplitAudioWorkspace.RefreshLocalization();
         TerminalWorkspace.RefreshLocalization();
+        AboutWorkspace.RefreshLocalization();
         RefreshMediaDetailsLocalization();
         LocalizationRefreshRequested?.Invoke();
     }

@@ -1,0 +1,11 @@
+{
+  "about.page.tab.about": "About",
+  "about.page.tab.license": "License",
+  "about.page.tab.privacy": "Privacy",
+  "about.page.content.about.title": "About",
+  "about.page.content.about.description": "This area will be used for the app introduction, version details, and related notes. More content will be added later.",
+  "about.page.content.license.title": "License",
+  "about.page.content.license.description": "This area will be used for third-party component and license details. More content will be added later.",
+  "about.page.content.privacy.title": "Privacy",
+  "about.page.content.privacy.description": "This area will be used for privacy notes and data usage details. More content will be added later."
+}

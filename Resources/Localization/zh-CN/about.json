@@ -1,0 +1,11 @@
+{
+  "about.page.tab.about": "关于",
+  "about.page.tab.license": "许可证",
+  "about.page.tab.privacy": "隐私",
+  "about.page.content.about.title": "关于",
+  "about.page.content.about.description": "这里将用于展示应用简介、版本信息和相关说明，后续内容会继续补充。",
+  "about.page.content.license.title": "许可证",
+  "about.page.content.license.description": "这里将用于展示第三方组件及其许可证信息，后续内容会继续补充。",
+  "about.page.content.privacy.title": "隐私",
+  "about.page.content.privacy.description": "这里将用于展示隐私说明和数据使用注意事项，后续内容会继续补充。"
+}

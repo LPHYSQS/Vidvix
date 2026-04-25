@@ -19,6 +19,7 @@ public sealed class LocalizationService : ILocalizationService
         "common",
         "settings",
         "main-window",
+        "about",
         "ai",
         "trim",
         "split-audio",

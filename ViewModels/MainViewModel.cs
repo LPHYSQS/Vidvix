@@ -126,6 +126,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         AiWorkspace = aiWorkspace ?? throw new ArgumentNullException(nameof(aiWorkspace));
         SplitAudioWorkspace = splitAudioWorkspace ?? throw new ArgumentNullException(nameof(splitAudioWorkspace));
         TerminalWorkspace = terminalWorkspace ?? throw new ArgumentNullException(nameof(terminalWorkspace));
+        AboutWorkspace = new AboutWorkspaceViewModel(_localizationService);
         _statusMessage = GetRuntimePreparingMessage();
 
         _videoLogEntries = new ObservableCollection<LogEntry>();

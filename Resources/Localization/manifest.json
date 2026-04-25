@@ -17,6 +17,7 @@
     "common",
     "settings",
     "main-window",
+    "about",
     "ai",
     "trim",
     "split-audio",
