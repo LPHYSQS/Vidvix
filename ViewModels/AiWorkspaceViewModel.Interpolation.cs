@@ -40,16 +40,15 @@ public sealed partial class AiWorkspaceViewModel
     public string InterpolationSettingsDescriptionText =>
         GetLocalizedText(
             "ai.interpolation.settings.description",
-            "R8 已接通 RIFE 首发补帧闭环。倍率先开放 2x / 4x，4x 通过两次 2x 逐级补帧完成。");
+            "支持 2x 和 4x 补帧，可按需要选择。");
 
     public string InterpolationScaleTitleText =>
         GetLocalizedText("ai.interpolation.settings.scale.title", "补帧倍率");
 
     public string InterpolationScaleHintText =>
-        FormatLocalizedText(
+        GetLocalizedText(
             "ai.interpolation.settings.scale.hint",
-            "当前选择 {scale}。2x 单次补帧，4x 走两次 2x 逐级补帧。",
-            ("scale", InterpolationSettings.SelectedScaleFactor.DisplayName));
+            "2x 处理速度更快，4x 视频效果更流畅，但耗时更长。");
 
     public string InterpolationDeviceTitleText =>
         GetLocalizedText("ai.interpolation.settings.device.title", "执行设备");

@@ -241,12 +241,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string WorkspaceSectionDescriptionText =>
         GetLocalizedText(
             "ai.page.workspace.description",
-            "模式切换只影响 AI 参数壳层与后续执行规划，不会污染已导入素材和当前处理对象。");
-
-    public string WorkspaceModeSwitchHintText =>
-        GetLocalizedText(
-            "ai.page.workspace.modeHint",
-            "AI补帧 与 AI增强 共用同一份素材库与当前视频选择；两个模式都已接入独立 workflow，切换模式不会污染当前输入与输出状态。");
+            "切换模式不影响已选素材与当前对象。");
 
     public string InterpolationModeLabelText =>
         GetLocalizedText("ai.interpolation.modeLabel", "AI补帧");
@@ -258,10 +253,10 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation
             ? GetLocalizedText(
                 "ai.interpolation.modeDescription",
-                "首发路线固定为 RIFE，当前已支持 2x / 4x 补帧、设备策略、进度反馈、原音轨回填与取消清理。")
+                "AI补帧模式：支持 2x / 4x 补帧。")
             : GetLocalizedText(
                 "ai.enhancement.modeDescription",
-                "首发路线固定为 Real-ESRGAN，当前已支持 Standard / Anime、2x 到 16x 倍率、组合放大、超采样回缩、原音轨回填、进度反馈与取消清理。");
+                "AI增强模式：支持 Standard / Anime 与 2x 到 16x 增强。");
 
     public string CurrentTrackTitleText =>
         GetLocalizedText("ai.page.workspace.inputTrackTitle", "当前输入轨道");
@@ -283,10 +278,10 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation
             ? GetLocalizedText(
                 "ai.interpolation.trackHint",
-                "当前为 AI补帧 模式，单次只会将一个视频作为补帧输入；倍率、设备、进度和输出结果都挂在本模式下。")
+                "每次只处理一个视频，当前选择会作为补帧输入。")
             : GetLocalizedText(
                 "ai.enhancement.trackHint",
-                "当前为 AI增强 模式，单次只会将一个视频作为增强输入；模型档位、倍率链路、高倍率提醒与最近结果都挂在本模式下。");
+                "每次只处理一个视频，当前选择会作为增强输入。");
 
     public string CurrentTrackEmptyText =>
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation
@@ -402,7 +397,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(RevealLatestOutputButtonText));
         OnPropertyChanged(nameof(WorkspaceSectionTitleText));
         OnPropertyChanged(nameof(WorkspaceSectionDescriptionText));
-        OnPropertyChanged(nameof(WorkspaceModeSwitchHintText));
         OnPropertyChanged(nameof(InterpolationModeLabelText));
         OnPropertyChanged(nameof(EnhancementModeLabelText));
         OnPropertyChanged(nameof(CurrentModeDescriptionText));

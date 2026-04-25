@@ -353,11 +353,6 @@
                         </ScrollViewer>
                     </Border>
 
-                    <TextBlock
-                        Opacity="0.72"
-                        Text="{x:Bind ViewModel.WorkspaceModeSwitchHintText, Mode=OneWay}"
-                        TextWrapping="WrapWholeWords" />
-
                     <Border
                         Style="{StaticResource AiInsetCardBorderStyle}">
                         <Grid RowSpacing="12">
