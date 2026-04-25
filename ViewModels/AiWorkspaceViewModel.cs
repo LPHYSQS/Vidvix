@@ -20,6 +20,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     private readonly IMediaImportDiscoveryService? _mediaImportDiscoveryService;
     private readonly IMediaInfoService? _mediaInfoService;
     private readonly IFileRevealService? _fileRevealService;
+    private readonly IDispatcherService? _dispatcherService;
     private readonly ILogger? _logger;
     private readonly AsyncRelayCommand _importFilesCommand;
     private readonly AsyncRelayCommand _selectOutputDirectoryCommand;
@@ -46,6 +47,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             aiInterpolationWorkflowService: null,
             userPreferencesService: null,
             fileRevealService: null,
+            dispatcherService: null,
             logger: null)
     {
     }
@@ -61,6 +63,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         IAiInterpolationWorkflowService? aiInterpolationWorkflowService,
         IUserPreferencesService? userPreferencesService,
         IFileRevealService? fileRevealService,
+        IDispatcherService? dispatcherService,
         ILogger? logger)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -69,6 +72,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         _mediaImportDiscoveryService = mediaImportDiscoveryService;
         _mediaInfoService = mediaInfoService;
         _fileRevealService = fileRevealService;
+        _dispatcherService = dispatcherService;
         _aiRuntimeCatalogService = aiRuntimeCatalogService;
         _logger = logger;
 
@@ -1110,6 +1114,53 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
                 ("mode", GetCurrentModeDisplayName()),
                 ("operation", GetLocalizedText(operationKey, operationFallback))));
         return true;
+    }
+
+    private void RunOnUiThread(Action action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        if (_dispatcherService is null || _dispatcherService.HasThreadAccess)
+        {
+            action();
+            return;
+        }
+
+        if (!_dispatcherService.TryEnqueue(action))
+        {
+            action();
+        }
+    }
+
+    private Task RunOnUiThreadAsync(Action action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        if (_dispatcherService is null || _dispatcherService.HasThreadAccess)
+        {
+            action();
+            return Task.CompletedTask;
+        }
+
+        var completionSource = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_dispatcherService.TryEnqueue(() =>
+            {
+                try
+                {
+                    action();
+                    completionSource.TrySetResult(null);
+                }
+                catch (Exception exception)
+                {
+                    completionSource.TrySetException(exception);
+                }
+            }))
+        {
+            action();
+            return Task.CompletedTask;
+        }
+
+        return completionSource.Task;
     }
 
     private void SetStatusText(Func<string> resolver)

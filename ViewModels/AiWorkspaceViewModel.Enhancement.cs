@@ -132,9 +132,11 @@ public sealed partial class AiWorkspaceViewModel
 
         var progress = new Progress<AiEnhancementProgress>(update =>
         {
-            EnhancementExecution.ApplyProgress(update);
-            OnPropertyChanged(nameof(EnhancementProgressStageTitleText));
-            OnPropertyChanged(nameof(EnhancementProgressDetailText));
+            RunOnUiThread(() =>
+            {
+                EnhancementExecution.ApplyProgress(update);
+                RefreshEnhancementExecutionDisplay();
+            });
         });
 
         using var cancellationSource = new CancellationTokenSource();
@@ -164,27 +166,35 @@ public sealed partial class AiWorkspaceViewModel
                 .ExecuteAsync(request, cancellationSource.Token)
                 .ConfigureAwait(false);
 
-            switch (outcome.Kind)
-            {
-                case AiEnhancementExecutionOutcomeKind.Succeeded:
-                    ApplyEnhancementSuccessOutcome(outcome.Result!);
-                    break;
-                case AiEnhancementExecutionOutcomeKind.Cancelled:
-                    ApplyEnhancementCancelledOutcome();
-                    break;
-                default:
-                    ApplyEnhancementFailureOutcome(
-                        outcome.FailureKind,
-                        outcome.FailureReasonResolver ?? (() => GetEnhancementGenericFailureReason()));
-                    break;
-            }
+            await RunOnUiThreadAsync(() =>
+                {
+                    switch (outcome.Kind)
+                    {
+                        case AiEnhancementExecutionOutcomeKind.Succeeded:
+                            ApplyEnhancementSuccessOutcome(outcome.Result!);
+                            break;
+                        case AiEnhancementExecutionOutcomeKind.Cancelled:
+                            ApplyEnhancementCancelledOutcome();
+                            break;
+                        default:
+                            ApplyEnhancementFailureOutcome(
+                                outcome.FailureKind,
+                                outcome.FailureReasonResolver ?? (() => GetEnhancementGenericFailureReason()));
+                            break;
+                    }
+                })
+                .ConfigureAwait(false);
         }
         finally
         {
-            IsProcessing = false;
-            _processingCancellationSource = null;
-            RefreshEnhancementModeProperties();
-            NotifyCommandStates();
+            await RunOnUiThreadAsync(() =>
+                {
+                    IsProcessing = false;
+                    _processingCancellationSource = null;
+                    RefreshEnhancementModeProperties();
+                    NotifyCommandStates();
+                })
+                .ConfigureAwait(false);
         }
     }
 

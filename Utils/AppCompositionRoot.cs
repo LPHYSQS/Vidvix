@@ -288,6 +288,7 @@ public sealed class AppCompositionRoot
             workflows.AiInterpolationWorkflowService,
             infrastructure.UserPreferencesService,
             infrastructure.FileRevealService,
+            infrastructure.DispatcherService,
             Logger);
     }
 

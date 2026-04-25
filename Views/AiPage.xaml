@@ -286,6 +286,62 @@
                     </StackPanel>
 
                     <Border
+                        Padding="14,12"
+                        Style="{StaticResource AiInsetCardBorderStyle}"
+                        Visibility="{x:Bind ViewModel.InterpolationWorkspaceProgressVisibility, Mode=OneWay}">
+                        <Grid ColumnSpacing="14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border
+                                Width="34"
+                                Height="34"
+                                VerticalAlignment="Top"
+                                Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                CornerRadius="17">
+                                <SymbolIcon
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Symbol="Video" />
+                            </Border>
+
+                            <StackPanel
+                                Grid.Column="1"
+                                Spacing="8">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock
+                                        FontWeight="SemiBold"
+                                        Text="{x:Bind ViewModel.InterpolationWorkspaceProgressSummaryText, Mode=OneWay}" />
+
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Opacity="0.72"
+                                        Text="{x:Bind ViewModel.InterpolationWorkspaceProgressPercentText, Mode=OneWay}" />
+                                </Grid>
+
+                                <ProgressBar
+                                    Height="6"
+                                    IsIndeterminate="{x:Bind ViewModel.IsInterpolationWorkspaceProgressIndeterminate, Mode=OneWay}"
+                                    Maximum="100"
+                                    Value="{Binding ViewModel.InterpolationExecution.ProgressValue, ElementName=RootPage, Mode=OneWay}" />
+
+                                <TextBlock
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.InterpolationWorkspaceProgressDetailText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border
                         HorizontalAlignment="Left"
                         Padding="4"
                         Background="{ThemeResource ControlFillColorSecondaryBrush}"
@@ -793,51 +849,6 @@
                                     Grid.Column="1"
                                     Command="{x:Bind ViewModel.CancelProcessingCommand, Mode=OneWay}"
                                     Content="{x:Bind ViewModel.CancelProcessingButtonText, Mode=OneWay}" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
-                        <StackPanel Spacing="10">
-                            <TextBlock
-                                FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.InterpolationProgressTitleText, Mode=OneWay}" />
-                            <ProgressBar
-                                Maximum="100"
-                                Value="{Binding ViewModel.InterpolationExecution.ProgressValue, ElementName=RootPage, Mode=OneWay}" />
-                            <TextBlock
-                                FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.InterpolationProgressStageTitleText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Opacity="0.72"
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.InterpolationProgressDetailText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Opacity="0.78"
-                                Text="{x:Bind ViewModel.InterpolationResultSummaryText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
-                                <TextBlock
-                                    Style="{StaticResource AiMetadataLabelTextStyle}"
-                                    Text="{x:Bind ViewModel.LastInterpolationOutputLabelText, Mode=OneWay}" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    Text="{Binding ViewModel.InterpolationExecution.LastOutputPath, ElementName=RootPage, Mode=OneWay}"
-                                    TextWrapping="WrapWholeWords" />
-                                <Button
-                                    Grid.Column="2"
-                                    VerticalAlignment="Top"
-                                    Command="{x:Bind ViewModel.RevealLatestOutputCommand, Mode=OneWay}"
-                                    CommandParameter="{Binding ViewModel.InterpolationExecution.LastOutputPath, ElementName=RootPage, Mode=OneWay}"
-                                    Content="{x:Bind ViewModel.RevealLatestOutputButtonText, Mode=OneWay}" />
                             </Grid>
                         </StackPanel>
                     </Border>

@@ -34,6 +34,25 @@ public sealed partial class AiWorkspaceViewModel
             ? Visibility.Visible
             : Visibility.Collapsed;
 
+    public Visibility InterpolationWorkspaceProgressVisibility =>
+        ModeState.SelectedMode == AiWorkspaceMode.Interpolation && IsProcessing
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    public bool IsInterpolationWorkspaceProgressIndeterminate =>
+        IsProcessing && InterpolationExecution.ProgressValue <= 0d;
+
+    public string InterpolationWorkspaceProgressSummaryText => InterpolationProgressStageTitleText;
+
+    public string InterpolationWorkspaceProgressDetailText => InterpolationProgressDetailText;
+
+    public string InterpolationWorkspaceProgressPercentText =>
+        !IsProcessing
+            ? string.Empty
+            : IsInterpolationWorkspaceProgressIndeterminate
+                ? GetLocalizedText("ai.interpolation.progress.percent.processing", "处理中")
+                : $"{Math.Round(Math.Clamp(InterpolationExecution.ProgressValue, 0d, 100d)):0}%";
+
     public string InterpolationSettingsTitleText =>
         GetLocalizedText("ai.interpolation.settings.title", "补帧参数");
 
@@ -141,9 +160,11 @@ public sealed partial class AiWorkspaceViewModel
 
         var progress = new Progress<AiInterpolationProgress>(update =>
         {
-            InterpolationExecution.ApplyProgress(update);
-            OnPropertyChanged(nameof(InterpolationProgressStageTitleText));
-            OnPropertyChanged(nameof(InterpolationProgressDetailText));
+            RunOnUiThread(() =>
+            {
+                InterpolationExecution.ApplyProgress(update);
+                RefreshInterpolationExecutionDisplay();
+            });
         });
 
         using var cancellationSource = new CancellationTokenSource();
@@ -174,27 +195,35 @@ public sealed partial class AiWorkspaceViewModel
                 .ExecuteAsync(request, cancellationSource.Token)
                 .ConfigureAwait(false);
 
-            switch (outcome.Kind)
-            {
-                case AiInterpolationExecutionOutcomeKind.Succeeded:
-                    ApplyInterpolationSuccessOutcome(outcome.Result!);
-                    break;
-                case AiInterpolationExecutionOutcomeKind.Cancelled:
-                    ApplyInterpolationCancelledOutcome();
-                    break;
-                default:
-                    ApplyInterpolationFailureOutcome(
-                        outcome.FailureKind,
-                        outcome.FailureReasonResolver ?? (() => GetInterpolationGenericFailureReason()));
-                    break;
-            }
+            await RunOnUiThreadAsync(() =>
+                {
+                    switch (outcome.Kind)
+                    {
+                        case AiInterpolationExecutionOutcomeKind.Succeeded:
+                            ApplyInterpolationSuccessOutcome(outcome.Result!);
+                            break;
+                        case AiInterpolationExecutionOutcomeKind.Cancelled:
+                            ApplyInterpolationCancelledOutcome();
+                            break;
+                        default:
+                            ApplyInterpolationFailureOutcome(
+                                outcome.FailureKind,
+                                outcome.FailureReasonResolver ?? (() => GetInterpolationGenericFailureReason()));
+                            break;
+                    }
+                })
+                .ConfigureAwait(false);
         }
         finally
         {
-            IsProcessing = false;
-            _processingCancellationSource = null;
-            RefreshInterpolationModeProperties();
-            NotifyCommandStates();
+            await RunOnUiThreadAsync(() =>
+                {
+                    IsProcessing = false;
+                    _processingCancellationSource = null;
+                    RefreshInterpolationModeProperties();
+                    NotifyCommandStates();
+                })
+                .ConfigureAwait(false);
         }
     }
 
@@ -228,6 +257,11 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(CanEditProcessingParameters));
         OnPropertyChanged(nameof(InterpolationControlsVisibility));
         OnPropertyChanged(nameof(InterpolationProgressVisibility));
+        OnPropertyChanged(nameof(InterpolationWorkspaceProgressVisibility));
+        OnPropertyChanged(nameof(IsInterpolationWorkspaceProgressIndeterminate));
+        OnPropertyChanged(nameof(InterpolationWorkspaceProgressSummaryText));
+        OnPropertyChanged(nameof(InterpolationWorkspaceProgressDetailText));
+        OnPropertyChanged(nameof(InterpolationWorkspaceProgressPercentText));
         OnPropertyChanged(nameof(InterpolationSettingsTitleText));
         OnPropertyChanged(nameof(InterpolationSettingsDescriptionText));
         OnPropertyChanged(nameof(InterpolationScaleTitleText));
@@ -252,6 +286,9 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(CanEditProcessingParameters));
         OnPropertyChanged(nameof(InterpolationControlsVisibility));
         OnPropertyChanged(nameof(InterpolationProgressVisibility));
+        OnPropertyChanged(nameof(InterpolationWorkspaceProgressVisibility));
+        OnPropertyChanged(nameof(IsInterpolationWorkspaceProgressIndeterminate));
+        OnPropertyChanged(nameof(InterpolationWorkspaceProgressPercentText));
         OnPropertyChanged(nameof(InterpolationScaleHintText));
         OnPropertyChanged(nameof(InterpolationDeviceHintText));
         OnPropertyChanged(nameof(ProcessingActionsHintText));
@@ -463,5 +500,9 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(InterpolationProgressStageTitleText));
         OnPropertyChanged(nameof(InterpolationProgressDetailText));
         OnPropertyChanged(nameof(InterpolationResultSummaryText));
+        OnPropertyChanged(nameof(IsInterpolationWorkspaceProgressIndeterminate));
+        OnPropertyChanged(nameof(InterpolationWorkspaceProgressSummaryText));
+        OnPropertyChanged(nameof(InterpolationWorkspaceProgressDetailText));
+        OnPropertyChanged(nameof(InterpolationWorkspaceProgressPercentText));
     }
 }

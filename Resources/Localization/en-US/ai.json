@@ -66,6 +66,7 @@
   "ai.interpolation.device.cpuFallback": "CPU fallback",
   "ai.interpolation.progress.title": "Interpolation progress and latest result",
   "ai.interpolation.progress.placeholder": "After interpolation starts, this area shows the current stage, progress, and the latest output result.",
+  "ai.interpolation.progress.percent.processing": "Processing",
   "ai.interpolation.progress.lastOutput": "Latest output",
   "ai.interpolation.progress.stage.idle": "Not started",
   "ai.interpolation.progress.stage.prepare": "Preparing interpolation",

@@ -66,6 +66,7 @@
   "ai.interpolation.device.cpuFallback": "CPU fallback",
   "ai.interpolation.progress.title": "补帧进度与最近结果",
   "ai.interpolation.progress.placeholder": "开始补帧后，这里会显示当前阶段、进度和最近一次输出结果。",
+  "ai.interpolation.progress.percent.processing": "处理中",
   "ai.interpolation.progress.lastOutput": "最近输出",
   "ai.interpolation.progress.stage.idle": "待开始",
   "ai.interpolation.progress.stage.prepare": "准备补帧任务",
