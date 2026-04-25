@@ -26,6 +26,7 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
     private readonly IFFmpegService _ffmpegService;
     private readonly ILocalizationService? _localizationService;
     private readonly ILogger _logger;
+    private readonly AiPreparedModelCache _preparedModelCache;
 
     public AiEnhancementWorkflowService(
         ApplicationConfiguration configuration,
@@ -43,6 +44,7 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
         _ffmpegService = ffmpegService ?? throw new ArgumentNullException(nameof(ffmpegService));
         _localizationService = localizationService;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _preparedModelCache = new AiPreparedModelCache(_configuration, _logger);
     }
 
     public async Task<AiEnhancementResult> EnhanceAsync(
@@ -65,15 +67,16 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
         }
 
         var ffmpegRuntime = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
-        var runtimeCatalog = await _aiRuntimeCatalogService
-            .EnsureExecutionSupportAsync(AiRuntimeKind.RealEsrgan, cancellationToken)
-            .ConfigureAwait(false);
+        var runtimeCatalog = await _aiRuntimeCatalogService.GetCatalogAsync(cancellationToken).ConfigureAwait(false);
         var realEsrganDescriptor = runtimeCatalog.RealEsrgan;
         var selectedModel = ResolveSelectedModel(realEsrganDescriptor, request.ModelTier);
         var mediaDetails = await LoadAndValidateMediaDetailsAsync(normalizedInputPath, cancellationToken).ConfigureAwait(false);
         var executionDevice = ResolveExecutionDevice(realEsrganDescriptor, request.DevicePreference);
         var scalePlan = AiEnhancementScalePlanner.BuildPlan(selectedModel.NativeScaleFactors, request.TargetScaleFactor);
         var sourceDuration = mediaDetails.MediaDuration;
+        var preparedModelPath = await _preparedModelCache
+            .EnsurePreparedModelDirectoryAsync(realEsrganDescriptor, selectedModel, cancellationToken)
+            .ConfigureAwait(false);
 
         var outputDirectory = string.IsNullOrWhiteSpace(request.OutputDirectory)
             ? mediaDetails.InputDirectory
@@ -124,7 +127,6 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
             }
 
             var sourceFrameRate = ResolveSourceFrameRate(mediaDetails, extractedFrameCount);
-            var stagedModelPath = StageModelAssets(sessionRootPath, selectedModel);
             var currentInputDirectory = inputFramesDirectory;
             var currentInputFrameCount = extractedFrameCount;
             string currentOutputDirectory = string.Empty;
@@ -138,7 +140,7 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
                 var range = ResolveEnhancementProgressRange(passIndex, scalePlan.PassCount);
                 await ExecuteRealEsrganPassAsync(
                         realEsrganDescriptor,
-                        stagedModelPath,
+                        preparedModelPath,
                         currentInputDirectory,
                         currentOutputDirectory,
                         selectedModel.RuntimeModelName,
@@ -319,13 +321,16 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
 
         if (devicePreference == AiEnhancementDevicePreference.Cpu)
         {
-            return descriptor.CpuSupport.IsAvailable
-                ? new ExecutionDeviceResolution(
-                    AiEnhancementExecutionDeviceKind.Cpu,
-                    GetLocalizedText("ai.enhancement.deviceOption.cpu", "CPU"),
-                    UseCpuFallback: true,
-                    GpuIndex: null)
-                : throw CreateDeviceUnavailableException(descriptor.CpuSupport, allowRuntimeMissing: false);
+            if (descriptor.CpuSupport.State is AiExecutionSupportState.Unavailable or AiExecutionSupportState.Unsupported)
+            {
+                throw CreateDeviceUnavailableException(descriptor.CpuSupport, allowRuntimeMissing: false);
+            }
+
+            return new ExecutionDeviceResolution(
+                AiEnhancementExecutionDeviceKind.Cpu,
+                GetLocalizedText("ai.enhancement.deviceOption.cpu", "CPU"),
+                UseCpuFallback: true,
+                GpuIndex: null);
         }
 
         var preferredGpuDevice = ResolvePreferredGpuDevice(descriptor);
@@ -338,7 +343,9 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
                 GpuIndex: preferredGpuDevice.Index);
         }
 
-        if (descriptor.GpuSupport.IsAvailable)
+        if (descriptor.GpuSupport.State is AiExecutionSupportState.Pending or
+            AiExecutionSupportState.Available or
+            AiExecutionSupportState.ProbeFailed)
         {
             return new ExecutionDeviceResolution(
                 AiEnhancementExecutionDeviceKind.Gpu,
@@ -831,6 +838,7 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
                 GetLocalizedText("ai.enhancement.failure.realesrganStart", "Real-ESRGAN 进程启动失败。"));
         }
 
+        TryReduceProcessPriority(process, ProcessPriorityClass.BelowNormal);
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
         var processId = process.Id;
@@ -925,20 +933,6 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
 
             await Task.Delay(RealEsrganOutputPollInterval, cancellationToken).ConfigureAwait(false);
         }
-    }
-
-    private static string StageModelAssets(string sessionRootPath, AiRuntimeModelDescriptor model)
-    {
-        var targetDirectoryPath = Path.Combine(sessionRootPath, "staged-models", model.PreparedDirectoryName);
-        Directory.CreateDirectory(targetDirectoryPath);
-
-        foreach (var asset in model.Assets)
-        {
-            File.Copy(asset.ConfigPath, Path.Combine(targetDirectoryPath, Path.GetFileName(asset.ConfigPath)), overwrite: true);
-            File.Copy(asset.WeightPath, Path.Combine(targetDirectoryPath, Path.GetFileName(asset.WeightPath)), overwrite: true);
-        }
-
-        return targetDirectoryPath;
     }
 
     private static int CountGeneratedFrames(string directoryPath)
@@ -1128,6 +1122,20 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
             if (Directory.Exists(directoryPath))
             {
                 Directory.Delete(directoryPath, recursive: true);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static void TryReduceProcessPriority(Process process, ProcessPriorityClass priorityClass)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.PriorityClass = priorityClass;
             }
         }
         catch

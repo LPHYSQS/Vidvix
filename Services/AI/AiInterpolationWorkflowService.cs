@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -26,6 +26,7 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
     private readonly IFFmpegService _ffmpegService;
     private readonly ILocalizationService? _localizationService;
     private readonly ILogger _logger;
+    private readonly AiPreparedModelCache _preparedModelCache;
 
     public AiInterpolationWorkflowService(
         ApplicationConfiguration configuration,
@@ -43,6 +44,7 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
         _ffmpegService = ffmpegService ?? throw new ArgumentNullException(nameof(ffmpegService));
         _localizationService = localizationService;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _preparedModelCache = new AiPreparedModelCache(_configuration, _logger);
     }
 
     public async Task<AiInterpolationResult> InterpolateAsync(
@@ -66,13 +68,18 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
         }
 
         var ffmpegRuntime = await _ffmpegRuntimeService.EnsureAvailableAsync(cancellationToken).ConfigureAwait(false);
-        var runtimeCatalog = await _aiRuntimeCatalogService
-            .EnsureExecutionSupportAsync(AiRuntimeKind.Rife, cancellationToken)
-            .ConfigureAwait(false);
+        var runtimeCatalog = await _aiRuntimeCatalogService.GetCatalogAsync(cancellationToken).ConfigureAwait(false);
         var rifeDescriptor = runtimeCatalog.Rife;
         var mediaDetails = await LoadAndValidateMediaDetailsAsync(normalizedInputPath, cancellationToken).ConfigureAwait(false);
         var executionDevice = ResolveExecutionDevice(rifeDescriptor, request.DevicePreference);
         var sourceDuration = mediaDetails.MediaDuration;
+        var selectedModel = rifeDescriptor.Models.FirstOrDefault()
+            ?? throw new AiInterpolationWorkflowException(
+                AiInterpolationFailureKind.RuntimeMissing,
+                GetLocalizedText("ai.interpolation.failure.runtimeModelMissing", "RIFE model descriptor is missing."));
+        var preparedModelPath = await _preparedModelCache
+            .EnsurePreparedModelDirectoryAsync(rifeDescriptor, selectedModel, cancellationToken)
+            .ConfigureAwait(false);
 
         var outputDirectory = string.IsNullOrWhiteSpace(request.OutputDirectory)
             ? mediaDetails.InputDirectory
@@ -127,7 +134,6 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
             }
 
             var sourceFrameRate = ResolveSourceFrameRate(mediaDetails, extractedFrameCount);
-            var stagedModelPath = StageRifeModelAssets(sessionRootPath, rifeDescriptor);
             var interpolationPassCount = request.ScaleFactor == AiInterpolationScaleFactor.X4 ? 2 : 1;
             var currentInputDirectory = inputFramesDirectory;
             var currentInputFrameCount = extractedFrameCount;
@@ -142,7 +148,7 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
                 var range = ResolveInterpolationProgressRange(passIndex, interpolationPassCount);
                 await ExecuteRifePassAsync(
                         rifeDescriptor,
-                        stagedModelPath,
+                        preparedModelPath,
                         currentInputDirectory,
                         currentOutputDirectory,
                         executionDevice,
@@ -299,9 +305,16 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
 
         if (devicePreference == AiInterpolationDevicePreference.Cpu)
         {
-            return descriptor.CpuSupport.IsAvailable
-                ? new ExecutionDeviceResolution(AiInterpolationExecutionDeviceKind.Cpu, GetLocalizedText("ai.interpolation.deviceOption.cpu", "CPU"), UseCpuFallback: true, GpuIndex: null)
-                : throw CreateDeviceUnavailableException(descriptor.CpuSupport, allowRuntimeMissing: false);
+            if (descriptor.CpuSupport.State is AiExecutionSupportState.Unavailable or AiExecutionSupportState.Unsupported)
+            {
+                throw CreateDeviceUnavailableException(descriptor.CpuSupport, allowRuntimeMissing: false);
+            }
+
+            return new ExecutionDeviceResolution(
+                AiInterpolationExecutionDeviceKind.Cpu,
+                GetLocalizedText("ai.interpolation.deviceOption.cpu", "CPU"),
+                UseCpuFallback: true,
+                GpuIndex: null);
         }
 
         var preferredGpuDevice = ResolvePreferredGpuDevice(descriptor);
@@ -314,7 +327,9 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
                 GpuIndex: preferredGpuDevice.Index);
         }
 
-        if (descriptor.GpuSupport.IsAvailable)
+        if (descriptor.GpuSupport.State is AiExecutionSupportState.Pending or
+            AiExecutionSupportState.Available or
+            AiExecutionSupportState.ProbeFailed)
         {
             return new ExecutionDeviceResolution(
                 AiInterpolationExecutionDeviceKind.Gpu,
@@ -728,6 +743,7 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
                 GetLocalizedText("ai.interpolation.failure.rifeStart", "RIFE 进程启动失败。"));
         }
 
+        TryReduceProcessPriority(process, ProcessPriorityClass.BelowNormal);
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
         var processId = process.Id;
@@ -1026,6 +1042,20 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
             if (Directory.Exists(directoryPath))
             {
                 Directory.Delete(directoryPath, recursive: true);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static void TryReduceProcessPriority(Process process, ProcessPriorityClass priorityClass)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.PriorityClass = priorityClass;
             }
         }
         catch

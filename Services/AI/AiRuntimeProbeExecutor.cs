@@ -501,6 +501,7 @@ internal sealed class AiRuntimeProbeExecutor
                 StandardError: "Process start returned false.");
         }
 
+        TryReduceProcessPriority(process, ProcessPriorityClass.Idle);
         var standardOutputTask = process.StandardOutput.ReadToEndAsync();
         var standardErrorTask = process.StandardError.ReadToEndAsync();
         var exitTask = process.WaitForExitAsync();
@@ -704,6 +705,20 @@ internal sealed class AiRuntimeProbeExecutor
             if (!process.HasExited)
             {
                 process.Kill(entireProcessTree: true);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static void TryReduceProcessPriority(Process process, ProcessPriorityClass priorityClass)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.PriorityClass = priorityClass;
             }
         }
         catch

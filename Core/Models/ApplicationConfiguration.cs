@@ -80,6 +80,8 @@ public sealed class ApplicationConfiguration
 
     public string AiRuntimeProbeCacheDirectoryName { get; init; } = "ProbeCache";
 
+    public string AiPreparedModelsDirectoryName { get; init; } = "PreparedModels";
+
     public string RifeDirectoryName { get; init; } = "Rife";
 
     public string RifeExecutableFileName { get; init; } = "rife-ncnn-vulkan.exe";
