@@ -22,6 +22,14 @@ public sealed record UserPreferences
 
     public string? PreferredTrimOutputDirectory { get; init; }
 
+    public string PreferredAiWorkspaceMode { get; init; } = "Interpolation";
+
+    public string? PreferredAiInterpolationOutputFormatExtension { get; init; }
+
+    public string? PreferredAiEnhancementOutputFormatExtension { get; init; }
+
+    public string? PreferredAiEnhancementDevicePreference { get; init; }
+
     public string? PreferredSplitAudioOutputFormatExtension { get; init; }
 
     public string? PreferredSplitAudioOutputDirectory { get; init; }

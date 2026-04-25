@@ -91,6 +91,18 @@ public sealed partial class AiWorkspaceViewModel
             ("scale", FormatEnhancementScale(EnhancementSettings.SelectedScaleFactorValue)),
             ("plan", BuildEnhancementScalePlanPreviewText()));
 
+    public string EnhancementDeviceTitleText =>
+        GetLocalizedText("ai.enhancement.settings.device.title", "执行设备");
+
+    public string EnhancementDeviceHintText =>
+        EnhancementSettings.SelectedDevicePreference == AiEnhancementDevicePreference.Cpu
+            ? GetLocalizedText(
+                "ai.enhancement.settings.device.hint.cpu",
+                "已锁定 CPU 模式；若当前机器 CPU fallback 不可用，任务会在启动前明确失败。")
+            : GetLocalizedText(
+                "ai.enhancement.settings.device.hint.auto",
+                "自动 与 GPU优先 当前都会优先尝试 GPU，不可用时回退到 Real-ESRGAN CPU fallback。");
+
     public string EnhancementHighLoadTitleText =>
         GetLocalizedText("ai.enhancement.warning.highLoad.title", "高倍率高负载提醒");
 
@@ -163,6 +175,7 @@ public sealed partial class AiWorkspaceViewModel
             OutputSettings.EffectiveOutputDirectory,
             EnhancementSettings.SelectedModelTier,
             EnhancementSettings.SelectedScaleFactorValue,
+            EnhancementSettings.SelectedDevicePreference,
             progress);
 
         EnhancementExecution.ResetForExecution(
@@ -214,8 +227,14 @@ public sealed partial class AiWorkspaceViewModel
 
     private void OnEnhancementSettingsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(AiEnhancementSettingsState.SelectedDeviceOption))
+        {
+            PersistAiPreferences();
+        }
+
         OnPropertyChanged(nameof(EnhancementModelTierHintText));
         OnPropertyChanged(nameof(EnhancementScaleHintText));
+        OnPropertyChanged(nameof(EnhancementDeviceHintText));
         OnPropertyChanged(nameof(EnhancementHighLoadWarningVisibility));
         OnPropertyChanged(nameof(EnhancementHighLoadWarningText));
         OnPropertyChanged(nameof(OutputParameterSummaryText));
@@ -225,7 +244,8 @@ public sealed partial class AiWorkspaceViewModel
     {
         EnhancementSettings.ReloadLocalizedOptions(
             BuildEnhancementModelTierOptions(),
-            BuildEnhancementScaleOptions());
+            BuildEnhancementScaleOptions(),
+            BuildEnhancementDeviceOptions());
 
         OnPropertyChanged(nameof(EnhancementControlsVisibility));
         OnPropertyChanged(nameof(EnhancementHighLoadWarningVisibility));
@@ -236,6 +256,8 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(EnhancementModelTierHintText));
         OnPropertyChanged(nameof(EnhancementScaleTitleText));
         OnPropertyChanged(nameof(EnhancementScaleHintText));
+        OnPropertyChanged(nameof(EnhancementDeviceTitleText));
+        OnPropertyChanged(nameof(EnhancementDeviceHintText));
         OnPropertyChanged(nameof(EnhancementHighLoadTitleText));
         OnPropertyChanged(nameof(EnhancementHighLoadWarningText));
         OnPropertyChanged(nameof(EnhancementProgressTitleText));
@@ -302,6 +324,29 @@ public sealed partial class AiWorkspaceViewModel
         return options;
     }
 
+    private IReadOnlyList<AiEnhancementDeviceOption> BuildEnhancementDeviceOptions() =>
+        new[]
+        {
+            new AiEnhancementDeviceOption(
+                AiEnhancementDevicePreference.Automatic,
+                GetLocalizedText("ai.enhancement.deviceOption.automatic", "自动"),
+                GetLocalizedText(
+                    "ai.enhancement.deviceOption.automatic.description",
+                    "优先尝试 GPU；若当前运行环境不支持，会回退到 Real-ESRGAN CPU fallback。")),
+            new AiEnhancementDeviceOption(
+                AiEnhancementDevicePreference.GpuPreferred,
+                GetLocalizedText("ai.enhancement.deviceOption.gpuPreferred", "GPU优先"),
+                GetLocalizedText(
+                    "ai.enhancement.deviceOption.gpuPreferred.description",
+                    "和自动模式一样优先走 GPU，适合继续沿用 GPU 优先链路。")),
+            new AiEnhancementDeviceOption(
+                AiEnhancementDevicePreference.Cpu,
+                GetLocalizedText("ai.enhancement.deviceOption.cpu", "CPU"),
+                GetLocalizedText(
+                    "ai.enhancement.deviceOption.cpu.description",
+                    "强制使用 Real-ESRGAN CPU fallback，兼容性更高但速度更慢。"))
+        };
+
     private string BuildEnhancementScalePlanPreviewText()
     {
         var plan = AiEnhancementScalePlanner.BuildPlan(
@@ -336,11 +381,12 @@ public sealed partial class AiWorkspaceViewModel
             EnhancementSettings.SelectedScaleFactorValue);
         return FormatLocalizedText(
             "ai.page.output.summary.enhancement",
-            "当前参数状态：模式 {mode}，输入 {input}，档位 {tier}，倍率 {scale}，规划 {plan}，输出 {format}，文件名 {fileName}，原音轨默认跟随源文件。",
+            "当前参数状态：模式 {mode}，输入 {input}，档位 {tier}，倍率 {scale}，设备 {device}，规划 {plan}，输出 {format}，文件名 {fileName}，原音轨默认跟随源文件。",
             ("mode", EnhancementModeLabelText),
             ("input", GetCurrentInputSummaryText()),
             ("tier", EnhancementSettings.SelectedModelTierOption.DisplayName),
             ("scale", FormatEnhancementScale(EnhancementSettings.SelectedScaleFactorValue)),
+            ("device", EnhancementSettings.SelectedDeviceOption.DisplayName),
             ("plan", BuildEnhancementScalePlanPreviewText()),
             ("format", OutputSettings.SelectedOutputFormat.DisplayName),
             ("fileName", OutputSettings.EffectiveOutputFileName));

@@ -94,6 +94,21 @@ public sealed class AiOutputSettingsState : ObservableObject
     public string EffectiveOutputFileNameWithExtension =>
         $"{EffectiveOutputFileName}{SelectedOutputFormat.Extension}";
 
+    public bool TrySelectOutputFormatByExtension(string? extension)
+    {
+        var resolvedFormat = ResolveOutputFormat(extension);
+        if (string.Equals(_selectedOutputFormat.Extension, resolvedFormat.Extension, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        _selectedOutputFormat = resolvedFormat;
+        OnPropertyChanged(nameof(SelectedOutputFormat));
+        OnPropertyChanged(nameof(SelectedOutputFormatDescription));
+        OnPropertyChanged(nameof(EffectiveOutputFileNameWithExtension));
+        return true;
+    }
+
     public void ReloadAvailableOutputFormats(IReadOnlyList<OutputFormatOption> availableOutputFormats)
     {
         ArgumentNullException.ThrowIfNull(availableOutputFormats);
@@ -171,6 +186,24 @@ public sealed class AiOutputSettingsState : ObservableObject
     }
 
     public bool ClearCustomOutputDirectory() => TrySetCustomOutputDirectory(string.Empty);
+
+    private OutputFormatOption ResolveOutputFormat(string? extension)
+    {
+        if (!string.IsNullOrWhiteSpace(extension))
+        {
+            var normalizedExtension = extension.StartsWith(".", StringComparison.Ordinal)
+                ? extension
+                : $".{extension}";
+            var matchingFormat = AvailableOutputFormats.FirstOrDefault(option =>
+                string.Equals(option.Extension, normalizedExtension, StringComparison.OrdinalIgnoreCase));
+            if (matchingFormat is not null)
+            {
+                return matchingFormat;
+            }
+        }
+
+        return AvailableOutputFormats[0];
+    }
 
     private static string NormalizeOutputDirectory(string? outputDirectory)
     {

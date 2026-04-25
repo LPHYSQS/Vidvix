@@ -22,7 +22,9 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     private readonly IMediaInfoService? _mediaInfoService;
     private readonly IFileRevealService? _fileRevealService;
     private readonly IDispatcherService? _dispatcherService;
+    private readonly IUserPreferencesService? _userPreferencesService;
     private readonly ILogger? _logger;
+    private readonly Dictionary<AiWorkspaceMode, string> _preferredOutputFormatExtensionsByMode = new();
     private readonly AsyncRelayCommand _importFilesCommand;
     private readonly AsyncRelayCommand _selectOutputDirectoryCommand;
     private readonly RelayCommand _clearOutputDirectoryCommand;
@@ -74,6 +76,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         _mediaInfoService = mediaInfoService;
         _fileRevealService = fileRevealService;
         _dispatcherService = dispatcherService;
+        _userPreferencesService = userPreferencesService;
         _aiRuntimeCatalogService = aiRuntimeCatalogService;
         _logger = logger;
 
@@ -83,12 +86,14 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OutputSettings = new AiOutputSettingsState(BuildLaunchOutputFormats());
         EnhancementSettings = new AiEnhancementSettingsState(
             BuildEnhancementModelTierOptions(),
-            BuildEnhancementScaleOptions());
+            BuildEnhancementScaleOptions(),
+            BuildEnhancementDeviceOptions());
         EnhancementExecution = new AiEnhancementExecutionState();
         InterpolationSettings = new AiInterpolationSettingsState(
             BuildInterpolationScaleFactorOptions(),
             BuildInterpolationDeviceOptions());
         InterpolationExecution = new AiInterpolationExecutionState();
+        InitializePreferenceState(_userPreferencesService?.Load() ?? new UserPreferences());
         _statusText = string.Empty;
         _aiEnhancementExecutionCoordinator =
             aiEnhancementWorkflowService is not null &&
@@ -403,6 +408,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public void RefreshLocalization()
     {
         OutputSettings.ReloadAvailableOutputFormats(BuildLaunchOutputFormats());
+        ApplyCurrentModeOutputFormatPreference();
         MaterialLibrary.RefreshLocalization();
 
         OnPropertyChanged(nameof(SectionCaptionText));
@@ -797,6 +803,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             return;
         }
 
+        ApplyCurrentModeOutputFormatPreference();
         RefreshOutputContext();
         OnPropertyChanged(nameof(CurrentModeDescriptionText));
         OnPropertyChanged(nameof(CurrentTrackHintText));
@@ -808,11 +815,18 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         RefreshInterpolationLocalization();
         RefreshEnhancementModeProperties();
         RefreshEnhancementLocalization();
+        PersistAiPreferences();
         SetStatusText(() => CreateModeChangedStatusMessage(GetCurrentModeDisplayName()));
     }
 
     private void OnOutputSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(AiOutputSettingsState.SelectedOutputFormat))
+        {
+            RememberCurrentModeOutputFormatSelection();
+            PersistAiPreferences();
+        }
+
         OnPropertyChanged(nameof(OutputFormatDescriptionText));
         OnPropertyChanged(nameof(OutputDirectoryHintText));
         OnPropertyChanged(nameof(OutputDirectoryPlaceholderText));

@@ -8,6 +8,13 @@ public enum AiEnhancementModelTier
     Anime = 1
 }
 
+public enum AiEnhancementDevicePreference
+{
+    Automatic = 0,
+    GpuPreferred = 1,
+    Cpu = 2
+}
+
 public enum AiEnhancementExecutionDeviceKind
 {
     Gpu = 0,
@@ -40,6 +47,7 @@ public sealed class AiEnhancementRequest
         string? outputDirectory,
         AiEnhancementModelTier modelTier,
         int targetScaleFactor,
+        AiEnhancementDevicePreference devicePreference,
         IProgress<AiEnhancementProgress>? progress = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
@@ -56,6 +64,7 @@ public sealed class AiEnhancementRequest
         OutputDirectory = outputDirectory;
         ModelTier = modelTier;
         TargetScaleFactor = targetScaleFactor;
+        DevicePreference = devicePreference;
         Progress = progress;
     }
 
@@ -70,6 +79,8 @@ public sealed class AiEnhancementRequest
     public AiEnhancementModelTier ModelTier { get; }
 
     public int TargetScaleFactor { get; }
+
+    public AiEnhancementDevicePreference DevicePreference { get; }
 
     public IProgress<AiEnhancementProgress>? Progress { get; }
 }

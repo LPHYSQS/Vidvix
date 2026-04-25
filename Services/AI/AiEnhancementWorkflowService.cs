@@ -71,7 +71,7 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
         var realEsrganDescriptor = runtimeCatalog.RealEsrgan;
         var selectedModel = ResolveSelectedModel(realEsrganDescriptor, request.ModelTier);
         var mediaDetails = await LoadAndValidateMediaDetailsAsync(normalizedInputPath, cancellationToken).ConfigureAwait(false);
-        var executionDevice = ResolveExecutionDevice(realEsrganDescriptor);
+        var executionDevice = ResolveExecutionDevice(realEsrganDescriptor, request.DevicePreference);
         var scalePlan = AiEnhancementScalePlanner.BuildPlan(selectedModel.NativeScaleFactors, request.TargetScaleFactor);
         var sourceDuration = mediaDetails.MediaDuration;
 
@@ -304,7 +304,9 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
             GetLocalizedText("ai.enhancement.failure.runtimeModelMissing", "Real-ESRGAN 模型描述缺失。"));
     }
 
-    private ExecutionDeviceResolution ResolveExecutionDevice(AiRuntimeDescriptor descriptor)
+    private ExecutionDeviceResolution ResolveExecutionDevice(
+        AiRuntimeDescriptor descriptor,
+        AiEnhancementDevicePreference devicePreference)
     {
         if (!descriptor.IsAvailable)
         {
@@ -313,6 +315,16 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
                 string.IsNullOrWhiteSpace(descriptor.AvailabilityReason)
                     ? GetLocalizedText("ai.enhancement.failure.runtimeMissing", "Real-ESRGAN runtime 缺失或目录不完整。")
                     : descriptor.AvailabilityReason);
+        }
+
+        if (devicePreference == AiEnhancementDevicePreference.Cpu)
+        {
+            return descriptor.CpuSupport.IsAvailable
+                ? new ExecutionDeviceResolution(
+                    AiEnhancementExecutionDeviceKind.Cpu,
+                    GetLocalizedText("ai.enhancement.deviceOption.cpu", "CPU"),
+                    UseCpuFallback: true)
+                : throw CreateDeviceUnavailableException(descriptor.CpuSupport, allowRuntimeMissing: false);
         }
 
         if (descriptor.GpuSupport.IsAvailable)
@@ -340,6 +352,21 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
         throw new AiEnhancementWorkflowException(
             failureKind,
             BuildDeviceUnavailableMessage(descriptor));
+    }
+
+    private AiEnhancementWorkflowException CreateDeviceUnavailableException(
+        AiExecutionSupportStatus status,
+        bool allowRuntimeMissing)
+    {
+        var failureKind = allowRuntimeMissing && status.State == AiExecutionSupportState.MissingRuntime
+            ? AiEnhancementFailureKind.RuntimeMissing
+            : AiEnhancementFailureKind.DeviceUnavailable;
+        var message = !string.IsNullOrWhiteSpace(status.DiagnosticMessage)
+            ? status.DiagnosticMessage
+            : GetLocalizedText(
+                "ai.enhancement.failure.deviceUnavailable",
+                "当前机器无法使用所选的增强设备策略。");
+        return new AiEnhancementWorkflowException(failureKind, message);
     }
 
     private string BuildDeviceUnavailableMessage(AiRuntimeDescriptor descriptor)

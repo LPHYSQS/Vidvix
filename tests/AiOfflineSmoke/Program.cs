@@ -176,6 +176,7 @@ static async Task<int> RunEnhancementAsync(string[] arguments)
                 outputDirectory,
                 modelTier,
                 targetScaleFactor,
+                AiEnhancementDevicePreference.Automatic,
                 progress))
         .ConfigureAwait(false);
 
