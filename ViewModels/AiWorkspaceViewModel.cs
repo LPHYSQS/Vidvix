@@ -14,12 +14,6 @@ namespace Vidvix.ViewModels;
 
 public sealed partial class AiWorkspaceViewModel : ObservableObject
 {
-    private static readonly HashSet<string> LaunchOutputFormatExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".mp4",
-        ".mkv"
-    };
-
     private readonly ApplicationConfiguration _configuration;
     private readonly ILocalizationService? _localizationService;
     private readonly IFilePickerService? _filePickerService;
@@ -325,7 +319,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string OutputSectionDescriptionText =>
         GetLocalizedText(
             "ai.page.output.description",
-            "输出设置已直接接入 AI补帧 与 AI增强 workflow：格式仍冻结为 MP4 / MKV，目录默认跟随当前素材，文件名留空时自动按模式生成。");
+            "输出设置已直接接入 AI补帧 与 AI增强 workflow：现已支持多种视频封装格式，目录默认跟随当前素材，文件名留空时自动按模式生成。");
 
     public string OutputFormatTitleText =>
         GetLocalizedText("ai.page.output.format.title", "输出格式");
@@ -335,7 +329,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string OutputFormatHintText =>
         GetLocalizedText(
             "ai.page.output.format.hint",
-            "首发封装范围先冻结为 MP4 与 MKV，后续 runtime 接入时直接复用这里的输出格式状态。");
+            "支持 MP4、MKV、MOV、AVI、WMV、M4V、FLV、WEBM、TS、M2TS、MPEG、MPG；下方说明会随所选格式同步更新，导出时也会按目标封装自动调整编码策略。");
 
     public string OutputDirectoryTitleText =>
         GetLocalizedText("ai.page.output.directory.title", "输出目录");
@@ -881,7 +875,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     private IReadOnlyList<OutputFormatOption> BuildLaunchOutputFormats()
     {
         var availableFormats = _configuration.SupportedVideoOutputFormats
-            .Where(option => LaunchOutputFormatExtensions.Contains(option.Extension))
             .Select(LocalizeOutputFormatOption)
             .ToArray();
 

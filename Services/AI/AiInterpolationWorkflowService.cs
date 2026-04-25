@@ -430,7 +430,9 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
             ThrowIfFfmpegFailed(copyAudioResult.Result, AiInterpolationFailureKind.ExecutionFailed, "编码补帧视频失败。");
         }
 
-        _logger.Log(LogLevel.Warning, "补帧输出在复制原音轨时失败，正在回退为 AAC 音频转码。");
+        _logger.Log(
+            LogLevel.Warning,
+            $"补帧输出在复制原音轨时失败，正在回退为 {AiOutputEncodingPolicy.GetAudioFallbackCodecDisplayName(outputExtension)} 音频转码。");
 
         var fallbackResult = await ExecuteEncodePassAsync(
                 ffmpegExecutablePath,
@@ -498,31 +500,10 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
             arguments.Add("1:a?");
         }
 
-        arguments.Add("-c:v");
-        arguments.Add("libx264");
-        arguments.Add("-preset");
-        arguments.Add("medium");
-        arguments.Add("-crf");
-        arguments.Add("18");
-        arguments.Add("-pix_fmt");
-        arguments.Add("yuv420p");
-
-        if (string.Equals(outputExtension, ".mp4", StringComparison.OrdinalIgnoreCase))
-        {
-            arguments.Add("-movflags");
-            arguments.Add("+faststart");
-        }
+        AiOutputEncodingPolicy.ApplyEncoding(arguments, outputExtension, preserveOriginalAudio, transcodeAudio);
 
         if (preserveOriginalAudio)
         {
-            arguments.Add("-c:a");
-            arguments.Add(transcodeAudio ? "aac" : "copy");
-            if (transcodeAudio)
-            {
-                arguments.Add("-b:a");
-                arguments.Add("192k");
-            }
-
             arguments.Add("-shortest");
         }
 
