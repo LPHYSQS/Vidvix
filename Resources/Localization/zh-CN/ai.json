@@ -201,8 +201,6 @@
   "ai.page.output.fileName.hint": "留空时会按当前视频与所选模式自动生成建议文件名；后续运行时直接消费这里的文件名状态。",
   "ai.page.output.fileName.placeholder": "例如：{name}",
   "ai.page.output.reveal": "定位文件",
-  "ai.page.output.badge.formats": "输出：{formats}",
-  "ai.page.output.badge.audio": "默认保留原音轨",
   "ai.page.output.summary": "当前参数状态：模式 {mode}，输入 {input}，输出 {format}，文件名 {fileName}，原音轨默认跟随源文件。",
   "ai.page.output.summary.enhancement": "当前参数状态：模式 {mode}，输入 {input}，档位 {tier}，倍率 {scale}，规划 {plan}，输出 {format}，文件名 {fileName}，原音轨默认跟随源文件。",
   "ai.page.output.inputPending": "待选择视频",

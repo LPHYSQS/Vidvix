@@ -672,25 +672,6 @@
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Border
-                            Padding="10,4"
-                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                            CornerRadius="999">
-                            <TextBlock
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.OutputFormatsBadgeText, Mode=OneWay}" />
-                        </Border>
-                        <Border
-                            Padding="10,4"
-                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                            CornerRadius="999">
-                            <TextBlock
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.OutputAudioBadgeText, Mode=OneWay}" />
-                        </Border>
-                    </StackPanel>
-
                     <Border
                         Visibility="{x:Bind ViewModel.InterpolationProgressVisibility, Mode=OneWay}"
                         Style="{StaticResource AiInsetCardBorderStyle}">

@@ -201,8 +201,6 @@
   "ai.page.output.fileName.hint": "When left empty, a suggested file name is generated from the current video and selected mode. The runtime workflow consumes this file-name state directly.",
   "ai.page.output.fileName.placeholder": "For example: {name}",
   "ai.page.output.reveal": "Reveal file",
-  "ai.page.output.badge.formats": "Formats: {formats}",
-  "ai.page.output.badge.audio": "Original audio preserved by default",
   "ai.page.output.summary": "Current parameter state: mode {mode}, input {input}, output {format}, file name {fileName}, and the original audio track follows the source by default.",
   "ai.page.output.summary.enhancement": "Current parameter state: mode {mode}, input {input}, tier {tier}, scale {scale}, plan {plan}, output {format}, file name {fileName}, and the original audio track follows the source by default.",
   "ai.page.output.inputPending": "video pending",

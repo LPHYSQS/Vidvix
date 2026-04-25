@@ -381,15 +381,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             $"例如：{OutputSettings.SuggestedOutputFileName}",
             ("name", OutputSettings.SuggestedOutputFileName));
 
-    public string OutputFormatsBadgeText =>
-        FormatLocalizedText(
-            "ai.page.output.badge.formats",
-            $"输出：{BuildLaunchOutputFormatsSummary()}",
-            ("formats", BuildLaunchOutputFormatsSummary()));
-
-    public string OutputAudioBadgeText =>
-        GetLocalizedText("ai.page.output.badge.audio", "默认保留原音轨");
-
     public string OutputParameterSummaryText =>
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation
             ? FormatLocalizedText(
@@ -444,8 +435,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OutputFileNameTitleText));
         OnPropertyChanged(nameof(OutputFileNameHintText));
         OnPropertyChanged(nameof(OutputFileNamePlaceholderText));
-        OnPropertyChanged(nameof(OutputFormatsBadgeText));
-        OnPropertyChanged(nameof(OutputAudioBadgeText));
         OnPropertyChanged(nameof(OutputParameterSummaryText));
         RefreshRuntimeLocalization();
         RefreshInterpolationLocalization();
@@ -807,7 +796,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OutputDirectoryHintText));
         OnPropertyChanged(nameof(OutputDirectoryPlaceholderText));
         OnPropertyChanged(nameof(OutputFileNamePlaceholderText));
-        OnPropertyChanged(nameof(OutputFormatsBadgeText));
         OnPropertyChanged(nameof(OutputParameterSummaryText));
         _clearOutputDirectoryCommand.NotifyCanExecuteChanged();
     }
@@ -915,9 +903,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             : option.Localize(_localizationService);
 
     private static string FormatDuration(TimeSpan duration) => duration.ToString(@"hh\:mm\:ss");
-
-    private string BuildLaunchOutputFormatsSummary() =>
-        string.Join(" / ", OutputSettings.AvailableOutputFormats.Select(option => option.DisplayName));
 
     private string GetCurrentModeDisplayName() =>
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation
