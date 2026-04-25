@@ -768,7 +768,9 @@
                             TextWrapping="WrapWholeWords" />
                     </Border>
 
-                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
+                    <Border
+                        Style="{StaticResource AiInsetCardBorderStyle}"
+                        Visibility="{x:Bind ViewModel.EnhancementControlsVisibility, Mode=OneWay}">
                         <StackPanel Spacing="10">
                             <TextBlock
                                 FontWeight="SemiBold"
