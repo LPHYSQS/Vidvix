@@ -692,7 +692,7 @@
                                             StrokeStartLineCap="Round"
                                             StrokeEndLineCap="Round"
                                             StrokeLineJoin="Round"
-                                            Data="M12 6V8.5 M12 11.5V14 M9.5 10H7 M17 10H14.5 M10.2 8.2L8.5 6.5 M15.5 13.5L13.8 11.8 M13.8 8.2L15.5 6.5 M10.2 11.8L8.5 13.5 M6 4.5V6 M5.25 5.25H6.75 M18 14V15.5 M17.25 14.75H18.75" />
+                                            Data="M12 4.75L13.7 8.3L17.25 10L13.7 11.7L12 15.25L10.3 11.7L6.75 10L10.3 8.3Z M18.25 5L18.75 6L19.75 6.5L18.75 7L18.25 8L17.75 7L16.75 6.5L17.75 6Z M6 14.75L6.45 15.55L7.25 16L6.45 16.45L6 17.25L5.55 16.45L4.75 16L5.55 15.55Z" />
                                         <TextBlock
                                             x:Name="AiWorkspaceText"
                                             HorizontalAlignment="Center"
