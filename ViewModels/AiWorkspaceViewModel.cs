@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -299,6 +300,27 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string SourceFileLabelText =>
         GetLocalizedText("ai.page.workspace.sourceFile", "源文件");
 
+    public string CurrentTrackDurationLabelText =>
+        GetLocalizedText("ai.page.workspace.mediaMetrics.duration", "时长");
+
+    public string CurrentTrackResolutionLabelText =>
+        GetLocalizedText("ai.page.workspace.mediaMetrics.resolution", "分辨率");
+
+    public string CurrentTrackFrameRateLabelText =>
+        GetLocalizedText("ai.page.workspace.mediaMetrics.frameRate", "帧率");
+
+    public string CurrentTrackDurationValueText =>
+        InputState.CurrentMaterial?.DurationText ??
+        GetLocalizedText("ai.page.materials.unknownDuration", "未知时长");
+
+    public string CurrentTrackResolutionValueText =>
+        InputState.CurrentMaterial?.ResolutionText ??
+        GetLocalizedText("ai.page.workspace.mediaMetrics.unknown", "未知");
+
+    public string CurrentTrackFrameRateValueText =>
+        InputState.CurrentMaterial?.FrameRateText ??
+        GetLocalizedText("ai.page.workspace.mediaMetrics.unknown", "未知");
+
     public string CurrentOutputDirectoryLabelText =>
         GetLocalizedText("ai.page.workspace.outputDirectory", "当前输出目录");
 
@@ -405,6 +427,12 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentTrackHintText));
         OnPropertyChanged(nameof(CurrentTrackEmptyText));
         OnPropertyChanged(nameof(SourceFileLabelText));
+        OnPropertyChanged(nameof(CurrentTrackDurationLabelText));
+        OnPropertyChanged(nameof(CurrentTrackResolutionLabelText));
+        OnPropertyChanged(nameof(CurrentTrackFrameRateLabelText));
+        OnPropertyChanged(nameof(CurrentTrackDurationValueText));
+        OnPropertyChanged(nameof(CurrentTrackResolutionValueText));
+        OnPropertyChanged(nameof(CurrentTrackFrameRateValueText));
         OnPropertyChanged(nameof(CurrentOutputDirectoryLabelText));
         OnPropertyChanged(nameof(CurrentOutputPreviewLabelText));
         OnPropertyChanged(nameof(CurrentModeRuntimeNoteText));
@@ -582,6 +610,8 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
         var durationText = string.Empty;
+        var resolutionText = string.Empty;
+        var frameRateText = string.Empty;
 
         if (_mediaInfoService is not null)
         {
@@ -594,6 +624,12 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
                 if (loadResult.IsSuccess && loadResult.Snapshot?.MediaDuration is { } mediaDuration && mediaDuration > TimeSpan.Zero)
                 {
                     durationText = FormatDuration(mediaDuration);
+                }
+
+                if (loadResult.IsSuccess && loadResult.Snapshot is { } snapshot)
+                {
+                    resolutionText = ResolveTrackResolutionText(snapshot);
+                    frameRateText = ResolveTrackFrameRateText(snapshot);
                 }
                 else if (!string.IsNullOrWhiteSpace(loadResult.ErrorMessage))
                 {
@@ -610,7 +646,12 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             }
         }
 
-        return new AiMaterialItemViewModel(filePath, durationText, _localizationService);
+        return new AiMaterialItemViewModel(
+            filePath,
+            durationText,
+            resolutionText,
+            frameRateText,
+            _localizationService);
     }
 
     private async Task SelectOutputDirectoryAsync()
@@ -834,6 +875,9 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentInputStatusText));
         OnPropertyChanged(nameof(CurrentTrackEmptyVisibility));
         OnPropertyChanged(nameof(CurrentTrackCardVisibility));
+        OnPropertyChanged(nameof(CurrentTrackDurationValueText));
+        OnPropertyChanged(nameof(CurrentTrackResolutionValueText));
+        OnPropertyChanged(nameof(CurrentTrackFrameRateValueText));
         OnPropertyChanged(nameof(OutputDirectoryHintText));
         OnPropertyChanged(nameof(OutputDirectoryPlaceholderText));
         OnPropertyChanged(nameof(OutputFileNamePlaceholderText));
@@ -888,6 +932,28 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             : option.Localize(_localizationService);
 
     private static string FormatDuration(TimeSpan duration) => duration.ToString(@"hh\:mm\:ss");
+
+    private static string NormalizeDisplayValue(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : value.Trim();
+
+    private static string ResolveTrackResolutionText(MediaDetailsSnapshot snapshot) =>
+        NormalizeDisplayValue(MergeMediaMetadataParser.ResolveResolutionText(snapshot, string.Empty));
+
+    private static string ResolveTrackFrameRateText(MediaDetailsSnapshot snapshot)
+    {
+        if (MergeMediaMetadataParser.TryResolveVideoFrameRate(snapshot, out var frameRate))
+        {
+            return $"{frameRate.ToString("0.###", CultureInfo.InvariantCulture)} fps";
+        }
+
+        return NormalizeDisplayValue(
+            MergeMediaMetadataParser.TryGetDetailFieldValue(
+                snapshot.VideoFields,
+                "mediaDetails.field.frameRate",
+                "帧率"));
+    }
 
     private string GetCurrentModeDisplayName() =>
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation

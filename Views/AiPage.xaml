@@ -95,6 +95,24 @@
         </Style>
 
         <Style
+            x:Key="AiTrackMetricLabelTextStyle"
+            BasedOn="{StaticResource CaptionTextStyle}"
+            TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Opacity" Value="0.78" />
+            <Setter Property="TextWrapping" Value="WrapWholeWords" />
+        </Style>
+
+        <Style
+            x:Key="AiTrackMetricValueTextStyle"
+            BasedOn="{StaticResource CaptionTextStyle}"
+            TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="WrapWholeWords" />
+        </Style>
+
+        <Style
             x:Key="AiMaterialTypeTextStyle"
             BasedOn="{StaticResource CaptionTextStyle}"
             TargetType="TextBlock">
@@ -546,12 +564,58 @@
                                                 Grid.Row="2"
                                                 Style="{StaticResource AiTrackMetadataLabelTextStyle}"
                                                 Text="{x:Bind ViewModel.CurrentOutputPreviewLabelText, Mode=OneWay}" />
-                                            <TextBlock
-                                                Grid.Row="2"
+                                             <TextBlock
+                                                 Grid.Row="2"
+                                                 Grid.Column="1"
+                                                 Style="{StaticResource AiTrackMetadataValueTextStyle}"
+                                                 Text="{Binding ViewModel.OutputSettings.EffectiveOutputFileNameWithExtension, ElementName=RootPage, Mode=OneWay}"
+                                                 />
+                                         </Grid>
+
+                                        <Border
+                                            Height="1"
+                                            Background="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                            Opacity="0.75" />
+
+                                        <Grid ColumnSpacing="18">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel
+                                                Grid.Column="0"
+                                                Spacing="2">
+                                                <TextBlock
+                                                    Style="{StaticResource AiTrackMetricLabelTextStyle}"
+                                                    Text="{x:Bind ViewModel.CurrentTrackDurationLabelText, Mode=OneWay}" />
+                                                <TextBlock
+                                                    Style="{StaticResource AiTrackMetricValueTextStyle}"
+                                                    Text="{x:Bind ViewModel.CurrentTrackDurationValueText, Mode=OneWay}" />
+                                            </StackPanel>
+
+                                            <StackPanel
                                                 Grid.Column="1"
-                                                Style="{StaticResource AiTrackMetadataValueTextStyle}"
-                                                Text="{Binding ViewModel.OutputSettings.EffectiveOutputFileNameWithExtension, ElementName=RootPage, Mode=OneWay}"
-                                                />
+                                                Spacing="2">
+                                                <TextBlock
+                                                    Style="{StaticResource AiTrackMetricLabelTextStyle}"
+                                                    Text="{x:Bind ViewModel.CurrentTrackResolutionLabelText, Mode=OneWay}" />
+                                                <TextBlock
+                                                    Style="{StaticResource AiTrackMetricValueTextStyle}"
+                                                    Text="{x:Bind ViewModel.CurrentTrackResolutionValueText, Mode=OneWay}" />
+                                            </StackPanel>
+
+                                            <StackPanel
+                                                Grid.Column="2"
+                                                Spacing="2">
+                                                <TextBlock
+                                                    Style="{StaticResource AiTrackMetricLabelTextStyle}"
+                                                    Text="{x:Bind ViewModel.CurrentTrackFrameRateLabelText, Mode=OneWay}" />
+                                                <TextBlock
+                                                    Style="{StaticResource AiTrackMetricValueTextStyle}"
+                                                    Text="{x:Bind ViewModel.CurrentTrackFrameRateValueText, Mode=OneWay}" />
+                                            </StackPanel>
                                         </Grid>
                                     </StackPanel>
                                 </Border>
