@@ -276,9 +276,14 @@
                     </ListView>
 
                     <TextBlock
-                        Visibility="{x:Bind ViewModel.MaterialsEmptyVisibility, Mode=OneWay}"
-                        Style="{StaticResource AiTrackEmptyTextStyle}"
-                        Text="{x:Bind ViewModel.MaterialsPlaceholderText, Mode=OneWay}" />
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        MaxWidth="180"
+                        Opacity="0.72"
+                        Text="{x:Bind ViewModel.MaterialsPlaceholderText, Mode=OneWay}"
+                        TextAlignment="Center"
+                        TextWrapping="WrapWholeWords"
+                        Visibility="{x:Bind ViewModel.MaterialsEmptyVisibility, Mode=OneWay}" />
                 </Grid>
             </Grid>
         </Border>

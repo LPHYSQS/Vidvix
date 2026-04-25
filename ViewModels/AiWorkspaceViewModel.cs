@@ -237,7 +237,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string MaterialsPlaceholderText =>
         GetLocalizedText(
             "ai.page.materials.placeholder",
-            "先导入一个或多个视频，再从素材列表中锁定当前处理对象。");
+            "导入后素材会显示在这里。");
 
     public string RemoveMaterialButtonText =>
         GetLocalizedText("ai.page.materials.remove", "移除");
