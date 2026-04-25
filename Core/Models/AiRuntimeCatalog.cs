@@ -35,6 +35,26 @@ public sealed record AiExecutionSupportStatus
     public bool IsAvailable => State == AiExecutionSupportState.Available;
 }
 
+public enum AiGpuDeviceKind
+{
+    DiscreteGpu,
+    IntegratedGpu,
+    UnknownGpu
+}
+
+public sealed record AiRuntimeGpuDeviceDescriptor
+{
+    public int Index { get; init; }
+
+    public string Name { get; init; } = string.Empty;
+
+    public AiGpuDeviceKind Kind { get; init; } = AiGpuDeviceKind.UnknownGpu;
+
+    public AiExecutionSupportStatus Support { get; init; } = new();
+
+    public bool IsAvailable => Support.IsAvailable;
+}
+
 public sealed record AiRuntimeModelAssetDescriptor
 {
     public string FileStem { get; init; } = string.Empty;
@@ -97,6 +117,9 @@ public sealed record AiRuntimeDescriptor
     public AiExecutionSupportStatus GpuSupport { get; init; } = new();
 
     public AiExecutionSupportStatus CpuSupport { get; init; } = new();
+
+    public IReadOnlyList<AiRuntimeGpuDeviceDescriptor> GpuDevices { get; init; } =
+        Array.Empty<AiRuntimeGpuDeviceDescriptor>();
 
     public bool IsAvailable => Availability == AiRuntimeAvailability.Available;
 }

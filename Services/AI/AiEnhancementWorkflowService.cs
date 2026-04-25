@@ -323,8 +323,19 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
                 ? new ExecutionDeviceResolution(
                     AiEnhancementExecutionDeviceKind.Cpu,
                     GetLocalizedText("ai.enhancement.deviceOption.cpu", "CPU"),
-                    UseCpuFallback: true)
+                    UseCpuFallback: true,
+                    GpuIndex: null)
                 : throw CreateDeviceUnavailableException(descriptor.CpuSupport, allowRuntimeMissing: false);
+        }
+
+        var preferredGpuDevice = ResolvePreferredGpuDevice(descriptor);
+        if (preferredGpuDevice is not null)
+        {
+            return new ExecutionDeviceResolution(
+                AiEnhancementExecutionDeviceKind.Gpu,
+                preferredGpuDevice.Name,
+                UseCpuFallback: false,
+                GpuIndex: preferredGpuDevice.Index);
         }
 
         if (descriptor.GpuSupport.IsAvailable)
@@ -332,7 +343,8 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
             return new ExecutionDeviceResolution(
                 AiEnhancementExecutionDeviceKind.Gpu,
                 GetLocalizedText("ai.enhancement.device.gpu", "GPU"),
-                UseCpuFallback: false);
+                UseCpuFallback: false,
+                GpuIndex: null);
         }
 
         if (descriptor.CpuSupport.IsAvailable)
@@ -340,7 +352,8 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
             return new ExecutionDeviceResolution(
                 AiEnhancementExecutionDeviceKind.Cpu,
                 GetLocalizedText("ai.enhancement.device.cpuFallback", "CPU fallback"),
-                UseCpuFallback: true);
+                UseCpuFallback: true,
+                GpuIndex: null);
         }
 
         var failureKind =
@@ -353,6 +366,13 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
             failureKind,
             BuildDeviceUnavailableMessage(descriptor));
     }
+
+    private static AiRuntimeGpuDeviceDescriptor? ResolvePreferredGpuDevice(AiRuntimeDescriptor descriptor) =>
+        descriptor.GpuDevices
+            .Where(device => device.IsAvailable)
+            .OrderByDescending(device => AiGpuDeviceClassifier.GetPriority(device.Kind))
+            .ThenBy(device => device.Index)
+            .FirstOrDefault();
 
     private AiEnhancementWorkflowException CreateDeviceUnavailableException(
         AiExecutionSupportStatus status,
@@ -699,6 +719,11 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
         {
             arguments.Add("-g");
             arguments.Add("-1");
+        }
+        else if (executionDevice.GpuIndex is int gpuIndex)
+        {
+            arguments.Add("-g");
+            arguments.Add(gpuIndex.ToString(CultureInfo.InvariantCulture));
         }
 
         var result = await ExecuteRealEsrganProcessAsync(
@@ -1120,7 +1145,8 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
     private sealed record ExecutionDeviceResolution(
         AiEnhancementExecutionDeviceKind Kind,
         string DisplayName,
-        bool UseCpuFallback);
+        bool UseCpuFallback,
+        int? GpuIndex);
 
     private sealed record EncodeExecutionResult(
         string OutputPath,

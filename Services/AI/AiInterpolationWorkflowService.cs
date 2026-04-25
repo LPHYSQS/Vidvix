@@ -300,22 +300,47 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
         if (devicePreference == AiInterpolationDevicePreference.Cpu)
         {
             return descriptor.CpuSupport.IsAvailable
-                ? new ExecutionDeviceResolution(AiInterpolationExecutionDeviceKind.Cpu, GetLocalizedText("ai.interpolation.deviceOption.cpu", "CPU"), UseCpuFallback: true)
+                ? new ExecutionDeviceResolution(AiInterpolationExecutionDeviceKind.Cpu, GetLocalizedText("ai.interpolation.deviceOption.cpu", "CPU"), UseCpuFallback: true, GpuIndex: null)
                 : throw CreateDeviceUnavailableException(descriptor.CpuSupport, allowRuntimeMissing: false);
+        }
+
+        var preferredGpuDevice = ResolvePreferredGpuDevice(descriptor);
+        if (preferredGpuDevice is not null)
+        {
+            return new ExecutionDeviceResolution(
+                AiInterpolationExecutionDeviceKind.Gpu,
+                preferredGpuDevice.Name,
+                UseCpuFallback: false,
+                GpuIndex: preferredGpuDevice.Index);
         }
 
         if (descriptor.GpuSupport.IsAvailable)
         {
-            return new ExecutionDeviceResolution(AiInterpolationExecutionDeviceKind.Gpu, GetLocalizedText("ai.interpolation.device.gpu", "GPU"), UseCpuFallback: false);
+            return new ExecutionDeviceResolution(
+                AiInterpolationExecutionDeviceKind.Gpu,
+                GetLocalizedText("ai.interpolation.device.gpu", "GPU"),
+                UseCpuFallback: false,
+                GpuIndex: null);
         }
 
         if (descriptor.CpuSupport.IsAvailable)
         {
-            return new ExecutionDeviceResolution(AiInterpolationExecutionDeviceKind.Cpu, GetLocalizedText("ai.interpolation.device.cpuFallback", "CPU fallback"), UseCpuFallback: true);
+            return new ExecutionDeviceResolution(
+                AiInterpolationExecutionDeviceKind.Cpu,
+                GetLocalizedText("ai.interpolation.device.cpuFallback", "CPU fallback"),
+                UseCpuFallback: true,
+                GpuIndex: null);
         }
 
         throw CreateDeviceUnavailableException(descriptor.GpuSupport, allowRuntimeMissing: true);
     }
+
+    private static AiRuntimeGpuDeviceDescriptor? ResolvePreferredGpuDevice(AiRuntimeDescriptor descriptor) =>
+        descriptor.GpuDevices
+            .Where(device => device.IsAvailable)
+            .OrderByDescending(device => AiGpuDeviceClassifier.GetPriority(device.Kind))
+            .ThenBy(device => device.Index)
+            .FirstOrDefault();
 
     private AiInterpolationWorkflowException CreateDeviceUnavailableException(
         AiExecutionSupportStatus status,
@@ -588,6 +613,11 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
         {
             arguments.Add("-g");
             arguments.Add("-1");
+        }
+        else if (executionDevice.GpuIndex is int gpuIndex)
+        {
+            arguments.Add("-g");
+            arguments.Add(gpuIndex.ToString(CultureInfo.InvariantCulture));
         }
 
         if (enableUhdMode)
@@ -1013,7 +1043,8 @@ public sealed class AiInterpolationWorkflowService : IAiInterpolationWorkflowSer
     private sealed record ExecutionDeviceResolution(
         AiInterpolationExecutionDeviceKind Kind,
         string DisplayName,
-        bool UseCpuFallback);
+        bool UseCpuFallback,
+        int? GpuIndex);
 
     private sealed record EncodeExecutionResult(
         string OutputPath,

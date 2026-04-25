@@ -79,7 +79,7 @@ public sealed partial class AiWorkspaceViewModel
                 "已锁定 CPU 模式；若当前机器 CPU fallback 不可用，任务会在启动前明确失败。")
             : GetLocalizedText(
                 "ai.interpolation.settings.device.hint.auto",
-                "自动 与 GPU优先 当前都会优先尝试 GPU，不可用时回退到 RIFE CPU fallback。");
+                "自动 与 GPU优先 当前都会先检查独立显卡，再检查核显；GPU 都不可用时才回退到 RIFE CPU fallback。");
 
     public string InterpolationUhdTitleText =>
         GetLocalizedText("ai.interpolation.settings.uhd.title", "UHD 模式");
@@ -296,13 +296,13 @@ public sealed partial class AiWorkspaceViewModel
                 GetLocalizedText("ai.interpolation.deviceOption.automatic", "自动"),
                 GetLocalizedText(
                     "ai.interpolation.deviceOption.automatic.description",
-                    "优先尝试 GPU，不可用时回退到 RIFE CPU fallback。")),
+                    "先检查独立显卡，再检查核显；GPU 都不可用时回退到 RIFE CPU fallback。")),
             new AiInterpolationDeviceOption(
                 AiInterpolationDevicePreference.GpuPreferred,
                 GetLocalizedText("ai.interpolation.deviceOption.gpuPreferred", "GPU优先"),
                 GetLocalizedText(
                     "ai.interpolation.deviceOption.gpuPreferred.description",
-                    "和自动模式一样优先走 GPU，本轮先保持同一条稳定链路。")),
+                    "先检查独立显卡，再检查核显；GPU 都不可用时回退到 RIFE CPU fallback。")),
             new AiInterpolationDeviceOption(
                 AiInterpolationDevicePreference.Cpu,
                 GetLocalizedText("ai.interpolation.deviceOption.cpu", "CPU"),

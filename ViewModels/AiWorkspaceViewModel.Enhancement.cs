@@ -101,7 +101,7 @@ public sealed partial class AiWorkspaceViewModel
                 "已锁定 CPU 模式；若当前机器 CPU fallback 不可用，任务会在启动前明确失败。")
             : GetLocalizedText(
                 "ai.enhancement.settings.device.hint.auto",
-                "自动 与 GPU优先 当前都会优先尝试 GPU，不可用时回退到 Real-ESRGAN CPU fallback。");
+                "自动 与 GPU优先 当前都会先检查独立显卡，再检查核显；GPU 都不可用时才回退到 Real-ESRGAN CPU fallback。");
 
     public string EnhancementHighLoadTitleText =>
         GetLocalizedText("ai.enhancement.warning.highLoad.title", "高倍率高负载提醒");
@@ -332,13 +332,13 @@ public sealed partial class AiWorkspaceViewModel
                 GetLocalizedText("ai.enhancement.deviceOption.automatic", "自动"),
                 GetLocalizedText(
                     "ai.enhancement.deviceOption.automatic.description",
-                    "优先尝试 GPU；若当前运行环境不支持，会回退到 Real-ESRGAN CPU fallback。")),
+                    "先检查独立显卡，再检查核显；GPU 都不可用时回退到 Real-ESRGAN CPU fallback。")),
             new AiEnhancementDeviceOption(
                 AiEnhancementDevicePreference.GpuPreferred,
                 GetLocalizedText("ai.enhancement.deviceOption.gpuPreferred", "GPU优先"),
                 GetLocalizedText(
                     "ai.enhancement.deviceOption.gpuPreferred.description",
-                    "和自动模式一样优先走 GPU，适合继续沿用 GPU 优先链路。")),
+                    "先检查独立显卡，再检查核显；GPU 都不可用时回退到 Real-ESRGAN CPU fallback。")),
             new AiEnhancementDeviceOption(
                 AiEnhancementDevicePreference.Cpu,
                 GetLocalizedText("ai.enhancement.deviceOption.cpu", "CPU"),

@@ -82,6 +82,195 @@ internal sealed class AiRuntimeProbeExecutor
         return ProbeRealEsrganAsync(descriptor, model, useCpuFallback: true, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<AiRuntimeGpuDeviceDescriptor>> ProbeRifeGpuDevicesAsync(
+        AiRuntimeDescriptor descriptor,
+        CancellationToken cancellationToken = default)
+    {
+        var model = descriptor.Models.FirstOrDefault();
+        if (model is null || !descriptor.IsAvailable)
+        {
+            return Array.Empty<AiRuntimeGpuDeviceDescriptor>();
+        }
+
+        var probeRootPath = CreateProbeSessionRootPath(descriptor.Id);
+
+        try
+        {
+            var input0Path = Path.Combine(probeRootPath, "frame0.png");
+            var input1Path = Path.Combine(probeRootPath, "frame1.png");
+            var discoveryOutputPath = Path.Combine(probeRootPath, "rife-gpu-discovery-output.png");
+
+            await WriteProbeFramesAsync(input0Path, input1Path, cancellationToken).ConfigureAwait(false);
+            var stagedModelPath = StageModelAssets(probeRootPath, model);
+
+            var discoveryResult = await ExecuteProcessAsync(
+                    descriptor.ExecutablePath,
+                    new[]
+                    {
+                        "-v",
+                        "-0",
+                        input0Path,
+                        "-1",
+                        input1Path,
+                        "-o",
+                        discoveryOutputPath,
+                        "-m",
+                        stagedModelPath
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            var discoveredDevices = ParseGpuDevices(discoveryResult.CombinedOutput);
+            if (discoveredDevices.Count == 0)
+            {
+                return Array.Empty<AiRuntimeGpuDeviceDescriptor>();
+            }
+
+            var resolvedDevices = new List<AiRuntimeGpuDeviceDescriptor>(discoveredDevices.Count);
+            foreach (var discoveredDevice in discoveredDevices)
+            {
+                var outputPath = Path.Combine(probeRootPath, $"rife-gpu-{discoveredDevice.Index}.png");
+                var probeResult = await ExecuteProcessAsync(
+                        descriptor.ExecutablePath,
+                        new[]
+                        {
+                            "-0",
+                            input0Path,
+                            "-1",
+                            input1Path,
+                            "-o",
+                            outputPath,
+                            "-m",
+                            stagedModelPath,
+                            "-g",
+                            discoveredDevice.Index.ToString()
+                        },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+                var support = CreateGpuProbeStatus(probeResult, outputPath);
+                resolvedDevices.Add(new AiRuntimeGpuDeviceDescriptor
+                {
+                    Index = discoveredDevice.Index,
+                    Name = discoveredDevice.Name,
+                    Kind = AiGpuDeviceClassifier.Classify(discoveredDevice.Name),
+                    Support = support
+                });
+            }
+
+            return resolvedDevices;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.Log(LogLevel.Warning, $"RIFE GPU device probe failed for {descriptor.DisplayName}.", exception);
+            return Array.Empty<AiRuntimeGpuDeviceDescriptor>();
+        }
+        finally
+        {
+            TryDeleteDirectory(probeRootPath);
+        }
+    }
+
+    public async Task<IReadOnlyList<AiRuntimeGpuDeviceDescriptor>> ProbeRealEsrganGpuDevicesAsync(
+        AiRuntimeDescriptor descriptor,
+        CancellationToken cancellationToken = default)
+    {
+        var model = descriptor.Models.FirstOrDefault(item =>
+            string.Equals(item.Id, "standard", StringComparison.OrdinalIgnoreCase));
+        if (model is null || !descriptor.IsAvailable)
+        {
+            return Array.Empty<AiRuntimeGpuDeviceDescriptor>();
+        }
+
+        var probeRootPath = CreateProbeSessionRootPath(descriptor.Id);
+
+        try
+        {
+            var inputPath = Path.Combine(probeRootPath, "frame0.png");
+            var discoveryOutputPath = Path.Combine(probeRootPath, "realesrgan-gpu-discovery-output.png");
+            await File.WriteAllBytesAsync(inputPath, ProbeFrame0Bytes, cancellationToken).ConfigureAwait(false);
+
+            var stagedModelPath = StageModelAssets(probeRootPath, model);
+            var discoveryResult = await ExecuteProcessAsync(
+                    descriptor.ExecutablePath,
+                    new[]
+                    {
+                        "-v",
+                        "-i",
+                        inputPath,
+                        "-o",
+                        discoveryOutputPath,
+                        "-m",
+                        stagedModelPath,
+                        "-n",
+                        model.RuntimeModelName,
+                        "-s",
+                        model.NativeScaleFactors.FirstOrDefault().ToString()
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            var discoveredDevices = ParseGpuDevices(discoveryResult.CombinedOutput);
+            if (discoveredDevices.Count == 0)
+            {
+                return Array.Empty<AiRuntimeGpuDeviceDescriptor>();
+            }
+
+            var resolvedDevices = new List<AiRuntimeGpuDeviceDescriptor>(discoveredDevices.Count);
+            foreach (var discoveredDevice in discoveredDevices)
+            {
+                var outputPath = Path.Combine(probeRootPath, $"realesrgan-gpu-{discoveredDevice.Index}.png");
+                var probeResult = await ExecuteProcessAsync(
+                        descriptor.ExecutablePath,
+                        new[]
+                        {
+                            "-i",
+                            inputPath,
+                            "-o",
+                            outputPath,
+                            "-m",
+                            stagedModelPath,
+                            "-n",
+                            model.RuntimeModelName,
+                            "-s",
+                            model.NativeScaleFactors.FirstOrDefault().ToString(),
+                            "-g",
+                            discoveredDevice.Index.ToString()
+                        },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+                var support = CreateGpuProbeStatus(probeResult, outputPath);
+                resolvedDevices.Add(new AiRuntimeGpuDeviceDescriptor
+                {
+                    Index = discoveredDevice.Index,
+                    Name = discoveredDevice.Name,
+                    Kind = AiGpuDeviceClassifier.Classify(discoveredDevice.Name),
+                    Support = support
+                });
+            }
+
+            return resolvedDevices;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.Log(LogLevel.Warning, $"Real-ESRGAN GPU device probe failed for {descriptor.DisplayName}.", exception);
+            return Array.Empty<AiRuntimeGpuDeviceDescriptor>();
+        }
+        finally
+        {
+            TryDeleteDirectory(probeRootPath);
+        }
+    }
+
     private async Task<AiExecutionSupportStatus> ProbeRifeAsync(
         AiRuntimeDescriptor descriptor,
         AiRuntimeModelDescriptor model,
@@ -377,6 +566,85 @@ internal sealed class AiRuntimeProbeExecutor
         return string.Join(" | ", summaryLines);
     }
 
+    private static IReadOnlyList<DiscoveredGpuDevice> ParseGpuDevices(string combinedOutput)
+    {
+        if (string.IsNullOrWhiteSpace(combinedOutput))
+        {
+            return Array.Empty<DiscoveredGpuDevice>();
+        }
+
+        var devices = new Dictionary<int, DiscoveredGpuDevice>();
+        var lines = combinedOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+            if (!TryParseGpuDeviceLine(line, out var index, out var name) || devices.ContainsKey(index))
+            {
+                continue;
+            }
+
+            devices[index] = new DiscoveredGpuDevice(index, name);
+        }
+
+        return devices.Values
+            .OrderBy(device => device.Index)
+            .ToArray();
+    }
+
+    private static bool TryParseGpuDeviceLine(
+        string line,
+        out int index,
+        out string name)
+    {
+        index = -1;
+        name = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(line) || line[0] != '[')
+        {
+            return false;
+        }
+
+        var closingBracketIndex = line.IndexOf(']');
+        if (closingBracketIndex <= 2)
+        {
+            return false;
+        }
+
+        var header = line.Substring(1, closingBracketIndex - 1);
+        var separatorIndex = header.IndexOf(' ');
+        if (separatorIndex <= 0)
+        {
+            return false;
+        }
+
+        if (!int.TryParse(header.Substring(0, separatorIndex), out index))
+        {
+            return false;
+        }
+
+        name = header.Substring(separatorIndex + 1).Trim();
+        return !string.IsNullOrWhiteSpace(name);
+    }
+
+    private static AiExecutionSupportStatus CreateGpuProbeStatus(
+        ProbeProcessResult result,
+        string outputPath)
+    {
+        if (result.WasSuccessful && File.Exists(outputPath))
+        {
+            return new AiExecutionSupportStatus
+            {
+                State = AiExecutionSupportState.Available
+            };
+        }
+
+        return new AiExecutionSupportStatus
+        {
+            State = AiExecutionSupportState.Unavailable,
+            DiagnosticMessage = SummarizeDiagnostic(result)
+        };
+    }
+
     private static string BuildUnsupportedRealEsrganCpuDiagnostic(ProbeProcessResult result)
     {
         const string fallbackMessage = "invalid gpu device";
@@ -458,4 +726,6 @@ internal sealed class AiRuntimeProbeExecutor
                     ? StandardOutput
                     : $"{StandardOutput}{Environment.NewLine}{StandardError}";
     }
+
+    private sealed record DiscoveredGpuDevice(int Index, string Name);
 }

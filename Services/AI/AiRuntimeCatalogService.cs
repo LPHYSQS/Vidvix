@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
@@ -143,16 +145,21 @@ public sealed class AiRuntimeCatalogService : IAiRuntimeCatalogService
             return descriptor with
             {
                 GpuSupport = CreateMissingRuntimeStatus(descriptor),
-                CpuSupport = CreateMissingRuntimeStatus(descriptor)
+                CpuSupport = CreateMissingRuntimeStatus(descriptor),
+                GpuDevices = Array.Empty<AiRuntimeGpuDeviceDescriptor>()
             };
         }
 
-        var gpuSupport = await _probeExecutor.ProbeRifeGpuAsync(descriptor, cancellationToken).ConfigureAwait(false);
+        var gpuDevices = await _probeExecutor.ProbeRifeGpuDevicesAsync(descriptor, cancellationToken).ConfigureAwait(false);
         var cpuSupport = await _probeExecutor.ProbeRifeCpuAsync(descriptor, cancellationToken).ConfigureAwait(false);
+        var gpuSupport = await BuildGpuSupportStatusAsync(
+            gpuDevices,
+            fallbackSupportFactory: () => _probeExecutor.ProbeRifeGpuAsync(descriptor, cancellationToken)).ConfigureAwait(false);
         return descriptor with
         {
             GpuSupport = gpuSupport,
-            CpuSupport = cpuSupport
+            CpuSupport = cpuSupport,
+            GpuDevices = gpuDevices
         };
     }
 
@@ -165,17 +172,56 @@ public sealed class AiRuntimeCatalogService : IAiRuntimeCatalogService
             return descriptor with
             {
                 GpuSupport = CreateMissingRuntimeStatus(descriptor),
-                CpuSupport = CreateMissingRuntimeStatus(descriptor)
+                CpuSupport = CreateMissingRuntimeStatus(descriptor),
+                GpuDevices = Array.Empty<AiRuntimeGpuDeviceDescriptor>()
             };
         }
 
-        var gpuSupport = await _probeExecutor.ProbeRealEsrganGpuAsync(descriptor, cancellationToken).ConfigureAwait(false);
+        var gpuDevices = await _probeExecutor.ProbeRealEsrganGpuDevicesAsync(descriptor, cancellationToken).ConfigureAwait(false);
         var cpuSupport = await _probeExecutor.ProbeRealEsrganCpuAsync(descriptor, cancellationToken).ConfigureAwait(false);
+        var gpuSupport = await BuildGpuSupportStatusAsync(
+            gpuDevices,
+            fallbackSupportFactory: () => _probeExecutor.ProbeRealEsrganGpuAsync(descriptor, cancellationToken)).ConfigureAwait(false);
         return descriptor with
         {
             GpuSupport = gpuSupport,
-            CpuSupport = cpuSupport
+            CpuSupport = cpuSupport,
+            GpuDevices = gpuDevices
         };
+    }
+
+    private static async Task<AiExecutionSupportStatus> BuildGpuSupportStatusAsync(
+        IReadOnlyList<AiRuntimeGpuDeviceDescriptor> gpuDevices,
+        Func<Task<AiExecutionSupportStatus>> fallbackSupportFactory)
+    {
+        ArgumentNullException.ThrowIfNull(gpuDevices);
+        ArgumentNullException.ThrowIfNull(fallbackSupportFactory);
+
+        if (gpuDevices.Any(device => device.IsAvailable))
+        {
+            return new AiExecutionSupportStatus
+            {
+                State = AiExecutionSupportState.Available
+            };
+        }
+
+        var diagnostics = gpuDevices
+            .Select(device => string.IsNullOrWhiteSpace(device.Support.DiagnosticMessage)
+                ? string.Empty
+                : $"{device.Name}: {device.Support.DiagnosticMessage}")
+            .Where(message => !string.IsNullOrWhiteSpace(message))
+            .Take(3)
+            .ToArray();
+        if (diagnostics.Length > 0)
+        {
+            return new AiExecutionSupportStatus
+            {
+                State = AiExecutionSupportState.Unavailable,
+                DiagnosticMessage = string.Join(" | ", diagnostics)
+            };
+        }
+
+        return await fallbackSupportFactory().ConfigureAwait(false);
     }
 
     private static AiExecutionSupportStatus CreateMissingRuntimeStatus(AiRuntimeDescriptor descriptor) =>
