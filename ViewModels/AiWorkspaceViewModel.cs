@@ -327,8 +327,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public string CurrentOutputPreviewLabelText =>
         GetLocalizedText("ai.page.workspace.outputPreview", "当前输出文件名");
 
-    public string CurrentModeRuntimeNoteText => BuildCurrentModeRuntimeSummaryText();
-
     public string CurrentModeEngineBadgeText =>
         ModeState.SelectedMode == AiWorkspaceMode.Interpolation
             ? GetLocalizedText("ai.interpolation.engineBadge", "RIFE")
@@ -435,7 +433,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentTrackFrameRateValueText));
         OnPropertyChanged(nameof(CurrentOutputDirectoryLabelText));
         OnPropertyChanged(nameof(CurrentOutputPreviewLabelText));
-        OnPropertyChanged(nameof(CurrentModeRuntimeNoteText));
         OnPropertyChanged(nameof(CurrentModeEngineBadgeText));
         OnPropertyChanged(nameof(OutputSectionTitleText));
         OnPropertyChanged(nameof(OutputSectionDescriptionText));
@@ -450,7 +447,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OutputFileNameHintText));
         OnPropertyChanged(nameof(OutputFileNamePlaceholderText));
         OnPropertyChanged(nameof(OutputParameterSummaryText));
-        RefreshRuntimeLocalization();
         RefreshInterpolationLocalization();
         RefreshEnhancementLocalization();
         RefreshLocalizedStatusText();
@@ -805,11 +801,9 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(CurrentModeDescriptionText));
         OnPropertyChanged(nameof(CurrentTrackHintText));
         OnPropertyChanged(nameof(CurrentTrackEmptyText));
-        OnPropertyChanged(nameof(CurrentModeRuntimeNoteText));
         OnPropertyChanged(nameof(CurrentModeEngineBadgeText));
         OnPropertyChanged(nameof(OutputFileNamePlaceholderText));
         OnPropertyChanged(nameof(OutputParameterSummaryText));
-        RefreshRuntimeLocalization();
         RefreshInterpolationModeProperties();
         RefreshInterpolationLocalization();
         RefreshEnhancementModeProperties();

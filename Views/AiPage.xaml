@@ -748,49 +748,6 @@
                         </StackPanel>
                     </Border>
 
-                    <Border
-                        Margin="0,4,0,0"
-                        Padding="10,8"
-                        Background="#1F4CC2FF"
-                        BorderBrush="#664CC2FF"
-                        BorderThickness="1"
-                        CornerRadius="12">
-                        <StackPanel Spacing="6">
-                            <TextBlock
-                                FontWeight="SemiBold"
-                                Foreground="White"
-                                Text="{x:Bind ViewModel.CurrentModeRuntimeTitleText, Mode=OneWay}" />
-                            <TextBlock
-                                Foreground="#FFD9F4FF"
-                                Text="{x:Bind ViewModel.CurrentModeRuntimeNoteText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Foreground="#FFD9F4FF"
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.CurrentModeRuntimeVersionText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Foreground="#FFD9F4FF"
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.CurrentModeGpuStatusText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Foreground="#FFD9F4FF"
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.CurrentModeCpuStatusText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Foreground="#FFD9F4FF"
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.CurrentModeModelSummaryText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Foreground="#FFD9F4FF"
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.CurrentModePackageSummaryText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-                    </Border>
                 </StackPanel>
             </ScrollViewer>
         </Border>
