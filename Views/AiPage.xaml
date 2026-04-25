@@ -411,10 +411,24 @@
                                     BorderThickness="1"
                                     CornerRadius="16">
                                     <StackPanel Spacing="10">
-                                        <TextBlock
-                                            FontSize="18"
-                                            FontWeight="SemiBold"
-                                            Text="{Binding ViewModel.InputState.CurrentInputFileName, ElementName=RootPage, Mode=OneWay}" />
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock
+                                                FontSize="18"
+                                                FontWeight="SemiBold"
+                                                Text="{Binding ViewModel.InputState.CurrentInputFileName, ElementName=RootPage, Mode=OneWay}"
+                                                TextTrimming="CharacterEllipsis"
+                                                TextWrapping="NoWrap" />
+                                            <Button
+                                                Grid.Column="1"
+                                                Command="{x:Bind ViewModel.ClearCurrentInputCommand, Mode=OneWay}"
+                                                Content="{x:Bind ViewModel.ClearCurrentInputButtonText, Mode=OneWay}"
+                                                ToolTipService.ToolTip="{x:Bind ViewModel.ClearCurrentInputButtonText, Mode=OneWay}" />
+                                        </Grid>
 
                                         <Grid ColumnSpacing="12">
                                             <Grid.ColumnDefinitions>

@@ -30,6 +30,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     private readonly AsyncRelayCommand _importFilesCommand;
     private readonly AsyncRelayCommand _selectOutputDirectoryCommand;
     private readonly RelayCommand _clearOutputDirectoryCommand;
+    private readonly RelayCommand _clearCurrentInputCommand;
     private readonly RelayCommand _removeMaterialCommand;
     private readonly AsyncRelayCommand _startProcessingCommand;
     private readonly RelayCommand _cancelProcessingCommand;
@@ -120,6 +121,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         _importFilesCommand = new AsyncRelayCommand(ImportFilesAsync, CanImportFilesInternal);
         _selectOutputDirectoryCommand = new AsyncRelayCommand(SelectOutputDirectoryAsync, CanSelectOutputDirectoryInternal);
         _clearOutputDirectoryCommand = new RelayCommand(ClearOutputDirectory, CanClearOutputDirectoryInternal);
+        _clearCurrentInputCommand = new RelayCommand(ClearCurrentInput, CanClearCurrentInputInternal);
         _removeMaterialCommand = new RelayCommand(RemoveMaterial, CanRemoveMaterial);
         _startProcessingCommand = new AsyncRelayCommand(StartProcessingAsync, CanStartProcessingInternal);
         _cancelProcessingCommand = new RelayCommand(CancelProcessing, () => IsProcessing);
@@ -151,6 +153,8 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     public ICommand SelectOutputDirectoryCommand => _selectOutputDirectoryCommand;
 
     public ICommand ClearOutputDirectoryCommand => _clearOutputDirectoryCommand;
+
+    public ICommand ClearCurrentInputCommand => _clearCurrentInputCommand;
 
     public ICommand RemoveMaterialCommand => _removeMaterialCommand;
 
@@ -267,6 +271,9 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
 
     public string CurrentTrackTitleText =>
         GetLocalizedText("ai.page.workspace.inputTrackTitle", "当前输入轨道");
+
+    public string ClearCurrentInputButtonText =>
+        GetLocalizedText("ai.page.workspace.clearCurrentInput", "移除当前输入");
 
     public string CurrentInputStatusText =>
         InputState.HasCurrentMaterial
@@ -415,6 +422,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(EnhancementModeLabelText));
         OnPropertyChanged(nameof(CurrentModeDescriptionText));
         OnPropertyChanged(nameof(CurrentTrackTitleText));
+        OnPropertyChanged(nameof(ClearCurrentInputButtonText));
         OnPropertyChanged(nameof(CurrentInputStatusText));
         OnPropertyChanged(nameof(CurrentTrackHintText));
         OnPropertyChanged(nameof(CurrentTrackEmptyText));
@@ -685,6 +693,34 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         SetStatusText("ai.status.outputDirectoryCleared", "已恢复为跟随当前素材目录输出。");
     }
 
+    private void ClearCurrentInput()
+    {
+        if (TrySetProcessingLockedStatus("ai.operation.clearCurrentInput", "移除当前输入"))
+        {
+            return;
+        }
+
+        if (!InputState.HasCurrentMaterial)
+        {
+            return;
+        }
+
+        var fileName = InputState.CurrentInputFileName;
+
+        _suppressSelectionStatus = true;
+        try
+        {
+            MaterialLibrary.SelectedMaterial = null;
+        }
+        finally
+        {
+            _suppressSelectionStatus = false;
+        }
+
+        SetStatusText(() => CreateCurrentInputClearedStatusMessage(fileName));
+        NotifyCommandStates();
+    }
+
     private void RemoveMaterial(object? parameter)
     {
         if (TrySetProcessingLockedStatus("ai.operation.removeMaterial", "移除素材"))
@@ -692,7 +728,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             return;
         }
 
-        if (parameter is not AiMaterialItemViewModel material || !MaterialLibrary.RemoveMaterial(material))
+        if (parameter is not AiMaterialItemViewModel material)
         {
             return;
         }
@@ -700,7 +736,10 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         _suppressSelectionStatus = true;
         try
         {
-            SyncInputSelection(updateStatus: false);
+            if (!MaterialLibrary.RemoveMaterial(material))
+            {
+                return;
+            }
         }
         finally
         {
@@ -826,6 +865,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OutputFileNamePlaceholderText));
         OnPropertyChanged(nameof(OutputParameterSummaryText));
         OnPropertyChanged(nameof(ProcessingActionsHintText));
+        _clearCurrentInputCommand.NotifyCanExecuteChanged();
         _startProcessingCommand.NotifyCanExecuteChanged();
         RefreshEnhancementModeProperties();
     }
@@ -893,21 +933,21 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     {
         if (importResult.AddedCount > 0 && rejectedCount == 0 && importResult.DuplicateCount == 0)
         {
-            return FormatLocalizedText(
-                "ai.status.imported",
-                $"已导入 {importResult.AddedCount} 个视频素材，当前处理对象：{InputState.CurrentInputFileName}",
-                ("count", importResult.AddedCount),
-                ("fileName", InputState.CurrentInputFileName));
+            return InputState.HasCurrentMaterial
+                ? CreateImportedKeepingSelectionStatusMessage(importResult.AddedCount, InputState.CurrentInputFileName)
+                : CreateImportedPendingSelectionStatusMessage(importResult.AddedCount);
         }
 
         if (importResult.AddedCount > 0)
         {
-            return FormatLocalizedText(
-                "ai.status.importSummary",
-                $"已导入 {importResult.AddedCount} 个视频，跳过 {importResult.DuplicateCount} 个重复项，拒绝 {rejectedCount} 个非视频或不可用条目。",
-                ("addedCount", importResult.AddedCount),
-                ("duplicateCount", importResult.DuplicateCount),
-                ("rejectedCount", rejectedCount));
+            return InputState.HasCurrentMaterial
+                ? FormatLocalizedText(
+                    "ai.status.importSummary",
+                    $"已导入 {importResult.AddedCount} 个视频，跳过 {importResult.DuplicateCount} 个重复项，拒绝 {rejectedCount} 个非视频或不可用条目。",
+                    ("addedCount", importResult.AddedCount),
+                    ("duplicateCount", importResult.DuplicateCount),
+                    ("rejectedCount", rejectedCount))
+                : CreateImportSummaryPendingSelectionStatusMessage(importResult, rejectedCount);
         }
 
         if (importResult.DuplicateCount > 0 && rejectedCount > 0)
@@ -938,10 +978,37 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
             $"没有发现可导入的视频文件，已拒绝 {rejectedCount} 个非视频或不可用条目。",
             ("rejectedCount", rejectedCount));
 
+    private string CreateImportedPendingSelectionStatusMessage(int count) =>
+        FormatLocalizedText(
+            "ai.status.imported",
+            $"已导入 {count} 个视频素材，请从素材列表中选择当前处理对象。",
+            ("count", count));
+
+    private string CreateImportedKeepingSelectionStatusMessage(int count, string fileName) =>
+        FormatLocalizedText(
+            "ai.status.importedKeepingSelection",
+            $"已导入 {count} 个视频素材，当前处理对象保持为：{fileName}",
+            ("count", count),
+            ("fileName", fileName));
+
+    private string CreateImportSummaryPendingSelectionStatusMessage(AiMaterialImportResult importResult, int rejectedCount) =>
+        FormatLocalizedText(
+            "ai.status.importSummaryPendingSelection",
+            $"已导入 {importResult.AddedCount} 个视频，跳过 {importResult.DuplicateCount} 个重复项，拒绝 {rejectedCount} 个非视频或不可用条目。请从素材列表中选择当前处理对象。",
+            ("addedCount", importResult.AddedCount),
+            ("duplicateCount", importResult.DuplicateCount),
+            ("rejectedCount", rejectedCount));
+
     private string CreateSelectedMaterialStatusMessage(string fileName) =>
         FormatLocalizedText(
             "ai.status.selectedMaterial",
             $"当前处理对象已切换为：{fileName}",
+            ("fileName", fileName));
+
+    private string CreateCurrentInputClearedStatusMessage(string fileName) =>
+        FormatLocalizedText(
+            "ai.status.currentInputCleared",
+            $"已从当前输入轨道移除：{fileName}",
             ("fileName", fileName));
 
     private string CreateRemovedMaterialStatusMessage(string fileName) =>
@@ -1025,6 +1092,10 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         !IsProcessing &&
         OutputSettings.HasCustomOutputDirectory;
 
+    private bool CanClearCurrentInputInternal() =>
+        !IsProcessing &&
+        InputState.HasCurrentMaterial;
+
     private bool CanRemoveMaterial(object? parameter) =>
         !IsProcessing &&
         parameter is AiMaterialItemViewModel material &&
@@ -1104,6 +1175,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         _importFilesCommand.NotifyCanExecuteChanged();
         _selectOutputDirectoryCommand.NotifyCanExecuteChanged();
         _clearOutputDirectoryCommand.NotifyCanExecuteChanged();
+        _clearCurrentInputCommand.NotifyCanExecuteChanged();
         _removeMaterialCommand.NotifyCanExecuteChanged();
         _startProcessingCommand.NotifyCanExecuteChanged();
         _cancelProcessingCommand.NotifyCanExecuteChanged();

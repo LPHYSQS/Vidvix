@@ -28,11 +28,6 @@ public sealed class AiMaterialLibraryState : ObservableObject
         get => _selectedMaterial;
         set
         {
-            if (value is null && Materials.Count > 0)
-            {
-                value = Materials[0];
-            }
-
             if (value is not null && !Materials.Contains(value))
             {
                 return;
@@ -80,15 +75,7 @@ public sealed class AiMaterialLibraryState : ObservableObject
             addedCount++;
         }
 
-        if (SelectedMaterial is null && Materials.Count > 0)
-        {
-            SelectedMaterial = Materials[0];
-        }
-        else
-        {
-            UpdateCollectionStateProperties();
-            UpdateSelectionState();
-        }
+        UpdateSelectionState();
 
         return new AiMaterialImportResult(addedCount, duplicateCount);
     }
@@ -122,15 +109,7 @@ public sealed class AiMaterialLibraryState : ObservableObject
             addedCount++;
         }
 
-        if (SelectedMaterial is null && Materials.Count > 0)
-        {
-            SelectedMaterial = Materials[0];
-        }
-        else
-        {
-            UpdateCollectionStateProperties();
-            UpdateSelectionState();
-        }
+        UpdateSelectionState();
 
         return new AiMaterialImportResult(addedCount, duplicateCount);
     }
@@ -145,29 +124,17 @@ public sealed class AiMaterialLibraryState : ObservableObject
             return false;
         }
 
-        AiMaterialItemViewModel? replacementSelection = null;
-        if (ReferenceEquals(material, SelectedMaterial))
-        {
-            replacementSelection = index < Materials.Count - 1
-                ? Materials[index + 1]
-                : index > 0
-                    ? Materials[index - 1]
-                    : null;
-        }
+        var wasSelected = ReferenceEquals(material, _selectedMaterial);
 
         Materials.RemoveAt(index);
 
-        if (ReferenceEquals(material, SelectedMaterial))
+        if (wasSelected)
         {
-            _selectedMaterial = replacementSelection;
+            _selectedMaterial = null;
             OnPropertyChanged(nameof(SelectedMaterial));
-            UpdateSelectionState();
-        }
-        else
-        {
-            UpdateCollectionStateProperties();
         }
 
+        UpdateSelectionState();
         return true;
     }
 
