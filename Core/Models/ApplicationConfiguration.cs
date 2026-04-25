@@ -273,7 +273,24 @@ public sealed class ApplicationConfiguration
                 fixedProcessingModeDescription: "集中输入 FFmpeg、FFprobe、FFplay 命令，并查看执行输出与状态。",
                 headerTitle: "终端",
                 headerDescription: "集中执行 FFmpeg 系列命令。",
-                localizationKeyPrefix: "common.workspace.terminal")
+                localizationKeyPrefix: "common.workspace.terminal"),
+            [ProcessingWorkspaceKind.About] = new(
+                ProcessingWorkspaceKind.About,
+                "关于",
+                "应用信息",
+                Array.Empty<string>(),
+                headerTitle: "关于",
+                headerDescription: "关于模块已预留，后续内容将在这里接入。",
+                localizationKeyPrefix: "common.workspace.about",
+                queueDragDropHintText: "关于模块暂不支持拖拽导入。",
+                dragDropCaptionText: "关于模块不提供文件导入",
+                readyForImportMessage: "关于模块已预留，后续内容将在这里接入。",
+                emptyQueueProcessingMessage: "关于模块暂不提供处理任务。",
+                importFilePickerCommitText: "选择文件",
+                importFolderPickerCommitText: "选择文件夹",
+                noProcessableImportMessage: "关于模块不提供文件导入。",
+                supportedInputFormatsHint: "关于模块不提供文件导入。",
+                importedCountMessageTemplate: "已加载 {count} 条关于模块内容。")
         };
 
     public IReadOnlyDictionary<MergeWorkspaceMode, MergeWorkspaceModeProfile> MergeModeProfiles { get; init; } =

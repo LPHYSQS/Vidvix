@@ -149,7 +149,7 @@
                     DefaultLabelPosition="Right"
                     IsDynamicOverflowEnabled="True"
                     VerticalAlignment="Center"
-                    Visibility="Collapsed">
+                    Visibility="{x:Bind ViewModel.AboutWorkspaceVisibility, Mode=OneWay}">
                     <AppBarButton Command="{x:Bind ViewModel.ToggleSettingsPaneCommand}" Label="{x:Bind ViewModel.MainWindowSettingsButtonLabel, Mode=OneWay}">
                         <AppBarButton.Icon>
                             <SymbolIcon Symbol="Setting" />
@@ -759,6 +759,43 @@
                                             FontSize="12"
                                             FontWeight="SemiBold"
                                             Text="{x:Bind ViewModel.TerminalWorkspaceButtonText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </ToggleButton>
+
+                                <ToggleButton
+                                    x:Name="AboutWorkspaceToggle"
+                                    Command="{x:Bind ViewModel.SwitchToAboutWorkspaceCommand, Mode=OneWay}"
+                                    IsChecked="{x:Bind ViewModel.IsAboutWorkspaceSelected, Mode=OneWay}"
+                                    IsEnabled="{x:Bind ViewModel.CanModifyInputs, Mode=OneWay}"
+                                    Style="{StaticResource WorkspaceModeToggleButtonStyle}">
+                                    <StackPanel
+                                        HorizontalAlignment="Center"
+                                        Spacing="5">
+                                        <Grid
+                                            Width="18"
+                                            Height="18"
+                                            HorizontalAlignment="Center">
+                                            <Ellipse
+                                                x:Name="AboutWorkspaceIcon"
+                                                Width="18"
+                                                Height="18"
+                                                Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                                                StrokeThickness="1.7" />
+                                            <TextBlock
+                                                x:Name="AboutWorkspaceGlyph"
+                                                Margin="0,-1,0,0"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                FontSize="12"
+                                                FontWeight="SemiBold"
+                                                Text="?" />
+                                        </Grid>
+                                        <TextBlock
+                                            x:Name="AboutWorkspaceText"
+                                            HorizontalAlignment="Center"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Text="{x:Bind ViewModel.AboutWorkspaceButtonText, Mode=OneWay}" />
                                     </StackPanel>
                                 </ToggleButton>
                             </StackPanel>

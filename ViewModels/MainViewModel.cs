@@ -47,6 +47,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly ObservableCollection<LogEntry> _aiLogEntries;
     private readonly ObservableCollection<LogEntry> _splitAudioLogEntries;
     private readonly ObservableCollection<LogEntry> _terminalLogEntries;
+    private readonly ObservableCollection<LogEntry> _aboutLogEntries;
     private readonly ObservableCollection<MediaJobViewModel> _videoImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _audioImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _trimImportItems;
@@ -54,6 +55,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly ObservableCollection<MediaJobViewModel> _aiImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _splitAudioImportItems;
     private readonly ObservableCollection<MediaJobViewModel> _terminalImportItems;
+    private readonly ObservableCollection<MediaJobViewModel> _aboutImportItems;
     private readonly AsyncRelayCommand _selectFilesCommand;
     private readonly AsyncRelayCommand _selectFolderCommand;
     private readonly AsyncRelayCommand _selectOutputDirectoryCommand;
@@ -133,6 +135,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _aiLogEntries = new ObservableCollection<LogEntry>();
         _splitAudioLogEntries = new ObservableCollection<LogEntry>();
         _terminalLogEntries = new ObservableCollection<LogEntry>();
+        _aboutLogEntries = new ObservableCollection<LogEntry>();
         _videoImportItems = new ObservableCollection<MediaJobViewModel>();
         _audioImportItems = new ObservableCollection<MediaJobViewModel>();
         _trimImportItems = new ObservableCollection<MediaJobViewModel>();
@@ -140,6 +143,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _aiImportItems = new ObservableCollection<MediaJobViewModel>();
         _splitAudioImportItems = new ObservableCollection<MediaJobViewModel>();
         _terminalImportItems = new ObservableCollection<MediaJobViewModel>();
+        _aboutImportItems = new ObservableCollection<MediaJobViewModel>();
         DetailPanel = new MediaDetailPanelViewModel(_localizationService);
         ProcessingModes = BuildProcessingModes();
 
@@ -180,6 +184,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _switchToAiWorkspaceCommand = new AsyncRelayCommand(SwitchToAiWorkspaceAsync, () => CanModifyInputs);
         _switchToSplitAudioWorkspaceCommand = new AsyncRelayCommand(SwitchToSplitAudioWorkspaceAsync, () => CanModifyInputs);
         _switchToTerminalWorkspaceCommand = new AsyncRelayCommand(SwitchToTerminalWorkspaceAsync, () => CanModifyInputs);
+        _switchToAboutWorkspaceCommand = new AsyncRelayCommand(SwitchToAboutWorkspaceAsync, () => CanModifyInputs);
 
         _localizationService.LanguageChanged += OnLocalizationLanguageChanged;
         DetailPanel.PropertyChanged += OnDetailPanelPropertyChanged;

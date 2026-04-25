@@ -28,6 +28,7 @@ public sealed partial class MainViewModel
         _switchToAiWorkspaceCommand.NotifyCanExecuteChanged();
         _switchToSplitAudioWorkspaceCommand.NotifyCanExecuteChanged();
         _switchToTerminalWorkspaceCommand.NotifyCanExecuteChanged();
+        _switchToAboutWorkspaceCommand.NotifyCanExecuteChanged();
     }
 
     private void SetReadyStatusMessage()

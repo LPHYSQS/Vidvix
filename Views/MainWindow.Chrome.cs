@@ -72,6 +72,9 @@ public sealed partial class MainWindow
         SplitAudioWorkspaceText.Foreground = ViewModel.IsSplitAudioWorkspaceSelected ? accentBrush : defaultBrush;
         TerminalWorkspaceIcon.Stroke = ViewModel.IsTerminalWorkspaceSelected ? accentBrush : defaultBrush;
         TerminalWorkspaceText.Foreground = ViewModel.IsTerminalWorkspaceSelected ? accentBrush : defaultBrush;
+        AboutWorkspaceIcon.Stroke = ViewModel.IsAboutWorkspaceSelected ? accentBrush : defaultBrush;
+        AboutWorkspaceGlyph.Foreground = ViewModel.IsAboutWorkspaceSelected ? accentBrush : defaultBrush;
+        AboutWorkspaceText.Foreground = ViewModel.IsAboutWorkspaceSelected ? accentBrush : defaultBrush;
     }
 
     private static Brush ResolveBrushResource(string resourceKey) =>

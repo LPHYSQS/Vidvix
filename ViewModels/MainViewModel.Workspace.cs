@@ -32,6 +32,8 @@ public sealed partial class MainViewModel
 
     public bool IsTerminalWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.Terminal;
 
+    public bool IsAboutWorkspaceSelected => _selectedWorkspaceKind == ProcessingWorkspaceKind.About;
+
     public Visibility ProcessingWorkspaceVisibility =>
         IsVideoWorkspaceSelected || IsAudioWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
@@ -44,6 +46,8 @@ public sealed partial class MainViewModel
     public Visibility SplitAudioWorkspaceVisibility => IsSplitAudioWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility TerminalWorkspaceVisibility => IsTerminalWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility AboutWorkspaceVisibility => IsAboutWorkspaceSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public string SettingsPaneDescription =>
         GetLocalizedText(
@@ -110,6 +114,11 @@ public sealed partial class MainViewModel
         GetLocalizedText(
             "common.workspace.terminal.sidebarLabel",
             GetWorkspaceProfile(ProcessingWorkspaceKind.Terminal).MediaLabel);
+
+    public string AboutWorkspaceButtonText =>
+        GetLocalizedText(
+            "common.workspace.about.sidebarLabel",
+            GetWorkspaceProfile(ProcessingWorkspaceKind.About).MediaLabel);
 
     public string MainWindowImportFilesButtonLabel =>
         GetLocalizedText("mainWindow.toolbar.importFiles", "导入文件");
@@ -210,6 +219,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(AiWorkspaceButtonText));
         OnPropertyChanged(nameof(SplitAudioWorkspaceButtonText));
         OnPropertyChanged(nameof(TerminalWorkspaceButtonText));
+        OnPropertyChanged(nameof(AboutWorkspaceButtonText));
         OnPropertyChanged(nameof(MainWindowImportFilesButtonLabel));
         OnPropertyChanged(nameof(MainWindowImportFolderButtonLabel));
         OnPropertyChanged(nameof(MainWindowClearQueueButtonLabel));
@@ -263,6 +273,7 @@ public sealed partial class MainViewModel
             ProcessingWorkspaceKind.Ai => _aiImportItems,
             ProcessingWorkspaceKind.SplitAudio => _splitAudioImportItems,
             ProcessingWorkspaceKind.Terminal => _terminalImportItems,
+            ProcessingWorkspaceKind.About => _aboutImportItems,
             _ => _videoImportItems
         };
 
@@ -278,6 +289,7 @@ public sealed partial class MainViewModel
             ProcessingWorkspaceKind.Ai => _aiLogEntries,
             ProcessingWorkspaceKind.SplitAudio => _splitAudioLogEntries,
             ProcessingWorkspaceKind.Terminal => _terminalLogEntries,
+            ProcessingWorkspaceKind.About => _aboutLogEntries,
             _ => _videoLogEntries
         };
 
@@ -333,6 +345,8 @@ public sealed partial class MainViewModel
 
     private Task SwitchToTerminalWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.Terminal);
 
+    private Task SwitchToAboutWorkspaceAsync() => SetWorkspaceAsync(ProcessingWorkspaceKind.About);
+
     private async Task SetWorkspaceAsync(ProcessingWorkspaceKind workspaceKind)
     {
         if (_selectedWorkspaceKind == workspaceKind)
@@ -385,12 +399,14 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(IsAiWorkspaceSelected));
         OnPropertyChanged(nameof(IsSplitAudioWorkspaceSelected));
         OnPropertyChanged(nameof(IsTerminalWorkspaceSelected));
+        OnPropertyChanged(nameof(IsAboutWorkspaceSelected));
         OnPropertyChanged(nameof(ProcessingWorkspaceVisibility));
         OnPropertyChanged(nameof(TrimWorkspaceVisibility));
         OnPropertyChanged(nameof(MergeWorkspaceVisibility));
         OnPropertyChanged(nameof(AiWorkspaceVisibility));
         OnPropertyChanged(nameof(SplitAudioWorkspaceVisibility));
         OnPropertyChanged(nameof(TerminalWorkspaceVisibility));
+        OnPropertyChanged(nameof(AboutWorkspaceVisibility));
         OnPropertyChanged(nameof(VideoProcessingModeVisibility));
         OnPropertyChanged(nameof(AudioProcessingModeVisibility));
         OnPropertyChanged(nameof(WorkspaceHeaderTitle));
