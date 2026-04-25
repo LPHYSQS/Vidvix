@@ -250,7 +250,7 @@ public sealed class ApplicationConfiguration
                 "视频文件",
                 DefaultSupportedAiInputFileTypes,
                 headerTitle: "AI 工作区",
-                headerDescription: "承载 AI补帧 与 AI增强 的独立工作区。",
+                headerDescription: "支持 AI补帧与AI增强两种模式。",
                 localizationKeyPrefix: "common.workspace.ai"),
             [ProcessingWorkspaceKind.SplitAudio] = new(
                 ProcessingWorkspaceKind.SplitAudio,

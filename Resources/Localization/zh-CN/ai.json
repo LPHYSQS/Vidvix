@@ -187,7 +187,7 @@
   "ai.enhancement.failureKind.invalidInput": "输入无效",
   "ai.enhancement.failureKind.executionFailed": "执行失败",
   "ai.page.output.title": "输出设置",
-  "ai.page.output.description": "输出设置已直接接入 AI补帧 与 AI增强 workflow：现已支持多种视频封装格式，目录默认跟随当前素材，文件名留空时自动按模式生成。",
+  "ai.page.output.description": "配置输出格式、目录与文件名。",
   "ai.page.output.format.title": "输出格式",
   "ai.page.output.format.hint": "支持 MP4、MKV、MOV、AVI、WMV、M4V、FLV、WEBM、TS、M2TS、MPEG、MPG；下方说明会随所选格式同步更新，导出时也会按目标封装自动调整编码策略。",
   "ai.page.output.directory.title": "输出目录",

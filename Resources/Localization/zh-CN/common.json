@@ -67,7 +67,7 @@
   "common.workspace.ai.sidebarLabel": "AI",
   "common.workspace.ai.mediaFileLabel": "视频文件",
   "common.workspace.ai.headerTitle": "AI 工作区",
-  "common.workspace.ai.headerDescription": "承载 AI补帧 与 AI增强 的独立工作区。",
+  "common.workspace.ai.headerDescription": "支持 AI补帧与AI增强两种模式。",
   "common.workspace.ai.queueDragDropHintText": "AI 工作区后续将支持视频素材导入与执行。",
   "common.workspace.ai.dragDropCaptionText": "导入 AI 视频素材",
   "common.workspace.ai.readyForImportMessage": "AI 工作区骨架已接入，后续轮次将补齐素材导入与执行链路。",

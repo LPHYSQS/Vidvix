@@ -67,7 +67,7 @@
   "common.workspace.ai.sidebarLabel": "AI",
   "common.workspace.ai.mediaFileLabel": "video files",
   "common.workspace.ai.headerTitle": "AI workspace",
-  "common.workspace.ai.headerDescription": "A dedicated workspace for AI interpolation and AI enhancement.",
+  "common.workspace.ai.headerDescription": "Supports AI interpolation and enhancement modes.",
   "common.workspace.ai.queueDragDropHintText": "The AI workspace will support video import and execution in later rounds.",
   "common.workspace.ai.dragDropCaptionText": "Import AI video assets",
   "common.workspace.ai.readyForImportMessage": "The AI workspace shell is connected. Later rounds will add video import and execution.",
