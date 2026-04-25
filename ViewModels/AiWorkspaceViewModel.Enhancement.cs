@@ -35,9 +35,23 @@ public sealed partial class AiWorkspaceViewModel
             : Visibility.Collapsed;
 
     public Visibility EnhancementProgressVisibility =>
-        ModeState.SelectedMode == AiWorkspaceMode.Enhancement
+        ModeState.SelectedMode == AiWorkspaceMode.Enhancement && IsProcessing
             ? Visibility.Visible
             : Visibility.Collapsed;
+
+    public bool IsEnhancementWorkspaceProgressIndeterminate =>
+        IsProcessing && EnhancementExecution.ProgressValue <= 0d;
+
+    public string EnhancementWorkspaceProgressSummaryText => EnhancementProgressStageTitleText;
+
+    public string EnhancementWorkspaceProgressDetailText => EnhancementProgressDetailText;
+
+    public string EnhancementWorkspaceProgressPercentText =>
+        !IsProcessing
+            ? string.Empty
+            : IsEnhancementWorkspaceProgressIndeterminate
+                ? GetLocalizedText("ai.enhancement.progress.percent.processing", "处理中")
+                : $"{Math.Round(Math.Clamp(EnhancementExecution.ProgressValue, 0d, 100d)):0}%";
 
     public string EnhancementSettingsTitleText =>
         GetLocalizedText("ai.enhancement.settings.title", "增强参数");
@@ -227,6 +241,10 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(EnhancementProgressTitleText));
         OnPropertyChanged(nameof(EnhancementProgressPlaceholderText));
         OnPropertyChanged(nameof(LastEnhancementOutputLabelText));
+        OnPropertyChanged(nameof(IsEnhancementWorkspaceProgressIndeterminate));
+        OnPropertyChanged(nameof(EnhancementWorkspaceProgressSummaryText));
+        OnPropertyChanged(nameof(EnhancementWorkspaceProgressDetailText));
+        OnPropertyChanged(nameof(EnhancementWorkspaceProgressPercentText));
         RefreshEnhancementExecutionDisplay();
     }
 
@@ -239,6 +257,8 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(EnhancementModelTierHintText));
         OnPropertyChanged(nameof(EnhancementScaleHintText));
         OnPropertyChanged(nameof(EnhancementHighLoadWarningText));
+        OnPropertyChanged(nameof(IsEnhancementWorkspaceProgressIndeterminate));
+        OnPropertyChanged(nameof(EnhancementWorkspaceProgressPercentText));
         _startProcessingCommand.NotifyCanExecuteChanged();
         _cancelProcessingCommand.NotifyCanExecuteChanged();
     }
@@ -540,5 +560,9 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(EnhancementProgressStageTitleText));
         OnPropertyChanged(nameof(EnhancementProgressDetailText));
         OnPropertyChanged(nameof(EnhancementResultSummaryText));
+        OnPropertyChanged(nameof(IsEnhancementWorkspaceProgressIndeterminate));
+        OnPropertyChanged(nameof(EnhancementWorkspaceProgressSummaryText));
+        OnPropertyChanged(nameof(EnhancementWorkspaceProgressDetailText));
+        OnPropertyChanged(nameof(EnhancementWorkspaceProgressPercentText));
     }
 }

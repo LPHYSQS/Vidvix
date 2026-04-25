@@ -89,26 +89,6 @@ public sealed partial class AiWorkspaceViewModel
             "ai.interpolation.settings.uhd.hint",
             "4K 或更高分辨率素材建议开启。该模式更稳，但显存占用和耗时都会明显上升。");
 
-    public string ProcessingActionsTitleText =>
-        GetLocalizedText("ai.page.processing.title", "执行控制");
-
-    public string ProcessingActionsHintText =>
-        ModeState.SelectedMode == AiWorkspaceMode.Interpolation
-            ? GetLocalizedText(
-                "ai.interpolation.action.hint",
-                "执行时会自动抽帧、运行 RIFE、回填原音轨并生成输出视频；处理中会锁定导入、模式和输出设置。")
-            : GetLocalizedText(
-                "ai.enhancement.action.hint",
-                "执行时会自动抽帧、运行 Real-ESRGAN、按规划组合放大或超采样回缩、回填原音轨并生成输出视频；处理中会锁定导入、模式和输出设置。");
-
-    public string StartProcessingButtonText =>
-        ModeState.SelectedMode == AiWorkspaceMode.Interpolation
-            ? GetLocalizedText("ai.interpolation.action.start", "开始补帧")
-            : GetLocalizedText("ai.enhancement.action.start", "开始增强");
-
-    public string CancelProcessingButtonText =>
-        GetLocalizedText("ai.interpolation.action.cancel", "取消任务");
-
     public string InterpolationProgressTitleText =>
         GetLocalizedText("ai.interpolation.progress.title", "补帧进度与最近结果");
 
@@ -245,7 +225,7 @@ public sealed partial class AiWorkspaceViewModel
 
         EnhancementExecution.DetailText = GetEnhancementCancellingStatusMessage();
         SetStatusText("ai.status.enhancementCancelling", "正在取消 AI增强 任务并清理临时目录…");
-        OnPropertyChanged(nameof(EnhancementProgressDetailText));
+        RefreshEnhancementExecutionDisplay();
     }
 
     private void RefreshInterpolationLocalization()
@@ -270,10 +250,6 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(InterpolationDeviceHintText));
         OnPropertyChanged(nameof(InterpolationUhdTitleText));
         OnPropertyChanged(nameof(InterpolationUhdHintText));
-        OnPropertyChanged(nameof(ProcessingActionsTitleText));
-        OnPropertyChanged(nameof(ProcessingActionsHintText));
-        OnPropertyChanged(nameof(StartProcessingButtonText));
-        OnPropertyChanged(nameof(CancelProcessingButtonText));
         OnPropertyChanged(nameof(InterpolationProgressTitleText));
         OnPropertyChanged(nameof(InterpolationProgressPlaceholderText));
         OnPropertyChanged(nameof(LastInterpolationOutputLabelText));
@@ -291,8 +267,6 @@ public sealed partial class AiWorkspaceViewModel
         OnPropertyChanged(nameof(InterpolationWorkspaceProgressPercentText));
         OnPropertyChanged(nameof(InterpolationScaleHintText));
         OnPropertyChanged(nameof(InterpolationDeviceHintText));
-        OnPropertyChanged(nameof(ProcessingActionsHintText));
-        OnPropertyChanged(nameof(StartProcessingButtonText));
         _startProcessingCommand.NotifyCanExecuteChanged();
         _cancelProcessingCommand.NotifyCanExecuteChanged();
     }

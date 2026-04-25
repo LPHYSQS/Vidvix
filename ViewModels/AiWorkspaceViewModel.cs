@@ -876,7 +876,6 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OutputDirectoryPlaceholderText));
         OnPropertyChanged(nameof(OutputFileNamePlaceholderText));
         OnPropertyChanged(nameof(OutputParameterSummaryText));
-        OnPropertyChanged(nameof(ProcessingActionsHintText));
         _clearCurrentInputCommand.NotifyCanExecuteChanged();
         _startProcessingCommand.NotifyCanExecuteChanged();
         RefreshEnhancementModeProperties();

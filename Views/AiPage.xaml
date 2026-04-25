@@ -360,6 +360,62 @@
                     </Border>
 
                     <Border
+                        Padding="14,12"
+                        Style="{StaticResource AiInsetCardBorderStyle}"
+                        Visibility="{x:Bind ViewModel.EnhancementProgressVisibility, Mode=OneWay}">
+                        <Grid ColumnSpacing="14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border
+                                Width="34"
+                                Height="34"
+                                VerticalAlignment="Top"
+                                Background="{ThemeResource ControlFillColorTertiaryBrush}"
+                                CornerRadius="17">
+                                <SymbolIcon
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Symbol="Switch" />
+                            </Border>
+
+                            <StackPanel
+                                Grid.Column="1"
+                                Spacing="8">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock
+                                        FontWeight="SemiBold"
+                                        Text="{x:Bind ViewModel.EnhancementWorkspaceProgressSummaryText, Mode=OneWay}" />
+
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Opacity="0.72"
+                                        Text="{x:Bind ViewModel.EnhancementWorkspaceProgressPercentText, Mode=OneWay}" />
+                                </Grid>
+
+                                <ProgressBar
+                                    Height="6"
+                                    IsIndeterminate="{x:Bind ViewModel.IsEnhancementWorkspaceProgressIndeterminate, Mode=OneWay}"
+                                    Maximum="100"
+                                    Value="{Binding ViewModel.EnhancementExecution.ProgressValue, ElementName=RootPage, Mode=OneWay}" />
+
+                                <TextBlock
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    Text="{x:Bind ViewModel.EnhancementWorkspaceProgressDetailText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border
                         HorizontalAlignment="Left"
                         Padding="4"
                         Background="{ThemeResource ControlFillColorSecondaryBrush}"
@@ -845,81 +901,6 @@
                             TextWrapping="WrapWholeWords" />
                     </Border>
 
-                    <Border
-                        Style="{StaticResource AiInsetCardBorderStyle}"
-                        Visibility="{x:Bind ViewModel.EnhancementControlsVisibility, Mode=OneWay}">
-                        <StackPanel Spacing="10">
-                            <TextBlock
-                                FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.ProcessingActionsTitleText, Mode=OneWay}" />
-                            <TextBlock
-                                Opacity="0.72"
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.ProcessingActionsHintText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
-                                <Button
-                                    Command="{x:Bind ViewModel.StartProcessingCommand, Mode=OneWay}"
-                                    Content="{x:Bind ViewModel.StartProcessingButtonText, Mode=OneWay}" />
-                                <Button
-                                    Grid.Column="1"
-                                    Command="{x:Bind ViewModel.CancelProcessingCommand, Mode=OneWay}"
-                                    Content="{x:Bind ViewModel.CancelProcessingButtonText, Mode=OneWay}" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <Border
-                        Visibility="{x:Bind ViewModel.EnhancementProgressVisibility, Mode=OneWay}"
-                        Style="{StaticResource AiInsetCardBorderStyle}">
-                        <StackPanel Spacing="10">
-                            <TextBlock
-                                FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.EnhancementProgressTitleText, Mode=OneWay}" />
-                            <ProgressBar
-                                Maximum="100"
-                                Value="{Binding ViewModel.EnhancementExecution.ProgressValue, ElementName=RootPage, Mode=OneWay}" />
-                            <TextBlock
-                                FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.EnhancementProgressStageTitleText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Opacity="0.72"
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.EnhancementProgressDetailText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Opacity="0.78"
-                                Text="{x:Bind ViewModel.EnhancementResultSummaryText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
-                                <TextBlock
-                                    Style="{StaticResource AiMetadataLabelTextStyle}"
-                                    Text="{x:Bind ViewModel.LastEnhancementOutputLabelText, Mode=OneWay}" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    Text="{Binding ViewModel.EnhancementExecution.LastOutputPath, ElementName=RootPage, Mode=OneWay}"
-                                    TextWrapping="WrapWholeWords" />
-                                <Button
-                                    Grid.Column="2"
-                                    VerticalAlignment="Top"
-                                    Command="{x:Bind ViewModel.RevealLatestOutputCommand, Mode=OneWay}"
-                                    CommandParameter="{Binding ViewModel.EnhancementExecution.LastOutputPath, ElementName=RootPage, Mode=OneWay}"
-                                    Content="{x:Bind ViewModel.RevealLatestOutputButtonText, Mode=OneWay}" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
                 </StackPanel>
             </ScrollViewer>
         </Border>
