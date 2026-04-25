@@ -102,7 +102,7 @@
   "ai.enhancement.pending.title": "AI增强待下一轮接入",
   "ai.enhancement.pending.description": "R8 只交付 AI补帧 工作流。AI增强 的模型档位、倍率链路与高倍率提醒会在 R9 独立接入。",
   "ai.enhancement.settings.title": "增强参数",
-  "ai.enhancement.settings.description": "R9 已接通 Real-ESRGAN 首发增强闭环。支持 Standard / Anime 档位、2x 到 16x 倍率、多次组合放大，以及超采样后回缩。",
+  "ai.enhancement.settings.description": "根据素材类型选择模型档位，并设置 2x 到 16x 的增强倍率。系统会按所选参数自动完成增强处理。",
   "ai.enhancement.settings.modelTier.title": "模型档位",
   "ai.enhancement.settings.modelTier.hint": "{tier} 档位：{description} 当前底层原生倍率 {nativeScales}。",
   "ai.enhancement.settings.scale.title": "增强倍率",

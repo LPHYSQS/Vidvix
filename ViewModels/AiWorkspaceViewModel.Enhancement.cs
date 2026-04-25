@@ -45,7 +45,7 @@ public sealed partial class AiWorkspaceViewModel
     public string EnhancementSettingsDescriptionText =>
         GetLocalizedText(
             "ai.enhancement.settings.description",
-            "R9 已接通 Real-ESRGAN 首发增强闭环。支持 Standard / Anime 档位、2x 到 16x 倍率、多次组合放大，以及超采样后回缩。");
+            "根据素材类型选择模型档位，并设置 2x 到 16x 的增强倍率。系统会按所选参数自动完成增强处理。");
 
     public string EnhancementModelTierTitleText =>
         GetLocalizedText("ai.enhancement.settings.modelTier.title", "模型档位");

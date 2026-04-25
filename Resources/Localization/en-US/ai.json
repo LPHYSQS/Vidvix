@@ -102,7 +102,7 @@
   "ai.enhancement.pending.title": "AI enhancement arrives next round",
   "ai.enhancement.pending.description": "R8 only ships the AI interpolation workflow. AI enhancement model tiers, scale chaining, and high-load warnings arrive independently in R9.",
   "ai.enhancement.settings.title": "Enhancement settings",
-  "ai.enhancement.settings.description": "R9 wires the launch Real-ESRGAN enhancement loop with Standard / Anime tiers, 2x through 16x scaling, multi-pass chaining, and overscale-then-downscale routing.",
+  "ai.enhancement.settings.description": "Choose a model tier for your content and set an enhancement scale from 2x to 16x. Vidvix will apply the selected settings automatically during processing.",
   "ai.enhancement.settings.modelTier.title": "Model tier",
   "ai.enhancement.settings.modelTier.hint": "{tier} tier: {description} Current native scales: {nativeScales}.",
   "ai.enhancement.settings.scale.title": "Enhancement scale",

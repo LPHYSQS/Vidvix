@@ -453,9 +453,11 @@
                                     Spacing="4">
                                     <Border
                                         HorizontalAlignment="Right"
-                                        Padding="8,3"
+                                        Padding="10,4"
                                         Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                        CornerRadius="999">
+                                        BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="10">
                                         <TextBlock
                                             Style="{StaticResource CaptionTextStyle}"
                                             Text="{x:Bind ViewModel.CurrentModeEngineBadgeText, Mode=OneWay}" />
