@@ -194,7 +194,7 @@
   "ai.page.output.directory.hint.custom": "当前已固定输出到：{path}",
   "ai.page.output.directory.hint.default": "未手动指定目录时，默认跟随当前素材所在目录输出。",
   "ai.page.output.directory.hint.empty": "选择当前处理对象后，会自动带入默认输出目录。",
-  "ai.page.output.directory.placeholder.noInput": "选择当前处理对象后自动带入默认目录",
+  "ai.page.output.directory.placeholder.noInput": "预设视频目录",
   "ai.page.output.fileName.title": "输出文件名",
   "ai.page.output.fileName.hint": "留空时会按当前视频与所选模式自动生成建议文件名；后续运行时直接消费这里的文件名状态。",
   "ai.page.output.fileName.placeholder": "例如：{name}",

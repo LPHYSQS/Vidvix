@@ -348,7 +348,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         string.IsNullOrWhiteSpace(OutputSettings.OutputDirectoryDisplayText)
             ? GetLocalizedText(
                 "ai.page.output.directory.placeholder.noInput",
-                "选择当前处理对象后自动带入默认目录")
+                "预设视频目录")
             : string.Empty;
 
     public string OutputFileNameTitleText =>

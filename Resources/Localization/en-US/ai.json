@@ -194,7 +194,7 @@
   "ai.page.output.directory.hint.custom": "Output is pinned to: {path}",
   "ai.page.output.directory.hint.default": "When no folder is chosen manually, output follows the current source directory.",
   "ai.page.output.directory.hint.empty": "Select the current processing target to populate the default output directory.",
-  "ai.page.output.directory.placeholder.noInput": "The default directory will appear after a target is selected",
+  "ai.page.output.directory.placeholder.noInput": "Preset video directory",
   "ai.page.output.fileName.title": "Output file name",
   "ai.page.output.fileName.hint": "When left empty, a suggested file name is generated from the current video and selected mode. The runtime workflow consumes this file-name state directly.",
   "ai.page.output.fileName.placeholder": "For example: {name}",

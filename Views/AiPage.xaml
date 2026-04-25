@@ -713,56 +713,53 @@
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
-                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
-                        <StackPanel Spacing="8">
-                            <TextBlock
-                                FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.OutputDirectoryTitleText, Mode=OneWay}" />
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="8">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="{x:Bind ViewModel.OutputDirectoryTitleText, Mode=OneWay}" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                                <TextBox
-                                    IsReadOnly="True"
-                                    IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
-                                    PlaceholderText="{x:Bind ViewModel.OutputDirectoryPlaceholderText, Mode=OneWay}"
-                                    Text="{Binding ViewModel.OutputSettings.OutputDirectoryDisplayText, ElementName=RootPage, Mode=OneWay}" />
-                                <Button
-                                    Grid.Column="1"
-                                    Command="{x:Bind ViewModel.SelectOutputDirectoryCommand, Mode=OneWay}"
-                                    Content="{x:Bind ViewModel.SelectOutputDirectoryButtonText, Mode=OneWay}" />
-                                <Button
-                                    Grid.Column="2"
-                                    Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
-                                    Content="{x:Bind ViewModel.ClearOutputDirectoryButtonText, Mode=OneWay}" />
-                            </Grid>
-                            <TextBlock
-                                Opacity="0.72"
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.OutputDirectoryHintText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource AiInsetCardBorderStyle}">
-                        <StackPanel Spacing="8">
-                            <TextBlock
-                                FontWeight="SemiBold"
-                                Text="{x:Bind ViewModel.OutputFileNameTitleText, Mode=OneWay}" />
                             <TextBox
+                                IsReadOnly="True"
                                 IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
-                                PlaceholderText="{x:Bind ViewModel.OutputFileNamePlaceholderText, Mode=OneWay}"
-                                Text="{Binding ViewModel.OutputSettings.OutputFileName, ElementName=RootPage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            <TextBlock
-                                Opacity="0.72"
-                                Style="{StaticResource CaptionTextStyle}"
-                                Text="{x:Bind ViewModel.OutputFileNameHintText, Mode=OneWay}"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-                    </Border>
+                                PlaceholderText="{x:Bind ViewModel.OutputDirectoryPlaceholderText, Mode=OneWay}"
+                                Text="{Binding ViewModel.OutputSettings.OutputDirectoryDisplayText, ElementName=RootPage, Mode=OneWay}"
+                                ToolTipService.ToolTip="{Binding ViewModel.OutputSettings.OutputDirectoryDisplayText, ElementName=RootPage, Mode=OneWay}" />
+                            <Button
+                                Grid.Column="1"
+                                Command="{x:Bind ViewModel.SelectOutputDirectoryCommand, Mode=OneWay}"
+                                Content="{x:Bind ViewModel.SelectOutputDirectoryButtonText, Mode=OneWay}" />
+                            <Button
+                                Grid.Column="2"
+                                Command="{x:Bind ViewModel.ClearOutputDirectoryCommand, Mode=OneWay}"
+                                Content="{x:Bind ViewModel.ClearOutputDirectoryButtonText, Mode=OneWay}" />
+                        </Grid>
+                        <TextBlock
+                            Opacity="0.72"
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="{x:Bind ViewModel.OutputDirectoryHintText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Text="{x:Bind ViewModel.OutputFileNameTitleText, Mode=OneWay}" />
+                        <TextBox
+                            IsEnabled="{x:Bind ViewModel.CanEditProcessingParameters, Mode=OneWay}"
+                            PlaceholderText="{x:Bind ViewModel.OutputFileNamePlaceholderText, Mode=OneWay}"
+                            Text="{Binding ViewModel.OutputSettings.OutputFileName, ElementName=RootPage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock
+                            Opacity="0.72"
+                            Style="{StaticResource CaptionTextStyle}"
+                            Text="{x:Bind ViewModel.OutputFileNameHintText, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+                    </StackPanel>
 
                     <Border Style="{StaticResource AiInsetCardBorderStyle}">
                         <TextBlock
