@@ -772,9 +772,7 @@
                             TextWrapping="WrapWholeWords" />
                     </StackPanel>
 
-                    <StackPanel
-                        Spacing="8"
-                        Visibility="{x:Bind ViewModel.InterpolationProgressVisibility, Mode=OneWay}">
+                    <StackPanel Spacing="8">
                         <TextBlock
                             FontWeight="SemiBold"
                             Text="{x:Bind ViewModel.OutputFormatTitleText, Mode=OneWay}" />
