@@ -13,7 +13,7 @@ using Vidvix.Utils;
 
 namespace Vidvix.ViewModels;
 
-public sealed partial class AiWorkspaceViewModel : ObservableObject
+public sealed partial class AiWorkspaceViewModel : ObservableObject, IDisposable
 {
     private readonly ApplicationConfiguration _configuration;
     private readonly ILocalizationService? _localizationService;
@@ -37,6 +37,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
     private bool _suppressSelectionStatus;
     private string _statusText;
     private Func<string>? _statusTextResolver;
+    private bool _isDisposed;
 
     public AiWorkspaceViewModel()
         : this(
@@ -142,6 +143,23 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject
         RefreshInterpolationModeProperties();
         RefreshEnhancementModeProperties();
         SetStatusText("ai.status.ready", "先导入一个或多个视频，再从素材列表中锁定当前处理对象。");
+    }
+
+    public void Dispose()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isDisposed = true;
+        _processingCancellationSource?.Cancel();
+        _processingCancellationSource?.Dispose();
+        _processingCancellationSource = null;
+        MaterialLibrary.PropertyChanged -= OnMaterialLibraryPropertyChanged;
+        ModeState.PropertyChanged -= OnModeStatePropertyChanged;
+        OutputSettings.PropertyChanged -= OnOutputSettingsPropertyChanged;
+        EnhancementSettings.PropertyChanged -= OnEnhancementSettingsPropertyChanged;
     }
 
     public AiMaterialLibraryState MaterialLibrary { get; }

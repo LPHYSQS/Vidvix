@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Windowing;
 
@@ -14,12 +15,12 @@ public sealed partial class MainWindow
 
     private void UpdateSystemTrayState()
     {
-        _systemTrayService.SetEnabled(ViewModel.EnableSystemTray);
+        _systemTrayService.SetEnabled(ShouldEnableSystemTray());
     }
 
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (_isExitRequested || !ViewModel.EnableSystemTray)
+        if (!ShouldHideToSystemTrayOnClose())
         {
             return;
         }
@@ -50,6 +51,16 @@ public sealed partial class MainWindow
         _systemTrayService.SetEnabled(false);
         Close();
     }
+
+    private bool ShouldHideToSystemTrayOnClose() =>
+        !_isExitRequested &&
+        ShouldEnableSystemTray();
+
+    private static bool IsDebuggerSession() => Debugger.IsAttached;
+
+    private bool ShouldEnableSystemTray() =>
+        ViewModel.EnableSystemTray &&
+        !IsDebuggerSession();
 
     private static class TrayNativeMethods
     {

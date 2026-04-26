@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows.Input;
 using Microsoft.UI.Xaml;
 using Vidvix.Core.Interfaces;
@@ -14,6 +15,11 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
     private const string RepositoryUrl = "https://github.com/LPHYSQS/Vidvix";
     private const string AuthorEmail = "3261296352@qq.com";
     private const string WebsiteUrl = "https://lphysqs.github.io/VidvixWeb/";
+    private const string FfmpegProjectUrl = "https://ffmpeg.org/";
+    private const string MpvProjectUrl = "https://mpv.io/";
+    private const string DemucsProjectUrl = "https://github.com/adefossez/demucs";
+    private const string RifeProjectUrl = "https://github.com/nihui/rife-ncnn-vulkan";
+    private const string RealEsrganProjectUrl = "https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan";
     private static readonly Uri RepositoryUriValue = new(RepositoryUrl);
     private static readonly Uri AuthorEmailUriValue = new($"mailto:{AuthorEmail}");
     private static readonly Uri WebsiteUriValue = new(WebsiteUrl);
@@ -80,7 +86,7 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
             "这里将用于展示隐私说明和数据使用注意事项，后续内容会继续补充。"),
         _ => GetLocalizedText(
             "about.page.content.about.description",
-            "这里展示应用的基础信息与开源仓库地址。")
+            "在这里了解 Vidvix 的定位、核心能力，以及所致谢的开源项目。")
     };
 
     public string ApplicationNameLabelText =>
@@ -119,6 +125,91 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
 
     public Uri WebsiteUri => WebsiteUriValue;
 
+    public string ProductSummaryLabelText =>
+        GetLocalizedText("about.page.content.about.summary.label", "产品概览");
+
+    public string ProductSummaryTitleText =>
+        GetLocalizedText("about.page.content.about.summary.title", "本地优先的离线媒体工作台");
+
+    public string ProductSummaryDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.about.summary.description",
+            "Vidvix 将常用的本地媒体处理、AI 工作流与桌面端工具能力整合到同一套界面中，帮助你在尽量不依赖在线服务的前提下完成高频任务。");
+
+    public string CapabilitySectionTitleText =>
+        GetLocalizedText("about.page.content.about.capabilities.title", "核心能力");
+
+    public string CapabilitySectionDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.about.capabilities.description",
+            "围绕高频媒体处理、AI 辅助与桌面效率体验，当前版本重点提供这些能力：");
+
+    public IReadOnlyList<AboutSummaryItem> CapabilityItems => new[]
+    {
+        CreateSummaryItem(
+            "about.page.content.about.capabilities.item.workspace.title",
+            "多工作区协同",
+            "about.page.content.about.capabilities.item.workspace.description",
+            "视频、音频、裁剪、合并、AI、拆音与终端共享统一的输出规划、进度反馈和结果定位流程。"),
+        CreateSummaryItem(
+            "about.page.content.about.capabilities.item.localization.title",
+            "双语与主题切换",
+            "about.page.content.about.capabilities.item.localization.description",
+            "界面支持简体中文与英语热切换，并提供跟随系统、浅色、深色三种外观偏好。"),
+        CreateSummaryItem(
+            "about.page.content.about.capabilities.item.offline.title",
+            "离线优先",
+            "about.page.content.about.capabilities.item.offline.description",
+            "仓库内维护媒体与 AI 运行时资产，在条件满足时优先使用本地内置工具链，减少联网依赖。"),
+        CreateSummaryItem(
+            "about.page.content.about.capabilities.item.desktop.title",
+            "桌面集成体验",
+            "about.page.content.about.capabilities.item.desktop.description",
+            "支持系统托盘、窗口状态记忆、快捷方式创建，以及媒体详情分区复制等桌面侧能力。")
+    };
+
+    public string OpenSourceSectionTitleText =>
+        GetLocalizedText("about.page.content.about.openSource.title", "开源项目与工具鸣谢");
+
+    public string OpenSourceSectionDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.about.openSource.description",
+            "Vidvix 的部分能力建立在这些优秀的开源项目之上，点击项目名称即可访问对应主页或仓库。");
+
+    public IReadOnlyList<AboutOpenSourceItem> OpenSourceItems => new[]
+    {
+        CreateOpenSourceItem(
+            "about.page.content.about.openSource.item.ffmpeg.title",
+            "FFmpeg / FFprobe / FFplay",
+            "about.page.content.about.openSource.item.ffmpeg.description",
+            "负责媒体转换、信息探测、轨道提取，以及终端工作区中的受控命令执行。",
+            FfmpegProjectUrl),
+        CreateOpenSourceItem(
+            "about.page.content.about.openSource.item.mpv.title",
+            "mpv",
+            "about.page.content.about.openSource.item.mpv.description",
+            "用于媒体预览与嵌入式播放，为需要可视反馈的工作流提供支撑。",
+            MpvProjectUrl),
+        CreateOpenSourceItem(
+            "about.page.content.about.openSource.item.demucs.title",
+            "Demucs",
+            "about.page.content.about.openSource.item.demucs.description",
+            "为拆音工作区提供离线四轨音源分离能力。",
+            DemucsProjectUrl),
+        CreateOpenSourceItem(
+            "about.page.content.about.openSource.item.rife.title",
+            "RIFE NCNN Vulkan",
+            "about.page.content.about.openSource.item.rife.description",
+            "为 AI 补帧工作流提供离线插帧运行时支持。",
+            RifeProjectUrl),
+        CreateOpenSourceItem(
+            "about.page.content.about.openSource.item.realesrgan.title",
+            "Real-ESRGAN NCNN Vulkan",
+            "about.page.content.about.openSource.item.realesrgan.description",
+            "为 AI 增强工作流提供离线超分与增强运行时支持。",
+            RealEsrganProjectUrl)
+    };
+
     public string CopyContextMenuText =>
         GetLocalizedText("about.page.action.copy", "复制");
 
@@ -135,6 +226,15 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(RepositoryLabelText));
         OnPropertyChanged(nameof(ContactAuthorLabelText));
         OnPropertyChanged(nameof(WebsiteLabelText));
+        OnPropertyChanged(nameof(ProductSummaryLabelText));
+        OnPropertyChanged(nameof(ProductSummaryTitleText));
+        OnPropertyChanged(nameof(ProductSummaryDescriptionText));
+        OnPropertyChanged(nameof(CapabilitySectionTitleText));
+        OnPropertyChanged(nameof(CapabilitySectionDescriptionText));
+        OnPropertyChanged(nameof(CapabilityItems));
+        OnPropertyChanged(nameof(OpenSourceSectionTitleText));
+        OnPropertyChanged(nameof(OpenSourceSectionDescriptionText));
+        OnPropertyChanged(nameof(OpenSourceItems));
         OnPropertyChanged(nameof(CopyContextMenuText));
     }
 
@@ -158,10 +258,62 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
     private string GetLocalizedText(string key, string fallback) =>
         _localizationService?.GetString(key, fallback) ?? fallback;
 
+    private AboutSummaryItem CreateSummaryItem(
+        string titleKey,
+        string titleFallback,
+        string descriptionKey,
+        string descriptionFallback) =>
+        new(
+            GetLocalizedText(titleKey, titleFallback),
+            GetLocalizedText(descriptionKey, descriptionFallback));
+
+    private AboutOpenSourceItem CreateOpenSourceItem(
+        string titleKey,
+        string titleFallback,
+        string descriptionKey,
+        string descriptionFallback,
+        string linkUrl) =>
+        new(
+            GetLocalizedText(titleKey, titleFallback),
+            GetLocalizedText(descriptionKey, descriptionFallback),
+            linkUrl);
+
     private enum AboutSectionKind
     {
         About,
         License,
         Privacy
     }
+}
+
+public sealed class AboutSummaryItem
+{
+    public AboutSummaryItem(string title, string description)
+    {
+        Title = title;
+        Description = description;
+    }
+
+    public string Title { get; }
+
+    public string Description { get; }
+}
+
+public sealed class AboutOpenSourceItem
+{
+    public AboutOpenSourceItem(string title, string description, string linkUrl)
+    {
+        Title = title;
+        Description = description;
+        LinkUrl = linkUrl;
+        LinkUri = new Uri(linkUrl);
+    }
+
+    public string Title { get; }
+
+    public string Description { get; }
+
+    public string LinkUrl { get; }
+
+    public Uri LinkUri { get; }
 }

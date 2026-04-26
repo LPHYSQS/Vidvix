@@ -505,6 +505,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         SplitAudioWorkspace.PropertyChanged -= OnSplitAudioWorkspacePropertyChanged;
         DetailPanel.PropertyChanged -= OnDetailPanelPropertyChanged;
         TrimWorkspace.Dispose();
+        MergeWorkspace.Dispose();
+        AiWorkspace.Dispose();
         SplitAudioWorkspace.Dispose();
         TerminalWorkspace.Dispose();
 

@@ -16,7 +16,7 @@ using Vidvix.Utils;
 
 namespace Vidvix.ViewModels;
 
-public sealed partial class MergeViewModel : ObservableObject
+public sealed partial class MergeViewModel : ObservableObject, IDisposable
 {
     private readonly ApplicationConfiguration _configuration;
     private readonly ObservableCollection<MediaItem> _mediaItems;
@@ -67,6 +67,7 @@ public sealed partial class MergeViewModel : ObservableObject
     private Guid? _manualVideoResolutionPresetTrackId;
     private Guid? _manualAudioParameterPresetTrackId;
     private AudioJoinParameterMode _selectedAudioJoinParameterMode;
+    private bool _isDisposed;
 
     internal MergeViewModel(MergeWorkspaceDependencies? dependencies = null)
     {
@@ -131,6 +132,24 @@ public sealed partial class MergeViewModel : ObservableObject
         _audioJoinAudioTrackItems.CollectionChanged += OnTrackItemsChanged;
         _audioVideoComposeVideoTrackItems.CollectionChanged += OnTrackItemsChanged;
         _audioVideoComposeAudioTrackItems.CollectionChanged += OnTrackItemsChanged;
+    }
+
+    public void Dispose()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isDisposed = true;
+        _videoJoinProcessingCancellationSource?.Cancel();
+        _videoJoinProcessingCancellationSource?.Dispose();
+        _videoJoinProcessingCancellationSource = null;
+        _mediaItems.CollectionChanged -= OnMediaItemsChanged;
+        _videoJoinVideoTrackItems.CollectionChanged -= OnTrackItemsChanged;
+        _audioJoinAudioTrackItems.CollectionChanged -= OnTrackItemsChanged;
+        _audioVideoComposeVideoTrackItems.CollectionChanged -= OnTrackItemsChanged;
+        _audioVideoComposeAudioTrackItems.CollectionChanged -= OnTrackItemsChanged;
     }
 
     public event Action<string, string>? InvalidTrackItemsDetected;

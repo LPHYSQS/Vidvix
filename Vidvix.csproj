@@ -27,6 +27,10 @@
     <AutoIncludeCopyToPublishDirectoryItems>false</AutoIncludeCopyToPublishDirectoryItems>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <OutputPath>bin\$(Platform)\$(Configuration)\ide\</OutputPath>
+  </PropertyGroup>
+
   <ItemGroup>
     <None Remove="artifacts\**\*" />
     <Content Remove="artifacts\**\*" />
@@ -160,6 +164,14 @@
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       </ResolvedFileToPublish>
     </ItemGroup>
+  </Target>
+
+  <Target
+    Name="TerminateLockedDebugAppProcess"
+    BeforeTargets="Build"
+    Condition="'$(Configuration)' == 'Debug' and '$(BuildingInsideVisualStudio)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Exec
+      Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\scripts\terminate-debug-app-process.ps1&quot; -ProcessName &quot;$(AssemblyName)&quot; -ExecutablePath &quot;$(TargetPath)&quot;" />
   </Target>
 
   <Target Name="EnsureOfflineRuntimeForPublish" BeforeTargets="Publish">
