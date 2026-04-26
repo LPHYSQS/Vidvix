@@ -1,0 +1,82 @@
+Vidvix Project License
+
+Except as otherwise noted, the original source code and project-authored
+materials in this repository are licensed under the MIT License below.
+
+This LICENSE file applies to Vidvix itself. It does not replace, supersede,
+or relicense any third-party software, binaries, models, runtimes, datasets,
+or other materials that may be bundled with, downloaded by, or used through
+Vidvix. Those third-party components remain subject to their own license terms
+and notice requirements.
+
+MIT License
+
+Copyright (c) 2026 Vidvix contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Third-Party Components and Redistribution Notes
+
+Vidvix is designed to work with, and in some distributions may include or
+extract, third-party components such as FFmpeg, FFprobe, FFplay, mpv/libmpv,
+Demucs runtimes and models, RIFE NCNN Vulkan, and Real-ESRGAN runtimes and
+models. The following rules apply:
+
+1. The MIT license above covers Vidvix source code and project-authored
+   materials only. It does not grant rights to third-party components beyond
+   what their own licenses allow.
+
+2. If you redistribute Vidvix together with third-party binaries, libraries,
+   runtimes, model files, or extracted packages, you are responsible for
+   preserving all required license texts, copyright notices, attribution
+   statements, source-availability obligations, relinking obligations, and
+   other compliance materials required by the license of each bundled
+   component.
+
+3. The exact license obligations for a shipped binary may depend on the
+   specific upstream build that is bundled. For example, certain FFmpeg and
+   mpv builds may be subject to LGPL or GPL obligations depending on how they
+   were compiled and what optional components they include. Distributors
+   should verify the terms for the exact build they ship.
+
+4. Third-party AI runtimes and models retained under `Tools/AI`, and runtime
+   packages retained under `Tools/Demucs`, remain under their respective
+   upstream licenses. Where provided, the accompanying manifest files and
+   license files should be kept with the distributed assets.
+
+5. If you modify, replace, or add bundled third-party components, you must
+   re-evaluate license compatibility and update your distribution notices as
+   needed.
+
+Repository-Specific Notice
+
+Based on the current repository structure and documentation, third-party
+license materials are expected to be preserved in locations such as:
+
+- `Tools/ffmpeg/LICENSE.txt`
+- `Tools/AI/Licenses/`
+- third-party license files embedded inside packaged or extracted Demucs
+  runtimes
+- the license file accompanying the exact `mpv` / `libmpv` build you ship
+
+If you publish official release builds, it is good practice to ensure those
+materials remain present in the release package and in any corresponding
+release documentation.
+
+This file is provided for operational clarity and is not legal advice.
