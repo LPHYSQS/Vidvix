@@ -4,6 +4,18 @@
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>Vidvix</RootNamespace>
+    <!--
+      Release metadata must stay explicit here so Explorer hover/details for the published
+      Vidvix.exe always show the intended company and version instead of .NET defaults.
+    -->
+    <Company>已逝情殇</Company>
+    <Authors>已逝情殇</Authors>
+    <Product>Vidvix</Product>
+    <AssemblyVersion>1.2604.1.0</AssemblyVersion>
+    <FileVersion>1.2604.1.0</FileVersion>
+    <Version>1.2604.1.0</Version>
+    <InformationalVersion>1.2604.1.0</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
     <PlatformTarget Condition="'$(PlatformTarget)' == '' or '$(PlatformTarget)' == 'AnyCPU'">x64</PlatformTarget>
@@ -20,6 +32,7 @@
     <PublishReadyToRun>false</PublishReadyToRun>
     <PublishTrimmed>false</PublishTrimmed>
     <OfflinePackageDir>$(MSBuildProjectDirectory)\artifacts\publish-offline\</OfflinePackageDir>
+    <GenerateOfflinePackageMirror>false</GenerateOfflinePackageMirror>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -254,7 +267,7 @@
 
   <Target
     Name="ValidatePublishedOfflineOutput"
-    BeforeTargets="CreateOfflinePackage"
+    AfterTargets="Publish"
     DependsOnTargets="CopyGeneratedPriToPublish;CopyWindowIconToPublish;CopyDeferredPublishFiles"
     Condition="'$(Configuration)' == 'Release' and Exists('$(PublishDir)$(AssemblyName).exe')">
     <Error
@@ -285,7 +298,11 @@
       SkipUnchangedFiles="true" />
   </Target>
 
-  <Target Name="CreateOfflinePackage" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release' and Exists('$(PublishDir)Vidvix.exe')">
+  <!--
+    The official offline release output is the publish directory itself.
+    Keep the in-repo artifacts mirror opt-in so we do not silently produce a second package copy.
+  -->
+  <Target Name="CreateOfflinePackage" AfterTargets="Publish" Condition="'$(GenerateOfflinePackageMirror)' == 'true' and '$(Configuration)' == 'Release' and Exists('$(PublishDir)Vidvix.exe')">
     <RemoveDir Directories="$(OfflinePackageDir)" Condition="Exists('$(OfflinePackageDir)')" />
     <MakeDir Directories="$(OfflinePackageDir)" />
 
@@ -299,7 +316,7 @@
       SkipUnchangedFiles="true" />
   </Target>
 
-  <Target Name="ValidateOfflinePackage" AfterTargets="CreateOfflinePackage" Condition="'$(Configuration)' == 'Release' and Exists('$(OfflinePackageDir)$(AssemblyName).exe')">
+  <Target Name="ValidateOfflinePackage" AfterTargets="CreateOfflinePackage" Condition="'$(GenerateOfflinePackageMirror)' == 'true' and '$(Configuration)' == 'Release' and Exists('$(OfflinePackageDir)$(AssemblyName).exe')">
     <Error
       Condition="!Exists('$(OfflinePackageDir)%(OfflinePublishOutputRequiredFiles.Identity)')"
       Text="Offline package mirror is missing %(OfflinePublishOutputRequiredFiles.Identity)." />

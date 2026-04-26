@@ -157,7 +157,8 @@ The publish pipeline fails fast if the single-file release is missing required e
 Primary publish output:
 
 - official publish directory: `E:\SoftwareBuild\Vidvix\`
-- mirrored internal offline package directory for release builds: `artifacts/publish-offline/`
+- no secondary in-repo mirror is produced by default
+- optional internal mirror directory when explicitly enabled: `artifacts/publish-offline/`
 
 ## Validation and Smoke Coverage
 
@@ -191,6 +192,7 @@ Related harness projects:
 - The Demucs split-audio runtime stays packaged separately on purpose as part of this single-file release model
 - `Offline-win-x64` is the only formally validated offline delivery target at the moment
 - `dotnet publish -p:PublishProfile=Offline-win-x64` validates bundled `FFmpeg`, `mpv`, `Demucs`, `AI`, and localization assets before accepting the release output
+- the official release flow publishes only to `E:\SoftwareBuild\Vidvix\`; enabling the in-repo mirror requires setting `GenerateOfflinePackageMirror=true`
 
 Publish profiles are maintained under `Properties/PublishProfiles/`.
 

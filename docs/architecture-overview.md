@@ -69,11 +69,12 @@
   - `PublishSingleFile=true`
   - `RuntimeIdentifier=win-x64`
   - `SelfContained=true`
-- 发布时会把正式产物再镜像复制到 `artifacts/publish-offline/`，供仓库内验证与留档使用。
+- 正式发布默认只输出到 `E:\SoftwareBuild\Vidvix\`。
+- 如需仓库内镜像留档，必须显式设置 `GenerateOfflinePackageMirror=true`，才会额外复制到 `artifacts/publish-offline/`。
 - `Offline-win-x64` 发布已内建三层校验：
   - 发布前校验源目录中的 `FFmpeg / mpv / AI / Demucs / 本地化` 必需文件
   - 发布后校验 `E:\SoftwareBuild\Vidvix\` 中的单文件主程序与外部依赖
-  - 镜像后校验 `artifacts/publish-offline/` 中的同一批关键文件
+  - 如显式开启镜像，再校验 `artifacts/publish-offline/` 中的同一批关键文件
 - 新增 `Properties/PublishProfiles/Offline-win-x64.pubxml`、`Offline-win-x86.pubxml`、`Offline-win-arm64.pubxml`，用于在 IDE 和 CLI 下统一执行自包含离线发布。
 - 若应用目录不可写，FFmpeg 运行时会回退到 `%LOCALAPPDATA%\\Vidvix\\Tools\\MediaEngine` 下准备运行环境。
 - 若拆音首跑时 `Demucs` 运行时或模型无法写入应用目录，当前实现会自动回退到 `%LOCALAPPDATA%\\Vidvix\\Tools\\Demucs` 继续准备离线运行环境。

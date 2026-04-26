@@ -6,7 +6,7 @@
 - 发布配置：`Offline-win-x64`
 - 目标架构：`win-x64`
 - 正式发布目录：`E:\SoftwareBuild\Vidvix\`
-- 内部镜像目录：`artifacts\publish-offline\`
+- 内部镜像目录：默认不生成；仅在显式设置 `GenerateOfflinePackageMirror=true` 时写入 `artifacts\publish-offline\`
 - 发布模式：`PublishSingleFile=true`、`SelfContained=true`
 - 当前封板轮次：`R13`
 
@@ -20,7 +20,7 @@
 | AI 增强 smoke（精确倍率） | 至少 1 条精确倍率路径可跑通 | 必须通过 |
 | AI 增强 smoke（超采样后回缩） | 至少 1 条超采样后回缩路径可跑通 | 必须通过 |
 | 拆音 smoke | `Demucs` 首次离线解压与 `CPU / GPU 优先` 两条路径可跑通 | 必须通过 |
-| 发布阶段自动校验 | `dotnet publish` 会拦截源资产缺失、成品缺失、镜像缺失 | 必须通过 |
+| 发布阶段自动校验 | `dotnet publish` 会拦截源资产缺失、成品缺失；如显式开启镜像，再额外拦截镜像缺失 | 必须通过 |
 | 发布参数检查 | 发布目录固定 `E:\SoftwareBuild\Vidvix\`，必须勾选“生成单个文件”，目标运行时固定 `win-x64`，部署方式固定“独立” | 必须通过 |
 | 发布产物检查 | `Vidvix.exe`、`Vidvix.pri`、`Tools\\ffmpeg`、`Tools\\mpv`、`Tools\\AI`、`Tools\\Demucs`、本地化资源齐全 | 必须通过 |
 | 启动验证 | publish 产物可启动并拉起 `Vidvix` 主窗口 | 必须通过 |
@@ -51,6 +51,7 @@
 - “生成单个文件”必须勾选。
 - 勾选单文件后，主程序与大部分运行库会尽量收口到单文件发布模型里，降低漏带运行库导致崩溃的风险。
 - `Tools\` 目录不会并入 `Vidvix.exe`，而是继续作为外置资产随包输出；这属于刻意设计，其中 `Demucs` 运行时包本来就是为了配合单文件发布而单独打包保留的。
+- 正式发布默认只认 `E:\SoftwareBuild\Vidvix\`；如果没有手动打开 `GenerateOfflinePackageMirror=true`，则不会再额外生成 `artifacts\publish-offline\`。
 
 ## 发布阶段自动校验范围
 
@@ -61,7 +62,7 @@
   `Vidvix.exe`、`Vidvix.pri`
 - `E:\SoftwareBuild\Vidvix\Tools\` 中存在：
   `ffmpeg`、`mpv`、`AI`、`Demucs` 的关键可执行文件、模型、脚本、许可证和离线压缩包
-- `artifacts\publish-offline\` 镜像目录中存在与正式产物相同的关键文件
+- 如显式开启镜像：`artifacts\publish-offline\` 中存在与正式产物相同的关键文件
 
 如果上述任一文件缺失，`dotnet publish` 必须直接失败，不能继续产出“看起来成功、实际上缺依赖”的离线包。
 
@@ -76,7 +77,7 @@
 - 拆音 smoke：覆盖 `CPU` 与 `GPU 优先` 两条路径；首次运行会强制验证 `Demucs` 运行时离线解压。
 - 拆音运行时修正：当应用目录写入失败时，`Demucs` 运行时与模型解压会自动回退到 `%LOCALAPPDATA%\Vidvix\Tools\Demucs`，避免在其他电脑上因目录权限导致首跑失败。
 - 发布配置修正：`Offline-win-x64` 已固定为 `PublishDir=E:\SoftwareBuild\Vidvix\`、`PublishSingleFile=true`、`RuntimeIdentifier=win-x64`、`SelfContained=true`。
-- 发布检查：`dotnet publish .\Vidvix.csproj -c Release -p:PublishProfile=Offline-win-x64 -v minimal` 通过；`E:\SoftwareBuild\Vidvix\` 与 `publish-offline` 镜像目录均已包含单文件主程序，以及 `FFmpeg / mpv / AI / Demucs` 所需离线依赖。
+- 发布检查：`dotnet publish .\Vidvix.csproj -c Release -p:PublishProfile=Offline-win-x64 -v minimal` 通过；正式发布目录 `E:\SoftwareBuild\Vidvix\` 已包含单文件主程序，以及 `FFmpeg / mpv / AI / Demucs` 所需离线依赖。
 - 启动检查：`E:\SoftwareBuild\Vidvix\Vidvix.exe` 已成功启动，主窗口标题为 `Vidvix`，窗口句柄非 `0`，进程处于 `Responding=True`。
 
 ## 已冻结的真实限制
