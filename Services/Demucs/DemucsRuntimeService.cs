@@ -320,29 +320,18 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
     }
 
     private string ResolveWritableStorageRootPath()
-    {
-        var applicationLocalRootPath = GetApplicationStorageRootPath();
-
-        if (CanWriteToDirectory(applicationLocalRootPath))
-        {
-            return applicationLocalRootPath;
-        }
-
-        var fallbackRootPath = GetFallbackStorageRootPath();
-
-        Directory.CreateDirectory(fallbackRootPath);
-        return fallbackRootPath;
-    }
+        => MutableRuntimeStorage.ResolveWritableStorageRootPath(
+            _configuration.LocalDataDirectoryName,
+            _configuration.RuntimeDirectoryName,
+            _configuration.DemucsDirectoryName);
 
     private string GetApplicationStorageRootPath() =>
-        Path.Combine(
-            ApplicationPaths.ExecutableDirectoryPath,
+        MutableRuntimeStorage.GetApplicationStorageRootPath(
             _configuration.RuntimeDirectoryName,
             _configuration.DemucsDirectoryName);
 
     private string GetFallbackStorageRootPath() =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        MutableRuntimeStorage.GetLocalStorageRootPath(
             _configuration.LocalDataDirectoryName,
             _configuration.RuntimeDirectoryName,
             _configuration.DemucsDirectoryName);
@@ -443,30 +432,6 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
 
         return _configuration.DemucsRequiredModelFileNames.All(fileName =>
             File.Exists(Path.Combine(rootDirectoryPath, fileName)));
-    }
-
-    private static bool CanWriteToDirectory(string directoryPath)
-    {
-        try
-        {
-            Directory.CreateDirectory(directoryPath);
-
-            var probeFilePath = Path.Combine(directoryPath, $".write-probe-{Guid.NewGuid():N}.tmp");
-            using (File.Create(probeFilePath, 1, FileOptions.DeleteOnClose))
-            {
-            }
-
-            if (File.Exists(probeFilePath))
-            {
-                File.Delete(probeFilePath);
-            }
-
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private bool ShouldRetryWithFallbackStorage(string storageRootPath, Exception exception) =>

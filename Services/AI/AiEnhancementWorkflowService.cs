@@ -784,7 +784,7 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
     {
         var startInfo = new ProcessStartInfo(executablePath)
         {
-            WorkingDirectory = Path.GetDirectoryName(executablePath) ?? AppContext.BaseDirectory,
+            WorkingDirectory = ResolveProcessWorkingDirectory(executablePath, monitoredOutputDirectory),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -1050,14 +1050,24 @@ public sealed class AiEnhancementWorkflowService : IAiEnhancementWorkflowService
     }
 
     private string CreateSessionRootPath() =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        MutableRuntimeStorage.GetLocalStorageRootPath(
             _configuration.LocalDataDirectoryName,
             _configuration.RuntimeDirectoryName,
             _configuration.AiRuntimeDirectoryName,
             WorkflowSessionsDirectoryName,
             EnhancementDirectoryName,
             Guid.NewGuid().ToString("N"));
+
+    private static string ResolveProcessWorkingDirectory(string executablePath, string preferredWorkingDirectory)
+    {
+        if (!string.IsNullOrWhiteSpace(preferredWorkingDirectory))
+        {
+            Directory.CreateDirectory(preferredWorkingDirectory);
+            return Path.GetFullPath(preferredWorkingDirectory);
+        }
+
+        return Path.GetDirectoryName(executablePath) ?? AppContext.BaseDirectory;
+    }
 
     private static string GetFullPathOrThrow(string? path, string fallback)
     {

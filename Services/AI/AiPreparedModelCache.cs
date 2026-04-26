@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Utils;
 
 namespace Vidvix.Services.AI;
 
@@ -30,8 +31,7 @@ internal sealed class AiPreparedModelCache
         ArgumentNullException.ThrowIfNull(runtimeDescriptor);
         ArgumentNullException.ThrowIfNull(modelDescriptor);
 
-        var preparedDirectoryPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        var preparedDirectoryPath = MutableRuntimeStorage.GetLocalStorageRootPath(
             _configuration.LocalDataDirectoryName,
             _configuration.RuntimeDirectoryName,
             _configuration.AiRuntimeDirectoryName,

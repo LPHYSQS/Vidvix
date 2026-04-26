@@ -73,8 +73,12 @@ public sealed class FFmpegRuntimeService : IFFmpegRuntimeService
             }
 
             var manifest = await _packageSource.GetLatestPackageAsync(cancellationToken).ConfigureAwait(false);
-            var archivePath = await DownloadArchiveAsync(manifest, storageRootPath, cancellationToken).ConfigureAwait(false);
-            executablePath = await ExtractRuntimeAsync(archivePath, storageRootPath, currentRuntimeDirectoryPath, cancellationToken).ConfigureAwait(false);
+            var runtimePreparation = await DownloadAndExtractRuntimeWithFallbackAsync(
+                manifest,
+                storageRootPath,
+                cancellationToken).ConfigureAwait(false);
+            executablePath = runtimePreparation.ExecutablePath;
+            storageRootPath = runtimePreparation.StorageRootPath;
 
             return CacheResolution(executablePath, storageRootPath, wasDownloaded: true);
         }
@@ -202,6 +206,39 @@ public sealed class FFmpegRuntimeService : IFFmpegRuntimeService
         }
     }
 
+    private async Task<(string ExecutablePath, string StorageRootPath)> DownloadAndExtractRuntimeWithFallbackAsync(
+        FFmpegPackageManifest manifest,
+        string storageRootPath,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var currentRuntimeDirectoryPath = Path.Combine(storageRootPath, _configuration.RuntimeCurrentVersionDirectoryName);
+            var archivePath = await DownloadArchiveAsync(manifest, storageRootPath, cancellationToken).ConfigureAwait(false);
+            var executablePath = await ExtractRuntimeAsync(
+                archivePath,
+                storageRootPath,
+                currentRuntimeDirectoryPath,
+                cancellationToken).ConfigureAwait(false);
+            return (executablePath, storageRootPath);
+        }
+        catch (Exception exception) when (ShouldRetryWithFallbackStorage(storageRootPath, exception))
+        {
+            var fallbackStorageRootPath = GetFallbackStorageRootPath();
+            Directory.CreateDirectory(fallbackStorageRootPath);
+            _logger.Log(LogLevel.Warning, "FFmpeg 运行时无法写入应用目录，正在回退到用户本地缓存目录。", exception);
+
+            var currentRuntimeDirectoryPath = Path.Combine(fallbackStorageRootPath, _configuration.RuntimeCurrentVersionDirectoryName);
+            var archivePath = await DownloadArchiveAsync(manifest, fallbackStorageRootPath, cancellationToken).ConfigureAwait(false);
+            var executablePath = await ExtractRuntimeAsync(
+                archivePath,
+                fallbackStorageRootPath,
+                currentRuntimeDirectoryPath,
+                cancellationToken).ConfigureAwait(false);
+            return (executablePath, fallbackStorageRootPath);
+        }
+    }
+
     private async Task<bool> IsArchiveUsableAsync(
         string archivePath,
         string? expectedSha256,
@@ -222,35 +259,26 @@ public sealed class FFmpegRuntimeService : IFFmpegRuntimeService
     }
 
     private string GetBundledRuntimeRootPath() =>
-        Path.Combine(
-            ApplicationPaths.ExecutableDirectoryPath,
+        MutableRuntimeStorage.GetApplicationStorageRootPath(
             _configuration.RuntimeDirectoryName,
             _configuration.BundledRuntimeDirectoryName);
 
     private string GetApplicationRuntimeRootPath() =>
-        Path.Combine(
-            ApplicationPaths.ExecutableDirectoryPath,
+        MutableRuntimeStorage.GetApplicationStorageRootPath(
             _configuration.RuntimeDirectoryName,
             _configuration.RuntimeVendorDirectoryName);
 
-    private string ResolveWritableStorageRootPath()
-    {
-        var applicationLocalRoot = GetApplicationRuntimeRootPath();
-
-        if (CanWriteToDirectory(applicationLocalRoot))
-        {
-            return applicationLocalRoot;
-        }
-
-        var fallbackRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+    private string GetFallbackStorageRootPath() =>
+        MutableRuntimeStorage.GetLocalStorageRootPath(
             _configuration.LocalDataDirectoryName,
             _configuration.RuntimeDirectoryName,
             _configuration.RuntimeVendorDirectoryName);
 
-        Directory.CreateDirectory(fallbackRoot);
-        return fallbackRoot;
-    }
+    private string ResolveWritableStorageRootPath() =>
+        MutableRuntimeStorage.ResolveWritableStorageRootPath(
+            _configuration.LocalDataDirectoryName,
+            _configuration.RuntimeDirectoryName,
+            _configuration.RuntimeVendorDirectoryName);
 
     private string? FindExecutablePath(string rootDirectoryPath)
     {
@@ -270,29 +298,13 @@ public sealed class FFmpegRuntimeService : IFFmpegRuntimeService
         return null;
     }
 
-    private static bool CanWriteToDirectory(string directoryPath)
-    {
-        try
-        {
-            Directory.CreateDirectory(directoryPath);
+    private bool ShouldRetryWithFallbackStorage(string storageRootPath, Exception exception) =>
+        IsApplicationStorageRootPath(storageRootPath) &&
+        exception is IOException or UnauthorizedAccessException &&
+        !string.Equals(storageRootPath, GetFallbackStorageRootPath(), StringComparison.OrdinalIgnoreCase);
 
-            var probeFilePath = Path.Combine(directoryPath, $".write-probe-{Guid.NewGuid():N}.tmp");
-            using (File.Create(probeFilePath, 1, FileOptions.DeleteOnClose))
-            {
-            }
-
-            if (File.Exists(probeFilePath))
-            {
-                File.Delete(probeFilePath);
-            }
-
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    private bool IsApplicationStorageRootPath(string storageRootPath) =>
+        string.Equals(storageRootPath, GetApplicationRuntimeRootPath(), StringComparison.OrdinalIgnoreCase);
 
     private static async Task<string> ComputeSha256Async(string filePath, CancellationToken cancellationToken)
     {

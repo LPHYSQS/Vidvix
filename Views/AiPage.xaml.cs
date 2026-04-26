@@ -1,6 +1,10 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Vidvix.ViewModels;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace Vidvix.Views;
 
@@ -8,6 +12,7 @@ public sealed partial class AiPage : Page
 {
     private const double CompactLayoutThreshold = 860;
     private bool _isCompactLayout;
+    private bool? _canAcceptCurrentMaterialDrop;
 
     public AiPage()
     {
@@ -37,6 +42,57 @@ public sealed partial class AiPage : Page
     {
         UpdateLayoutHeight(e.NewSize.Height);
         UpdateLayoutState(e.NewSize.Width);
+    }
+
+    private async void OnMaterialsListDragEnter(object sender, DragEventArgs e)
+    {
+        _canAcceptCurrentMaterialDrop = await ResolveMaterialDropAvailabilityAsync(e);
+        ApplyMaterialDropOperation(e, _canAcceptCurrentMaterialDrop == true);
+    }
+
+    private void OnMaterialsListDragLeave(object sender, DragEventArgs e)
+    {
+        _canAcceptCurrentMaterialDrop = null;
+        RejectMaterialDrop(e);
+    }
+
+    private void OnMaterialsListDragOver(object sender, DragEventArgs e)
+    {
+        ApplyMaterialDropOperation(e, _canAcceptCurrentMaterialDrop == true);
+    }
+
+    private async void OnMaterialsListDrop(object sender, DragEventArgs e)
+    {
+        if (!ViewModel.CanModifyMaterials || !e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            RejectMaterialDrop(e);
+            return;
+        }
+
+        var deferral = e.GetDeferral();
+        try
+        {
+            var storageItems = await e.DataView.GetStorageItemsAsync();
+            var paths = storageItems
+                .Where(item => !string.IsNullOrWhiteSpace(item.Path))
+                .Select(item => item.Path)
+                .ToArray();
+
+            if (!ViewModel.CanImportPaths(paths))
+            {
+                RejectMaterialDrop(e);
+                return;
+            }
+
+            await ViewModel.ImportPathsAsync(paths);
+            e.AcceptedOperation = DataPackageOperation.Copy;
+            e.Handled = true;
+        }
+        finally
+        {
+            _canAcceptCurrentMaterialDrop = null;
+            deferral.Complete();
+        }
     }
 
     private void UpdateLayoutState(double availableWidth)
@@ -113,5 +169,50 @@ public sealed partial class AiPage : Page
         Grid.SetRow(OutputCard, 2);
         Grid.SetColumn(OutputCard, 0);
         Grid.SetColumnSpan(OutputCard, 1);
+    }
+
+    private async Task<bool> ResolveMaterialDropAvailabilityAsync(DragEventArgs e)
+    {
+        if (!ViewModel.CanModifyMaterials || !e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            return false;
+        }
+
+        var deferral = e.GetDeferral();
+        try
+        {
+            var storageItems = await e.DataView.GetStorageItemsAsync();
+            var paths = storageItems
+                .Where(item => !string.IsNullOrWhiteSpace(item.Path))
+                .Select(item => item.Path)
+                .ToArray();
+
+            return ViewModel.CanImportPaths(paths);
+        }
+        finally
+        {
+            deferral.Complete();
+        }
+    }
+
+    private void ApplyMaterialDropOperation(DragEventArgs e, bool canAcceptDrop)
+    {
+        if (!canAcceptDrop)
+        {
+            RejectMaterialDrop(e);
+            return;
+        }
+
+        e.AcceptedOperation = DataPackageOperation.Copy;
+        e.DragUIOverride.Caption = ViewModel.MaterialsDragDropCaptionText;
+        e.DragUIOverride.IsCaptionVisible = true;
+        e.DragUIOverride.IsContentVisible = true;
+        e.Handled = true;
+    }
+
+    private static void RejectMaterialDrop(DragEventArgs e)
+    {
+        e.AcceptedOperation = DataPackageOperation.None;
+        e.Handled = true;
     }
 }

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWinUI>false</UseWinUI>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <BaseOutputPath Condition="'$(BaseOutputPath)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\artifacts\store-runtime-path-validation\local\'))\</BaseOutputPath>
+    <OutDir Condition="'$(OutDir)' == ''">$(BaseOutputPath)$(Configuration)\$(TargetFramework)\</OutDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Vidvix.csproj" AdditionalProperties="OutDir=$(OutDir)" />
+  </ItemGroup>
+</Project>

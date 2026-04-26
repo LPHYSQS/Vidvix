@@ -24,6 +24,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject, IDisposable
     private readonly IDispatcherService? _dispatcherService;
     private readonly IUserPreferencesService? _userPreferencesService;
     private readonly ILogger? _logger;
+    private readonly HashSet<string> _supportedAiInputFileTypes;
     private readonly Dictionary<AiWorkspaceMode, string> _preferredOutputFormatExtensionsByMode = new();
     private readonly AsyncRelayCommand _importFilesCommand;
     private readonly AsyncRelayCommand _selectOutputDirectoryCommand;
@@ -80,6 +81,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject, IDisposable
         _userPreferencesService = userPreferencesService;
         _aiRuntimeCatalogService = aiRuntimeCatalogService;
         _logger = logger;
+        _supportedAiInputFileTypes = _configuration.SupportedAiInputFileTypes.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         MaterialLibrary = new AiMaterialLibraryState(localizationService);
         InputState = new AiInputState();
@@ -256,6 +258,11 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject, IDisposable
         GetLocalizedText(
             "ai.page.materials.placeholder",
             "导入后素材会显示在这里。");
+
+    public string MaterialsDragDropCaptionText =>
+        GetLocalizedText(
+            "ai.page.materials.dragDrop.caption",
+            "将视频文件或文件夹拖到这里导入素材。");
 
     public string RemoveMaterialButtonText =>
         GetLocalizedText("ai.page.materials.remove", "移除");
@@ -436,6 +443,7 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(MaterialsSectionDescriptionText));
         OnPropertyChanged(nameof(MaterialsImportButtonText));
         OnPropertyChanged(nameof(MaterialsPlaceholderText));
+        OnPropertyChanged(nameof(MaterialsDragDropCaptionText));
         OnPropertyChanged(nameof(RemoveMaterialButtonText));
         OnPropertyChanged(nameof(RevealLatestOutputButtonText));
         OnPropertyChanged(nameof(WorkspaceSectionTitleText));
@@ -517,7 +525,43 @@ public sealed partial class AiWorkspaceViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async Task ImportPathsAsync(IEnumerable<string> inputPaths)
+    public bool CanImportPaths(IEnumerable<string> inputPaths)
+    {
+        ArgumentNullException.ThrowIfNull(inputPaths);
+
+        foreach (var inputPath in inputPaths)
+        {
+            if (string.IsNullOrWhiteSpace(inputPath))
+            {
+                continue;
+            }
+
+            try
+            {
+                var normalizedPath = Path.GetFullPath(inputPath);
+                if (Directory.Exists(normalizedPath))
+                {
+                    return true;
+                }
+
+                var extension = Path.GetExtension(normalizedPath);
+                if (!string.IsNullOrWhiteSpace(extension) && _supportedAiInputFileTypes.Contains(extension))
+                {
+                    return true;
+                }
+            }
+            catch (Exception exception) when (
+                exception is ArgumentException or
+                NotSupportedException or
+                PathTooLongException)
+            {
+            }
+        }
+
+        return false;
+    }
+
+    public async Task ImportPathsAsync(IEnumerable<string> inputPaths)
     {
         if (TrySetProcessingLockedStatus("ai.operation.importMaterials", "导入素材"))
         {

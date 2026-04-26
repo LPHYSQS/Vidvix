@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Utils;
 
 namespace Vidvix.Services.AI;
 
@@ -117,6 +118,7 @@ internal sealed class AiRuntimeProbeExecutor
                         "-m",
                         stagedModelPath
                     },
+                    probeRootPath,
                     cancellationToken)
                 .ConfigureAwait(false);
 
@@ -145,6 +147,7 @@ internal sealed class AiRuntimeProbeExecutor
                             "-g",
                             discoveredDevice.Index.ToString()
                         },
+                        probeRootPath,
                         cancellationToken)
                     .ConfigureAwait(false);
 
@@ -211,6 +214,7 @@ internal sealed class AiRuntimeProbeExecutor
                         "-s",
                         model.NativeScaleFactors.FirstOrDefault().ToString()
                     },
+                    probeRootPath,
                     cancellationToken)
                 .ConfigureAwait(false);
 
@@ -241,6 +245,7 @@ internal sealed class AiRuntimeProbeExecutor
                             "-g",
                             discoveredDevice.Index.ToString()
                         },
+                        probeRootPath,
                         cancellationToken)
                     .ConfigureAwait(false);
 
@@ -308,9 +313,13 @@ internal sealed class AiRuntimeProbeExecutor
             var finalArguments = useCpuFallback
                 ? arguments.Concat(new[] { "-g", "-1" }).ToArray()
                 : arguments;
-            var result = await ExecuteProcessAsync(descriptor.ExecutablePath, finalArguments, cancellationToken)
+            var result = await ExecuteProcessAsync(
+                    descriptor.ExecutablePath,
+                    finalArguments,
+                    probeRootPath,
+                    cancellationToken)
                 .ConfigureAwait(false);
-
+ 
             if (result.WasSuccessful && File.Exists(outputPath))
             {
                 return new AiExecutionSupportStatus
@@ -383,7 +392,11 @@ internal sealed class AiRuntimeProbeExecutor
                 arguments.Add("-1");
             }
 
-            var result = await ExecuteProcessAsync(descriptor.ExecutablePath, arguments, cancellationToken)
+            var result = await ExecuteProcessAsync(
+                    descriptor.ExecutablePath,
+                    arguments,
+                    probeRootPath,
+                    cancellationToken)
                 .ConfigureAwait(false);
 
             if (result.WasSuccessful && File.Exists(outputPath))
@@ -430,8 +443,7 @@ internal sealed class AiRuntimeProbeExecutor
 
     private string CreateProbeSessionRootPath(string runtimeId)
     {
-        var probeCacheRootPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        var probeCacheRootPath = MutableRuntimeStorage.GetLocalStorageRootPath(
             _configuration.LocalDataDirectoryName,
             _configuration.RuntimeDirectoryName,
             _configuration.AiRuntimeDirectoryName,
@@ -471,11 +483,12 @@ internal sealed class AiRuntimeProbeExecutor
     private static async Task<ProbeProcessResult> ExecuteProcessAsync(
         string executablePath,
         IReadOnlyCollection<string> arguments,
+        string? workingDirectory,
         CancellationToken cancellationToken)
     {
         var startInfo = new ProcessStartInfo(executablePath)
         {
-            WorkingDirectory = Path.GetDirectoryName(executablePath) ?? AppContext.BaseDirectory,
+            WorkingDirectory = ResolveWorkingDirectory(executablePath, workingDirectory),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -531,6 +544,17 @@ internal sealed class AiRuntimeProbeExecutor
             TimedOut: false,
             StandardOutput: await standardOutputTask.ConfigureAwait(false),
             StandardError: await standardErrorTask.ConfigureAwait(false));
+    }
+
+    private static string ResolveWorkingDirectory(string executablePath, string? workingDirectory)
+    {
+        if (!string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            Directory.CreateDirectory(workingDirectory);
+            return Path.GetFullPath(workingDirectory);
+        }
+
+        return Path.GetDirectoryName(executablePath) ?? AppContext.BaseDirectory;
     }
 
     private static string SummarizeDiagnostic(ProbeProcessResult result)

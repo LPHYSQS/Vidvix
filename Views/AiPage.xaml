@@ -187,7 +187,13 @@
                     </Button>
                 </StackPanel>
 
-                <Grid Grid.Row="2">
+                <Grid
+                    Grid.Row="2"
+                    AllowDrop="True"
+                    DragEnter="OnMaterialsListDragEnter"
+                    DragLeave="OnMaterialsListDragLeave"
+                    DragOver="OnMaterialsListDragOver"
+                    Drop="OnMaterialsListDrop">
                     <ListView
                         Background="Transparent"
                         BorderThickness="0"
