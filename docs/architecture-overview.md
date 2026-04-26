@@ -64,9 +64,20 @@
 - 项目已配置为 WinUI 自包含发布：
   - `WindowsPackageType=None`
   - `WindowsAppSDKSelfContained=true`
-- 发布时会把离线运行目录复制到 `artifacts/publish-offline/`。
+- `Offline-win-x64` 的正式发布目录固定为 `E:\SoftwareBuild\Vidvix\`。
+- `Offline-win-x64` 必须使用单文件发布：
+  - `PublishSingleFile=true`
+  - `RuntimeIdentifier=win-x64`
+  - `SelfContained=true`
+- 发布时会把正式产物再镜像复制到 `artifacts/publish-offline/`，供仓库内验证与留档使用。
+- `Offline-win-x64` 发布已内建三层校验：
+  - 发布前校验源目录中的 `FFmpeg / mpv / AI / Demucs / 本地化` 必需文件
+  - 发布后校验 `E:\SoftwareBuild\Vidvix\` 中的单文件主程序与外部依赖
+  - 镜像后校验 `artifacts/publish-offline/` 中的同一批关键文件
 - 新增 `Properties/PublishProfiles/Offline-win-x64.pubxml`、`Offline-win-x86.pubxml`、`Offline-win-arm64.pubxml`，用于在 IDE 和 CLI 下统一执行自包含离线发布。
 - 若应用目录不可写，FFmpeg 运行时会回退到 `%LOCALAPPDATA%\\Vidvix\\Tools\\MediaEngine` 下准备运行环境。
-- 若要保证“离线电脑也可直接运行”，发布前应确保 `Tools\\ffmpeg\\ffmpeg.exe` 与 `ffprobe.exe` 已随产物一起输出。
+- 若拆音首跑时 `Demucs` 运行时或模型无法写入应用目录，当前实现会自动回退到 `%LOCALAPPDATA%\\Vidvix\\Tools\\Demucs` 继续准备离线运行环境。
+- 若要保证“离线电脑也可直接运行”，发布前应确保 `Tools\\ffmpeg\\ffmpeg.exe` 与 `ffprobe.exe` 已随正式发布目录一起输出。
+- 单文件发布并不意味着 `Tools\` 目录会被并入 `Vidvix.exe`；`Demucs`、`FFmpeg`、`mpv` 与 AI 外部运行时仍按设计以外置文件方式随包交付。
 - 当前仓库内置的 `Tools\\ffmpeg` 与 `Tools\\mpv` 二进制经核验均为 `x64` PE。
   这意味着 `Offline-win-x64` 是已实际验证的官方离线路径；若要保证“原生 x86 / 原生 ARM64 设备上的媒体处理与预览也完全可用”，还需要补充对应架构的 FFmpeg / mpv 供应商二进制，再继续做原生架构级验证。

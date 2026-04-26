@@ -70,11 +70,13 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
                             GetRuntimeArchiveFileName(runtimeVariant))));
                 }
 
-                runtimeRootPath = await ExtractRuntimeArchiveAsync(
+                var runtimeExtraction = await ExtractRuntimeArchiveWithFallbackAsync(
                     runtimeArchivePath,
-                    storageRootPath,
                     runtimeVariant,
+                    storageRootPath,
                     cancellationToken).ConfigureAwait(false);
+                runtimeRootPath = runtimeExtraction.RuntimeRootPath;
+                storageRootPath = runtimeExtraction.StorageRootPath;
                 wasExtracted = true;
             }
 
@@ -94,10 +96,12 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
                             _configuration.DemucsModelArchiveFileName)));
                 }
 
-                modelRepositoryPath = await ExtractModelArchiveAsync(
+                var modelExtraction = await ExtractModelArchiveWithFallbackAsync(
                     modelArchivePath,
                     storageRootPath,
                     cancellationToken).ConfigureAwait(false);
+                modelRepositoryPath = modelExtraction.ModelRepositoryPath;
+                storageRootPath = modelExtraction.StorageRootPath;
                 wasExtracted = true;
             }
 
@@ -258,27 +262,90 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
         }
     }
 
+    private async Task<(string RuntimeRootPath, string StorageRootPath)> ExtractRuntimeArchiveWithFallbackAsync(
+        string archivePath,
+        DemucsRuntimeVariant runtimeVariant,
+        string storageRootPath,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var runtimeRootPath = await ExtractRuntimeArchiveAsync(
+                archivePath,
+                storageRootPath,
+                runtimeVariant,
+                cancellationToken).ConfigureAwait(false);
+            return (runtimeRootPath, storageRootPath);
+        }
+        catch (Exception exception) when (ShouldRetryWithFallbackStorage(storageRootPath, exception))
+        {
+            var fallbackStorageRootPath = GetFallbackStorageRootPath();
+            Directory.CreateDirectory(fallbackStorageRootPath);
+            _logger.Log(LogLevel.Warning, "Demucs 运行时无法写入应用目录，正在回退到用户本地数据目录。", exception);
+
+            var runtimeRootPath = await ExtractRuntimeArchiveAsync(
+                archivePath,
+                fallbackStorageRootPath,
+                runtimeVariant,
+                cancellationToken).ConfigureAwait(false);
+            return (runtimeRootPath, fallbackStorageRootPath);
+        }
+    }
+
+    private async Task<(string ModelRepositoryPath, string StorageRootPath)> ExtractModelArchiveWithFallbackAsync(
+        string archivePath,
+        string storageRootPath,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var modelRepositoryPath = await ExtractModelArchiveAsync(
+                archivePath,
+                storageRootPath,
+                cancellationToken).ConfigureAwait(false);
+            return (modelRepositoryPath, storageRootPath);
+        }
+        catch (Exception exception) when (ShouldRetryWithFallbackStorage(storageRootPath, exception))
+        {
+            var fallbackStorageRootPath = GetFallbackStorageRootPath();
+            Directory.CreateDirectory(fallbackStorageRootPath);
+            _logger.Log(LogLevel.Warning, "Demucs 模型目录无法写入应用目录，正在回退到用户本地数据目录。", exception);
+
+            var modelRepositoryPath = await ExtractModelArchiveAsync(
+                archivePath,
+                fallbackStorageRootPath,
+                cancellationToken).ConfigureAwait(false);
+            return (modelRepositoryPath, fallbackStorageRootPath);
+        }
+    }
+
     private string ResolveWritableStorageRootPath()
     {
-        var applicationLocalRootPath = Path.Combine(
-            ApplicationPaths.ExecutableDirectoryPath,
-            _configuration.RuntimeDirectoryName,
-            _configuration.DemucsDirectoryName);
+        var applicationLocalRootPath = GetApplicationStorageRootPath();
 
         if (CanWriteToDirectory(applicationLocalRootPath))
         {
             return applicationLocalRootPath;
         }
 
-        var fallbackRootPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            _configuration.LocalDataDirectoryName,
-            _configuration.RuntimeDirectoryName,
-            _configuration.DemucsDirectoryName);
+        var fallbackRootPath = GetFallbackStorageRootPath();
 
         Directory.CreateDirectory(fallbackRootPath);
         return fallbackRootPath;
     }
+
+    private string GetApplicationStorageRootPath() =>
+        Path.Combine(
+            ApplicationPaths.ExecutableDirectoryPath,
+            _configuration.RuntimeDirectoryName,
+            _configuration.DemucsDirectoryName);
+
+    private string GetFallbackStorageRootPath() =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            _configuration.LocalDataDirectoryName,
+            _configuration.RuntimeDirectoryName,
+            _configuration.DemucsDirectoryName);
 
     private string GetBundledRuntimeRootPath(DemucsRuntimeVariant runtimeVariant) =>
         Path.Combine(
@@ -401,6 +468,14 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
             return false;
         }
     }
+
+    private bool ShouldRetryWithFallbackStorage(string storageRootPath, Exception exception) =>
+        IsApplicationStorageRootPath(storageRootPath) &&
+        exception is IOException or UnauthorizedAccessException &&
+        !string.Equals(storageRootPath, GetFallbackStorageRootPath(), StringComparison.OrdinalIgnoreCase);
+
+    private bool IsApplicationStorageRootPath(string storageRootPath) =>
+        string.Equals(storageRootPath, GetApplicationStorageRootPath(), StringComparison.OrdinalIgnoreCase);
 
     private static void TryDeleteDirectory(string directoryPath)
     {

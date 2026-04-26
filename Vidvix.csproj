@@ -22,7 +22,17 @@
     <OfflinePackageDir>$(MSBuildProjectDirectory)\artifacts\publish-offline\</OfflinePackageDir>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+  <PropertyGroup>
+    <NormalizedPublishProfile>$([System.String]::Copy('$(PublishProfile)').Replace('/','\'))</NormalizedPublishProfile>
+    <IsOfflineWinX64Publish
+      Condition="
+        '$(NormalizedPublishProfile)' == 'Offline-win-x64'
+        or '$(NormalizedPublishProfile)' == 'Offline-win-x64.pubxml'
+        or '$(NormalizedPublishProfile)' == 'Properties\PublishProfiles\Offline-win-x64.pubxml'">true</IsOfflineWinX64Publish>
+    <IsEffectiveSingleFilePublish Condition="'$(PublishSingleFile)' == 'true' or '$(PublishSingleFile)' == 'True' or '$(IsOfflineWinX64Publish)' == 'true'">true</IsEffectiveSingleFilePublish>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsEffectiveSingleFilePublish)' == 'true'">
     <EnableMsixTooling>true</EnableMsixTooling>
     <AutoIncludeCopyToPublishDirectoryItems>false</AutoIncludeCopyToPublishDirectoryItems>
   </PropertyGroup>
@@ -45,7 +55,7 @@
     <ApplicationDefinition Remove="tests\**\*.xaml" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(PublishSingleFile)' == 'true'">
+  <ItemGroup Condition="'$(IsEffectiveSingleFilePublish)' == 'true'">
     <None Remove="Tools\**\*;docs\**\*;scripts\**\*;Properties\PublishProfiles\**\*;Properties\launchSettings.json;AppData\**\*;.editorconfig;.gitignore;**\*.log;app.manifest" />
     <Page Update="Views\**\*.xaml">
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>
@@ -147,13 +157,75 @@
     </Content>
   </ItemGroup>
 
-  <ItemGroup Condition="'$(PublishSingleFile)' == 'true'">
+  <ItemGroup>
+    <OfflinePublishSourceRequiredFiles Include="Assets\logo.ico" />
+    <OfflinePublishSourceRequiredFiles Include="Resources\Localization\manifest.json" />
+    <OfflinePublishSourceRequiredFiles Include="Resources\Localization\zh-CN\common.json" />
+    <OfflinePublishSourceRequiredFiles Include="Resources\Localization\en-US\common.json" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\ffmpeg\ffmpeg.exe" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\ffmpeg\ffprobe.exe" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\ffmpeg\ffplay.exe" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\ffmpeg\LICENSE.txt" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\mpv\mpv-1.dll" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\mpv\d3dcompiler_43.dll" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\Rife\Bin\rife-ncnn-vulkan.exe" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\Rife\Bin\vcomp140.dll" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\Rife\Models\rife-v4.6\flownet.bin" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\Rife\Configs\rife-v4.6\flownet.param" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\RealEsrgan\Bin\realesrgan-ncnn-vulkan.exe" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\RealEsrgan\Bin\vcomp140.dll" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\RealEsrgan\Models\realesrgan-x4plus.bin" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\RealEsrgan\Configs\realesrgan-x4plus.param" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\RealEsrgan\Models\realesr-animevideov3-x2.bin" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\RealEsrgan\Configs\realesr-animevideov3-x2.param" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\RealEsrgan\Models\realesr-animevideov3-x4.bin" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\RealEsrgan\Configs\realesr-animevideov3-x4.param" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\Manifests\rife.json" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\Manifests\realesrgan.json" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\Licenses\rife-ncnn-vulkan-LICENSE.txt" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\Licenses\realesrgan-ncnn-vulkan-LICENSE.txt" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\AI\Licenses\Real-ESRGAN-LICENSE.txt" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\Demucs\Packages\demucs-runtime-win-x64-cpu.zip" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\Demucs\Packages\demucs-runtime-win-x64-gpu.zip" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\Demucs\Packages\demucs-runtime-win-x64-gpu-cuda.zip" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\Demucs\Models\htdemucs_ft.yaml" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\Demucs\Models\f7e0c4bc-ba3fe64a.th" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\Demucs\Models\d12395a8-e57c48e6.th" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\Demucs\Models\92cfc3b6-ef3bcb9c.th" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\Demucs\Models\04573f0d-f3cf25b2.th" />
+    <OfflinePublishSourceRequiredFiles Include="Tools\Demucs\Scripts\demucs_runner.py" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <OfflinePublishOutputRequiredFiles Include="$(AssemblyName).exe" />
+    <OfflinePublishOutputRequiredFiles Include="@(OfflinePublishSourceRequiredFiles)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsEffectiveSingleFilePublish)' == 'true'">
+    <OfflinePublishOutputRequiredFiles Include="$(AssemblyName).pri" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsEffectiveSingleFilePublish)' != 'true'">
+    <OfflinePublishOutputRequiredFiles Include="$(AssemblyName).pri" />
+    <OfflinePublishOutputRequiredFiles Include="$(AssemblyName).runtimeconfig.json" />
+    <OfflinePublishOutputRequiredFiles Include="Microsoft.WindowsAppRuntime.dll" />
+    <OfflinePublishOutputRequiredFiles Include="Microsoft.WindowsAppRuntime.Bootstrap.dll" />
+    <OfflinePublishOutputRequiredFiles Include="Microsoft.ui.xaml.dll" />
+    <OfflinePublishOutputRequiredFiles Include="Microsoft.UI.Xaml.Controls.dll" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsEffectiveSingleFilePublish)' == 'true'">
     <Content Update="Tools\**\*">
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
   </ItemGroup>
 
-  <Target Name="ExcludeExternalToolsFromSingleFileBundle" AfterTargets="ComputeResolvedFilesToPublishList" BeforeTargets="_ComputeFilesToBundle" Condition="'$(PublishSingleFile)' == 'true'">
+  <ItemGroup Condition="'$(IsEffectiveSingleFilePublish)' == 'true' and Exists('Tools\Demucs\Packages')">
+    <Content Remove="Tools\Demucs\Packages\**\*" />
+    <DeferredPublishCopyFile Include="Tools\Demucs\Packages\**\*" />
+  </ItemGroup>
+
+  <Target Name="ExcludeExternalToolsFromSingleFileBundle" AfterTargets="ComputeResolvedFilesToPublishList" BeforeTargets="_ComputeFilesToBundle" Condition="'$(IsEffectiveSingleFilePublish)' == 'true'">
     <ItemGroup>
       <ResolvedFileToPublish
         Update="@(ResolvedFileToPublish)"
@@ -176,62 +248,18 @@
 
   <Target Name="EnsureOfflineRuntimeForPublish" BeforeTargets="Publish">
     <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\ffmpeg\ffmpeg.exe')"
-      Text="Offline publish bundle is missing Tools\ffmpeg\ffmpeg.exe." />
+      Condition="!Exists('$(MSBuildProjectDirectory)\%(OfflinePublishSourceRequiredFiles.Identity)')"
+      Text="Offline publish source bundle is missing %(OfflinePublishSourceRequiredFiles.Identity)." />
+  </Target>
+
+  <Target
+    Name="ValidatePublishedOfflineOutput"
+    BeforeTargets="CreateOfflinePackage"
+    DependsOnTargets="CopyGeneratedPriToPublish;CopyWindowIconToPublish;CopyDeferredPublishFiles"
+    Condition="'$(Configuration)' == 'Release' and Exists('$(PublishDir)$(AssemblyName).exe')">
     <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\ffmpeg\ffprobe.exe')"
-      Text="Offline publish bundle is missing Tools\ffmpeg\ffprobe.exe." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\ffmpeg\ffplay.exe')"
-      Text="Offline publish bundle is missing Tools\ffmpeg\ffplay.exe." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\mpv\mpv-1.dll')"
-      Text="Offline publish bundle is missing Tools\mpv\mpv-1.dll." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Rife\Bin\rife-ncnn-vulkan.exe')"
-      Text="Offline publish bundle is missing Tools\AI\Rife\Bin\rife-ncnn-vulkan.exe." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Rife\Models\rife-v4.6\flownet.bin')"
-      Text="Offline publish bundle is missing Tools\AI\Rife\Models\rife-v4.6\flownet.bin." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Rife\Configs\rife-v4.6\flownet.param')"
-      Text="Offline publish bundle is missing Tools\AI\Rife\Configs\rife-v4.6\flownet.param." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Bin\realesrgan-ncnn-vulkan.exe')"
-      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Bin\realesrgan-ncnn-vulkan.exe." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Models\realesrgan-x4plus.bin')"
-      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Models\realesrgan-x4plus.bin." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Configs\realesrgan-x4plus.param')"
-      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Configs\realesrgan-x4plus.param." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Models\realesr-animevideov3-x2.bin')"
-      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Models\realesr-animevideov3-x2.bin." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Configs\realesr-animevideov3-x2.param')"
-      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Configs\realesr-animevideov3-x2.param." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Models\realesr-animevideov3-x4.bin')"
-      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Models\realesr-animevideov3-x4.bin." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\RealEsrgan\Configs\realesr-animevideov3-x4.param')"
-      Text="Offline publish bundle is missing Tools\AI\RealEsrgan\Configs\realesr-animevideov3-x4.param." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Manifests\rife.json')"
-      Text="Offline publish bundle is missing Tools\AI\Manifests\rife.json." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Manifests\realesrgan.json')"
-      Text="Offline publish bundle is missing Tools\AI\Manifests\realesrgan.json." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Licenses\rife-ncnn-vulkan-LICENSE.txt')"
-      Text="Offline publish bundle is missing Tools\AI\Licenses\rife-ncnn-vulkan-LICENSE.txt." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Licenses\realesrgan-ncnn-vulkan-LICENSE.txt')"
-      Text="Offline publish bundle is missing Tools\AI\Licenses\realesrgan-ncnn-vulkan-LICENSE.txt." />
-    <Error
-      Condition="!Exists('$(MSBuildProjectDirectory)\Tools\AI\Licenses\Real-ESRGAN-LICENSE.txt')"
-      Text="Offline publish bundle is missing Tools\AI\Licenses\Real-ESRGAN-LICENSE.txt." />
+      Condition="!Exists('$(PublishDir)%(OfflinePublishOutputRequiredFiles.Identity)')"
+      Text="Published offline bundle is missing %(OfflinePublishOutputRequiredFiles.Identity)." />
   </Target>
 
   <Target Name="CopyGeneratedPriToPublish" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="Exists('$(TargetDir)$(AssemblyName).pri') and Exists('$(PublishDir)$(AssemblyName).exe')">
@@ -249,6 +277,14 @@
       SkipUnchangedFiles="true" />
   </Target>
 
+  <Target Name="CopyDeferredPublishFiles" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="'@(DeferredPublishCopyFile)' != '' and Exists('$(PublishDir)$(AssemblyName).exe')">
+    <MakeDir Directories="@(DeferredPublishCopyFile->'$(PublishDir)%(RecursiveDir)')" />
+    <Copy
+      SourceFiles="@(DeferredPublishCopyFile->'$(MSBuildProjectDirectory)\%(Identity)')"
+      DestinationFiles="@(DeferredPublishCopyFile->'$(PublishDir)%(Identity)')"
+      SkipUnchangedFiles="true" />
+  </Target>
+
   <Target Name="CreateOfflinePackage" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release' and Exists('$(PublishDir)Vidvix.exe')">
     <RemoveDir Directories="$(OfflinePackageDir)" Condition="Exists('$(OfflinePackageDir)')" />
     <MakeDir Directories="$(OfflinePackageDir)" />
@@ -261,5 +297,11 @@
       SourceFiles="@(OfflinePackageFiles)"
       DestinationFiles="@(OfflinePackageFiles->'$(OfflinePackageDir)%(RecursiveDir)%(Filename)%(Extension)')"
       SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="ValidateOfflinePackage" AfterTargets="CreateOfflinePackage" Condition="'$(Configuration)' == 'Release' and Exists('$(OfflinePackageDir)$(AssemblyName).exe')">
+    <Error
+      Condition="!Exists('$(OfflinePackageDir)%(OfflinePublishOutputRequiredFiles.Identity)')"
+      Text="Offline package mirror is missing %(OfflinePublishOutputRequiredFiles.Identity)." />
   </Target>
 </Project>

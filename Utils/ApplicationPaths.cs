@@ -6,10 +6,11 @@ namespace Vidvix.Utils;
 
 public static class ApplicationPaths
 {
+    private static readonly Lazy<string> RuntimeBaseDirectoryPathValue = new(ResolveRuntimeBaseDirectoryPath);
     private static readonly Lazy<string> ExecutablePathValue = new(ResolveExecutablePath);
     private static readonly Lazy<string> ExecutableDirectoryPathValue = new(ResolveExecutableDirectoryPath);
 
-    public static string RuntimeBaseDirectoryPath => AppContext.BaseDirectory;
+    public static string RuntimeBaseDirectoryPath => RuntimeBaseDirectoryPathValue.Value;
 
     public static string ExecutablePath => ExecutablePathValue.Value;
 
@@ -26,6 +27,14 @@ public static class ApplicationPaths
         }
 
         return path;
+    }
+
+    private static string ResolveRuntimeBaseDirectoryPath()
+    {
+        var runtimeBaseDirectory = AppContext.BaseDirectory;
+        return string.IsNullOrWhiteSpace(runtimeBaseDirectory)
+            ? Path.GetFullPath(".")
+            : Path.GetFullPath(runtimeBaseDirectory);
     }
 
     private static string ResolveExecutablePath()
@@ -53,22 +62,25 @@ public static class ApplicationPaths
 
     private static string ResolveExecutableDirectoryPath()
     {
-        var runtimeBaseDirectory = AppContext.BaseDirectory;
-        if (!string.IsNullOrWhiteSpace(runtimeBaseDirectory) &&
-            Directory.Exists(runtimeBaseDirectory))
+        var executablePath = ResolveExecutablePath();
+        if (File.Exists(executablePath))
         {
-            return Path.GetFullPath(runtimeBaseDirectory);
+            var executableDirectory = Path.GetDirectoryName(executablePath);
+            if (!string.IsNullOrWhiteSpace(executableDirectory) &&
+                Directory.Exists(executableDirectory))
+            {
+                return Path.GetFullPath(executableDirectory);
+            }
         }
 
-        var executablePath = ResolveExecutablePath();
         if (Directory.Exists(executablePath))
         {
             return executablePath;
         }
 
-        var directoryPath = Path.GetDirectoryName(executablePath);
-        return string.IsNullOrWhiteSpace(directoryPath)
-            ? Path.GetFullPath(AppContext.BaseDirectory)
-            : Path.GetFullPath(directoryPath);
+        var runtimeBaseDirectory = ResolveRuntimeBaseDirectoryPath();
+        return Directory.Exists(runtimeBaseDirectory)
+            ? runtimeBaseDirectory
+            : Path.GetFullPath(".");
     }
 }

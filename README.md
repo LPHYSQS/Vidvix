@@ -95,6 +95,7 @@ The following catalogs are derived from the repository configuration and represe
 | AI manifests and third-party license files | Traceability and redistribution support for bundled AI assets | `Tools/AI/Manifests`, `Tools/AI/Licenses` |
 
 The application prefers bundled runtimes when they are present. Where writable runtime extraction is required, the codebase includes fallback behavior for user-local storage under `%LOCALAPPDATA%`.
+For the validated `Offline-win-x64` path, Split Audio also retries Demucs runtime/model extraction under `%LOCALAPPDATA%\\Vidvix\\Tools\\Demucs` if the application directory cannot be written reliably at first run.
 
 ## Repository Structure
 
@@ -144,10 +145,19 @@ Create the primary offline release output:
 dotnet publish .\Vidvix.csproj -c Release -p:PublishProfile=Offline-win-x64 -v minimal
 ```
 
+This is the only officially validated offline release path right now. The publish profile is intentionally fixed to:
+
+- publish into `E:\SoftwareBuild\Vidvix\`
+- use `win-x64`
+- use self-contained deployment
+- use `PublishSingleFile=true`
+
+The publish pipeline fails fast if the single-file release is missing required external assets, `Tools` dependencies, or localization resources.
+
 Primary publish output:
 
-- `artifacts/publish/win-x64/`
-- mirrored offline package directory for release builds: `artifacts/publish-offline/`
+- official publish directory: `E:\SoftwareBuild\Vidvix\`
+- mirrored internal offline package directory for release builds: `artifacts/publish-offline/`
 
 ## Validation and Smoke Coverage
 
@@ -174,8 +184,13 @@ Related harness projects:
 
 - `WindowsPackageType=None`
 - `WindowsAppSDKSelfContained=true`
-- `PublishSingleFile=false` for the primary offline publish profile
-- External runtime assets under `Tools/` are intentionally kept outside any single-file bundle path
+- `PublishSingleFile=true` for the primary offline publish profile
+- `RuntimeIdentifier=win-x64` for the primary offline publish profile
+- `SelfContained=true` for the primary offline publish profile
+- External runtime assets under `Tools/` are intentionally kept outside `Vidvix.exe` even in single-file publish mode
+- The Demucs split-audio runtime stays packaged separately on purpose as part of this single-file release model
+- `Offline-win-x64` is the only formally validated offline delivery target at the moment
+- `dotnet publish -p:PublishProfile=Offline-win-x64` validates bundled `FFmpeg`, `mpv`, `Demucs`, `AI`, and localization assets before accepting the release output
 
 Publish profiles are maintained under `Properties/PublishProfiles/`.
 
@@ -203,4 +218,3 @@ Supplementary repository documentation under `docs/` is currently maintained pri
 - `docs/ai-runtime-asset-inventory.md`
 - `docs/ai-offline-publish-validation-checklist.md`
 - `docs/ai-module-agent-execution-plan.md`
-

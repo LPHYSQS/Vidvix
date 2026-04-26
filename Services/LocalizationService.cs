@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
+using Vidvix.Utils;
 
 namespace Vidvix.Services;
 
@@ -60,7 +61,7 @@ public sealed class LocalizationService : ILocalizationService
         _userPreferencesService = userPreferencesService ?? throw new ArgumentNullException(nameof(userPreferencesService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        _resourceRootPath = Path.Combine(AppContext.BaseDirectory, _configuration.LocalizationResourceRelativePath);
+        _resourceRootPath = Path.Combine(ApplicationPaths.ExecutableDirectoryPath, _configuration.LocalizationResourceRelativePath);
         _manifest = CreateDefaultManifest();
         _fallbackResources = new Dictionary<string, string>(StringComparer.Ordinal);
         _currentResources = new Dictionary<string, string>(StringComparer.Ordinal);
