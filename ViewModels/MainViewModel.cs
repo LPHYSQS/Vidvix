@@ -152,7 +152,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         InitializeLocalizationState(userPreferences.CurrentUiLanguage);
         _selectedWorkspaceKind = ResolvePreferredWorkspaceKind(userPreferences.PreferredWorkspaceKind);
         InitializePreferredOutputFormatSelections(userPreferences);
-        _selectedThemeOption = ThemeOptions.FirstOrDefault(option => option.Preference == userPreferences.ThemePreference) ?? ThemeOptions[0];
+        _selectedThemeOption = ResolveThemePreference(userPreferences.ThemePreference);
         _outputDirectory = NormalizeOutputDirectory(userPreferences.PreferredOutputDirectory);
         _revealOutputFileAfterProcessing = userPreferences.RevealOutputFileAfterProcessing;
         _enableSystemTray = userPreferences.EnableSystemTray;
@@ -361,7 +361,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public ThemePreferenceOption SelectedThemeOption
     {
-        get => _selectedThemeOption ?? ThemeOptions[0];
+        get => _selectedThemeOption ?? ResolveThemePreference(ThemePreference.Dark);
         set
         {
             if (value is null)

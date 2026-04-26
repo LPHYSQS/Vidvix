@@ -282,6 +282,7 @@ public sealed partial class MainViewModel
 
     private ThemePreferenceOption ResolveThemePreference(ThemePreference themePreference) =>
         ThemeOptions.FirstOrDefault(option => option.Preference == themePreference)
+        ?? ThemeOptions.FirstOrDefault(option => option.Preference == ThemePreference.Dark)
         ?? ThemeOptions.First();
 
     private LocalizationLanguageOption ResolveLanguageOption(string? languageCode)

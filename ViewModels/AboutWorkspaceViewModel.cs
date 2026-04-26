@@ -63,7 +63,7 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
     public Visibility LicenseDetailsVisibility =>
         _selectedSection == AboutSectionKind.License ? Visibility.Visible : Visibility.Collapsed;
 
-    public Visibility SectionPlaceholderVisibility =>
+    public Visibility PrivacyDetailsVisibility =>
         _selectedSection == AboutSectionKind.Privacy ? Visibility.Visible : Visibility.Collapsed;
 
     public string AboutSectionTabText =>
@@ -89,7 +89,7 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
             "查看 Vidvix 本体、第三方组件与离线运行时资产的许可证信息。"),
         AboutSectionKind.Privacy => GetLocalizedText(
             "about.page.content.privacy.description",
-            "这里将用于展示隐私说明和数据使用注意事项，后续内容会继续补充。"),
+            "查看 Vidvix 在当前代码基线下的本地数据处理、有限联网回退与第三方运行时相关说明。"),
         _ => GetLocalizedText(
             "about.page.content.about.description",
             "在这里了解 Vidvix 的定位、核心能力，以及所致谢的开源项目。")
@@ -362,6 +362,130 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
             "Demucs 离线运行时包内含 Python、Torch、Torchaudio 等依赖；若你重新分发解压后的 runtime，请一并保留其附带许可证文件。")
     };
 
+    public string PrivacySummaryLabelText =>
+        GetLocalizedText("about.page.content.privacy.summary.label", "隐私概览");
+
+    public string PrivacySummaryTitleText =>
+        GetLocalizedText("about.page.content.privacy.summary.title", "本地优先的桌面端隐私说明");
+
+    public string PrivacySummaryDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.privacy.summary.description",
+            "最后更新：2026 年 4 月 26 日。Vidvix 旨在尽量把常见媒体处理留在本机完成。当前实现默认不要求账户、不内置广告、云同步或常驻分析遥测，也不会为常规处理主动把你选择的媒体文件上传到 Vidvix 运营的服务器。");
+
+    public string PrivacyProcessingSectionTitleText =>
+        GetLocalizedText("about.page.content.privacy.processing.title", "Vidvix 会处理哪些信息");
+
+    public string PrivacyProcessingSectionDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.privacy.processing.description",
+            "以下信息仅在你主动使用相应功能时，按桌面应用运行所需范围在本机处理。");
+
+    public IReadOnlyList<AboutSummaryItem> PrivacyProcessingItems => new[]
+    {
+        CreateSummaryItem(
+            "about.page.content.privacy.processing.item.selectedMedia.title",
+            "你主动选择的媒体与路径",
+            "about.page.content.privacy.processing.item.selectedMedia.description",
+            "当你导入、预览、裁剪、合并、AI 处理、拆音或在终端工作区执行命令时，Vidvix 可能读取你指定的媒体文件、字幕、输出目录和相关路径。"),
+        CreateSummaryItem(
+            "about.page.content.privacy.processing.item.preferences.title",
+            "本地偏好与窗口状态",
+            "about.page.content.privacy.processing.item.preferences.description",
+            "应用会在本机保存语言、主题、输出目录、处理偏好、GPU 策略、主窗口尺寸与位置等设置，用于恢复你的桌面工作流。"),
+        CreateSummaryItem(
+            "about.page.content.privacy.processing.item.logs.title",
+            "日志、诊断与终端上下文",
+            "about.page.content.privacy.processing.item.logs.description",
+            "为了反馈执行状态和定位失败原因，本地日志可能记录时间戳、状态消息、异常摘要、运行时路径，以及与命令执行相关的必要上下文；终端工作区还会显示你输入的受控 FFmpeg 系列命令及其输出。"),
+        CreateSummaryItem(
+            "about.page.content.privacy.processing.item.cache.title",
+            "缓存、临时文件与 AI 运行时准备数据",
+            "about.page.content.privacy.processing.item.cache.description",
+            "应用可能在本地生成缩略图、音频波形、临时中间文件、FFmpeg 运行时下载缓存、AI 探测文件，以及为 RIFE / Real-ESRGAN 预备的模型副本。")
+    };
+
+    public string PrivacyUsageSectionTitleText =>
+        GetLocalizedText("about.page.content.privacy.usage.title", "这些信息如何被使用与存放");
+
+    public string PrivacyUsageSectionDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.privacy.usage.description",
+            "这些数据仅用于驱动桌面应用本身的功能、缓存和恢复体验，不用于内置广告或常驻云端画像。");
+
+    public IReadOnlyList<AboutSummaryItem> PrivacyUsageItems => new[]
+    {
+        CreateSummaryItem(
+            "about.page.content.privacy.usage.item.localOperations.title",
+            "用于本地处理与反馈",
+            "about.page.content.privacy.usage.item.localOperations.description",
+            "Vidvix 使用这些数据来完成媒体探测、预览、裁剪、合并、AI 增强、AI 补帧、拆音、终端执行、输出规划、结果定位与失败恢复等本地工作流。"),
+        CreateSummaryItem(
+            "about.page.content.privacy.usage.item.localLocations.title",
+            "典型本地存储位置",
+            "about.page.content.privacy.usage.item.localLocations.description",
+            "当前实现通常会在 `%LOCALAPPDATA%\\Vidvix\\user-preferences.json`、`%LOCALAPPDATA%\\Vidvix\\Logs\\latest.log`、`%LOCALAPPDATA%\\Vidvix\\ThumbnailCache`、`%LOCALAPPDATA%\\Vidvix\\AudioWaveformCache`，以及 `%LOCALAPPDATA%\\Vidvix\\Tools\\MediaEngine`、`%LOCALAPPDATA%\\Vidvix\\Tools\\AI` 等目录写入配置、日志、缓存或运行时数据。"),
+        CreateSummaryItem(
+            "about.page.content.privacy.usage.item.retention.title",
+            "保留与清理",
+            "about.page.content.privacy.usage.item.retention.description",
+            "本地设置、日志、缓存、已提取运行时与输出文件通常会保留在你的设备上，直到被你删除、被应用覆盖，或在卸载、升级、清理过程中被移除。")
+    };
+
+    public string PrivacyNetworkSectionTitleText =>
+        GetLocalizedText("about.page.content.privacy.network.title", "联网行为与第三方组件");
+
+    public string PrivacyNetworkSectionDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.privacy.network.description",
+            "当前代码基线以离线优先为目标，但仍有少量例外路径和第三方运行时需要明确说明。");
+
+    public IReadOnlyList<AboutSummaryItem> PrivacyNetworkItems => new[]
+    {
+        CreateSummaryItem(
+            "about.page.content.privacy.network.item.noTelemetry.title",
+            "默认不含账号、广告或常驻遥测",
+            "about.page.content.privacy.network.item.noTelemetry.description",
+            "当前实现未发现内置账户系统、Vidvix 自营媒体上传服务、常驻广告 SDK、云同步流程或常规分析遥测上报。"),
+        CreateSummaryItem(
+            "about.page.content.privacy.network.item.ffmpegFallback.title",
+            "FFmpeg 缺失时的有限联网回退",
+            "about.page.content.privacy.network.item.ffmpegFallback.description",
+            "如果必需的本地 FFmpeg 运行时不存在，Vidvix 可能请求校验清单并从配置的 GitHub 发布地址下载 FFmpeg 压缩包。发生这种情况时，GitHub 及其基础设施提供方可能收到你的 IP 地址、请求头以及标识 Vidvix 的 User-Agent。"),
+        CreateSummaryItem(
+            "about.page.content.privacy.network.item.thirdParty.title",
+            "第三方本地运行时",
+            "about.page.content.privacy.network.item.thirdParty.description",
+            "FFmpeg、mpv、Demucs、RIFE 与 Real-ESRGAN 等组件会在本机读取你选择处理的文件，这是它们完成播放、转换、推理和分离所必需的正常行为；这些组件仍受各自上游许可证与文档约束。")
+    };
+
+    public string PrivacyControlSectionTitleText =>
+        GetLocalizedText("about.page.content.privacy.control.title", "你的控制权、责任与后续更新");
+
+    public string PrivacyControlSectionDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.privacy.control.description",
+            "作为桌面端本地优先工具，很多隐私边界由你、你的设备环境以及你对运行时资产的分发方式共同决定。");
+
+    public IReadOnlyList<AboutSummaryItem> PrivacyControlItems => new[]
+    {
+        CreateSummaryItem(
+            "about.page.content.privacy.control.item.choices.title",
+            "你可以如何控制数据处理",
+            "about.page.content.privacy.control.item.choices.description",
+            "你可以自行决定导入哪些文件、输出到哪些目录、是否清理本地日志与缓存，以及是否通过网络策略限制 FFmpeg 回退下载。"),
+        CreateSummaryItem(
+            "about.page.content.privacy.control.item.security.title",
+            "设备与环境安全",
+            "about.page.content.privacy.control.item.security.description",
+            "Vidvix 通过尽量在本机完成处理来降低暴露面，但它不能替代设备加固、文件加密、终端访问控制或企业级网络策略。若你处理敏感媒体，请同时保护运行设备和相关第三方运行时。"),
+        CreateSummaryItem(
+            "about.page.content.privacy.control.item.updates.title",
+            "说明更新与联系方式",
+            "about.page.content.privacy.control.item.updates.description",
+            "如果后续版本改变了联网行为、本地存储方式、遥测策略或第三方集成范围，这份说明也应同步更新。项目仓库：`https://github.com/LPHYSQS/Vidvix`；联系作者与 Bug 反馈：`3261296352@qq.com`。")
+    };
+
     public string CopyContextMenuText =>
         GetLocalizedText("about.page.action.copy", "复制");
 
@@ -399,6 +523,21 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(LicenseNotesSectionTitleText));
         OnPropertyChanged(nameof(LicenseNotesSectionDescriptionText));
         OnPropertyChanged(nameof(LicenseNoteItems));
+        OnPropertyChanged(nameof(PrivacySummaryLabelText));
+        OnPropertyChanged(nameof(PrivacySummaryTitleText));
+        OnPropertyChanged(nameof(PrivacySummaryDescriptionText));
+        OnPropertyChanged(nameof(PrivacyProcessingSectionTitleText));
+        OnPropertyChanged(nameof(PrivacyProcessingSectionDescriptionText));
+        OnPropertyChanged(nameof(PrivacyProcessingItems));
+        OnPropertyChanged(nameof(PrivacyUsageSectionTitleText));
+        OnPropertyChanged(nameof(PrivacyUsageSectionDescriptionText));
+        OnPropertyChanged(nameof(PrivacyUsageItems));
+        OnPropertyChanged(nameof(PrivacyNetworkSectionTitleText));
+        OnPropertyChanged(nameof(PrivacyNetworkSectionDescriptionText));
+        OnPropertyChanged(nameof(PrivacyNetworkItems));
+        OnPropertyChanged(nameof(PrivacyControlSectionTitleText));
+        OnPropertyChanged(nameof(PrivacyControlSectionDescriptionText));
+        OnPropertyChanged(nameof(PrivacyControlItems));
         OnPropertyChanged(nameof(CopyContextMenuText));
     }
 
@@ -415,7 +554,7 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(IsPrivacySectionSelected));
         OnPropertyChanged(nameof(AboutDetailsVisibility));
         OnPropertyChanged(nameof(LicenseDetailsVisibility));
-        OnPropertyChanged(nameof(SectionPlaceholderVisibility));
+        OnPropertyChanged(nameof(PrivacyDetailsVisibility));
         OnPropertyChanged(nameof(SelectedSectionTitleText));
         OnPropertyChanged(nameof(SelectedSectionDescriptionText));
     }

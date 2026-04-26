@@ -82,7 +82,7 @@ public sealed record UserPreferences
     public MergeLargerResolutionStrategy PreferredMergeLargerResolutionStrategy { get; init; } =
         MergeLargerResolutionStrategy.SqueezeToFit;
 
-    public ThemePreference ThemePreference { get; init; } = ThemePreference.UseSystem;
+    public ThemePreference ThemePreference { get; init; } = ThemePreference.Dark;
 
     public string CurrentUiLanguage { get; init; } = "zh-CN";
 

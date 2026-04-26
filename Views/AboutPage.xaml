@@ -636,24 +636,105 @@
                     </StackPanel>
 
                     <StackPanel
-                        MaxWidth="640"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Spacing="14"
-                        Visibility="{x:Bind ViewModel.SectionPlaceholderVisibility, Mode=OneWay}">
-                        <TextBlock
-                            FontSize="28"
-                            FontWeight="SemiBold"
-                            HorizontalAlignment="Center"
-                            Text="{x:Bind ViewModel.SelectedSectionTitleText, Mode=OneWay}"
-                            TextAlignment="Center"
-                            TextWrapping="WrapWholeWords" />
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            Opacity="0.72"
-                            Text="{x:Bind ViewModel.SelectedSectionDescriptionText, Mode=OneWay}"
-                            TextAlignment="Center"
-                            TextWrapping="WrapWholeWords" />
+                        Spacing="26"
+                        VerticalAlignment="Top"
+                        Visibility="{x:Bind ViewModel.PrivacyDetailsVisibility, Mode=OneWay}">
+                        <Border Style="{StaticResource AboutInsetCardStyle}">
+                            <StackPanel
+                                HorizontalAlignment="Left"
+                                MaxWidth="980"
+                                Spacing="10">
+                                <TextBlock
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    TextAlignment="Left"
+                                    Text="{x:Bind ViewModel.PrivacySummaryLabelText, Mode=OneWay}" />
+                                <TextBlock
+                                    FontSize="28"
+                                    FontWeight="SemiBold"
+                                    TextAlignment="Left"
+                                    Text="{x:Bind ViewModel.PrivacySummaryTitleText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                                <TextBlock
+                                    Style="{StaticResource AboutSectionBodyTextStyle}"
+                                    Text="{x:Bind ViewModel.PrivacySummaryDescriptionText, Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource AboutInsetCardStyle}">
+                            <StackPanel Spacing="18">
+                                <StackPanel
+                                    HorizontalAlignment="Left"
+                                    MaxWidth="980"
+                                    Spacing="6">
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionTitleTextStyle}"
+                                        Text="{x:Bind ViewModel.PrivacyProcessingSectionTitleText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionBodyTextStyle}"
+                                        Text="{x:Bind ViewModel.PrivacyProcessingSectionDescriptionText, Mode=OneWay}" />
+                                </StackPanel>
+                                <ItemsControl
+                                    ItemTemplate="{StaticResource AboutSummaryItemTemplate}"
+                                    ItemsSource="{x:Bind ViewModel.PrivacyProcessingItems, Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource AboutInsetCardStyle}">
+                            <StackPanel Spacing="18">
+                                <StackPanel
+                                    HorizontalAlignment="Left"
+                                    MaxWidth="980"
+                                    Spacing="6">
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionTitleTextStyle}"
+                                        Text="{x:Bind ViewModel.PrivacyUsageSectionTitleText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionBodyTextStyle}"
+                                        Text="{x:Bind ViewModel.PrivacyUsageSectionDescriptionText, Mode=OneWay}" />
+                                </StackPanel>
+                                <ItemsControl
+                                    ItemTemplate="{StaticResource AboutSummaryItemTemplate}"
+                                    ItemsSource="{x:Bind ViewModel.PrivacyUsageItems, Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource AboutInsetCardStyle}">
+                            <StackPanel Spacing="18">
+                                <StackPanel
+                                    HorizontalAlignment="Left"
+                                    MaxWidth="980"
+                                    Spacing="6">
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionTitleTextStyle}"
+                                        Text="{x:Bind ViewModel.PrivacyNetworkSectionTitleText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionBodyTextStyle}"
+                                        Text="{x:Bind ViewModel.PrivacyNetworkSectionDescriptionText, Mode=OneWay}" />
+                                </StackPanel>
+                                <ItemsControl
+                                    ItemTemplate="{StaticResource AboutSummaryItemTemplate}"
+                                    ItemsSource="{x:Bind ViewModel.PrivacyNetworkItems, Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource AboutInsetCardStyle}">
+                            <StackPanel Spacing="18">
+                                <StackPanel
+                                    HorizontalAlignment="Left"
+                                    MaxWidth="980"
+                                    Spacing="6">
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionTitleTextStyle}"
+                                        Text="{x:Bind ViewModel.PrivacyControlSectionTitleText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionBodyTextStyle}"
+                                        Text="{x:Bind ViewModel.PrivacyControlSectionDescriptionText, Mode=OneWay}" />
+                                </StackPanel>
+                                <ItemsControl
+                                    ItemTemplate="{StaticResource AboutSummaryItemTemplate}"
+                                    ItemsSource="{x:Bind ViewModel.PrivacyControlItems, Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Grid>
             </ScrollViewer>
