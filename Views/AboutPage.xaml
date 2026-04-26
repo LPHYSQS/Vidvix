@@ -203,6 +203,45 @@
                     Text="{x:Bind Description}" />
             </StackPanel>
         </DataTemplate>
+        <DataTemplate
+            x:Key="AboutLicenseItemTemplate"
+            x:DataType="viewModels:AboutLicenseItem">
+            <StackPanel
+                Margin="0,0,0,22"
+                HorizontalAlignment="Left"
+                Spacing="5">
+                <TextBlock
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    TextAlignment="Left"
+                    TextWrapping="WrapWholeWords">
+                    <Hyperlink NavigateUri="{x:Bind LinkUri}">
+                        <Run Text="{x:Bind Title}" />
+                    </Hyperlink>
+                </TextBlock>
+                <TextBlock
+                    Style="{StaticResource AboutInfoLabelTextStyle}"
+                    Text="{x:Bind VersionDisplay}" />
+                <TextBlock
+                    Style="{StaticResource AboutInfoLabelTextStyle}"
+                    Text="{x:Bind LicenseDisplay}" />
+                <TextBlock
+                    Style="{StaticResource AboutInfoLabelTextStyle}"
+                    Text="{x:Bind NoticeDisplay}" />
+                <TextBlock
+                    Style="{StaticResource AboutInfoLabelTextStyle}"
+                    TextWrapping="WrapWholeWords">
+                    <Run Text="{x:Bind SourceLabelText}" />
+                    <Run Text=": " />
+                    <Hyperlink NavigateUri="{x:Bind LinkUri}">
+                        <Run Text="{x:Bind LinkUrl}" />
+                    </Hyperlink>
+                </TextBlock>
+                <TextBlock
+                    Style="{StaticResource AboutSectionBodyTextStyle}"
+                    Text="{x:Bind Description}" />
+            </StackPanel>
+        </DataTemplate>
     </Page.Resources>
 
     <Grid
@@ -509,6 +548,89 @@
                                 <ItemsControl
                                     ItemTemplate="{StaticResource AboutOpenSourceItemTemplate}"
                                     ItemsSource="{x:Bind ViewModel.OpenSourceItems, Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel
+                        Spacing="26"
+                        VerticalAlignment="Top"
+                        Visibility="{x:Bind ViewModel.LicenseDetailsVisibility, Mode=OneWay}">
+                        <Border Style="{StaticResource AboutInsetCardStyle}">
+                            <StackPanel
+                                HorizontalAlignment="Left"
+                                MaxWidth="980"
+                                Spacing="10">
+                                <TextBlock
+                                    Style="{StaticResource CaptionTextStyle}"
+                                    TextAlignment="Left"
+                                    Text="{x:Bind ViewModel.LicenseSummaryLabelText, Mode=OneWay}" />
+                                <TextBlock
+                                    FontSize="28"
+                                    FontWeight="SemiBold"
+                                    TextAlignment="Left"
+                                    Text="{x:Bind ViewModel.LicenseSummaryTitleText, Mode=OneWay}"
+                                    TextWrapping="WrapWholeWords" />
+                                <TextBlock
+                                    Style="{StaticResource AboutSectionBodyTextStyle}"
+                                    Text="{x:Bind ViewModel.LicenseSummaryDescriptionText, Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource AboutInsetCardStyle}">
+                            <StackPanel Spacing="18">
+                                <StackPanel
+                                    HorizontalAlignment="Left"
+                                    MaxWidth="980"
+                                    Spacing="6">
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionTitleTextStyle}"
+                                        Text="{x:Bind ViewModel.FirstPartyLicenseSectionTitleText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionBodyTextStyle}"
+                                        Text="{x:Bind ViewModel.FirstPartyLicenseSectionDescriptionText, Mode=OneWay}" />
+                                </StackPanel>
+                                <ItemsControl
+                                    ItemTemplate="{StaticResource AboutLicenseItemTemplate}"
+                                    ItemsSource="{x:Bind ViewModel.FirstPartyLicenseItems, Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource AboutInsetCardStyle}">
+                            <StackPanel Spacing="18">
+                                <StackPanel
+                                    HorizontalAlignment="Left"
+                                    MaxWidth="980"
+                                    Spacing="6">
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionTitleTextStyle}"
+                                        Text="{x:Bind ViewModel.ThirdPartyLicenseSectionTitleText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionBodyTextStyle}"
+                                        Text="{x:Bind ViewModel.ThirdPartyLicenseSectionDescriptionText, Mode=OneWay}" />
+                                </StackPanel>
+                                <ItemsControl
+                                    ItemTemplate="{StaticResource AboutLicenseItemTemplate}"
+                                    ItemsSource="{x:Bind ViewModel.ThirdPartyLicenseItems, Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource AboutInsetCardStyle}">
+                            <StackPanel Spacing="18">
+                                <StackPanel
+                                    HorizontalAlignment="Left"
+                                    MaxWidth="980"
+                                    Spacing="6">
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionTitleTextStyle}"
+                                        Text="{x:Bind ViewModel.LicenseNotesSectionTitleText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionBodyTextStyle}"
+                                        Text="{x:Bind ViewModel.LicenseNotesSectionDescriptionText, Mode=OneWay}" />
+                                </StackPanel>
+                                <ItemsControl
+                                    ItemTemplate="{StaticResource AboutSummaryItemTemplate}"
+                                    ItemsSource="{x:Bind ViewModel.LicenseNoteItems, Mode=OneWay}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

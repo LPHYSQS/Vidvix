@@ -19,10 +19,13 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
     private const string MpvProjectUrl = "https://mpv.io/";
     private const string DemucsProjectUrl = "https://github.com/adefossez/demucs";
     private const string RifeProjectUrl = "https://github.com/nihui/rife-ncnn-vulkan";
-    private const string RealEsrganProjectUrl = "https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan";
+    private const string RealEsrganRuntimeProjectUrl = "https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan";
+    private const string RealEsrganProjectUrl = "https://github.com/xinntao/Real-ESRGAN";
+
     private static readonly Uri RepositoryUriValue = new(RepositoryUrl);
     private static readonly Uri AuthorEmailUriValue = new($"mailto:{AuthorEmail}");
     private static readonly Uri WebsiteUriValue = new(WebsiteUrl);
+
     private readonly ILocalizationService? _localizationService;
     private readonly RelayCommand _selectAboutSectionCommand;
     private readonly RelayCommand _selectLicenseSectionCommand;
@@ -57,8 +60,11 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
     public Visibility AboutDetailsVisibility =>
         _selectedSection == AboutSectionKind.About ? Visibility.Visible : Visibility.Collapsed;
 
+    public Visibility LicenseDetailsVisibility =>
+        _selectedSection == AboutSectionKind.License ? Visibility.Visible : Visibility.Collapsed;
+
     public Visibility SectionPlaceholderVisibility =>
-        _selectedSection == AboutSectionKind.About ? Visibility.Collapsed : Visibility.Visible;
+        _selectedSection == AboutSectionKind.Privacy ? Visibility.Visible : Visibility.Collapsed;
 
     public string AboutSectionTabText =>
         GetLocalizedText("about.page.tab.about", "关于");
@@ -80,7 +86,7 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
     {
         AboutSectionKind.License => GetLocalizedText(
             "about.page.content.license.description",
-            "这里将用于展示第三方组件及其许可证信息，后续内容会继续补充。"),
+            "查看 Vidvix 本体、第三方组件与离线运行时资产的许可证信息。"),
         AboutSectionKind.Privacy => GetLocalizedText(
             "about.page.content.privacy.description",
             "这里将用于展示隐私说明和数据使用注意事项，后续内容会继续补充。"),
@@ -207,7 +213,153 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
             "Real-ESRGAN NCNN Vulkan",
             "about.page.content.about.openSource.item.realesrgan.description",
             "为 AI 增强工作流提供离线超分与增强运行时支持。",
+            RealEsrganRuntimeProjectUrl)
+    };
+
+    public string LicenseSummaryLabelText =>
+        GetLocalizedText("about.page.content.license.summary.label", "许可证概览");
+
+    public string LicenseSummaryTitleText =>
+        GetLocalizedText("about.page.content.license.summary.title", "软件本体与第三方组件许可证");
+
+    public string LicenseSummaryDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.license.summary.description",
+            "本页汇总当前仓库快照中与 Vidvix 发行相关的许可证信息，重点覆盖软件本体、内置媒体与 AI 工具链，以及离线运行时包内保留的 notice 材料。");
+
+    public string FirstPartyLicenseSectionTitleText =>
+        GetLocalizedText("about.page.content.license.firstParty.title", "第一方组件");
+
+    public string FirstPartyLicenseSectionDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.license.firstParty.description",
+            "以下内容适用于 Vidvix 项目自身源码与项目自有材料。");
+
+    public IReadOnlyList<AboutLicenseItem> FirstPartyLicenseItems => new[]
+    {
+        CreateLicenseItem(
+            "about.page.content.license.item.vidvix.title",
+            "Vidvix 项目本体",
+            "about.page.content.license.item.vidvix.version",
+            "仓库源码 / 当前项目快照",
+            "about.page.content.license.item.vidvix.license",
+            "MIT",
+            "about.page.content.license.item.vidvix.description",
+            "适用于仓库中的原始源码与项目自有材料，不会替代或改写任何第三方运行时、模型或二进制的许可证。",
+            "about.page.content.license.item.vidvix.notice",
+            "仓库根目录 LICENSE 适用于 Vidvix 本体；第三方组件仍需分别遵守各自上游许可证。",
+            RepositoryUrl)
+    };
+
+    public string ThirdPartyLicenseSectionTitleText =>
+        GetLocalizedText("about.page.content.license.thirdParty.title", "第三方组件与运行时");
+
+    public string ThirdPartyLicenseSectionDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.license.thirdParty.description",
+            "以下组件为当前仓库与离线分发流程中重点引用或随附的第三方项目。");
+
+    public IReadOnlyList<AboutLicenseItem> ThirdPartyLicenseItems => new[]
+    {
+        CreateLicenseItem(
+            "about.page.content.license.item.ffmpeg.title",
+            "FFmpeg / FFprobe / FFplay",
+            "about.page.content.license.item.ffmpeg.version",
+            "2026-04-01-git-eedf8f0165-full_build-www.gyan.dev",
+            "about.page.content.license.item.ffmpeg.license",
+            "FFmpeg 上游项目为 LGPL 2.1+；若启用 GPL 组件则适用 GPL 2+",
+            "about.page.content.license.item.ffmpeg.description",
+            "负责媒体转换、媒体信息探测、轨道提取，以及终端工作区中的受控命令执行。",
+            "about.page.content.license.item.ffmpeg.notice",
+            "当前仓库快照保留 Tools/ffmpeg/LICENSE.txt（GNU LGPL v3 文本）；正式分发时应以实际随附 FFmpeg 构建的许可证材料为准。",
+            FfmpegProjectUrl),
+        CreateLicenseItem(
+            "about.page.content.license.item.mpv.title",
+            "mpv / libmpv",
+            "about.page.content.license.item.mpv.version",
+            "v0.41.0-459-gda4789c2d（mpv-1.dll 文件版本）",
+            "about.page.content.license.item.mpv.license",
+            "默认 GPL v2+；以非 GPL 配置构建时可为 LGPL 2.1+",
+            "about.page.content.license.item.mpv.description",
+            "用于预览与嵌入式播放，为裁剪与其他需要可视反馈的工作流提供底层播放能力。",
+            "about.page.content.license.item.mpv.notice",
+            "当前仓库快照包含 Tools/mpv/mpv-1.dll；正式发布时应保留与实际 shipped libmpv 构建对应的许可证文件。",
+            MpvProjectUrl),
+        CreateLicenseItem(
+            "about.page.content.license.item.demucs.title",
+            "Demucs",
+            "about.page.content.license.item.demucs.version",
+            "demucs 4.0.1；runtime lock 包含 Python 3.10.11、Torch 2.5.1、Torchaudio 2.5.1",
+            "about.page.content.license.item.demucs.license",
+            "MIT",
+            "about.page.content.license.item.demucs.description",
+            "为拆音工作区提供离线四轨音源分离能力，运行时通过仓库内的离线包与模型仓完成准备。",
+            "about.page.content.license.item.demucs.notice",
+            "Tools/Demucs/Packages/demucs-runtime-win-x64-*.zip 内含 Python、Torch、Torchaudio 等依赖的许可证与 notice 文件。",
+            DemucsProjectUrl),
+        CreateLicenseItem(
+            "about.page.content.license.item.rife.title",
+            "RIFE NCNN Vulkan",
+            "about.page.content.license.item.rife.version",
+            "20221029",
+            "about.page.content.license.item.rife.license",
+            "MIT",
+            "about.page.content.license.item.rife.description",
+            "为 AI 补帧工作流提供离线插帧运行时，当前仓库保留 `rife-v4.6` 首发模型与配置文件。",
+            "about.page.content.license.item.rife.notice",
+            "随附 notice 文件：Tools/AI/Licenses/rife-ncnn-vulkan-LICENSE.txt；来源与保留项记录于 Tools/AI/Manifests/rife.json。",
+            RifeProjectUrl),
+        CreateLicenseItem(
+            "about.page.content.license.item.realesrganRuntime.title",
+            "Real-ESRGAN NCNN Vulkan Runtime",
+            "about.page.content.license.item.realesrganRuntime.version",
+            "v0.2.5.0",
+            "about.page.content.license.item.realesrganRuntime.license",
+            "MIT",
+            "about.page.content.license.item.realesrganRuntime.description",
+            "为 AI 增强工作流提供离线超分与增强运行时，当前仓库保留 Standard 与 Anime 档位所需的执行文件与配置。",
+            "about.page.content.license.item.realesrganRuntime.notice",
+            "随附 notice 文件：Tools/AI/Licenses/realesrgan-ncnn-vulkan-LICENSE.txt；来源与保留项记录于 Tools/AI/Manifests/realesrgan.json。",
+            RealEsrganRuntimeProjectUrl),
+        CreateLicenseItem(
+            "about.page.content.license.item.realesrganModel.title",
+            "Real-ESRGAN Model Family",
+            "about.page.content.license.item.realesrganModel.version",
+            "realesrgan-x4plus / realesr-animevideov3-x2 / realesr-animevideov3-x4",
+            "about.page.content.license.item.realesrganModel.license",
+            "BSD-3-Clause",
+            "about.page.content.license.item.realesrganModel.description",
+            "对应 AI 增强工作流中当前首发保留的 Standard 与 Anime 模型集合。",
+            "about.page.content.license.item.realesrganModel.notice",
+            "随附 notice 文件：Tools/AI/Licenses/Real-ESRGAN-LICENSE.txt。",
             RealEsrganProjectUrl)
+    };
+
+    public string LicenseNotesSectionTitleText =>
+        GetLocalizedText("about.page.content.license.notes.title", "分发与合规说明");
+
+    public string LicenseNotesSectionDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.license.notes.description",
+            "除软件本体外，第三方组件仍以各自上游许可证为准；重新打包或替换运行时前应复核对应 notice 要求。");
+
+    public IReadOnlyList<AboutSummaryItem> LicenseNoteItems => new[]
+    {
+        CreateSummaryItem(
+            "about.page.content.license.notes.item.bundled.title",
+            "仓库内随附的许可证材料",
+            "about.page.content.license.notes.item.bundled.description",
+            "当前仓库已保留根目录 LICENSE、Tools/ffmpeg/LICENSE.txt、Tools/AI/Licenses/*，Demucs runtime 包内也包含多项上游许可证文件。"),
+        CreateSummaryItem(
+            "about.page.content.license.notes.item.buildSpecific.title",
+            "FFmpeg 与 mpv 的构建差异",
+            "about.page.content.license.notes.item.buildSpecific.description",
+            "这两类组件的最终义务可能随具体编译选项而变化；正式发布时应始终保留与实际 shipped binary 一致的许可证与 notice 文件。"),
+        CreateSummaryItem(
+            "about.page.content.license.notes.item.runtime.title",
+            "离线运行时包",
+            "about.page.content.license.notes.item.runtime.description",
+            "Demucs 离线运行时包内含 Python、Torch、Torchaudio 等依赖；若你重新分发解压后的 runtime，请一并保留其附带许可证文件。")
     };
 
     public string CopyContextMenuText =>
@@ -235,6 +387,18 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OpenSourceSectionTitleText));
         OnPropertyChanged(nameof(OpenSourceSectionDescriptionText));
         OnPropertyChanged(nameof(OpenSourceItems));
+        OnPropertyChanged(nameof(LicenseSummaryLabelText));
+        OnPropertyChanged(nameof(LicenseSummaryTitleText));
+        OnPropertyChanged(nameof(LicenseSummaryDescriptionText));
+        OnPropertyChanged(nameof(FirstPartyLicenseSectionTitleText));
+        OnPropertyChanged(nameof(FirstPartyLicenseSectionDescriptionText));
+        OnPropertyChanged(nameof(FirstPartyLicenseItems));
+        OnPropertyChanged(nameof(ThirdPartyLicenseSectionTitleText));
+        OnPropertyChanged(nameof(ThirdPartyLicenseSectionDescriptionText));
+        OnPropertyChanged(nameof(ThirdPartyLicenseItems));
+        OnPropertyChanged(nameof(LicenseNotesSectionTitleText));
+        OnPropertyChanged(nameof(LicenseNotesSectionDescriptionText));
+        OnPropertyChanged(nameof(LicenseNoteItems));
         OnPropertyChanged(nameof(CopyContextMenuText));
     }
 
@@ -250,6 +414,7 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(IsLicenseSectionSelected));
         OnPropertyChanged(nameof(IsPrivacySectionSelected));
         OnPropertyChanged(nameof(AboutDetailsVisibility));
+        OnPropertyChanged(nameof(LicenseDetailsVisibility));
         OnPropertyChanged(nameof(SectionPlaceholderVisibility));
         OnPropertyChanged(nameof(SelectedSectionTitleText));
         OnPropertyChanged(nameof(SelectedSectionDescriptionText));
@@ -257,6 +422,9 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
 
     private string GetLocalizedText(string key, string fallback) =>
         _localizationService?.GetString(key, fallback) ?? fallback;
+
+    private string FormatDetailLine(string labelKey, string labelFallback, string value) =>
+        $"{GetLocalizedText(labelKey, labelFallback)}: {value}";
 
     private AboutSummaryItem CreateSummaryItem(
         string titleKey,
@@ -276,6 +444,36 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
         new(
             GetLocalizedText(titleKey, titleFallback),
             GetLocalizedText(descriptionKey, descriptionFallback),
+            linkUrl);
+
+    private AboutLicenseItem CreateLicenseItem(
+        string titleKey,
+        string titleFallback,
+        string versionKey,
+        string versionFallback,
+        string licenseKey,
+        string licenseFallback,
+        string descriptionKey,
+        string descriptionFallback,
+        string noticeKey,
+        string noticeFallback,
+        string linkUrl) =>
+        new(
+            GetLocalizedText(titleKey, titleFallback),
+            GetLocalizedText(descriptionKey, descriptionFallback),
+            FormatDetailLine(
+                "about.page.content.license.item.versionLabel",
+                "版本 / 构建",
+                GetLocalizedText(versionKey, versionFallback)),
+            FormatDetailLine(
+                "about.page.content.license.item.licenseLabel",
+                "许可证",
+                GetLocalizedText(licenseKey, licenseFallback)),
+            FormatDetailLine(
+                "about.page.content.license.item.noticeLabel",
+                "随附 notice",
+                GetLocalizedText(noticeKey, noticeFallback)),
+            GetLocalizedText("about.page.content.license.item.sourceLabel", "项目地址"),
             linkUrl);
 
     private enum AboutSectionKind
@@ -312,6 +510,44 @@ public sealed class AboutOpenSourceItem
     public string Title { get; }
 
     public string Description { get; }
+
+    public string LinkUrl { get; }
+
+    public Uri LinkUri { get; }
+}
+
+public sealed class AboutLicenseItem
+{
+    public AboutLicenseItem(
+        string title,
+        string description,
+        string versionDisplay,
+        string licenseDisplay,
+        string noticeDisplay,
+        string sourceLabelText,
+        string linkUrl)
+    {
+        Title = title;
+        Description = description;
+        VersionDisplay = versionDisplay;
+        LicenseDisplay = licenseDisplay;
+        NoticeDisplay = noticeDisplay;
+        SourceLabelText = sourceLabelText;
+        LinkUrl = linkUrl;
+        LinkUri = new Uri(linkUrl);
+    }
+
+    public string Title { get; }
+
+    public string Description { get; }
+
+    public string VersionDisplay { get; }
+
+    public string LicenseDisplay { get; }
+
+    public string NoticeDisplay { get; }
+
+    public string SourceLabelText { get; }
 
     public string LinkUrl { get; }
 
