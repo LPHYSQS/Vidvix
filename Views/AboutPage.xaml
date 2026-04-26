@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModels="using:Vidvix.ViewModels"
+    x:Name="RootPage"
     Background="Transparent"
     mc:Ignorable="d">
 
@@ -125,6 +126,13 @@
             BasedOn="{StaticResource SurfaceCardBorderStyle}">
             <Setter Property="CornerRadius" Value="24" />
         </Style>
+        <Style
+            x:Key="AboutInfoLabelTextStyle"
+            TargetType="TextBlock"
+            BasedOn="{StaticResource CaptionTextStyle}">
+            <Setter Property="Opacity" Value="0.72" />
+            <Setter Property="TextWrapping" Value="WrapWholeWords" />
+        </Style>
     </Page.Resources>
 
     <Grid
@@ -200,11 +208,179 @@
                 VerticalScrollBarVisibility="Auto"
                 VerticalScrollMode="Enabled">
                 <Grid MinHeight="360">
+                    <Grid
+                        ColumnSpacing="52"
+                        RowSpacing="28"
+                        VerticalAlignment="Top"
+                        Visibility="{x:Bind ViewModel.AboutDetailsVisibility, Mode=OneWay}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel
+                            Grid.Row="0"
+                            Grid.Column="0"
+                            Spacing="6">
+                            <TextBlock
+                                Style="{StaticResource AboutInfoLabelTextStyle}"
+                                Text="{x:Bind ViewModel.ApplicationNameLabelText, Mode=OneWay}" />
+                            <TextBlock
+                                ContextRequested="OnSelectableTextContextRequested"
+                                FontSize="30"
+                                FontWeight="SemiBold"
+                                IsTextSelectionEnabled="True"
+                                Tag="{x:Bind ViewModel.ApplicationNameValueText, Mode=OneWay}"
+                                Text="{x:Bind ViewModel.ApplicationNameValueText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords">
+                                <TextBlock.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem
+                                            Click="OnCopySelectableTextClick"
+                                            Text="{x:Bind ViewModel.CopyContextMenuText, Mode=OneWay}" />
+                                    </MenuFlyout>
+                                </TextBlock.ContextFlyout>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <StackPanel
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Spacing="6">
+                            <TextBlock
+                                Style="{StaticResource AboutInfoLabelTextStyle}"
+                                Text="{x:Bind ViewModel.ApplicationVersionLabelText, Mode=OneWay}" />
+                            <TextBlock
+                                ContextRequested="OnSelectableTextContextRequested"
+                                FontSize="17"
+                                IsTextSelectionEnabled="True"
+                                Tag="{x:Bind ViewModel.ApplicationVersionValueText, Mode=OneWay}"
+                                Text="{x:Bind ViewModel.ApplicationVersionValueText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords">
+                                <TextBlock.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem
+                                            Click="OnCopySelectableTextClick"
+                                            Text="{x:Bind ViewModel.CopyContextMenuText, Mode=OneWay}" />
+                                    </MenuFlyout>
+                                </TextBlock.ContextFlyout>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <StackPanel
+                            Grid.Row="1"
+                            Grid.Column="0"
+                            Spacing="6">
+                            <TextBlock
+                                Style="{StaticResource AboutInfoLabelTextStyle}"
+                                Text="{x:Bind ViewModel.ApplicationAuthorLabelText, Mode=OneWay}" />
+                            <TextBlock
+                                ContextRequested="OnSelectableTextContextRequested"
+                                FontSize="17"
+                                IsTextSelectionEnabled="True"
+                                Tag="{x:Bind ViewModel.ApplicationAuthorValueText, Mode=OneWay}"
+                                Text="{x:Bind ViewModel.ApplicationAuthorValueText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords">
+                                <TextBlock.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem
+                                            Click="OnCopySelectableTextClick"
+                                            Text="{x:Bind ViewModel.CopyContextMenuText, Mode=OneWay}" />
+                                    </MenuFlyout>
+                                </TextBlock.ContextFlyout>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <StackPanel
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Spacing="6">
+                            <TextBlock
+                                Style="{StaticResource AboutInfoLabelTextStyle}"
+                                Text="{x:Bind ViewModel.RepositoryLabelText, Mode=OneWay}" />
+                            <TextBlock
+                                ContextRequested="OnSelectableTextContextRequested"
+                                FontSize="17"
+                                IsTextSelectionEnabled="True"
+                                Tag="{x:Bind ViewModel.RepositoryUrlText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords">
+                                <TextBlock.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem
+                                            Click="OnCopySelectableTextClick"
+                                            Text="{x:Bind ViewModel.CopyContextMenuText, Mode=OneWay}" />
+                                    </MenuFlyout>
+                                </TextBlock.ContextFlyout>
+                                <Hyperlink NavigateUri="{x:Bind ViewModel.RepositoryUri, Mode=OneWay}">
+                                    <Run Text="{x:Bind ViewModel.RepositoryUrlText, Mode=OneWay}" />
+                                </Hyperlink>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <StackPanel
+                            Grid.Row="2"
+                            Grid.Column="0"
+                            Spacing="6">
+                            <TextBlock
+                                Style="{StaticResource AboutInfoLabelTextStyle}"
+                                Text="{x:Bind ViewModel.ContactAuthorLabelText, Mode=OneWay}" />
+                            <TextBlock
+                                ContextRequested="OnSelectableTextContextRequested"
+                                FontSize="17"
+                                IsTextSelectionEnabled="True"
+                                Tag="{x:Bind ViewModel.AuthorEmailText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords">
+                                <TextBlock.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem
+                                            Click="OnCopySelectableTextClick"
+                                            Text="{x:Bind ViewModel.CopyContextMenuText, Mode=OneWay}" />
+                                    </MenuFlyout>
+                                </TextBlock.ContextFlyout>
+                                <Hyperlink NavigateUri="{x:Bind ViewModel.AuthorEmailUri, Mode=OneWay}">
+                                    <Run Text="{x:Bind ViewModel.AuthorEmailText, Mode=OneWay}" />
+                                </Hyperlink>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <StackPanel
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Spacing="6">
+                            <TextBlock
+                                Style="{StaticResource AboutInfoLabelTextStyle}"
+                                Text="{x:Bind ViewModel.WebsiteLabelText, Mode=OneWay}" />
+                            <TextBlock
+                                ContextRequested="OnSelectableTextContextRequested"
+                                FontSize="17"
+                                IsTextSelectionEnabled="True"
+                                Tag="{x:Bind ViewModel.WebsiteUrlText, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords">
+                                <TextBlock.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem
+                                            Click="OnCopySelectableTextClick"
+                                            Text="{x:Bind ViewModel.CopyContextMenuText, Mode=OneWay}" />
+                                    </MenuFlyout>
+                                </TextBlock.ContextFlyout>
+                                <Hyperlink NavigateUri="{x:Bind ViewModel.WebsiteUri, Mode=OneWay}">
+                                    <Run Text="{x:Bind ViewModel.WebsiteUrlText, Mode=OneWay}" />
+                                </Hyperlink>
+                            </TextBlock>
+                        </StackPanel>
+                    </Grid>
+
                     <StackPanel
                         MaxWidth="640"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
-                        Spacing="14">
+                        Spacing="14"
+                        Visibility="{x:Bind ViewModel.SectionPlaceholderVisibility, Mode=OneWay}">
                         <TextBlock
                             FontSize="28"
                             FontWeight="SemiBold"

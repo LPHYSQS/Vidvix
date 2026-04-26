@@ -3,9 +3,16 @@
   "about.page.tab.license": "License",
   "about.page.tab.privacy": "Privacy",
   "about.page.content.about.title": "About",
-  "about.page.content.about.description": "This area will be used for the app introduction, version details, and related notes. More content will be added later.",
+  "about.page.content.about.description": "Find the app basics and the open-source repository here.",
+  "about.page.content.about.applicationName.label": "Application name",
+  "about.page.content.about.version.label": "Version",
+  "about.page.content.about.author.label": "Author",
+  "about.page.content.about.repository.label": "Open-source repository",
+  "about.page.content.about.contact.label": "Contact author & bug reports",
+  "about.page.content.about.website.label": "Official website",
   "about.page.content.license.title": "License",
   "about.page.content.license.description": "This area will be used for third-party component and license details. More content will be added later.",
   "about.page.content.privacy.title": "Privacy",
-  "about.page.content.privacy.description": "This area will be used for privacy notes and data usage details. More content will be added later."
+  "about.page.content.privacy.description": "This area will be used for privacy notes and data usage details. More content will be added later.",
+  "about.page.action.copy": "Copy"
 }

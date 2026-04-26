@@ -1,4 +1,6 @@
+using System;
 using System.Windows.Input;
+using Microsoft.UI.Xaml;
 using Vidvix.Core.Interfaces;
 using Vidvix.Utils;
 
@@ -6,6 +8,15 @@ namespace Vidvix.ViewModels;
 
 public sealed class AboutWorkspaceViewModel : ObservableObject
 {
+    private const string ApplicationName = "Vidvix";
+    private const string ApplicationVersion = "1.2604.1.0";
+    private const string ApplicationAuthor = "已逝情殇";
+    private const string RepositoryUrl = "https://github.com/LPHYSQS/Vidvix";
+    private const string AuthorEmail = "3261296352@qq.com";
+    private const string WebsiteUrl = "https://lphysqs.github.io/VidvixWeb/";
+    private static readonly Uri RepositoryUriValue = new(RepositoryUrl);
+    private static readonly Uri AuthorEmailUriValue = new($"mailto:{AuthorEmail}");
+    private static readonly Uri WebsiteUriValue = new(WebsiteUrl);
     private readonly ILocalizationService? _localizationService;
     private readonly RelayCommand _selectAboutSectionCommand;
     private readonly RelayCommand _selectLicenseSectionCommand;
@@ -37,6 +48,12 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
 
     public bool IsPrivacySectionSelected => _selectedSection == AboutSectionKind.Privacy;
 
+    public Visibility AboutDetailsVisibility =>
+        _selectedSection == AboutSectionKind.About ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility SectionPlaceholderVisibility =>
+        _selectedSection == AboutSectionKind.About ? Visibility.Collapsed : Visibility.Visible;
+
     public string AboutSectionTabText =>
         GetLocalizedText("about.page.tab.about", "关于");
 
@@ -63,8 +80,47 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
             "这里将用于展示隐私说明和数据使用注意事项，后续内容会继续补充。"),
         _ => GetLocalizedText(
             "about.page.content.about.description",
-            "这里将用于展示应用简介、版本信息和相关说明，后续内容会继续补充。")
+            "这里展示应用的基础信息与开源仓库地址。")
     };
+
+    public string ApplicationNameLabelText =>
+        GetLocalizedText("about.page.content.about.applicationName.label", "软件名称");
+
+    public string ApplicationNameValueText => ApplicationName;
+
+    public string ApplicationVersionLabelText =>
+        GetLocalizedText("about.page.content.about.version.label", "版本号");
+
+    public string ApplicationVersionValueText => ApplicationVersion;
+
+    public string ApplicationAuthorLabelText =>
+        GetLocalizedText("about.page.content.about.author.label", "作者");
+
+    public string ApplicationAuthorValueText => ApplicationAuthor;
+
+    public string RepositoryLabelText =>
+        GetLocalizedText("about.page.content.about.repository.label", "开源地址");
+
+    public string RepositoryUrlText => RepositoryUrl;
+
+    public Uri RepositoryUri => RepositoryUriValue;
+
+    public string ContactAuthorLabelText =>
+        GetLocalizedText("about.page.content.about.contact.label", "联系作者与 Bug 反馈");
+
+    public string AuthorEmailText => AuthorEmail;
+
+    public Uri AuthorEmailUri => AuthorEmailUriValue;
+
+    public string WebsiteLabelText =>
+        GetLocalizedText("about.page.content.about.website.label", "软件官网");
+
+    public string WebsiteUrlText => WebsiteUrl;
+
+    public Uri WebsiteUri => WebsiteUriValue;
+
+    public string CopyContextMenuText =>
+        GetLocalizedText("about.page.action.copy", "复制");
 
     public void RefreshLocalization()
     {
@@ -73,6 +129,13 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(PrivacySectionTabText));
         OnPropertyChanged(nameof(SelectedSectionTitleText));
         OnPropertyChanged(nameof(SelectedSectionDescriptionText));
+        OnPropertyChanged(nameof(ApplicationNameLabelText));
+        OnPropertyChanged(nameof(ApplicationVersionLabelText));
+        OnPropertyChanged(nameof(ApplicationAuthorLabelText));
+        OnPropertyChanged(nameof(RepositoryLabelText));
+        OnPropertyChanged(nameof(ContactAuthorLabelText));
+        OnPropertyChanged(nameof(WebsiteLabelText));
+        OnPropertyChanged(nameof(CopyContextMenuText));
     }
 
     private void SelectSection(AboutSectionKind section)
@@ -86,6 +149,8 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAboutSectionSelected));
         OnPropertyChanged(nameof(IsLicenseSectionSelected));
         OnPropertyChanged(nameof(IsPrivacySectionSelected));
+        OnPropertyChanged(nameof(AboutDetailsVisibility));
+        OnPropertyChanged(nameof(SectionPlaceholderVisibility));
         OnPropertyChanged(nameof(SelectedSectionTitleText));
         OnPropertyChanged(nameof(SelectedSectionDescriptionText));
     }
