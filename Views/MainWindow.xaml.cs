@@ -56,6 +56,7 @@ public sealed partial class MainWindow : Window
     private bool _isDetailOverlayVisible;
     private bool _isCopyToastVisible;
     private bool _isExitRequested;
+    private bool _systemTrayAvailable = true;
 
     public MainWindow(
         MainViewModel viewModel,

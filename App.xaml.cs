@@ -25,7 +25,19 @@ public partial class App : Application
             ?? throw new InvalidOperationException("当前线程缺少可用的界面调度队列。");
 
         _compositionRoot ??= new AppCompositionRoot(dispatcherQueue);
-        _window = _compositionRoot.CreateMainWindow();
+        _compositionRoot.Logger.Log(
+            LogLevel.Info,
+            $"应用启动开始。HasPackageIdentity={MutableRuntimeStorage.HasPackageIdentity}; BaseDir={ApplicationPaths.RuntimeBaseDirectoryPath}; ExeDir={ApplicationPaths.ExecutableDirectoryPath}; CurrentDir={Environment.CurrentDirectory}");
+
+        try
+        {
+            _window = _compositionRoot.CreateMainWindow();
+        }
+        catch (Exception exception)
+        {
+            _compositionRoot.Logger.Log(LogLevel.Error, "应用主窗口创建失败。", exception);
+            throw;
+        }
 
         if (_window is Views.MainWindow mainWindow)
         {
@@ -33,10 +45,12 @@ public partial class App : Application
         }
 
         _window.Activate();
+        _compositionRoot.Logger.Log(LogLevel.Info, "应用主窗口已激活。");
 
         try
         {
             await _compositionRoot.InitializeAsync();
+            _compositionRoot.Logger.Log(LogLevel.Info, "应用启动初始化完成。");
         }
         catch (Exception exception)
         {
@@ -57,7 +71,12 @@ public partial class App : Application
             return;
         }
 
-        Environment.SetEnvironmentVariable("MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY", baseDirectory);
+        if (!MutableRuntimeStorage.HasPackageIdentity)
+        {
+            // Only unpackaged offline builds need to override the Windows App SDK base directory.
+            // Packaged Store/MSIX launches must resolve their framework dependency from the package graph.
+            Environment.SetEnvironmentVariable("MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY", baseDirectory);
+        }
 
         var executableDirectory = ApplicationPaths.ExecutableDirectoryPath;
         if (!string.Equals(Environment.CurrentDirectory, executableDirectory, StringComparison.OrdinalIgnoreCase))

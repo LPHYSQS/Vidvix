@@ -10,7 +10,7 @@ namespace Vidvix.ViewModels;
 public sealed class AboutWorkspaceViewModel : ObservableObject
 {
     private const string ApplicationName = "Vidvix";
-    private const string ApplicationVersion = "1.2604.1.0";
+    private const string ApplicationVersion = "1.2604.3.0";
     private const string ApplicationAuthor = "已逝情殇";
     private const string RepositoryUrl = "https://github.com/LPHYSQS/Vidvix";
     private const string AuthorEmail = "3261296352@qq.com";

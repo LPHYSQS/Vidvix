@@ -1,5 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <NormalizedPublishProfile>$([System.String]::Copy('$(PublishProfile)').Replace('/','\'))</NormalizedPublishProfile>
+    <IsOfflineWinX64Publish
+      Condition="
+        '$(NormalizedPublishProfile)' == 'Offline-win-x64'
+        or '$(NormalizedPublishProfile)' == 'Offline-win-x64.pubxml'
+        or '$(NormalizedPublishProfile)' == 'Properties\PublishProfiles\Offline-win-x64.pubxml'">true</IsOfflineWinX64Publish>
+    <IsStoreWinX64Publish
+      Condition="
+        '$(NormalizedPublishProfile)' == 'Store-win-x64'
+        or '$(NormalizedPublishProfile)' == 'Store-win-x64.pubxml'
+        or '$(NormalizedPublishProfile)' == 'Properties\PublishProfiles\Store-win-x64.pubxml'">true</IsStoreWinX64Publish>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
@@ -11,10 +22,10 @@
     <Company>已逝情殇</Company>
     <Authors>已逝情殇</Authors>
     <Product>Vidvix</Product>
-    <AssemblyVersion>1.2604.1.0</AssemblyVersion>
-    <FileVersion>1.2604.1.0</FileVersion>
-    <Version>1.2604.1.0</Version>
-    <InformationalVersion>1.2604.1.0</InformationalVersion>
+    <AssemblyVersion>1.2604.3.0</AssemblyVersion>
+    <FileVersion>1.2604.3.0</FileVersion>
+    <Version>1.2604.3.0</Version>
+    <InformationalVersion>1.2604.3.0</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
@@ -22,7 +33,8 @@
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
     <UseWinUI>true</UseWinUI>
-    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsPackageType Condition="'$(WindowsPackageType)' == '' and '$(IsStoreWinX64Publish)' == 'true'">MSIX</WindowsPackageType>
+    <WindowsPackageType Condition="'$(WindowsPackageType)' == ''">None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
     <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
@@ -36,17 +48,14 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <NormalizedPublishProfile>$([System.String]::Copy('$(PublishProfile)').Replace('/','\'))</NormalizedPublishProfile>
-    <IsOfflineWinX64Publish
-      Condition="
-        '$(NormalizedPublishProfile)' == 'Offline-win-x64'
-        or '$(NormalizedPublishProfile)' == 'Offline-win-x64.pubxml'
-        or '$(NormalizedPublishProfile)' == 'Properties\PublishProfiles\Offline-win-x64.pubxml'">true</IsOfflineWinX64Publish>
     <IsEffectiveSingleFilePublish Condition="'$(PublishSingleFile)' == 'true' or '$(PublishSingleFile)' == 'True' or '$(IsOfflineWinX64Publish)' == 'true'">true</IsEffectiveSingleFilePublish>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(IsEffectiveSingleFilePublish)' == 'true'">
+  <PropertyGroup Condition="'$(IsEffectiveSingleFilePublish)' == 'true' or '$(IsStoreWinX64Publish)' == 'true'">
     <EnableMsixTooling>true</EnableMsixTooling>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsEffectiveSingleFilePublish)' == 'true'">
     <AutoIncludeCopyToPublishDirectoryItems>false</AutoIncludeCopyToPublishDirectoryItems>
   </PropertyGroup>
 
@@ -96,13 +105,24 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+    <Content Include="Assets\LockScreenLogo.png" Condition="Exists('Assets\LockScreenLogo.png')" />
+    <Content Include="Assets\LockScreenLogo.scale-100.png" Condition="Exists('Assets\LockScreenLogo.scale-100.png')" />
     <Content Include="Assets\SplashScreen.scale-200.png" />
+    <Content Include="Assets\SplashScreen.png" Condition="Exists('Assets\SplashScreen.png')" />
+    <Content Include="Assets\SplashScreen.scale-100.png" Condition="Exists('Assets\SplashScreen.scale-100.png')" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Square150x150Logo.scale-200.png" />
+    <Content Include="Assets\Square150x150Logo.png" Condition="Exists('Assets\Square150x150Logo.png')" />
+    <Content Include="Assets\Square150x150Logo.scale-100.png" Condition="Exists('Assets\Square150x150Logo.scale-100.png')" />
     <Content Include="Assets\Square44x44Logo.scale-200.png" />
-    <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
+    <Content Include="Assets\Square44x44Logo.png" Condition="Exists('Assets\Square44x44Logo.png')" />
+    <Content Include="Assets\Square44x44Logo.scale-100.png" Condition="Exists('Assets\Square44x44Logo.scale-100.png')" />
+    <Content Include="Assets\Square44x44Logo.targetsize-*.png" Condition="Exists('Assets\Square44x44Logo.targetsize-24_altform-unplated.png')" />
     <Content Include="Assets\StoreLogo.png" />
+    <Content Include="Assets\StoreLogo.scale-*.png" Condition="Exists('Assets\StoreLogo.scale-100.png')" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+    <Content Include="Assets\Wide310x150Logo.png" Condition="Exists('Assets\Wide310x150Logo.png')" />
+    <Content Include="Assets\Wide310x150Logo.scale-100.png" Condition="Exists('Assets\Wide310x150Logo.scale-100.png')" />
   </ItemGroup>
 
   <ItemGroup>
@@ -218,13 +238,22 @@
     <OfflinePublishOutputRequiredFiles Include="$(AssemblyName).pri" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(IsEffectiveSingleFilePublish)' != 'true'">
+  <ItemGroup Condition="'$(IsEffectiveSingleFilePublish)' != 'true' and '$(IsStoreWinX64Publish)' != 'true'">
     <OfflinePublishOutputRequiredFiles Include="$(AssemblyName).pri" />
     <OfflinePublishOutputRequiredFiles Include="$(AssemblyName).runtimeconfig.json" />
     <OfflinePublishOutputRequiredFiles Include="Microsoft.WindowsAppRuntime.dll" />
     <OfflinePublishOutputRequiredFiles Include="Microsoft.WindowsAppRuntime.Bootstrap.dll" />
     <OfflinePublishOutputRequiredFiles Include="Microsoft.ui.xaml.dll" />
     <OfflinePublishOutputRequiredFiles Include="Microsoft.UI.Xaml.Controls.dll" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsStoreWinX64Publish)' == 'true'">
+    <OfflinePublishOutputRequiredFiles Include="$(AssemblyName).pri" />
+    <OfflinePublishOutputRequiredFiles Include="$(AssemblyName).dll" />
+    <OfflinePublishOutputRequiredFiles Include="$(AssemblyName).deps.json" />
+    <OfflinePublishOutputRequiredFiles Include="$(AssemblyName).runtimeconfig.json" />
+    <OfflinePublishOutputRequiredFiles Include="Microsoft.WindowsAppRuntime.Bootstrap.dll" />
+    <OfflinePublishOutputRequiredFiles Include="Microsoft.WinUI.dll" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsEffectiveSingleFilePublish)' == 'true'">
@@ -269,20 +298,20 @@
     Name="ValidatePublishedOfflineOutput"
     AfterTargets="Publish"
     DependsOnTargets="CopyGeneratedPriToPublish;CopyWindowIconToPublish;CopyDeferredPublishFiles"
-    Condition="'$(Configuration)' == 'Release' and Exists('$(PublishDir)$(AssemblyName).exe')">
+    Condition="'$(Configuration)' == 'Release' and '$(IsStoreWinX64Publish)' != 'true' and Exists('$(PublishDir)$(AssemblyName).exe')">
     <Error
       Condition="!Exists('$(PublishDir)%(OfflinePublishOutputRequiredFiles.Identity)')"
       Text="Published offline bundle is missing %(OfflinePublishOutputRequiredFiles.Identity)." />
   </Target>
 
-  <Target Name="CopyGeneratedPriToPublish" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="Exists('$(TargetDir)$(AssemblyName).pri') and Exists('$(PublishDir)$(AssemblyName).exe')">
+  <Target Name="CopyGeneratedPriToPublish" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="'$(IsStoreWinX64Publish)' != 'true' and Exists('$(TargetDir)$(AssemblyName).pri') and Exists('$(PublishDir)$(AssemblyName).exe')">
     <Copy
       SourceFiles="$(TargetDir)$(AssemblyName).pri"
       DestinationFiles="$(PublishDir)$(AssemblyName).pri"
       SkipUnchangedFiles="true" />
   </Target>
 
-  <Target Name="CopyWindowIconToPublish" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="Exists('$(MSBuildProjectDirectory)\Assets\logo.ico') and Exists('$(PublishDir)$(AssemblyName).exe')">
+  <Target Name="CopyWindowIconToPublish" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="'$(IsStoreWinX64Publish)' != 'true' and Exists('$(MSBuildProjectDirectory)\Assets\logo.ico') and Exists('$(PublishDir)$(AssemblyName).exe')">
     <MakeDir Directories="$(PublishDir)Assets" />
     <Copy
       SourceFiles="$(MSBuildProjectDirectory)\Assets\logo.ico"
@@ -290,7 +319,7 @@
       SkipUnchangedFiles="true" />
   </Target>
 
-  <Target Name="CopyDeferredPublishFiles" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="'@(DeferredPublishCopyFile)' != '' and Exists('$(PublishDir)$(AssemblyName).exe')">
+  <Target Name="CopyDeferredPublishFiles" AfterTargets="Publish" BeforeTargets="CreateOfflinePackage" Condition="'$(IsStoreWinX64Publish)' != 'true' and '@(DeferredPublishCopyFile)' != '' and Exists('$(PublishDir)$(AssemblyName).exe')">
     <MakeDir Directories="@(DeferredPublishCopyFile->'$(PublishDir)%(RecursiveDir)')" />
     <Copy
       SourceFiles="@(DeferredPublishCopyFile->'$(MSBuildProjectDirectory)\%(Identity)')"
