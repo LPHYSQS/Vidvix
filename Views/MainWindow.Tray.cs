@@ -8,6 +8,40 @@ namespace Vidvix.Views;
 
 public sealed partial class MainWindow
 {
+    private const uint WmClose = 0x0010;
+    private const uint WmSysCommand = 0x0112;
+    private const nuint ScClose = 0xF060;
+
+    private void InstallCloseMessageHook()
+    {
+        if (!TrayNativeMethods.SetWindowSubclass(_windowHandle, _windowCloseSubclassProc, 1, IntPtr.Zero))
+        {
+            _logger.Log(LogLevel.Warning, "安装窗口关闭消息钩子失败，将回退到 AppWindow.Closing 关闭拦截。");
+        }
+    }
+
+    private void RemoveCloseMessageHook()
+    {
+        TrayNativeMethods.RemoveWindowSubclass(_windowHandle, _windowCloseSubclassProc, 1);
+    }
+
+    private IntPtr OnWindowCloseSubclassProc(
+        IntPtr windowHandle,
+        uint message,
+        IntPtr wParam,
+        IntPtr lParam,
+        nuint subclassId,
+        IntPtr referenceData)
+    {
+        if (windowHandle == _windowHandle && ShouldHandleTrayCloseMessage(message, wParam))
+        {
+            _dispatcherQueue.TryEnqueue(HideWindowToTray);
+            return IntPtr.Zero;
+        }
+
+        return TrayNativeMethods.DefSubclassProc(windowHandle, message, wParam, lParam);
+    }
+
     private void InitializeSystemTray()
     {
         if (!_systemTrayAvailable)
@@ -61,24 +95,26 @@ public sealed partial class MainWindow
         }
 
         args.Cancel = true;
-        HideWindowToTray();
+        _dispatcherQueue.TryEnqueue(HideWindowToTray);
     }
 
     private void HideWindowToTray()
     {
         SaveWindowPlacement();
         _appWindow.IsShownInSwitchers = false;
-        TrayNativeMethods.ShowWindow(_windowHandle, TrayNativeMethods.SW_HIDE);
+        _appWindow.Hide();
     }
 
-    private void ShowWindowFromTray()
+    public void RestoreAndActivate()
     {
         _appWindow.IsShownInSwitchers = true;
-        TrayNativeMethods.ShowWindow(_windowHandle, TrayNativeMethods.SW_SHOW);
+        _appWindow.Show();
         TrayNativeMethods.ShowWindow(_windowHandle, TrayNativeMethods.SW_RESTORE);
         Activate();
         TrayNativeMethods.SetForegroundWindow(_windowHandle);
     }
+
+    private void ShowWindowFromTray() => RestoreAndActivate();
 
     private void ExitApplicationFromTray()
     {
@@ -90,6 +126,22 @@ public sealed partial class MainWindow
     private bool ShouldHideToSystemTrayOnClose() =>
         !_isExitRequested &&
         ShouldEnableSystemTray();
+
+    private bool ShouldHandleTrayCloseMessage(uint message, IntPtr wParam)
+    {
+        if (!ShouldHideToSystemTrayOnClose())
+        {
+            return false;
+        }
+
+        if (message == WmClose)
+        {
+            return true;
+        }
+
+        return message == WmSysCommand &&
+               (((nuint)wParam & 0xFFF0u) == ScClose);
+    }
 
     private static bool IsDebuggerSession() => Debugger.IsAttached;
 
@@ -109,5 +161,35 @@ public sealed partial class MainWindow
 
         [DllImport("user32.dll")]
         public static extern bool SetForegroundWindow(IntPtr handle);
+
+        public delegate IntPtr SubclassProc(
+            IntPtr hWnd,
+            uint uMsg,
+            IntPtr wParam,
+            IntPtr lParam,
+            nuint uIdSubclass,
+            IntPtr dwRefData);
+
+        [DllImport("comctl32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetWindowSubclass(
+            IntPtr hWnd,
+            SubclassProc pfnSubclass,
+            nuint uIdSubclass,
+            IntPtr dwRefData);
+
+        [DllImport("comctl32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool RemoveWindowSubclass(
+            IntPtr hWnd,
+            SubclassProc pfnSubclass,
+            nuint uIdSubclass);
+
+        [DllImport("comctl32.dll")]
+        public static extern IntPtr DefSubclassProc(
+            IntPtr hWnd,
+            uint uMsg,
+            IntPtr wParam,
+            IntPtr lParam);
     }
 }

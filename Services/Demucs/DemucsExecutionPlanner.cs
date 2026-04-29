@@ -42,13 +42,12 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
         DemucsAccelerationMode accelerationMode,
         CancellationToken cancellationToken = default)
     {
-        var launcherScriptPath = ResolveLauncherScriptPath();
-
         if (accelerationMode == DemucsAccelerationMode.Cpu)
         {
             var cpuRuntime = await _demucsRuntimeService
                 .EnsureAvailableAsync(cancellationToken, runtimeVariant: DemucsRuntimeVariant.Cpu)
                 .ConfigureAwait(false);
+            var launcherScriptPath = ResolveLauncherScriptPath(cpuRuntime);
 
             return new[]
             {
@@ -71,6 +70,7 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
             var cudaRuntime = await _demucsRuntimeService
                 .EnsureAvailableAsync(cancellationToken, runtimeVariant: DemucsRuntimeVariant.Cuda)
                 .ConfigureAwait(false);
+            var launcherScriptPath = ResolveLauncherScriptPath(cudaRuntime);
 
             var cudaProbe = await ProbeDevicesAsync(
                 cudaRuntime,
@@ -108,6 +108,7 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
             var directMlRuntime = await _demucsRuntimeService
                 .EnsureAvailableAsync(cancellationToken, runtimeVariant: DemucsRuntimeVariant.DirectMl)
                 .ConfigureAwait(false);
+            var launcherScriptPath = ResolveLauncherScriptPath(directMlRuntime);
 
             var directMlProbe = await ProbeDevicesAsync(
                 directMlRuntime,
@@ -141,6 +142,7 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
         var fallbackCpuRuntime = await _demucsRuntimeService
             .EnsureAvailableAsync(cancellationToken, runtimeVariant: DemucsRuntimeVariant.Cpu)
             .ConfigureAwait(false);
+        var fallbackCpuLauncherScriptPath = ResolveLauncherScriptPath(fallbackCpuRuntime);
 
         if (executionPlans.Count == 0)
         {
@@ -157,7 +159,7 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
                 CreateCpuPlan(
                     accelerationMode,
                     fallbackCpuRuntime,
-                    launcherScriptPath,
+                    fallbackCpuLauncherScriptPath,
                     fallbackSummary)
             };
         }
@@ -165,7 +167,7 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
         executionPlans.Add(CreateCpuPlan(
             accelerationMode,
             fallbackCpuRuntime,
-            launcherScriptPath,
+            fallbackCpuLauncherScriptPath,
             CreateLocalizedText(
                 "splitAudio.executionPlan.cpu.fallbackAfterGpuFailure",
                 "\u5df2\u9009\u62e9 GPU \u4f18\u5148\u6a21\u5f0f\uff0cGPU \u6267\u884c\u672a\u6210\u529f\uff0c\u5df2\u81ea\u52a8\u56de\u9000\u5230 CPU\u3002")));
@@ -173,16 +175,18 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
         return executionPlans;
     }
 
-    private string ResolveLauncherScriptPath()
+    private string ResolveLauncherScriptPath(DemucsRuntimeResolution runtimeResolution)
     {
-        var launcherScriptPath = Path.Combine(
+        ArgumentNullException.ThrowIfNull(runtimeResolution);
+
+        var packagedLauncherScriptPath = Path.Combine(
             ApplicationPaths.ExecutableDirectoryPath,
             _configuration.RuntimeDirectoryName,
             _configuration.DemucsDirectoryName,
             _configuration.DemucsScriptsDirectoryName,
             _configuration.DemucsRunnerScriptFileName);
 
-        if (!File.Exists(launcherScriptPath))
+        if (!File.Exists(packagedLauncherScriptPath))
         {
             throw CreateLocalizedInvalidOperationException(
                 "splitAudio.planner.launcherMissing",
@@ -194,7 +198,30 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
                     _configuration.DemucsRunnerScriptFileName)));
         }
 
-        return launcherScriptPath;
+        var writableDemucsRootPath = Path.GetDirectoryName(runtimeResolution.RuntimeRootPath);
+        if (string.IsNullOrWhiteSpace(writableDemucsRootPath))
+        {
+            return packagedLauncherScriptPath;
+        }
+
+        var writableLauncherDirectoryPath = Path.Combine(
+            writableDemucsRootPath,
+            _configuration.DemucsScriptsDirectoryName);
+        var stagedLauncherScriptPath = Path.Combine(
+            writableLauncherDirectoryPath,
+            _configuration.DemucsRunnerScriptFileName);
+
+        if (string.Equals(
+                Path.GetFullPath(packagedLauncherScriptPath),
+                Path.GetFullPath(stagedLauncherScriptPath),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return packagedLauncherScriptPath;
+        }
+
+        Directory.CreateDirectory(writableLauncherDirectoryPath);
+        CopyFileIfNeeded(packagedLauncherScriptPath, stagedLauncherScriptPath);
+        return stagedLauncherScriptPath;
     }
 
     private async Task<GenericProbeResult> ProbeDevicesAsync(
@@ -256,24 +283,40 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
         var standardOutput = await standardOutputTask.ConfigureAwait(false);
         var standardError = await standardErrorTask.ConfigureAwait(false);
 
-        if (process.ExitCode != 0)
+        var exitCode = TryGetProcessExitCode(process, out var exitCodeException);
+        if (exitCode != 0)
         {
             var failureDetail = !string.IsNullOrWhiteSpace(standardError)
                 ? standardError.Trim()
                 : standardOutput.Trim();
+            if (string.IsNullOrWhiteSpace(failureDetail) && exitCodeException is not null)
+            {
+                failureDetail = exitCodeException.Message;
+            }
 
-            throw string.IsNullOrWhiteSpace(failureDetail)
-                ? CreateLocalizedInvalidOperationException(
-                    "splitAudio.planner.probeFailed.exitCode",
-                    "Demucs 设备探测失败，退出代码 {exitCode}：{probeCommand}",
-                    ("exitCode", process.ExitCode),
-                    ("probeCommand", probeCommand))
-                : CreateLocalizedInvalidOperationException(
-                    "splitAudio.planner.probeFailed.detail",
-                    "Demucs 设备探测失败，退出代码 {exitCode}：{probeCommand}。{detail}",
-                    ("exitCode", process.ExitCode),
-                    ("probeCommand", probeCommand),
-                    ("detail", failureDetail));
+            if (exitCode is int resolvedExitCode)
+            {
+                throw string.IsNullOrWhiteSpace(failureDetail)
+                    ? CreateLocalizedInvalidOperationException(
+                        "splitAudio.planner.probeFailed.exitCode",
+                        "Demucs 设备探测失败，退出代码 {exitCode}：{probeCommand}",
+                        ("exitCode", resolvedExitCode),
+                        ("probeCommand", probeCommand))
+                    : CreateLocalizedInvalidOperationException(
+                        "splitAudio.planner.probeFailed.detail",
+                        "Demucs 设备探测失败，退出代码 {exitCode}：{probeCommand}。{detail}",
+                        ("exitCode", resolvedExitCode),
+                        ("probeCommand", probeCommand),
+                        ("detail", failureDetail));
+            }
+
+            throw CreateLocalizedInvalidOperationException(
+                "splitAudio.planner.probeFailed.exitCodeUnavailable",
+                "Demucs 设备探测进程异常终止，未能读取退出代码：{probeCommand}。{detail}",
+                ("probeCommand", probeCommand),
+                ("detail", string.IsNullOrWhiteSpace(failureDetail)
+                    ? "Demucs 设备探测未返回可用的错误信息。"
+                    : failureDetail));
         }
 
         var probeResult = JsonSerializer.Deserialize<GenericProbeResult>(standardOutput, SerializerOptions);
@@ -493,6 +536,38 @@ public sealed class DemucsExecutionPlanner : IDemucsExecutionPlanner
             ResolutionSummaryResolver = resolutionSummary.Resolver,
             RuntimeResolution = runtimeResolution
         };
+
+    private static void CopyFileIfNeeded(string sourcePath, string targetPath)
+    {
+        if (File.Exists(targetPath))
+        {
+            var sourceInfo = new FileInfo(sourcePath);
+            var targetInfo = new FileInfo(targetPath);
+            if (sourceInfo.Length == targetInfo.Length &&
+                sourceInfo.LastWriteTimeUtc == targetInfo.LastWriteTimeUtc)
+            {
+                return;
+            }
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+        File.Copy(sourcePath, targetPath, overwrite: true);
+        File.SetLastWriteTimeUtc(targetPath, File.GetLastWriteTimeUtc(sourcePath));
+    }
+
+    private static int? TryGetProcessExitCode(Process process, out Exception? exception)
+    {
+        try
+        {
+            exception = null;
+            return process.ExitCode;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            exception = ex;
+            return null;
+        }
+    }
 
     private LocalizedText CreateLocalizedText(
         string key,

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Vidvix.Core.Interfaces;
@@ -82,27 +83,41 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
 
             if (string.IsNullOrWhiteSpace(modelRepositoryPath))
             {
-                var modelArchivePath = GetBundledModelArchivePath();
-                if (!File.Exists(modelArchivePath))
+                var bundledModelRepositoryPath = FindModelRepositoryPath(GetBundledModelRootPath());
+                if (!string.IsNullOrWhiteSpace(bundledModelRepositoryPath) &&
+                    ShouldPreferWritableStorageAssets(storageRootPath))
                 {
-                    throw CreateLocalizedInvalidOperationException(
-                        "splitAudio.runtime.missingModelRepository",
-                        "未找到 Demucs 模型仓，请补齐 {modelPath} 或 {archivePath}。",
-                        ("modelPath", Path.Combine("Tools", _configuration.DemucsDirectoryName, _configuration.DemucsModelsDirectoryName)),
-                        ("archivePath", Path.Combine(
-                            "Tools",
-                            _configuration.DemucsDirectoryName,
-                            _configuration.DemucsPackagesDirectoryName,
-                            _configuration.DemucsModelArchiveFileName)));
+                    modelRepositoryPath = await StageBundledModelRepositoryAsync(
+                            bundledModelRepositoryPath,
+                            storageRootPath,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    wasExtracted = true;
                 }
+                else
+                {
+                    var modelArchivePath = GetBundledModelArchivePath();
+                    if (!File.Exists(modelArchivePath))
+                    {
+                        throw CreateLocalizedInvalidOperationException(
+                            "splitAudio.runtime.missingModelRepository",
+                            "未找到 Demucs 模型仓，请补齐 {modelPath} 或 {archivePath}。",
+                            ("modelPath", Path.Combine("Tools", _configuration.DemucsDirectoryName, _configuration.DemucsModelsDirectoryName)),
+                            ("archivePath", Path.Combine(
+                                "Tools",
+                                _configuration.DemucsDirectoryName,
+                                _configuration.DemucsPackagesDirectoryName,
+                                _configuration.DemucsModelArchiveFileName)));
+                    }
 
-                var modelExtraction = await ExtractModelArchiveWithFallbackAsync(
-                    modelArchivePath,
-                    storageRootPath,
-                    cancellationToken).ConfigureAwait(false);
-                modelRepositoryPath = modelExtraction.ModelRepositoryPath;
-                storageRootPath = modelExtraction.StorageRootPath;
-                wasExtracted = true;
+                    var modelExtraction = await ExtractModelArchiveWithFallbackAsync(
+                        modelArchivePath,
+                        storageRootPath,
+                        cancellationToken).ConfigureAwait(false);
+                    modelRepositoryPath = modelExtraction.ModelRepositoryPath;
+                    storageRootPath = modelExtraction.StorageRootPath;
+                    wasExtracted = true;
+                }
             }
 
             var pythonExecutablePath = FindRuntimeExecutablePath(runtimeRootPath)
@@ -151,13 +166,20 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
 
     private string FindAvailableRuntimeRootPath(string storageRootPath, DemucsRuntimeVariant runtimeVariant)
     {
+        var extractedRuntimeRootPath = GetExtractedRuntimeRootPath(storageRootPath, runtimeVariant);
+        if (ShouldPreferWritableStorageAssets(storageRootPath))
+        {
+            return !string.IsNullOrWhiteSpace(FindRuntimeExecutablePath(extractedRuntimeRootPath))
+                ? extractedRuntimeRootPath
+                : string.Empty;
+        }
+
         var bundledRuntimeRootPath = GetBundledRuntimeRootPath(runtimeVariant);
         if (!string.IsNullOrWhiteSpace(FindRuntimeExecutablePath(bundledRuntimeRootPath)))
         {
             return bundledRuntimeRootPath;
         }
 
-        var extractedRuntimeRootPath = GetExtractedRuntimeRootPath(storageRootPath, runtimeVariant);
         return !string.IsNullOrWhiteSpace(FindRuntimeExecutablePath(extractedRuntimeRootPath))
             ? extractedRuntimeRootPath
             : string.Empty;
@@ -165,13 +187,18 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
 
     private string FindAvailableModelRepositoryPath(string storageRootPath)
     {
+        var extractedModelRepositoryPath = FindModelRepositoryPath(GetExtractedModelRootPath(storageRootPath));
+        if (ShouldPreferWritableStorageAssets(storageRootPath))
+        {
+            return extractedModelRepositoryPath ?? string.Empty;
+        }
+
         var bundledModelRepositoryPath = FindModelRepositoryPath(GetBundledModelRootPath());
         if (!string.IsNullOrWhiteSpace(bundledModelRepositoryPath))
         {
             return bundledModelRepositoryPath;
         }
 
-        var extractedModelRepositoryPath = FindModelRepositoryPath(GetExtractedModelRootPath(storageRootPath));
         return extractedModelRepositoryPath ?? string.Empty;
     }
 
@@ -262,6 +289,48 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
         }
     }
 
+    private async Task<string> StageBundledModelRepositoryAsync(
+        string bundledModelRepositoryPath,
+        string storageRootPath,
+        CancellationToken cancellationToken)
+    {
+        _logger.Log(LogLevel.Info, "正在复制 Demucs 模型仓到可写目录...");
+
+        var stagingDirectoryPath = Path.Combine(storageRootPath, $".demucs-model-copy-staging-{Guid.NewGuid():N}");
+        var stagedModelRootPath = Path.Combine(stagingDirectoryPath, _configuration.DemucsModelsDirectoryName);
+        var targetModelRootPath = GetExtractedModelRootPath(storageRootPath);
+        Directory.CreateDirectory(stagingDirectoryPath);
+
+        try
+        {
+            await CopyDirectoryAsync(
+                    bundledModelRepositoryPath,
+                    stagedModelRootPath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            if (Directory.Exists(targetModelRootPath))
+            {
+                Directory.Delete(targetModelRootPath, recursive: true);
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(targetModelRootPath)!);
+            Directory.Move(stagedModelRootPath, targetModelRootPath);
+
+            _logger.Log(LogLevel.Info, "Demucs 模型仓已复制到可写目录。");
+            return targetModelRootPath;
+        }
+        catch
+        {
+            TryDeleteDirectory(targetModelRootPath);
+            throw;
+        }
+        finally
+        {
+            TryDeleteDirectory(stagingDirectoryPath);
+        }
+    }
+
     private async Task<(string RuntimeRootPath, string StorageRootPath)> ExtractRuntimeArchiveWithFallbackAsync(
         string archivePath,
         DemucsRuntimeVariant runtimeVariant,
@@ -319,22 +388,59 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
         }
     }
 
+    private static Task CopyDirectoryAsync(
+        string sourceRootPath,
+        string targetRootPath,
+        CancellationToken cancellationToken) =>
+        Task.Run(() =>
+        {
+            Directory.CreateDirectory(targetRootPath);
+
+            foreach (var directoryPath in Directory.EnumerateDirectories(
+                         sourceRootPath,
+                         "*",
+                         SearchOption.AllDirectories))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var relativePath = Path.GetRelativePath(sourceRootPath, directoryPath);
+                Directory.CreateDirectory(Path.Combine(targetRootPath, relativePath));
+            }
+
+            foreach (var filePath in Directory.EnumerateFiles(
+                         sourceRootPath,
+                         "*",
+                         SearchOption.AllDirectories))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var relativePath = Path.GetRelativePath(sourceRootPath, filePath);
+                var targetFilePath = Path.Combine(targetRootPath, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(targetFilePath)!);
+                File.Copy(filePath, targetFilePath, overwrite: true);
+                File.SetLastWriteTimeUtc(targetFilePath, File.GetLastWriteTimeUtc(filePath));
+            }
+        }, cancellationToken);
+
     private string ResolveWritableStorageRootPath()
         => MutableRuntimeStorage.ResolveWritableStorageRootPath(
             _configuration.LocalDataDirectoryName,
             _configuration.RuntimeDirectoryName,
-            _configuration.DemucsDirectoryName);
+            _configuration.DemucsDirectoryName,
+            ResolveStorageVersionDirectoryName());
 
     private string GetApplicationStorageRootPath() =>
         MutableRuntimeStorage.GetApplicationStorageRootPath(
             _configuration.RuntimeDirectoryName,
-            _configuration.DemucsDirectoryName);
+            _configuration.DemucsDirectoryName,
+            ResolveStorageVersionDirectoryName());
 
     private string GetFallbackStorageRootPath() =>
         MutableRuntimeStorage.GetLocalStorageRootPath(
             _configuration.LocalDataDirectoryName,
             _configuration.RuntimeDirectoryName,
-            _configuration.DemucsDirectoryName);
+            _configuration.DemucsDirectoryName,
+            ResolveStorageVersionDirectoryName());
 
     private string GetBundledRuntimeRootPath(DemucsRuntimeVariant runtimeVariant) =>
         Path.Combine(
@@ -439,6 +545,10 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
         exception is IOException or UnauthorizedAccessException &&
         !string.Equals(storageRootPath, GetFallbackStorageRootPath(), StringComparison.OrdinalIgnoreCase);
 
+    private bool ShouldPreferWritableStorageAssets(string storageRootPath) =>
+        MutableRuntimeStorage.HasPackageIdentity ||
+        !IsApplicationStorageRootPath(storageRootPath);
+
     private bool IsApplicationStorageRootPath(string storageRootPath) =>
         string.Equals(storageRootPath, GetApplicationStorageRootPath(), StringComparison.OrdinalIgnoreCase);
 
@@ -479,6 +589,14 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
             DemucsRuntimeVariant.DirectMl => "DirectML",
             _ => "CPU"
         };
+
+    private static string ResolveStorageVersionDirectoryName()
+    {
+        var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(4);
+        return string.IsNullOrWhiteSpace(version)
+            ? "Version-1.2604.5.0"
+            : $"Version-{version}";
+    }
 
     private string GetLocalizedText(string key, string fallback) =>
         _localizationService.GetString(key, fallback);

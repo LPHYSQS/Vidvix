@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Vidvix.Core.Models;
@@ -11,11 +12,14 @@ public partial class App : Application
 {
     private Window? _window;
     private AppCompositionRoot? _compositionRoot;
+    private DispatcherQueue? _uiDispatcherQueue;
+    private int _hasPendingRedirectedActivation;
 
     public App()
     {
         PreparePublishedRuntimeEnvironment();
         InitializeComponent();
+        Program.RegisterRedirectedActivationHandler(OnRedirectedActivationRequested);
         UnhandledException += OnUnhandledException;
     }
 
@@ -23,6 +27,7 @@ public partial class App : Application
     {
         var dispatcherQueue = DispatcherQueue.GetForCurrentThread()
             ?? throw new InvalidOperationException("当前线程缺少可用的界面调度队列。");
+        _uiDispatcherQueue = dispatcherQueue;
 
         _compositionRoot ??= new AppCompositionRoot(dispatcherQueue);
         _compositionRoot.Logger.Log(
@@ -45,6 +50,7 @@ public partial class App : Application
         }
 
         _window.Activate();
+        TryProcessPendingRedirectedActivation();
         _compositionRoot.Logger.Log(LogLevel.Info, "应用主窗口已激活。");
 
         try
@@ -61,6 +67,41 @@ public partial class App : Application
     private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
         _compositionRoot?.Logger.Log(LogLevel.Error, "应用发生未处理异常。", e.Exception);
+    }
+
+    private void OnRedirectedActivationRequested()
+    {
+        var dispatcherQueue = _uiDispatcherQueue;
+        if (dispatcherQueue is null || _window is not Views.MainWindow)
+        {
+            Interlocked.Exchange(ref _hasPendingRedirectedActivation, 1);
+            return;
+        }
+
+        if (!dispatcherQueue.TryEnqueue(() =>
+            {
+                if (_window is not Views.MainWindow mainWindow)
+                {
+                    Interlocked.Exchange(ref _hasPendingRedirectedActivation, 1);
+                    return;
+                }
+
+                mainWindow.RestoreAndActivate();
+                _compositionRoot?.Logger.Log(LogLevel.Info, "已处理重定向激活，恢复现有主窗口。");
+            }))
+        {
+            Interlocked.Exchange(ref _hasPendingRedirectedActivation, 1);
+        }
+    }
+
+    private void TryProcessPendingRedirectedActivation()
+    {
+        if (Interlocked.Exchange(ref _hasPendingRedirectedActivation, 0) == 0)
+        {
+            return;
+        }
+
+        OnRedirectedActivationRequested();
     }
 
     private static void PreparePublishedRuntimeEnvironment()

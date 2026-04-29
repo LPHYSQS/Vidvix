@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Windows.Input;
 using Microsoft.UI.Xaml;
 using Vidvix.Core.Interfaces;
@@ -10,7 +11,7 @@ namespace Vidvix.ViewModels;
 public sealed class AboutWorkspaceViewModel : ObservableObject
 {
     private const string ApplicationName = "Vidvix";
-    private const string ApplicationVersion = "1.2604.3.0";
+    private static readonly string ApplicationVersion = ResolveApplicationVersion();
     private const string ApplicationAuthor = "已逝情殇";
     private const string RepositoryUrl = "https://github.com/LPHYSQS/Vidvix";
     private const string AuthorEmail = "3261296352@qq.com";
@@ -614,6 +615,25 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
                 GetLocalizedText(noticeKey, noticeFallback)),
             GetLocalizedText("about.page.content.license.item.sourceLabel", "项目地址"),
             linkUrl);
+
+    private static string ResolveApplicationVersion()
+    {
+        var assembly = typeof(AboutWorkspaceViewModel).Assembly;
+        var version = assembly.GetName().Version;
+
+        if (version is not null)
+        {
+            return version.ToString(4);
+        }
+
+        var informationalVersion = assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+
+        return string.IsNullOrWhiteSpace(informationalVersion)
+            ? "Unknown"
+            : informationalVersion;
+    }
 
     private enum AboutSectionKind
     {

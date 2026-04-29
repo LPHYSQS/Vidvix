@@ -5,6 +5,7 @@ using Vidvix.Core.Interfaces;
 using Vidvix.Core.Models;
 using Vidvix.Services;
 using Vidvix.Services.AI;
+using Vidvix.Services.Demucs;
 using Vidvix.Services.FFmpeg;
 using Vidvix.Services.MediaInfo;
 using Vidvix.Services.VideoPreview;
@@ -53,15 +54,41 @@ void ValidateDemucsStartInfo(
     Directory.CreateDirectory(Path.GetDirectoryName(packageScriptPath)!);
     File.WriteAllText(packageScriptPath, "# demucs runner validation");
 
+    var demucsStorageRootPath = GetExpectedDemucsStorageRootPath(configuration, localValidationRootPath);
     var runtimeRootPath = Path.Combine(
-        localValidationRootPath,
-        configuration.DemucsDirectoryName,
+        demucsStorageRootPath,
         configuration.DemucsRuntimeDirectoryName);
     var pythonExecutablePath = Path.Combine(runtimeRootPath, configuration.DemucsPythonExecutableFileName);
-    var modelRepositoryPath = Path.Combine(localValidationRootPath, configuration.DemucsDirectoryName, configuration.DemucsModelsDirectoryName);
+    var modelRepositoryPath = Path.Combine(demucsStorageRootPath, configuration.DemucsModelsDirectoryName);
     Directory.CreateDirectory(runtimeRootPath);
     Directory.CreateDirectory(modelRepositoryPath);
     File.WriteAllText(pythonExecutablePath, "python");
+
+    var runtimeResolution = new DemucsRuntimeResolution
+    {
+        RuntimeVariant = DemucsRuntimeVariant.Cpu,
+        PythonExecutablePath = pythonExecutablePath,
+        RuntimeRootPath = runtimeRootPath,
+        ModelRepositoryPath = modelRepositoryPath,
+        WasExtracted = true
+    };
+    var planner = CreateUninitializedWithConfiguration<DemucsExecutionPlanner>(configuration);
+    var resolvedLauncherScriptPath = InvokePrivateInstanceMethod<string>(
+        planner,
+        "ResolveLauncherScriptPath",
+        runtimeResolution);
+    var expectedLauncherScriptPath = Path.Combine(
+        demucsStorageRootPath,
+        configuration.DemucsScriptsDirectoryName,
+        configuration.DemucsRunnerScriptFileName);
+
+    AssertPathEquals(
+        expectedLauncherScriptPath,
+        resolvedLauncherScriptPath,
+        "Demucs should stage the launcher script into the writable runtime storage root for Store-like execution.");
+    AssertPathExists(
+        resolvedLauncherScriptPath,
+        "Demucs staged launcher script should exist in the writable runtime storage root.");
 
     var executionPlan = new DemucsExecutionPlan
     {
@@ -69,7 +96,7 @@ void ValidateDemucsStartInfo(
         SelectedDeviceKind = DemucsExecutionDeviceKind.Cpu,
         DeviceDisplayName = "CPU",
         DeviceArgument = "cpu",
-        LauncherScriptPath = packageScriptPath,
+        LauncherScriptPath = resolvedLauncherScriptPath,
         ResolutionSummary = "validation",
         RuntimeResolution = new DemucsRuntimeResolution
         {
@@ -91,8 +118,26 @@ void ValidateDemucsStartInfo(
 
     AssertPathEquals(pythonExecutablePath, startInfo.FileName, "Demucs should launch the extracted python runtime path.");
     AssertPathEquals(runtimeRootPath, startInfo.WorkingDirectory!, "Demucs should run with the extracted runtime root as working directory.");
-    AssertPathEquals(packageScriptPath, startInfo.ArgumentList[0], "Demucs should still use the packaged launcher script path.");
+    AssertPathEquals(resolvedLauncherScriptPath, startInfo.ArgumentList[0], "Demucs should use the staged writable launcher script path.");
     AssertContainsPath(startInfo.ArgumentList, modelRepositoryPath, "Demucs should pass the resolved model repository path.");
+    AssertContains(startInfo.ArgumentList, "-j", "Demucs should explicitly force single-job execution for stable Store-compatible behavior.");
+    AssertContains(startInfo.ArgumentList, "0", "Demucs should explicitly force the default single-job worker setting.");
+    AssertPathEquals(
+        Path.Combine(demucsStorageRootPath, "PyCache"),
+        startInfo.Environment["PYTHONPYCACHEPREFIX"]!,
+        "Demucs should redirect Python bytecode cache into the writable runtime storage root.");
+    AssertPathEquals(
+        Path.Combine(demucsStorageRootPath, "TorchCache"),
+        startInfo.Environment["TORCH_HOME"]!,
+        "Demucs should redirect Torch cache into the writable runtime storage root.");
+    AssertPathEquals(
+        Path.Combine(demucsStorageRootPath, "Temp"),
+        startInfo.Environment["TEMP"]!,
+        "Demucs should redirect TEMP into the writable runtime storage root.");
+    AssertPathEquals(
+        Path.Combine(demucsStorageRootPath, "Temp"),
+        startInfo.Environment["TMP"]!,
+        "Demucs should redirect TMP into the writable runtime storage root.");
 }
 
 void ValidateFfmpegResolution(
@@ -359,6 +404,14 @@ void AssertStartsWith(string expectedRootPath, string actualPath, string message
     }
 }
 
+void AssertContains(IEnumerable<string> values, string expectedValue, string message)
+{
+    if (!values.Contains(expectedValue, StringComparer.Ordinal))
+    {
+        throw new InvalidOperationException($"{message}{Environment.NewLine}Expected to find: {expectedValue}");
+    }
+}
+
 void AssertContainsPath(IEnumerable<string> arguments, string expectedPath, string message)
 {
     foreach (var argument in arguments)
@@ -381,6 +434,19 @@ void AssertPathExists(string path, string message)
     {
         throw new FileNotFoundException(message, path);
     }
+}
+
+string GetExpectedDemucsStorageRootPath(ApplicationConfiguration configuration, string localValidationRootPath)
+{
+    var assembly = typeof(DemucsRuntimeService).Assembly;
+    var version = assembly.GetName().Version?.ToString(4)
+        ?? assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        ?? throw new InvalidOperationException("Demucs runtime assembly version is unavailable.");
+
+    return Path.Combine(
+        localValidationRootPath,
+        configuration.DemucsDirectoryName,
+        $"Version-{version}");
 }
 
 void TryDeleteDirectory(string directoryPath)

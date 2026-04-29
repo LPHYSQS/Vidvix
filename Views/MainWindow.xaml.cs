@@ -45,6 +45,8 @@ public sealed partial class MainWindow : Window
     private readonly ISystemTrayService _systemTrayService;
     private readonly IUserPreferencesService _userPreferencesService;
     private readonly IntPtr _windowHandle;
+    private readonly DispatcherQueue _dispatcherQueue;
+    private readonly TrayNativeMethods.SubclassProc _windowCloseSubclassProc;
     private readonly Storyboard _showDetailOverlayStoryboard;
     private readonly Storyboard _hideDetailOverlayStoryboard;
     private readonly Storyboard _showCopyToastStoryboard;
@@ -71,14 +73,15 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         ApplyLocalizedWindowText();
         _windowHandle = WindowNative.GetWindowHandle(this);
+        _windowCloseSubclassProc = OnWindowCloseSubclassProc;
         _appWindow = GetAppWindow();
         _showDetailOverlayStoryboard = CreateDetailOverlayStoryboard(isShowing: true);
         _hideDetailOverlayStoryboard = CreateDetailOverlayStoryboard(isShowing: false);
         _showCopyToastStoryboard = CreateCopyToastStoryboard(isShowing: true);
         _hideCopyToastStoryboard = CreateCopyToastStoryboard(isShowing: false);
-        var dispatcherQueue = DispatcherQueue.GetForCurrentThread()
+        _dispatcherQueue = DispatcherQueue.GetForCurrentThread()
             ?? throw new InvalidOperationException("未找到当前窗口线程的调度队列。");
-        _copyToastTimer = dispatcherQueue.CreateTimer();
+        _copyToastTimer = _dispatcherQueue.CreateTimer();
         _copyToastTimer.Interval = TimeSpan.FromSeconds(1.6);
         _copyToastTimer.IsRepeating = false;
         ConfigureWindowConstraints();
@@ -93,6 +96,7 @@ public sealed partial class MainWindow : Window
         _hideDetailOverlayStoryboard.Completed += OnHideDetailOverlayCompleted;
         _hideCopyToastStoryboard.Completed += OnHideCopyToastCompleted;
         _copyToastTimer.Tick += OnCopyToastTimerTick;
+        InstallCloseMessageHook();
         InitializeSystemTray();
         Closed += OnClosed;
     }
@@ -101,7 +105,13 @@ public sealed partial class MainWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
+        if (!_isExitRequested && ShouldEnableSystemTray())
+        {
+            return;
+        }
+
         SaveWindowPlacement();
+        RemoveCloseMessageHook();
         _appWindow.Closing -= OnAppWindowClosing;
         _appWindow.Changed -= OnAppWindowChanged;
         RootLayout.ActualThemeChanged -= OnRootLayoutActualThemeChanged;

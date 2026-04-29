@@ -393,13 +393,16 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
         await Task.WhenAll(standardOutputClosed.Task, standardErrorClosed.Task).ConfigureAwait(false);
 
-        if (process.ExitCode != 0)
+        var exitCode = TryGetProcessExitCode(process, out var exitCodeException);
+        if (exitCode != 0)
         {
             throw new LocalizedInvalidOperationException(
                 () => CreateDemucsFailureMessage(
-                    process.ExitCode,
+                    exitCode,
                     standardOutputBuilder.ToString(),
-                    standardErrorBuilder.ToString()));
+                    standardErrorBuilder.ToString(),
+                    exitCodeException),
+                exitCodeException);
         }
 
         ReportProgress(
@@ -476,6 +479,10 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         string demucsOutputRootPath)
     {
         var demucsRuntime = executionPlan.RuntimeResolution;
+        var demucsStorageRootPath = ResolveDemucsStorageRootPath(demucsRuntime.RuntimeRootPath);
+        var pythonCacheRootPath = EnsureDirectoryExists(Path.Combine(demucsStorageRootPath, "PyCache"));
+        var torchCacheRootPath = EnsureDirectoryExists(Path.Combine(demucsStorageRootPath, "TorchCache"));
+        var temporaryRootPath = EnsureDirectoryExists(Path.Combine(demucsStorageRootPath, "Temp"));
         var startInfo = new ProcessStartInfo
         {
             FileName = demucsRuntime.PythonExecutablePath,
@@ -489,6 +496,12 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         };
 
         startInfo.Environment["PYTHONUTF8"] = "1";
+        startInfo.Environment["PYTHONDONTWRITEBYTECODE"] = "1";
+        startInfo.Environment["PYTHONPYCACHEPREFIX"] = pythonCacheRootPath;
+        startInfo.Environment["TORCH_HOME"] = torchCacheRootPath;
+        startInfo.Environment["TEMP"] = temporaryRootPath;
+        startInfo.Environment["TMP"] = temporaryRootPath;
+        startInfo.Environment["TMPDIR"] = temporaryRootPath;
         startInfo.ArgumentList.Add(executionPlan.LauncherScriptPath);
         startInfo.ArgumentList.Add("separate");
         startInfo.ArgumentList.Add("--");
@@ -500,8 +513,24 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         startInfo.ArgumentList.Add(demucsOutputRootPath);
         startInfo.ArgumentList.Add("-d");
         startInfo.ArgumentList.Add(executionPlan.DeviceArgument);
+        startInfo.ArgumentList.Add("-j");
+        startInfo.ArgumentList.Add("0");
         startInfo.ArgumentList.Add(normalizedInputPath);
         return startInfo;
+    }
+
+    private static string ResolveDemucsStorageRootPath(string runtimeRootPath)
+    {
+        var parentDirectoryPath = Path.GetDirectoryName(runtimeRootPath);
+        return string.IsNullOrWhiteSpace(parentDirectoryPath)
+            ? runtimeRootPath
+            : parentDirectoryPath;
+    }
+
+    private static string EnsureDirectoryExists(string directoryPath)
+    {
+        Directory.CreateDirectory(directoryPath);
+        return directoryPath;
     }
 
     private void TryReportDemucsProgress(IProgress<AudioSeparationProgress>? progress, string line)
@@ -703,22 +732,40 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
             () => $"{failureTitleResolver()}{ExtractFriendlyFailureMessage(result)}");
     }
 
-    private string CreateDemucsFailureMessage(int exitCode, string standardOutput, string standardError)
+    private string CreateDemucsFailureMessage(
+        int? exitCode,
+        string standardOutput,
+        string standardError,
+        Exception? exitCodeException = null)
     {
         var outputLines = (standardError + Environment.NewLine + standardOutput)
             .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         var lastMeaningfulLine = outputLines.LastOrDefault();
-        return string.IsNullOrWhiteSpace(lastMeaningfulLine)
-            ? FormatLocalizedText(
-                "splitAudio.error.demucsFailure.exitCode",
-                "Demucs 执行失败，退出代码：{exitCode}。",
-                ("exitCode", exitCode))
-            : FormatLocalizedText(
-                "splitAudio.error.demucsFailure.exitCodeWithDetail",
-                "Demucs 执行失败，退出代码：{exitCode}。{detail}",
-                ("exitCode", exitCode),
-                ("detail", lastMeaningfulLine));
+        if (exitCode is int resolvedExitCode)
+        {
+            return string.IsNullOrWhiteSpace(lastMeaningfulLine)
+                ? FormatLocalizedText(
+                    "splitAudio.error.demucsFailure.exitCode",
+                    "Demucs 执行失败，退出代码：{exitCode}。",
+                    ("exitCode", resolvedExitCode))
+                : FormatLocalizedText(
+                    "splitAudio.error.demucsFailure.exitCodeWithDetail",
+                    "Demucs 执行失败，退出代码：{exitCode}。{detail}",
+                    ("exitCode", resolvedExitCode),
+                    ("detail", lastMeaningfulLine));
+        }
+
+        var fallbackDetail = !string.IsNullOrWhiteSpace(lastMeaningfulLine)
+            ? lastMeaningfulLine
+            : exitCodeException?.Message ?? GetLocalizedText(
+                "splitAudio.error.demucsFailure.noDetail",
+                "Demucs 未返回可用的错误信息。");
+
+        return FormatLocalizedText(
+            "splitAudio.error.demucsFailure.exitCodeUnavailable",
+            "Demucs 进程异常终止，未能读取退出代码。{detail}",
+            ("detail", fallbackDetail));
     }
 
     private string ExtractFriendlyFailureMessage(FFmpegExecutionResult result)
@@ -828,6 +875,20 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         }
         catch
         {
+        }
+    }
+
+    private static int? TryGetProcessExitCode(Process process, out Exception? exception)
+    {
+        try
+        {
+            exception = null;
+            return process.ExitCode;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
+        {
+            exception = ex;
+            return null;
         }
     }
 }
