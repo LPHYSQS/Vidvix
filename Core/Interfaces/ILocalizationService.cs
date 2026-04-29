@@ -12,6 +12,8 @@ public interface ILocalizationService
 
     string CurrentLanguage { get; }
 
+    string CurrentLanguagePreference { get; }
+
     string FallbackLanguage { get; }
 
     IReadOnlyList<LocalizationLanguageOption> AvailableLanguages { get; }

@@ -17,7 +17,7 @@
   "settings.desktopShortcut.status.failed": "Couldn't create the desktop shortcut. Please try again later.",
   "settings.desktopShortcut.title": "Desktop shortcut",
   "settings.language.label": "Display language",
-  "settings.language.description": "Changes refresh the current window immediately without restarting.",
+  "settings.language.description": "Changes refresh the current window immediately without restarting. Follow system matches English, Simplified Chinese, or Traditional Chinese, and falls back to Simplified Chinese for other system languages.",
   "settings.language.currentValue": "Current language: {language}",
   "settings.pane.description": "Manage app-level preferences here without taking over the main workspace. Scope details for processing completion behavior and transcoding are shown in the nearby tooltips.",
   "settings.pane.title": "App settings",

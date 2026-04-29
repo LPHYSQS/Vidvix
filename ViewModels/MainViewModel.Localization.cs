@@ -27,7 +27,7 @@ public sealed partial class MainViewModel
     public string SelectedLanguageCode
     {
         get => string.IsNullOrWhiteSpace(_selectedLanguageCode)
-            ? ResolveLanguageOption(_localizationService.CurrentLanguage).Code
+            ? ResolveLanguageOption(_localizationService.CurrentLanguagePreference).Code
             : _selectedLanguageCode;
         set
         {
@@ -84,13 +84,15 @@ public sealed partial class MainViewModel
         GetLocalizedText("settings.language.label", "界面语言");
 
     public string SettingsLanguageDescriptionText =>
-        GetLocalizedText("settings.language.description", "切换后当前窗口会即时刷新，无需重新启动。");
+        GetLocalizedText(
+            "settings.language.description",
+            "切换后当前窗口会即时刷新，无需重新启动。跟随系统会自动匹配英语、简体中文或繁体中文，其他系统语言会回退到简体中文。");
 
     public string CurrentLanguageDisplayText =>
         FormatLocalizedText(
             "settings.language.currentValue",
-            $"当前语言：{GetLanguageDisplayName(SelectedLanguageCode)}",
-            ("language", GetLanguageDisplayName(SelectedLanguageCode)));
+            $"当前语言：{GetLanguageDisplayName(_localizationService.CurrentLanguage)}",
+            ("language", GetLanguageDisplayName(_localizationService.CurrentLanguage)));
 
     public string CommonToggleOnText =>
         GetLocalizedText("common.toggle.on", "开启");
@@ -154,10 +156,10 @@ public sealed partial class MainViewModel
     }
 
     private void SynchronizeLocalizationStateWithService() =>
-        ApplyLocalizationState(_localizationService.CurrentLanguage);
+        ApplyLocalizationState(_localizationService.CurrentLanguagePreference);
 
     private void OnLocalizationLanguageChanged(object? sender, EventArgs args) =>
-        _dispatcherService.TryEnqueue(() => ApplyLocalizationState(_localizationService.CurrentLanguage));
+        _dispatcherService.TryEnqueue(() => ApplyLocalizationState(_localizationService.CurrentLanguagePreference));
 
     private void ApplyLocalizationState(string? languageCode)
     {
@@ -273,11 +275,20 @@ public sealed partial class MainViewModel
             .ToArray();
 
     private IReadOnlyList<LocalizationLanguageOption> BuildLanguageOptions() =>
-        _localizationService.AvailableLanguages
-            .Select(option => new LocalizationLanguageOption(
-                option.Code,
-                GetLanguageDisplayName(option.Code, option.NativeDisplayName, option.DisplayName),
-                option.NativeDisplayName))
+        new[]
+        {
+            new LocalizationLanguageOption(
+                UserPreferences.SystemUiLanguagePreferenceCode,
+                GetLocalizedText("common.language.option.system", "跟随系统"),
+                GetLocalizedText("common.language.option.system", "跟随系统"))
+        }
+            .Concat(_localizationService.AvailableLanguages
+                .Select(option => new LocalizationLanguageOption(
+                    option.Code,
+                    GetLanguageDisplayName(option.Code, option.NativeDisplayName, option.DisplayName),
+                    option.NativeDisplayName)))
+            .GroupBy(option => option.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
             .ToArray();
 
     private ThemePreferenceOption ResolveThemePreference(ThemePreference themePreference) =>

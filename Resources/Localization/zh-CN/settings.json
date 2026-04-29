@@ -17,7 +17,7 @@
   "settings.desktopShortcut.status.failed": "创建桌面快捷方式失败，请稍后重试。",
   "settings.desktopShortcut.title": "桌面快捷方式",
   "settings.language.label": "界面语言",
-  "settings.language.description": "切换后当前窗口会即时刷新，无需重新启动。",
+  "settings.language.description": "切换后当前窗口会即时刷新，无需重新启动。跟随系统会自动匹配英语、简体中文或繁体中文，其他系统语言会回退到简体中文。",
   "settings.language.currentValue": "当前语言：{language}",
   "settings.pane.description": "应用级偏好统一集中在这里管理，不占用主处理区域；不同模块对处理完成行为和转码方式的生效范围可查看标题旁的说明提示。",
   "settings.pane.title": "应用设置",

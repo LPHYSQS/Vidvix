@@ -8,6 +8,11 @@
       "nativeDisplayName": "简体中文"
     },
     {
+      "code": "zh-TW",
+      "displayName": "Traditional Chinese",
+      "nativeDisplayName": "繁體中文"
+    },
+    {
       "code": "en-US",
       "displayName": "English (United States)",
       "nativeDisplayName": "English (United States)"

@@ -67,12 +67,15 @@ public sealed class LocalizationService : ILocalizationService
         _currentResources = new Dictionary<string, string>(StringComparer.Ordinal);
         _availableLanguages = BuildAvailableLanguages(_manifest);
         CurrentLanguage = _configuration.FallbackUiLanguage;
+        CurrentLanguagePreference = UserPreferences.SystemUiLanguagePreferenceCode;
         FallbackLanguage = _configuration.FallbackUiLanguage;
     }
 
     public event EventHandler? LanguageChanged;
 
     public string CurrentLanguage { get; private set; }
+
+    public string CurrentLanguagePreference { get; private set; }
 
     public string FallbackLanguage { get; private set; }
 
@@ -111,13 +114,15 @@ public sealed class LocalizationService : ILocalizationService
         {
             await InitializeCoreAsync(cancellationToken);
 
-            var targetLanguage = ResolveSupportedLanguageOrFallback(languageCode);
+            var targetLanguagePreference = ResolveLanguagePreference(languageCode);
+            var targetLanguage = ResolveLanguageFromPreference(targetLanguagePreference);
             var targetResources = await GetOrLoadLanguageResourcesAsync(targetLanguage, cancellationToken);
             shouldRaiseLanguageChanged = !string.Equals(CurrentLanguage, targetLanguage, StringComparison.OrdinalIgnoreCase);
 
             CurrentLanguage = targetLanguage;
+            CurrentLanguagePreference = targetLanguagePreference;
             _currentResources = targetResources;
-            PersistLanguagePreference(targetLanguage);
+            PersistLanguagePreference(targetLanguagePreference);
         }
         catch (OperationCanceledException)
         {
@@ -217,9 +222,10 @@ public sealed class LocalizationService : ILocalizationService
         FallbackLanguage = NormalizeLanguageCode(_manifest.FallbackLanguage) ?? _configuration.FallbackUiLanguage;
         _fallbackResources = await GetOrLoadLanguageResourcesAsync(FallbackLanguage, cancellationToken);
 
-        var preferredLanguage = _userPreferencesService.Load().CurrentUiLanguage;
-        var targetLanguage = ResolveSupportedLanguageOrFallback(preferredLanguage);
+        var preferredLanguage = ResolveLanguagePreference(_userPreferencesService.Load().CurrentUiLanguage);
+        var targetLanguage = ResolveLanguageFromPreference(preferredLanguage);
         _currentResources = await GetOrLoadLanguageResourcesAsync(targetLanguage, cancellationToken);
+        CurrentLanguagePreference = preferredLanguage;
         CurrentLanguage = targetLanguage;
         _isInitialized = true;
     }
@@ -230,6 +236,7 @@ public sealed class LocalizationService : ILocalizationService
         _availableLanguages = BuildAvailableLanguages(_manifest);
         FallbackLanguage = _configuration.FallbackUiLanguage;
         CurrentLanguage = _configuration.FallbackUiLanguage;
+        CurrentLanguagePreference = UserPreferences.SystemUiLanguagePreferenceCode;
         _fallbackResources = new Dictionary<string, string>(StringComparer.Ordinal);
         _currentResources = _fallbackResources;
         _isInitialized = true;
@@ -337,8 +344,13 @@ public sealed class LocalizationService : ILocalizationService
         return resources;
     }
 
-    private string ResolveSupportedLanguageOrFallback(string? languageCode)
+    private string ResolveLanguagePreference(string? languageCode)
     {
+        if (IsSystemLanguagePreference(languageCode))
+        {
+            return UserPreferences.SystemUiLanguagePreferenceCode;
+        }
+
         var normalizedLanguageCode = NormalizeLanguageCode(languageCode);
         if (normalizedLanguageCode is not null &&
             _availableLanguages.Any(option => string.Equals(option.Code, normalizedLanguageCode, StringComparison.OrdinalIgnoreCase)))
@@ -354,11 +366,65 @@ public sealed class LocalizationService : ILocalizationService
         return FallbackLanguage;
     }
 
-    private void PersistLanguagePreference(string languageCode)
+    private string ResolveLanguageFromPreference(string languagePreference) =>
+        IsSystemLanguagePreference(languagePreference)
+            ? ResolveSystemLanguageOrFallback()
+            : ResolveSupportedLanguageOrFallback(languagePreference);
+
+    private string ResolveSupportedLanguageOrFallback(string? languageCode)
+    {
+        var normalizedLanguageCode = NormalizeLanguageCode(languageCode);
+        if (normalizedLanguageCode is null)
+        {
+            return FallbackLanguage;
+        }
+
+        return _availableLanguages.FirstOrDefault(option =>
+                   string.Equals(option.Code, normalizedLanguageCode, StringComparison.OrdinalIgnoreCase))
+               ?.Code
+               ?? FallbackLanguage;
+    }
+
+    private string ResolveSystemLanguageOrFallback()
+    {
+        var normalizedSystemLanguage = NormalizeLanguageCode(CultureInfo.CurrentUICulture.Name)?.ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedSystemLanguage))
+        {
+            return FallbackLanguage;
+        }
+
+        if (normalizedSystemLanguage.StartsWith("en", StringComparison.Ordinal))
+        {
+            return ResolveSupportedLanguageOrFallback(_configuration.SecondaryUiLanguage);
+        }
+
+        if (normalizedSystemLanguage.StartsWith("zh", StringComparison.Ordinal))
+        {
+            if (normalizedSystemLanguage.Contains("hant", StringComparison.Ordinal) ||
+                normalizedSystemLanguage.StartsWith("zh-tw", StringComparison.Ordinal) ||
+                normalizedSystemLanguage.StartsWith("zh-hk", StringComparison.Ordinal) ||
+                normalizedSystemLanguage.StartsWith("zh-mo", StringComparison.Ordinal))
+            {
+                return ResolveSupportedLanguageOrFallback("zh-TW");
+            }
+
+            if (normalizedSystemLanguage == "zh" ||
+                normalizedSystemLanguage.Contains("hans", StringComparison.Ordinal) ||
+                normalizedSystemLanguage.StartsWith("zh-cn", StringComparison.Ordinal) ||
+                normalizedSystemLanguage.StartsWith("zh-sg", StringComparison.Ordinal))
+            {
+                return ResolveSupportedLanguageOrFallback(_configuration.FallbackUiLanguage);
+            }
+        }
+
+        return FallbackLanguage;
+    }
+
+    private void PersistLanguagePreference(string languagePreference)
     {
         _userPreferencesService.Update(existingPreferences => existingPreferences with
         {
-            CurrentUiLanguage = languageCode
+            CurrentUiLanguage = languagePreference
         });
     }
 
@@ -457,6 +523,12 @@ public sealed class LocalizationService : ILocalizationService
                 },
                 new LocalizationManifestLanguage
                 {
+                    Code = "zh-TW",
+                    DisplayName = "Traditional Chinese",
+                    NativeDisplayName = "繁體中文"
+                },
+                new LocalizationManifestLanguage
+                {
                     Code = _configuration.SecondaryUiLanguage,
                     DisplayName = "English (United States)",
                     NativeDisplayName = "English (United States)"
@@ -468,6 +540,13 @@ public sealed class LocalizationService : ILocalizationService
         string.IsNullOrWhiteSpace(languageCode)
             ? null
             : languageCode.Trim();
+
+    private static bool IsSystemLanguagePreference(string? languageCode) =>
+        string.IsNullOrWhiteSpace(languageCode) ||
+        string.Equals(
+            languageCode.Trim(),
+            UserPreferences.SystemUiLanguagePreferenceCode,
+            StringComparison.OrdinalIgnoreCase);
 
     private sealed class LocalizationManifest
     {

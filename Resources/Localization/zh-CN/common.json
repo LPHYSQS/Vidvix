@@ -1,7 +1,9 @@
 ﻿{
   "common.action.applicationSettings": "应用设置",
   "common.action.close": "关闭",
+  "common.language.option.system": "跟随系统",
   "common.language.option.zh-cn": "简体中文",
+  "common.language.option.zh-tw": "繁体中文",
   "common.language.option.en-us": "English (United States)",
   "common.toggle.off": "关闭",
   "common.toggle.on": "开启",

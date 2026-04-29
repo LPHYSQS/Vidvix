@@ -2,6 +2,8 @@
 
 public sealed record UserPreferences
 {
+    public const string SystemUiLanguagePreferenceCode = "system";
+
     public ProcessingWorkspaceKind PreferredWorkspaceKind { get; init; } = ProcessingWorkspaceKind.Video;
 
     public ProcessingMode? PreferredProcessingMode { get; init; }
@@ -84,7 +86,7 @@ public sealed record UserPreferences
 
     public ThemePreference ThemePreference { get; init; } = ThemePreference.Dark;
 
-    public string CurrentUiLanguage { get; init; } = "zh-CN";
+    public string CurrentUiLanguage { get; init; } = SystemUiLanguagePreferenceCode;
 
     public bool RevealOutputFileAfterProcessing { get; init; } = true;
 
