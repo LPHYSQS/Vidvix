@@ -334,18 +334,40 @@ public sealed partial class MainViewModel
         string? preferredFallback = null,
         string? secondaryFallback = null)
     {
-        var keySegment = NormalizeLanguageKeySegment(languageCode);
+        if (string.Equals(
+                languageCode,
+                UserPreferences.SystemUiLanguagePreferenceCode,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            var systemFallback = !string.IsNullOrWhiteSpace(preferredFallback)
+                ? preferredFallback
+                : secondaryFallback ?? "跟随系统";
+
+            return GetLocalizedText("common.language.option.system", systemFallback);
+        }
+
+        var stableOption = _localizationService.AvailableLanguages.FirstOrDefault(option =>
+            string.Equals(option.Code, languageCode, StringComparison.OrdinalIgnoreCase));
+
+        if (stableOption is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(stableOption.NativeDisplayName))
+            {
+                return stableOption.NativeDisplayName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(stableOption.DisplayName))
+            {
+                return stableOption.DisplayName;
+            }
+        }
+
         var fallback = !string.IsNullOrWhiteSpace(preferredFallback)
             ? preferredFallback
             : secondaryFallback ?? languageCode ?? _localizationService.FallbackLanguage;
 
-        return GetLocalizedText($"common.language.option.{keySegment}", fallback);
+        return fallback;
     }
-
-    private static string NormalizeLanguageKeySegment(string? languageCode) =>
-        string.IsNullOrWhiteSpace(languageCode)
-            ? "unknown"
-            : languageCode.Trim().ToLowerInvariant().Replace('_', '-');
 
     private void RefreshLocalizedTextProperties()
     {
