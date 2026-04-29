@@ -53,6 +53,7 @@ public sealed partial class AboutPage : Page
             : defaultStyle;
 
         AboutSectionRadioButton.Style = targetStyle;
+        UpdateLogSectionRadioButton.Style = targetStyle;
         LicenseSectionRadioButton.Style = targetStyle;
         PrivacySectionRadioButton.Style = targetStyle;
     }

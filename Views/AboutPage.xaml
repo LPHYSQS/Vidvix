@@ -257,6 +257,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
             <RadioButton
@@ -275,8 +276,24 @@
             </RadioButton>
 
             <RadioButton
-                x:Name="LicenseSectionRadioButton"
+                x:Name="UpdateLogSectionRadioButton"
                 Grid.Column="1"
+                Command="{x:Bind ViewModel.SelectUpdateLogSectionCommand, Mode=OneWay}"
+                GroupName="AboutSections"
+                IsChecked="{x:Bind ViewModel.IsUpdateLogSectionSelected, Mode=OneWay}"
+                Style="{StaticResource DefaultAboutSectionRadioButtonStyle}">
+                <TextBlock
+                    FontSize="18"
+                    FontWeight="SemiBold"
+                    Text="{x:Bind ViewModel.UpdateLogSectionTabText, Mode=OneWay}"
+                    TextAlignment="Center"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="WrapWholeWords" />
+            </RadioButton>
+
+            <RadioButton
+                x:Name="LicenseSectionRadioButton"
+                Grid.Column="2"
                 Command="{x:Bind ViewModel.SelectLicenseSectionCommand, Mode=OneWay}"
                 GroupName="AboutSections"
                 IsChecked="{x:Bind ViewModel.IsLicenseSectionSelected, Mode=OneWay}"
@@ -292,7 +309,7 @@
 
             <RadioButton
                 x:Name="PrivacySectionRadioButton"
-                Grid.Column="2"
+                Grid.Column="3"
                 Command="{x:Bind ViewModel.SelectPrivacySectionCommand, Mode=OneWay}"
                 GroupName="AboutSections"
                 IsChecked="{x:Bind ViewModel.IsPrivacySectionSelected, Mode=OneWay}"
@@ -548,6 +565,50 @@
                                 <ItemsControl
                                     ItemTemplate="{StaticResource AboutOpenSourceItemTemplate}"
                                     ItemsSource="{x:Bind ViewModel.OpenSourceItems, Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel
+                        Spacing="26"
+                        VerticalAlignment="Top"
+                        Visibility="{x:Bind ViewModel.UpdateLogDetailsVisibility, Mode=OneWay}">
+                        <Border Style="{StaticResource AboutInsetCardStyle}">
+                            <StackPanel Spacing="18">
+                                <StackPanel
+                                    HorizontalAlignment="Left"
+                                    MaxWidth="980"
+                                    Spacing="10">
+                                    <TextBlock
+                                        Style="{StaticResource CaptionTextStyle}"
+                                        TextAlignment="Left"
+                                        Text="{x:Bind ViewModel.UpdateLogSummaryLabelText, Mode=OneWay}" />
+                                    <TextBlock
+                                        FontSize="28"
+                                        FontWeight="SemiBold"
+                                        TextAlignment="Left"
+                                        Text="{x:Bind ViewModel.UpdateLogSummaryTitleText, Mode=OneWay}"
+                                        TextWrapping="WrapWholeWords" />
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionBodyTextStyle}"
+                                        Text="{x:Bind ViewModel.UpdateLogSummaryDescriptionText, Mode=OneWay}" />
+                                </StackPanel>
+
+                                <StackPanel
+                                    HorizontalAlignment="Left"
+                                    MaxWidth="980"
+                                    Spacing="6">
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionTitleTextStyle}"
+                                        Text="{x:Bind ViewModel.UpdateLogSectionTitleText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Style="{StaticResource AboutSectionBodyTextStyle}"
+                                        Text="{x:Bind ViewModel.UpdateLogSectionDescriptionText, Mode=OneWay}" />
+                                </StackPanel>
+
+                                <ItemsControl
+                                    ItemTemplate="{StaticResource AboutSummaryItemTemplate}"
+                                    ItemsSource="{x:Bind ViewModel.UpdateLogItems, Mode=OneWay}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

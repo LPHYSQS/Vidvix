@@ -29,6 +29,7 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
 
     private readonly ILocalizationService? _localizationService;
     private readonly RelayCommand _selectAboutSectionCommand;
+    private readonly RelayCommand _selectUpdateLogSectionCommand;
     private readonly RelayCommand _selectLicenseSectionCommand;
     private readonly RelayCommand _selectPrivacySectionCommand;
     private AboutSectionKind _selectedSection = AboutSectionKind.About;
@@ -42,11 +43,14 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
     {
         _localizationService = localizationService;
         _selectAboutSectionCommand = new RelayCommand(() => SelectSection(AboutSectionKind.About));
+        _selectUpdateLogSectionCommand = new RelayCommand(() => SelectSection(AboutSectionKind.UpdateLog));
         _selectLicenseSectionCommand = new RelayCommand(() => SelectSection(AboutSectionKind.License));
         _selectPrivacySectionCommand = new RelayCommand(() => SelectSection(AboutSectionKind.Privacy));
     }
 
     public ICommand SelectAboutSectionCommand => _selectAboutSectionCommand;
+
+    public ICommand SelectUpdateLogSectionCommand => _selectUpdateLogSectionCommand;
 
     public ICommand SelectLicenseSectionCommand => _selectLicenseSectionCommand;
 
@@ -54,12 +58,17 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
 
     public bool IsAboutSectionSelected => _selectedSection == AboutSectionKind.About;
 
+    public bool IsUpdateLogSectionSelected => _selectedSection == AboutSectionKind.UpdateLog;
+
     public bool IsLicenseSectionSelected => _selectedSection == AboutSectionKind.License;
 
     public bool IsPrivacySectionSelected => _selectedSection == AboutSectionKind.Privacy;
 
     public Visibility AboutDetailsVisibility =>
         _selectedSection == AboutSectionKind.About ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility UpdateLogDetailsVisibility =>
+        _selectedSection == AboutSectionKind.UpdateLog ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility LicenseDetailsVisibility =>
         _selectedSection == AboutSectionKind.License ? Visibility.Visible : Visibility.Collapsed;
@@ -70,6 +79,9 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
     public string AboutSectionTabText =>
         GetLocalizedText("about.page.tab.about", "关于");
 
+    public string UpdateLogSectionTabText =>
+        GetLocalizedText("about.page.tab.changelog", "更新日志");
+
     public string LicenseSectionTabText =>
         GetLocalizedText("about.page.tab.license", "许可证");
 
@@ -78,6 +90,7 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
 
     public string SelectedSectionTitleText => _selectedSection switch
     {
+        AboutSectionKind.UpdateLog => GetLocalizedText("about.page.content.changelog.title", "更新日志"),
         AboutSectionKind.License => GetLocalizedText("about.page.content.license.title", "许可证"),
         AboutSectionKind.Privacy => GetLocalizedText("about.page.content.privacy.title", "隐私"),
         _ => GetLocalizedText("about.page.content.about.title", "关于")
@@ -85,6 +98,9 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
 
     public string SelectedSectionDescriptionText => _selectedSection switch
     {
+        AboutSectionKind.UpdateLog => GetLocalizedText(
+            "about.page.content.changelog.description",
+            "查看当前版本聚焦启动稳定性与多语言体验的更新内容。"),
         AboutSectionKind.License => GetLocalizedText(
             "about.page.content.license.description",
             "查看 Vidvix 本体、第三方组件与离线运行时资产的许可证信息。"),
@@ -215,6 +231,44 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
             "about.page.content.about.openSource.item.realesrgan.description",
             "为 AI 增强工作流提供离线超分与增强运行时支持。",
             RealEsrganRuntimeProjectUrl)
+    };
+
+    public string UpdateLogSummaryLabelText =>
+        GetLocalizedText("about.page.content.changelog.summary.label", "本次更新");
+
+    public string UpdateLogSummaryTitleText =>
+        GetLocalizedText("about.page.content.changelog.summary.title", "当前版本更新日志");
+
+    public string UpdateLogSummaryDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.changelog.summary.description",
+            "本次版本聚焦启动唤起稳定性与多语言体验完善，重点优化应用单实例行为，并扩展界面语言配置选项。");
+
+    public string UpdateLogSectionTitleText =>
+        GetLocalizedText("about.page.content.changelog.details.title", "更新内容");
+
+    public string UpdateLogSectionDescriptionText =>
+        GetLocalizedText(
+            "about.page.content.changelog.details.description",
+            "以下内容概述了当前版本在启动行为与界面语言体验方面的主要更新。");
+
+    public IReadOnlyList<AboutSummaryItem> UpdateLogItems => new[]
+    {
+        CreateSummaryItem(
+            "about.page.content.changelog.item.singleInstance.title",
+            "启动阶段单实例唤起修复",
+            "about.page.content.changelog.item.singleInstance.description",
+            "修复应用在启动过程中重复点击图标可能额外创建多个窗口的问题。现在当 Vidvix 尚未完成启动时再次被唤起，系统会将请求路由到当前正在启动的实例，而不是再打开新的应用窗口。"),
+        CreateSummaryItem(
+            "about.page.content.changelog.item.followSystem.title",
+            "界面语言新增“跟随系统”",
+            "about.page.content.changelog.item.followSystem.description",
+            "在界面语言设置中新增“跟随系统”选项，使 Vidvix 可以依据 Windows 当前显示语言自动匹配界面语言。"),
+        CreateSummaryItem(
+            "about.page.content.changelog.item.traditionalChinese.title",
+            "新增繁体中文界面选项",
+            "about.page.content.changelog.item.traditionalChinese.description",
+            "界面语言列表新增繁体中文选项，为偏好繁体中文的用户提供独立的本地化显示体验。")
     };
 
     public string LicenseSummaryLabelText =>
@@ -493,6 +547,7 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
     public void RefreshLocalization()
     {
         OnPropertyChanged(nameof(AboutSectionTabText));
+        OnPropertyChanged(nameof(UpdateLogSectionTabText));
         OnPropertyChanged(nameof(LicenseSectionTabText));
         OnPropertyChanged(nameof(PrivacySectionTabText));
         OnPropertyChanged(nameof(SelectedSectionTitleText));
@@ -512,6 +567,12 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
         OnPropertyChanged(nameof(OpenSourceSectionTitleText));
         OnPropertyChanged(nameof(OpenSourceSectionDescriptionText));
         OnPropertyChanged(nameof(OpenSourceItems));
+        OnPropertyChanged(nameof(UpdateLogSummaryLabelText));
+        OnPropertyChanged(nameof(UpdateLogSummaryTitleText));
+        OnPropertyChanged(nameof(UpdateLogSummaryDescriptionText));
+        OnPropertyChanged(nameof(UpdateLogSectionTitleText));
+        OnPropertyChanged(nameof(UpdateLogSectionDescriptionText));
+        OnPropertyChanged(nameof(UpdateLogItems));
         OnPropertyChanged(nameof(LicenseSummaryLabelText));
         OnPropertyChanged(nameof(LicenseSummaryTitleText));
         OnPropertyChanged(nameof(LicenseSummaryDescriptionText));
@@ -551,9 +612,11 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
 
         _selectedSection = section;
         OnPropertyChanged(nameof(IsAboutSectionSelected));
+        OnPropertyChanged(nameof(IsUpdateLogSectionSelected));
         OnPropertyChanged(nameof(IsLicenseSectionSelected));
         OnPropertyChanged(nameof(IsPrivacySectionSelected));
         OnPropertyChanged(nameof(AboutDetailsVisibility));
+        OnPropertyChanged(nameof(UpdateLogDetailsVisibility));
         OnPropertyChanged(nameof(LicenseDetailsVisibility));
         OnPropertyChanged(nameof(PrivacyDetailsVisibility));
         OnPropertyChanged(nameof(SelectedSectionTitleText));
@@ -638,6 +701,7 @@ public sealed class AboutWorkspaceViewModel : ObservableObject
     private enum AboutSectionKind
     {
         About,
+        UpdateLog,
         License,
         Privacy
     }
