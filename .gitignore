@@ -1,7 +1,45 @@
 # Build outputs
 [Bb]in/
 [Oo]bj/
-artifacts/
+artifacts/*
+!artifacts/README.md
+!artifacts/logs/
+artifacts/logs/*
+!artifacts/logs/README.md
+!artifacts/split-audio-offline-smoke/
+artifacts/split-audio-offline-smoke/*
+!artifacts/split-audio-offline-smoke/README.md
+!artifacts/split-audio-offline-smoke/local/
+artifacts/split-audio-offline-smoke/local/*
+!artifacts/split-audio-offline-smoke/local/Debug/
+!artifacts/split-audio-offline-smoke/local/Release/
+artifacts/split-audio-offline-smoke/local/Debug/*
+artifacts/split-audio-offline-smoke/local/Release/*
+!artifacts/split-audio-offline-smoke/local/Debug/.gitkeep
+!artifacts/split-audio-offline-smoke/local/Release/.gitkeep
+!artifacts/store-build/
+artifacts/store-build/*
+!artifacts/store-build/README.md
+!artifacts/store-build/publish/
+artifacts/store-build/publish/*
+!artifacts/store-build/publish/win-x64/
+artifacts/store-build/publish/win-x64/*
+!artifacts/store-build/publish/win-x64/.gitkeep
+!artifacts/store-runtime-path-validation/
+artifacts/store-runtime-path-validation/*
+!artifacts/store-runtime-path-validation/README.md
+!artifacts/store-runtime-path-validation/local/
+artifacts/store-runtime-path-validation/local/*
+!artifacts/store-runtime-path-validation/local/Debug/
+!artifacts/store-runtime-path-validation/local/Release/
+artifacts/store-runtime-path-validation/local/Debug/*
+artifacts/store-runtime-path-validation/local/Release/*
+!artifacts/store-runtime-path-validation/local/Debug/.gitkeep
+!artifacts/store-runtime-path-validation/local/Release/.gitkeep
+!artifacts/store-submission/
+artifacts/store-submission/*
+!artifacts/store-submission/README.md
+!artifacts/store-submission/老师傅的留言.txt
 out/
 publish/
 TestResults/
@@ -44,6 +82,19 @@ AppData/
 *.appxupload
 *.msix
 *.msixbundle
+
+# Preserve the empty artifact skeleton directories used for future builds.
+!artifacts/split-audio-offline-smoke/local/Debug/
+!artifacts/split-audio-offline-smoke/local/Debug/.gitkeep
+!artifacts/split-audio-offline-smoke/local/Release/
+!artifacts/split-audio-offline-smoke/local/Release/.gitkeep
+!artifacts/store-build/publish/
+!artifacts/store-build/publish/win-x64/
+!artifacts/store-build/publish/win-x64/.gitkeep
+!artifacts/store-runtime-path-validation/local/Debug/
+!artifacts/store-runtime-path-validation/local/Debug/.gitkeep
+!artifacts/store-runtime-path-validation/local/Release/
+!artifacts/store-runtime-path-validation/local/Release/.gitkeep
 
 # OS-generated files
 Thumbs.db
