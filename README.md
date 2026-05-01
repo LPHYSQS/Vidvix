@@ -30,7 +30,7 @@ The project is designed around local-first and offline-oriented use. Media tooli
 ## Highlights
 
 - Task-oriented workspaces for video, audio, trim, merge, AI, split audio, terminal, and about
-- Dual-language UI with hot switching between `zh-CN` and `en-US`
+- Multilingual UI with in-app language switching
 - Bundled media and AI runtimes for offline-friendly workflows
 - Interactive preview and media inspection for trimming and review-heavy tasks
 - Unified progress, cancellation, and output reveal flows across workspaces
