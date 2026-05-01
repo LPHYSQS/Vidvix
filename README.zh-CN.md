@@ -7,6 +7,17 @@
 </p>
 
 <p align="center">
+  <a href="https://get.microsoft.com/installer/download/9NWP4JVRJS74?referrer=appbadge" target="_self">
+    <img src="https://get.microsoft.com/images/zh-cn%20dark.svg" width="200" alt="从 Microsoft Store 下载" />
+  </a>
+</p>
+
+<p align="center">
+  免费试用版可长期使用，不设使用期限，且与付费版提供相同的功能体验。
+  如 Vidvix 对你有所帮助，欢迎通过 Microsoft Store 购买付费版，以支持作者持续进行后续更新与维护。
+</p>
+
+<p align="center">
   面向本地优先与离线场景的 Windows 媒体工具箱，覆盖转换、裁剪、合并、拆音与离线 AI 视频处理。
 </p>
 

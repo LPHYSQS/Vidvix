@@ -7,6 +7,17 @@
 </p>
 
 <p align="center">
+  <a href="https://get.microsoft.com/installer/download/9NWP4JVRJS74?referrer=appbadge" target="_self">
+    <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Download from Microsoft Store" />
+  </a>
+</p>
+
+<p align="center">
+  The free trial edition has no usage limits or expiration period and includes the same feature set as the paid edition.
+  If Vidvix supports your work, purchasing through Microsoft Store is the way to support the author's continued updates and maintenance.
+</p>
+
+<p align="center">
   Local-first Windows media toolbox for conversion, trimming, merging, split-audio, and offline AI video workflows.
 </p>
 
