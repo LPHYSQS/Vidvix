@@ -226,7 +226,7 @@ public sealed class FFmpegRuntimeService : IFFmpegRuntimeService
         {
             var fallbackStorageRootPath = GetFallbackStorageRootPath();
             Directory.CreateDirectory(fallbackStorageRootPath);
-            _logger.Log(LogLevel.Warning, "FFmpeg 运行时无法写入应用目录，正在回退到用户本地缓存目录。", exception);
+            _logger.Log(LogLevel.Warning, "FFmpeg 运行时无法写入应用目录，正在回退到用户本地可写目录。", exception);
 
             var currentRuntimeDirectoryPath = Path.Combine(fallbackStorageRootPath, _configuration.RuntimeCurrentVersionDirectoryName);
             var archivePath = await DownloadArchiveAsync(manifest, fallbackStorageRootPath, cancellationToken).ConfigureAwait(false);

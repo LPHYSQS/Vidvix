@@ -81,6 +81,21 @@ void ValidateDemucsStartInfo(
         demucsStorageRootPath,
         configuration.DemucsScriptsDirectoryName,
         configuration.DemucsRunnerScriptFileName);
+    var packagedFfmpegDirectoryPath = Path.Combine(
+        packageRootPath,
+        configuration.RuntimeDirectoryName,
+        configuration.BundledRuntimeDirectoryName);
+    var packagedFfmpegPath = Path.Combine(packagedFfmpegDirectoryPath, configuration.FFmpegExecutableFileName);
+    var packagedFfprobePath = Path.Combine(packagedFfmpegDirectoryPath, configuration.FFprobeExecutableFileName);
+    var packagedFfplayPath = Path.Combine(packagedFfmpegDirectoryPath, configuration.FFplayExecutableFileName);
+    Directory.CreateDirectory(packagedFfmpegDirectoryPath);
+    File.WriteAllText(packagedFfmpegPath, "packaged-ffmpeg");
+    File.WriteAllText(packagedFfprobePath, "packaged-ffprobe");
+    File.WriteAllText(packagedFfplayPath, "packaged-ffplay");
+    var expectedWritableFfmpegDirectoryPath = Path.Combine(
+        demucsStorageRootPath,
+        "Support",
+        "ffmpeg");
 
     AssertPathEquals(
         expectedLauncherScriptPath,
@@ -113,6 +128,7 @@ void ValidateDemucsStartInfo(
         workflowService,
         "CreateDemucsStartInfo",
         executionPlan,
+        packagedFfmpegPath,
         Path.Combine(packageRootPath, "input.wav"),
         Path.Combine(localValidationRootPath, "demucs-output"));
 
@@ -122,6 +138,12 @@ void ValidateDemucsStartInfo(
     AssertContainsPath(startInfo.ArgumentList, modelRepositoryPath, "Demucs should pass the resolved model repository path.");
     AssertContains(startInfo.ArgumentList, "-j", "Demucs should explicitly force single-job execution for stable Store-compatible behavior.");
     AssertContains(startInfo.ArgumentList, "0", "Demucs should explicitly force the default single-job worker setting.");
+    AssertFirstPathSegmentEquals(
+        expectedWritableFfmpegDirectoryPath,
+        startInfo.Environment["PATH"]!,
+        "Demucs should resolve ffmpeg/ffprobe from the writable support directory before packaged WindowsApps paths.");
+    AssertPathExists(Path.Combine(expectedWritableFfmpegDirectoryPath, configuration.FFmpegExecutableFileName), "Demucs writable ffmpeg support directory should contain ffmpeg.exe.");
+    AssertPathExists(Path.Combine(expectedWritableFfmpegDirectoryPath, configuration.FFprobeExecutableFileName), "Demucs writable ffmpeg support directory should contain ffprobe.exe.");
     AssertPathEquals(
         Path.Combine(demucsStorageRootPath, "PyCache"),
         startInfo.Environment["PYTHONPYCACHEPREFIX"]!,
@@ -426,6 +448,20 @@ void AssertContainsPath(IEnumerable<string> arguments, string expectedPath, stri
     }
 
     throw new InvalidOperationException($"{message}{Environment.NewLine}Missing path: {Path.GetFullPath(expectedPath)}");
+}
+
+void AssertFirstPathSegmentEquals(string expectedPath, string pathValue, string message)
+{
+    var firstSegment = (pathValue ?? string.Empty)
+        .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .FirstOrDefault();
+
+    if (string.IsNullOrWhiteSpace(firstSegment))
+    {
+        throw new InvalidOperationException($"{message}{Environment.NewLine}PATH was empty.");
+    }
+
+    AssertPathEquals(expectedPath, firstSegment, message);
 }
 
 void AssertPathExists(string path, string message)

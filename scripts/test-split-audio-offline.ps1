@@ -145,6 +145,21 @@ function Assert-ExecutionPlanOutput {
     }
 }
 
+function Test-AnyPathExists {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$CandidatePaths,
+        [Parameter(Mandatory = $true)][string]$RelativePath
+    )
+
+    foreach ($candidatePath in $CandidatePaths) {
+        if (Test-Path -LiteralPath (Join-Path $candidatePath $RelativePath)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
 $scriptRoot = if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
     $PSScriptRoot
 }
@@ -168,9 +183,7 @@ else {
     "{0}{1}" -f $harnessOutputDirectory, [System.IO.Path]::DirectorySeparatorChar
 }
 $harnessDllPath = Join-Path $harnessOutputDirectory "SplitAudioOfflineSmoke.dll"
-$cpuRuntimeExtractionPath = Join-Path $harnessOutputDirectory "Tools\Demucs\Current"
-$directMlRuntimeExtractionPath = Join-Path $harnessOutputDirectory "Tools\Demucs\CurrentGpu"
-$cudaRuntimeExtractionPath = Join-Path $harnessOutputDirectory "Tools\Demucs\CurrentGpuCuda"
+$vidvixAssemblyPath = Join-Path $harnessOutputDirectory "Vidvix.dll"
 $repoFfmpegPath = Resolve-FullPath -Path "Tools/ffmpeg/ffmpeg.exe" -BasePath $resolvedRepoRoot
 
 if (-not (Test-Path -LiteralPath $repoFfmpegPath)) {
@@ -193,6 +206,27 @@ if (-not (Test-Path -LiteralPath $harnessDllPath)) {
     throw ("Smoke harness DLL not found: {0}" -f $harnessDllPath)
 }
 
+if (-not (Test-Path -LiteralPath $vidvixAssemblyPath)) {
+    throw ("Vidvix assembly not found: {0}" -f $vidvixAssemblyPath)
+}
+
+$vidvixVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($vidvixAssemblyPath).FileVersion
+if ([string]::IsNullOrWhiteSpace($vidvixVersion)) {
+    throw ("Unable to resolve Vidvix assembly version from: {0}" -f $vidvixAssemblyPath)
+}
+
+$demucsStorageRootCandidates = @(
+    (Join-Path (Join-Path $harnessOutputDirectory "Tools\Demucs") ("Version-{0}" -f $vidvixVersion)),
+    (Join-Path (
+        Join-Path (
+            Join-Path ([Environment]::GetFolderPath([System.Environment+SpecialFolder]::LocalApplicationData)) "Vidvix"
+        ) "Tools\Demucs"
+    ) ("Version-{0}" -f $vidvixVersion))
+) | Select-Object -Unique
+$cpuRuntimeExtractionPathCandidates = $demucsStorageRootCandidates | ForEach-Object { Join-Path $_ "Current" }
+$directMlRuntimeExtractionPathCandidates = $demucsStorageRootCandidates | ForEach-Object { Join-Path $_ "CurrentGpu" }
+$cudaRuntimeExtractionPathCandidates = $demucsStorageRootCandidates | ForEach-Object { Join-Path $_ "CurrentGpuCuda" }
+
 $tempRootPath = Join-Path ([System.IO.Path]::GetTempPath()) ("vidvix-split-audio-offline-smoke-{0}" -f [Guid]::NewGuid().ToString("N"))
 $audioInputPath = Join-Path $tempRootPath "sample-audio.wav"
 $audioOutputPath = Join-Path $tempRootPath "sample-audio-output"
@@ -201,15 +235,16 @@ $videoOutputPath = Join-Path $tempRootPath "sample-video-output"
 
 Write-Step ("Repo root: {0}" -f $resolvedRepoRoot)
 Write-Step ("Harness project: {0}" -f $resolvedProjectPath)
+Write-Step ("Demucs storage roots: {0}" -f ($demucsStorageRootCandidates -join ", "))
 Write-Step ("Temporary workspace: {0}" -f $tempRootPath)
 
 try {
     New-Item -ItemType Directory -Path $tempRootPath -Force | Out-Null
 
     Write-Step "Clearing extracted runtime to force first-run unzip validation"
-    Remove-PathIfExists -Path $cpuRuntimeExtractionPath
-    Remove-PathIfExists -Path $directMlRuntimeExtractionPath
-    Remove-PathIfExists -Path $cudaRuntimeExtractionPath
+    foreach ($path in @($cpuRuntimeExtractionPathCandidates + $directMlRuntimeExtractionPathCandidates + $cudaRuntimeExtractionPathCandidates)) {
+        Remove-PathIfExists -Path $path
+    }
 
     Write-Step "Generating sample audio input"
     Invoke-ExternalCommand -FilePath $repoFfmpegPath -ArgumentList @(
@@ -228,8 +263,8 @@ try {
     Assert-StemOutputs -OutputDirectory $audioOutputPath -InputBaseName "sample-audio" -OutputExtension ".mp3"
     Assert-ExecutionPlanOutput -CapturedOutput $audioRunOutput -ExpectedAccelerationMode "Cpu"
 
-    if (-not (Test-Path -LiteralPath (Join-Path $cpuRuntimeExtractionPath "python.exe"))) {
-        throw ("Expected extracted CPU runtime was not found after the first smoke run: {0}" -f $cpuRuntimeExtractionPath)
+    if (-not (Test-AnyPathExists -CandidatePaths $cpuRuntimeExtractionPathCandidates -RelativePath "python.exe")) {
+        throw ("Expected extracted CPU runtime was not found after the first smoke run: {0}" -f ($cpuRuntimeExtractionPathCandidates -join " / "))
     }
 
     Write-Step "Generating sample video input"
@@ -258,9 +293,9 @@ try {
     Assert-StemOutputs -OutputDirectory $videoOutputPath -InputBaseName "sample-video" -OutputExtension ".flac"
     Assert-ExecutionPlanOutput -CapturedOutput $videoRunOutput -ExpectedAccelerationMode "GpuPreferred"
 
-    if (-not (Test-Path -LiteralPath (Join-Path $directMlRuntimeExtractionPath "python.exe"))) {
-        if (-not (Test-Path -LiteralPath (Join-Path $cudaRuntimeExtractionPath "python.exe"))) {
-            throw ("Expected extracted GPU runtime was not found after the GPU-preferred smoke run: {0} / {1}" -f $directMlRuntimeExtractionPath, $cudaRuntimeExtractionPath)
+    if (-not (Test-AnyPathExists -CandidatePaths $directMlRuntimeExtractionPathCandidates -RelativePath "python.exe")) {
+        if (-not (Test-AnyPathExists -CandidatePaths $cudaRuntimeExtractionPathCandidates -RelativePath "python.exe")) {
+            throw ("Expected extracted GPU runtime was not found after the GPU-preferred smoke run: {0} / {1}" -f ($directMlRuntimeExtractionPathCandidates -join " / "), ($cudaRuntimeExtractionPathCandidates -join " / "))
         }
     }
 

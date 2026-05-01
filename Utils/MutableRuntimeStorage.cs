@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using Windows.Storage;
 
 namespace Vidvix.Utils;
 
@@ -10,7 +9,6 @@ public static class MutableRuntimeStorage
     private const int ErrorSuccess = 0;
     private const int ErrorInsufficientBuffer = 122;
     private static readonly Lazy<bool> HasPackageIdentityValue = new(ResolveHasPackageIdentity);
-    private static readonly Lazy<string> LocalCacheRootPathValue = new(ResolveLocalCacheRootPath);
 
     public static bool HasPackageIdentity => HasPackageIdentityValue.Value;
 
@@ -41,9 +39,14 @@ public static class MutableRuntimeStorage
         ArgumentException.ThrowIfNullOrWhiteSpace(localDataDirectoryName);
         ArgumentNullException.ThrowIfNull(storageSegments);
 
-        var storageRootPath = HasPackageIdentity
-            ? LocalCacheRootPathValue.Value
-            : CombinePath(GetUserLocalAppDataRootPath(), new[] { localDataDirectoryName });
+        // External runtimes such as Demucs Python, FFmpeg, and NCNN helpers can be launched as
+        // regular Win32 child processes even when the host app itself has package identity.
+        // Keep their mutable storage under the user's public LocalAppData root so those child
+        // processes inherit a stable, user-owned ACL instead of relying on package-private cache
+        // semantics that can differ across Store environments.
+        var storageRootPath = CombinePath(
+            GetUserLocalAppDataRootPath(),
+            new[] { localDataDirectoryName });
 
         return CombinePath(storageRootPath, storageSegments);
     }
@@ -84,26 +87,6 @@ public static class MutableRuntimeStorage
         {
             return false;
         }
-    }
-
-    private static string ResolveLocalCacheRootPath()
-    {
-        if (HasPackageIdentity)
-        {
-            try
-            {
-                var localCachePath = ApplicationData.Current.LocalCacheFolder.Path;
-                if (!string.IsNullOrWhiteSpace(localCachePath))
-                {
-                    return Path.GetFullPath(localCachePath);
-                }
-            }
-            catch
-            {
-            }
-        }
-
-        return GetUserLocalAppDataRootPath();
     }
 
     private static string GetUserLocalAppDataRootPath()

@@ -18,6 +18,19 @@ namespace Vidvix.Services;
 public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowService
 {
     private static readonly Regex DemucsProgressRegex = new(@"(?<percent>\d{1,3})%", RegexOptions.Compiled);
+    private static readonly string[] DemucsFailurePriorityKeywords =
+    {
+        "PermissionError",
+        "WinError",
+        "Access is denied",
+        "拒绝访问",
+        "UnauthorizedAccess",
+        "Traceback",
+        "RuntimeError",
+        "FATAL:",
+        "Error",
+        "Exception"
+    };
     private static readonly IReadOnlyList<AudioStemKind> OrderedStemKinds =
         new[]
         {
@@ -134,6 +147,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
             var demucsOutputRootPath = Path.Combine(temporaryRootPath, "demucs-output");
             executionPlan = await RunDemucsWithFallbackAsync(
                 executionPlans,
+                ffmpegResolution.ExecutablePath,
                 normalizedInputPath,
                 demucsOutputRootPath,
                 request.Progress,
@@ -300,6 +314,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
     private async Task RunDemucsAsync(
         DemucsExecutionPlan executionPlan,
+        string ffmpegExecutablePath,
         string normalizedInputPath,
         string demucsOutputRootPath,
         IProgress<AudioSeparationProgress>? progress,
@@ -317,11 +332,16 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         {
             StartInfo = CreateDemucsStartInfo(
                 executionPlan,
+                ffmpegExecutablePath,
                 normalizedInputPath,
                 demucsOutputRootPath),
             EnableRaisingEvents = true
         };
         var processId = 0;
+
+        _logger.Log(
+            LogLevel.Info,
+            $"Demucs launch prepared. Python={process.StartInfo.FileName}; WorkDir={process.StartInfo.WorkingDirectory}; Launcher={executionPlan.LauncherScriptPath}; ModelRepo={executionPlan.RuntimeResolution.ModelRepositoryPath}; Input={normalizedInputPath}; Output={demucsOutputRootPath}; Temp={process.StartInfo.Environment["TEMP"]}");
 
         var standardOutputBuilder = new StringBuilder();
         var standardErrorBuilder = new StringBuilder();
@@ -416,6 +436,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
     private async Task<DemucsExecutionPlan> RunDemucsWithFallbackAsync(
         IReadOnlyList<DemucsExecutionPlan> executionPlans,
+        string ffmpegExecutablePath,
         string normalizedInputPath,
         string demucsOutputRootPath,
         IProgress<AudioSeparationProgress>? progress,
@@ -450,6 +471,7 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
             {
                 await RunDemucsAsync(
                     executionPlan,
+                    ffmpegExecutablePath,
                     normalizedInputPath,
                     demucsOutputRootPath,
                     progress,
@@ -475,11 +497,15 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
 
     private ProcessStartInfo CreateDemucsStartInfo(
         DemucsExecutionPlan executionPlan,
+        string ffmpegExecutablePath,
         string normalizedInputPath,
         string demucsOutputRootPath)
     {
         var demucsRuntime = executionPlan.RuntimeResolution;
         var demucsStorageRootPath = ResolveDemucsStorageRootPath(demucsRuntime.RuntimeRootPath);
+        var ffmpegRuntimeDirectoryPath = StageWritableDemucsFfmpegSupportDirectory(
+            ffmpegExecutablePath,
+            demucsStorageRootPath);
         var pythonCacheRootPath = EnsureDirectoryExists(Path.Combine(demucsStorageRootPath, "PyCache"));
         var torchCacheRootPath = EnsureDirectoryExists(Path.Combine(demucsStorageRootPath, "TorchCache"));
         var temporaryRootPath = EnsureDirectoryExists(Path.Combine(demucsStorageRootPath, "Temp"));
@@ -502,6 +528,9 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         startInfo.Environment["TEMP"] = temporaryRootPath;
         startInfo.Environment["TMP"] = temporaryRootPath;
         startInfo.Environment["TMPDIR"] = temporaryRootPath;
+        startInfo.Environment["PATH"] = PrependDirectoryToPathEnvironmentVariable(
+            ffmpegRuntimeDirectoryPath,
+            Environment.GetEnvironmentVariable("PATH"));
         startInfo.ArgumentList.Add(executionPlan.LauncherScriptPath);
         startInfo.ArgumentList.Add("separate");
         startInfo.ArgumentList.Add("--");
@@ -531,6 +560,86 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
     {
         Directory.CreateDirectory(directoryPath);
         return directoryPath;
+    }
+
+    private static string PrependDirectoryToPathEnvironmentVariable(
+        string directoryPath,
+        string? currentPath)
+    {
+        if (string.IsNullOrWhiteSpace(directoryPath) || !Directory.Exists(directoryPath))
+        {
+            return currentPath ?? string.Empty;
+        }
+
+        var normalizedDirectoryPath = Path.GetFullPath(directoryPath);
+        var pathSegments = (currentPath ?? string.Empty)
+            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(segment => !string.Equals(
+                Path.GetFullPath(segment),
+                normalizedDirectoryPath,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        return pathSegments.Length == 0
+            ? normalizedDirectoryPath
+            : string.Join(Path.PathSeparator, new[] { normalizedDirectoryPath }.Concat(pathSegments));
+    }
+
+    private static string StageWritableDemucsFfmpegSupportDirectory(
+        string ffmpegExecutablePath,
+        string demucsStorageRootPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(ffmpegExecutablePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(demucsStorageRootPath);
+
+        var sourceDirectoryPath = Path.GetDirectoryName(ffmpegExecutablePath)
+            ?? throw new InvalidOperationException("FFmpeg 运行目录不可用。");
+        if (!Directory.Exists(sourceDirectoryPath))
+        {
+            throw new DirectoryNotFoundException($"FFmpeg 运行目录不存在：{sourceDirectoryPath}");
+        }
+
+        var targetDirectoryPath = EnsureDirectoryExists(Path.Combine(
+            demucsStorageRootPath,
+            "Support",
+            "ffmpeg"));
+
+        if (string.Equals(
+                Path.GetFullPath(sourceDirectoryPath),
+                Path.GetFullPath(targetDirectoryPath),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return targetDirectoryPath;
+        }
+
+        foreach (var sourceFilePath in Directory.EnumerateFiles(sourceDirectoryPath, "*", SearchOption.TopDirectoryOnly))
+        {
+            var targetFilePath = Path.Combine(targetDirectoryPath, Path.GetFileName(sourceFilePath));
+            CopyFileIfNeeded(sourceFilePath, targetFilePath);
+        }
+
+        return targetDirectoryPath;
+    }
+
+    private static void CopyFileIfNeeded(string sourcePath, string targetPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetPath);
+
+        if (File.Exists(targetPath))
+        {
+            var sourceInfo = new FileInfo(sourcePath);
+            var targetInfo = new FileInfo(targetPath);
+            if (sourceInfo.Length == targetInfo.Length &&
+                sourceInfo.LastWriteTimeUtc == targetInfo.LastWriteTimeUtc)
+            {
+                return;
+            }
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+        File.Copy(sourcePath, targetPath, overwrite: true);
+        File.SetLastWriteTimeUtc(targetPath, File.GetLastWriteTimeUtc(sourcePath));
     }
 
     private void TryReportDemucsProgress(IProgress<AudioSeparationProgress>? progress, string line)
@@ -741,10 +850,10 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
         var outputLines = (standardError + Environment.NewLine + standardOutput)
             .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        var lastMeaningfulLine = outputLines.LastOrDefault();
+        var failureDetail = SummarizeDemucsFailureOutput(outputLines);
         if (exitCode is int resolvedExitCode)
         {
-            return string.IsNullOrWhiteSpace(lastMeaningfulLine)
+            return string.IsNullOrWhiteSpace(failureDetail)
                 ? FormatLocalizedText(
                     "splitAudio.error.demucsFailure.exitCode",
                     "Demucs 执行失败，退出代码：{exitCode}。",
@@ -753,11 +862,11 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
                     "splitAudio.error.demucsFailure.exitCodeWithDetail",
                     "Demucs 执行失败，退出代码：{exitCode}。{detail}",
                     ("exitCode", resolvedExitCode),
-                    ("detail", lastMeaningfulLine));
+                    ("detail", failureDetail));
         }
 
-        var fallbackDetail = !string.IsNullOrWhiteSpace(lastMeaningfulLine)
-            ? lastMeaningfulLine
+        var fallbackDetail = !string.IsNullOrWhiteSpace(failureDetail)
+            ? failureDetail
             : exitCodeException?.Message ?? GetLocalizedText(
                 "splitAudio.error.demucsFailure.noDetail",
                 "Demucs 未返回可用的错误信息。");
@@ -766,6 +875,30 @@ public sealed class AudioSeparationWorkflowService : IAudioSeparationWorkflowSer
             "splitAudio.error.demucsFailure.exitCodeUnavailable",
             "Demucs 进程异常终止，未能读取退出代码。{detail}",
             ("detail", fallbackDetail));
+    }
+
+    private static string SummarizeDemucsFailureOutput(IReadOnlyList<string> outputLines)
+    {
+        if (outputLines.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var prioritizedLines = outputLines
+            .Where(line => DemucsFailurePriorityKeywords.Any(keyword =>
+                line.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+            .Distinct(StringComparer.Ordinal)
+            .TakeLast(4)
+            .ToArray();
+
+        var summaryLines = prioritizedLines.Length > 0
+            ? prioritizedLines
+            : outputLines
+                .Distinct(StringComparer.Ordinal)
+                .TakeLast(4)
+                .ToArray();
+
+        return string.Join(" | ", summaryLines);
     }
 
     private string ExtractFriendlyFailureMessage(FFmpegExecutionResult result)

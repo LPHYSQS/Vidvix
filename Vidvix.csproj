@@ -22,10 +22,10 @@
     <Company>已逝情殇</Company>
     <Authors>已逝情殇</Authors>
     <Product>Vidvix</Product>
-    <AssemblyVersion>1.2604.5.0</AssemblyVersion>
-    <FileVersion>1.2604.5.0</FileVersion>
-    <Version>1.2604.5.0</Version>
-    <InformationalVersion>1.2604.5.0</InformationalVersion>
+    <AssemblyVersion>1.2605.1.0</AssemblyVersion>
+    <FileVersion>1.2605.1.0</FileVersion>
+    <Version>1.2605.1.0</Version>
+    <InformationalVersion>1.2605.1.0</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>

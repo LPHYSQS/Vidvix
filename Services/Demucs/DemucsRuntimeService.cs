@@ -125,6 +125,10 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
                     "splitAudio.runtime.missingPythonExecutable",
                     "Demucs 运行时目录中缺少 python.exe。");
 
+            _logger.Log(
+                LogLevel.Info,
+                $"Demucs {GetRuntimeVariantDisplayName(runtimeVariant)} runtime resolved. StorageRoot={storageRootPath}; RuntimeRoot={runtimeRootPath}; Python={pythonExecutablePath}; ModelRepo={modelRepositoryPath}; WasExtracted={wasExtracted}");
+
             return CacheResolution(
                 runtimeVariant,
                 new DemucsRuntimeResolution
@@ -592,9 +596,12 @@ public sealed class DemucsRuntimeService : IDemucsRuntimeService
 
     private static string ResolveStorageVersionDirectoryName()
     {
-        var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(4);
+        var assembly = Assembly.GetExecutingAssembly();
+        var version = assembly.GetName().Version?.ToString(4)
+            ?? assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
         return string.IsNullOrWhiteSpace(version)
-            ? "Version-1.2604.5.0"
+            ? "Version-Unknown"
             : $"Version-{version}";
     }
 
